@@ -268,11 +268,7 @@ def calculate_indicator_window(
     look_back_days: int,
 ) -> str:
     """Calculate and format an indicator window from an existing OHLCV frame."""
-    if indicator not in BEST_INDICATOR_PARAMS:
-        raise ValueError(
-            f"Indicator {indicator} is not supported. Please choose from: "
-            f"{list(BEST_INDICATOR_PARAMS.keys())}"
-        )
+    description = validate_indicator(indicator)
 
     cleaned = _clean_dataframe(data.copy())
     df = wrap(cleaned)
@@ -299,8 +295,18 @@ def calculate_indicator_window(
         f"## {indicator} values from {before.strftime('%Y-%m-%d')} to {curr_date}:\n\n"
         + ind_string
         + "\n\n"
-        + BEST_INDICATOR_PARAMS[indicator]
+        + description
     )
+
+
+def validate_indicator(indicator: str) -> str:
+    """Validate the supported stockstats allowlist and return its description."""
+    if indicator not in BEST_INDICATOR_PARAMS:
+        raise ValueError(
+            f"Indicator {indicator} is not supported. Please choose from: "
+            f"{list(BEST_INDICATOR_PARAMS.keys())}"
+        )
+    return BEST_INDICATOR_PARAMS[indicator]
 
 
 def filter_financials_by_date(data: pd.DataFrame, curr_date: str) -> pd.DataFrame:

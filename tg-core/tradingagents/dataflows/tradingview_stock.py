@@ -83,8 +83,12 @@ def fetch_tradingview_ohlcv(
     frame["Date"] = pd.to_datetime(frame["Date"], unit="s", utc=True, errors="coerce").dt.tz_localize(None)
     numeric_columns = ["Open", "High", "Low", "Close", "Volume"]
     frame[numeric_columns] = frame[numeric_columns].apply(pd.to_numeric, errors="coerce")
-    if frame[["Date", "Open", "High", "Low", "Close"]].isna().any().any():
-        raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned invalid OHLC fields")
+    numeric_values = frame[numeric_columns]
+    invalid_numeric = numeric_values.isna().any().any() or numeric_values.isin(
+        [float("inf"), float("-inf")]
+    ).any().any()
+    if frame["Date"].isna().any() or invalid_numeric:
+        raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned invalid OHLCV fields")
 
     frame = frame.sort_values("Date")
     frame = frame[(frame["Date"] >= start) & (frame["Date"] < end + timedelta(days=1))]

@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Annotated
 
-import pandas as pd
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
 
@@ -11,6 +10,7 @@ from .stockstats_utils import (
     calculate_indicator_window,
     filter_financials_by_date,
     load_ohlcv,
+    validate_indicator,
     yf_retry,
 )
 from .symbol_utils import NoMarketDataError, normalize_symbol
@@ -78,42 +78,33 @@ def get_stock_stats_indicators_window(
     ],
     look_back_days: Annotated[int, "how many days to look back"],
 ) -> str:
-    data = load_ohlcv(symbol, curr_date)
-    return calculate_indicator_window(data, symbol, indicator, curr_date, look_back_days)
+    description = validate_indicator(indicator)
+    curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
+    before = curr_date_dt - relativedelta(days=look_back_days)
 
+    try:
+        data = load_ohlcv(symbol, curr_date)
+        return calculate_indicator_window(
+            data, symbol, indicator, curr_date, look_back_days
+        )
+    except NoMarketDataError:
+        raise
+    except Exception as e:
+        print(f"Error getting bulk stockstats data: {e}")
+        ind_string = ""
+        current_dt = curr_date_dt
+        while current_dt >= before:
+            date_str = current_dt.strftime("%Y-%m-%d")
+            indicator_value = get_stockstats_indicator(symbol, indicator, date_str)
+            ind_string += f"{date_str}: {indicator_value}\n"
+            current_dt -= relativedelta(days=1)
 
-def _get_stock_stats_bulk(
-    symbol: Annotated[str, "ticker symbol of the company"],
-    indicator: Annotated[str, "technical indicator to calculate"],
-    curr_date: Annotated[str, "current date for reference"]
-) -> dict:
-    """
-    Optimized bulk calculation of stock stats indicators.
-    Fetches data once and calculates indicator for all available dates.
-    Returns dict mapping date strings to indicator values.
-    """
-    from stockstats import wrap
-
-    data = load_ohlcv(symbol, curr_date)
-    df = wrap(data)
-    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
-
-    # Calculate the indicator for all rows at once
-    df[indicator]  # This triggers stockstats to calculate the indicator
-
-    # Create a dictionary mapping date strings to indicator values
-    result_dict = {}
-    for _, row in df.iterrows():
-        date_str = row["Date"]
-        indicator_value = row[indicator]
-
-        # Handle NaN/None values
-        if pd.isna(indicator_value):
-            result_dict[date_str] = "N/A"
-        else:
-            result_dict[date_str] = str(indicator_value)
-
-    return result_dict
+        return (
+            f"## {indicator} values from {before.strftime('%Y-%m-%d')} to {curr_date}:\n\n"
+            + ind_string
+            + "\n\n"
+            + description
+        )
 
 
 def get_stockstats_indicator(

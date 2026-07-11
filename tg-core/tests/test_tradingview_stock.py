@@ -1,15 +1,17 @@
 """TradingView OHLCV, identity, and indicator adapter tests."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 
+from tradingagents.dataflows import tradingview_stock as tv
 from tradingagents.dataflows.errors import NoMarketDataError
-from tradingagents.dataflows.tradingview_stock import (
-    fetch_tradingview_ohlcv,
-    get_tradingview_identity,
-)
+from tradingagents.dataflows.provider_models import ProviderResult, parse_instrument
+
+fetch_tradingview_ohlcv = tv.fetch_tradingview_ohlcv
+get_tradingview_identity = tv.get_tradingview_identity
 
 
 def _price_payload(history):
@@ -202,6 +204,33 @@ def test_ohlcv_rejects_invalid_ohlc(history):
         fetch_tradingview_ohlcv("NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("volume", None),
+        ("volume", "not-a-number"),
+        ("volume", float("inf")),
+        ("open", float("inf")),
+        ("close", float("-inf")),
+    ],
+)
+def test_ohlcv_rejects_null_or_non_finite_numeric_fields(field, value):
+    history = {
+        "time": _epoch("2026-07-10"),
+        "open": 100,
+        "max": 105,
+        "min": 99,
+        "close": 104,
+        "volume": 10,
+    }
+    history[field] = value
+    client = Mock()
+    client.get.return_value = _price_payload([history])
+
+    with pytest.raises(NoMarketDataError, match="OHLCV"):
+        fetch_tradingview_ohlcv("NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client)
+
+
 def test_identity_maps_company_fields():
     client = Mock()
     client.get.return_value = {
@@ -222,3 +251,53 @@ def test_identity_maps_company_fields():
         "quote_type": "stock",
     }
     client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL/company")
+
+
+def test_get_tradingview_stock_preserves_header_and_csv_format(monkeypatch):
+    frame = pd.DataFrame(
+        {
+            "Date": [pd.Timestamp("2026-07-10")],
+            "Open": [100],
+            "High": [105],
+            "Low": [99],
+            "Close": [104],
+            "Volume": [10],
+        }
+    )
+    result = ProviderResult(
+        data=frame,
+        provider="tradingview",
+        requested=parse_instrument("XAUUSD"),
+        resolved_symbol="COMEX:GC1!",
+    )
+    monkeypatch.setattr(tv, "fetch_tradingview_ohlcv", lambda *args: result)
+
+    output = tv.get_tradingview_stock("XAUUSD", "2026-07-10", "2026-07-10")
+
+    assert output.startswith(
+        "# Stock data for COMEX:GC1! (from XAUUSD) from 2026-07-10 to 2026-07-10\n"
+        "# Total records: 1\n"
+        "# Data retrieved on: "
+    )
+    assert "\n\nDate,Open,High,Low,Close,Volume\n2026-07-10,100,105,99,104,10\n" in output
+
+
+def test_get_tradingview_indicators_fetches_warmup_and_delegates(monkeypatch):
+    frame = pd.DataFrame({"Date": [pd.Timestamp("2026-07-10")], "Close": [104]})
+    provider_result = ProviderResult(
+        data=frame,
+        provider="tradingview",
+        requested=parse_instrument("NASDAQ:AAPL"),
+        resolved_symbol="NASDAQ:AAPL",
+    )
+    fetch = Mock(return_value=provider_result)
+    calculate = Mock(return_value="indicator report")
+    monkeypatch.setattr(tv, "fetch_tradingview_ohlcv", fetch)
+    monkeypatch.setattr(tv, "calculate_indicator_window", calculate)
+
+    output = tv.get_tradingview_indicators("NASDAQ:AAPL", "rsi", "2026-07-10", 5)
+
+    expected_start = (datetime(2026, 7, 10) - timedelta(days=255)).strftime("%Y-%m-%d")
+    fetch.assert_called_once_with("NASDAQ:AAPL", expected_start, "2026-07-10")
+    calculate.assert_called_once_with(frame, "NASDAQ:AAPL", "rsi", "2026-07-10", 5)
+    assert output == "indicator report"
