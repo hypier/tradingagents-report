@@ -14,6 +14,9 @@ from tradingagents.dataflows.symbol_utils import (
 
 @pytest.mark.unit
 class TestNormalizeSymbol(unittest.TestCase):
+    def test_documented_as_yahoo_compatibility_resolver(self):
+        self.assertIn("Yahoo", normalize_symbol.__doc__)
+
     def test_plain_equities_unchanged(self):
         for sym in ("AAPL", "MSFT", "TSM", "BRK.B", "0700.HK", "^GSPC", "GC=F"):
             self.assertEqual(normalize_symbol(sym), sym)

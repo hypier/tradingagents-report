@@ -102,7 +102,10 @@ def _normalize_crypto(s: str) -> str | None:
 
 
 def normalize_symbol(raw: str) -> str:
-    """Map a user/broker symbol to its canonical Yahoo Finance symbol.
+    """Yahoo-only compatibility wrapper for resolving a user/broker symbol.
+
+    Maps input to its canonical Yahoo Finance symbol. Provider-neutral code
+    must use ``parse_instrument`` from ``provider_models`` instead.
 
     Resolution order (first match wins):
       1. Explicit alias table (metals, energy, index CFDs).
