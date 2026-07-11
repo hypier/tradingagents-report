@@ -283,7 +283,7 @@ docker compose logs -f tradingagents-api
 - `analysts`、`stock_symbol`、`stock_name`、`market_type`
 - `decision.action`、`decision.confidence`、`decision.risk_score`、`decision.target_price`、`decision.reasoning`
 - `recommendation`、`summary`、`reports`
-- `performance_metrics`、`tokens_used`
+- `performance_metrics`、`tokens_used`、`token_usage`
 - `status`、`progress_percent`、`current_step`、`events`、`error`
 
 提交任务时可以通过顶层 `output_language` 或 `config_overrides.output_language` 设定分析语言。顶层 `output_language` 优先级更高，并会写入 job 的持久化配置。分析报告、决策字段和统一查询接口中的中文状态/阶段文案会按该语言返回。
@@ -302,3 +302,15 @@ docker compose logs -f tradingagents-api
   }
 }
 ```
+## 10. Token 使用量统计
+
+分析任务会通过 LangChain LLM callback 汇总模型返回的 token usage，并保存到 PostgreSQL：
+
+- `tokens_used`：总 token 数，优先使用模型返回的 `total_tokens`。
+- `token_usage.prompt_tokens`：输入 token 数。
+- `token_usage.completion_tokens`：输出 token 数。
+- `token_usage.reasoning_tokens`：推理 token 数，取决于模型是否返回该字段。
+- `token_usage.by_model`：按模型名聚合的 token 明细。
+- `performance_metrics.token_usage`：结果格式中的同一份 token 明细，便于前端统一读取。
+
+如果上游模型或兼容网关没有返回 usage 字段，对应数值会保持为 `0`，不会影响分析任务完成。
