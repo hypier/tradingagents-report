@@ -60,6 +60,8 @@ class AnalysisJob(BaseModel):
     events: list[dict[str, Any]] = Field(default_factory=list)
     tokens_used: int = 0
     token_usage: dict[str, Any] = Field(default_factory=dict)
+    cost_usd: float = 0
+    cost_breakdown: dict[str, Any] = Field(default_factory=dict)
     decision: str | None = None
     error: str | None = None
     report_path: str | None = None

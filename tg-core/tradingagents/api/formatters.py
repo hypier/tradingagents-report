@@ -95,6 +95,8 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
     elapsed = elapsed_seconds(started_at, finished_at or updated_at)
     token_usage = dict(row.get("token_usage") or {})
     tokens_used = int(row.get("tokens_used") or token_usage.get("total_tokens") or 0)
+    cost_usd = float(row.get("cost_usd") or 0)
+    cost_breakdown = dict(row.get("cost_breakdown") or {})
 
     return {
         "_id": {"$oid": uuid_to_object_id(row.get("id"))},
@@ -117,7 +119,7 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "key_points": [],
         "market_type": localize_market_type(str(row.get("asset_type") or "stock"), language),
         "model_info": model_info(config),
-        "performance_metrics": performance_metrics(config, elapsed, token_usage),
+        "performance_metrics": performance_metrics(config, elapsed, token_usage, cost_breakdown),
         "recommendation": build_recommendation(rating, decision_fields, final_state, language),
         "reports": localize_reports(reports, language),
         "research_depth": research_depth(row.get("analysts") or [], language),
@@ -131,6 +133,10 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "timestamp": mongo_date(updated_at),
         "tokens_used": tokens_used,
         "token_usage": token_usage,
+        "actual_amount": cost_usd,
+        "actual_amount_usd": cost_usd,
+        "cost_usd": cost_usd,
+        "cost_breakdown": cost_breakdown,
         "updated_at": mongo_date(updated_at),
         "user_id": None,
         "progress_percent": int(row.get("progress_percent") or 0),
@@ -358,9 +364,11 @@ def performance_metrics(
     config: dict[str, Any],
     elapsed: float | None,
     token_usage: dict[str, Any] | None = None,
+    cost_breakdown: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     total_time = round(elapsed or 0, 2)
     usage = token_usage or {}
+    cost = cost_breakdown or {}
     return {
         "total_time": total_time,
         "total_time_minutes": round(total_time / 60, 2),
@@ -371,6 +379,9 @@ def performance_metrics(
         "node_timings": {},
         "category_timings": {},
         "token_usage": usage,
+        "actual_amount": cost.get("total_cost_usd", 0),
+        "actual_amount_usd": cost.get("total_cost_usd", 0),
+        "cost_breakdown": cost,
         "llm_config": {
             "provider": config.get("llm_provider"),
             "deep_think_model": config.get("deep_think_llm"),

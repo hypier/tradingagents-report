@@ -9,6 +9,15 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from tradingagents.api.pricing import (
+    FALLBACK_MODEL_PRICES,
+    PRICING_REFRESH_INTERVAL,
+    PRICING_SOURCE_URLS,
+    calculate_cost,
+    fetch_price_rows,
+    pricing_is_stale,
+)
+
 DEFAULT_DATABASE_URL = "postgresql://tradingagents:tradingagents@localhost:5432/tradingagents"
 
 
@@ -39,6 +48,8 @@ def init_database() -> None:
                 report_path TEXT,
                 tokens_used INTEGER NOT NULL DEFAULT 0,
                 token_usage JSONB NOT NULL DEFAULT '{}'::jsonb,
+                cost_usd NUMERIC(18, 8) NOT NULL DEFAULT 0,
+                cost_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb,
                 progress_percent INTEGER NOT NULL DEFAULT 0,
                 current_step TEXT,
                 events JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -62,6 +73,48 @@ def init_database() -> None:
         conn.execute(
             "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS token_usage JSONB NOT NULL DEFAULT '{}'::jsonb"
         )
+        conn.execute(
+            "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS cost_usd NUMERIC(18, 8) NOT NULL DEFAULT 0"
+        )
+        conn.execute(
+            "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS cost_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS llm_model_prices (
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                billing_mode TEXT NOT NULL DEFAULT 'standard',
+                context_tier TEXT NOT NULL DEFAULT 'short',
+                currency TEXT NOT NULL DEFAULT 'USD',
+                unit_tokens INTEGER NOT NULL DEFAULT 1000000,
+                input_price NUMERIC(18, 8) NOT NULL,
+                cached_input_price NUMERIC(18, 8),
+                cache_write_price NUMERIC(18, 8),
+                output_price NUMERIC(18, 8) NOT NULL,
+                source_url TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                PRIMARY KEY (provider, model, billing_mode, context_tier)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS llm_pricing_sources (
+                source_url TEXT PRIMARY KEY,
+                update_interval_seconds INTEGER NOT NULL DEFAULT 3600,
+                last_checked_at TIMESTAMPTZ,
+                last_success_at TIMESTAMPTZ,
+                last_error TEXT,
+                model_count INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        seed_fallback_model_prices(conn)
+        refresh_model_prices_if_stale(conn)
+        backfill_analysis_costs(conn)
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS analysis_jobs_ticker_created_idx
@@ -96,9 +149,9 @@ def insert_job(
             """
             INSERT INTO analysis_jobs (
                 id, ticker, trade_date, asset_type, analysts, status, request, config,
-                progress_percent, current_step, events, tokens_used, token_usage
+                progress_percent, current_step, events, tokens_used, token_usage, cost_usd, cost_breakdown
             )
-            VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, 0, 'Queued', '[]'::jsonb, 0, '{}'::jsonb)
+            VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, 0, 'Queued', '[]'::jsonb, 0, '{}'::jsonb, 0, '{}'::jsonb)
             RETURNING *
             """,
             (
@@ -191,6 +244,198 @@ def total_tokens(token_usage: dict | None) -> int:
     return int(token_usage.get("total_tokens") or token_usage.get("total") or 0)
 
 
+def seed_fallback_model_prices(conn) -> None:
+    for price in FALLBACK_MODEL_PRICES:
+        conn.execute(
+            """
+            INSERT INTO llm_model_prices (
+                provider, model, billing_mode, context_tier, currency, unit_tokens,
+                input_price, cached_input_price, cache_write_price, output_price, source_url
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (provider, model, billing_mode, context_tier)
+            DO UPDATE SET
+                currency = EXCLUDED.currency,
+                unit_tokens = EXCLUDED.unit_tokens,
+                input_price = EXCLUDED.input_price,
+                cached_input_price = EXCLUDED.cached_input_price,
+                cache_write_price = EXCLUDED.cache_write_price,
+                output_price = EXCLUDED.output_price,
+                source_url = EXCLUDED.source_url,
+                updated_at = now()
+            """,
+            (
+                price["provider"],
+                price["model"],
+                price["billing_mode"],
+                price["context_tier"],
+                price["currency"],
+                price["unit_tokens"],
+                price["input_price"],
+                price["cached_input_price"],
+                price["cache_write_price"],
+                price["output_price"],
+                price["source_url"],
+            ),
+        )
+
+
+def refresh_model_prices_if_stale(conn=None) -> None:
+    close_conn = conn is None
+    if conn is None:
+        conn = connect()
+    try:
+        latest_success = conn.execute(
+            "SELECT max(last_success_at) AS last_success_at FROM llm_pricing_sources"
+        ).fetchone()
+        if not pricing_is_stale(latest_success.get("last_success_at") if latest_success else None):
+            return
+
+        price_rows, source_results = fetch_price_rows(PRICING_SOURCE_URLS)
+        now_sql = "now()"
+        for result in source_results:
+            conn.execute(
+                f"""
+                INSERT INTO llm_pricing_sources (
+                    source_url, update_interval_seconds, last_checked_at, last_success_at,
+                    last_error, model_count, updated_at
+                )
+                VALUES (%s, %s, {now_sql}, CASE WHEN %s THEN {now_sql} ELSE NULL END, %s, %s, {now_sql})
+                ON CONFLICT (source_url)
+                DO UPDATE SET
+                    update_interval_seconds = EXCLUDED.update_interval_seconds,
+                    last_checked_at = {now_sql},
+                    last_success_at = CASE
+                        WHEN EXCLUDED.last_success_at IS NULL
+                        THEN llm_pricing_sources.last_success_at
+                        ELSE EXCLUDED.last_success_at
+                    END,
+                    last_error = EXCLUDED.last_error,
+                    model_count = EXCLUDED.model_count,
+                    updated_at = {now_sql}
+                """,
+                (
+                    result["source_url"],
+                    int(PRICING_REFRESH_INTERVAL.total_seconds()),
+                    result["success"],
+                    result["error"],
+                    result["model_count"],
+                ),
+            )
+
+        for price in price_rows:
+            upsert_model_price(conn, price)
+        if close_conn:
+            conn.commit()
+    except Exception:
+        if close_conn:
+            conn.rollback()
+        return
+    finally:
+        if close_conn:
+            conn.close()
+
+
+def upsert_model_price(conn, price: dict) -> None:
+    conn.execute(
+        """
+        INSERT INTO llm_model_prices (
+            provider, model, billing_mode, context_tier, currency, unit_tokens,
+            input_price, cached_input_price, cache_write_price, output_price, source_url
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (provider, model, billing_mode, context_tier)
+        DO UPDATE SET
+            currency = EXCLUDED.currency,
+            unit_tokens = EXCLUDED.unit_tokens,
+            input_price = EXCLUDED.input_price,
+            cached_input_price = EXCLUDED.cached_input_price,
+            cache_write_price = EXCLUDED.cache_write_price,
+            output_price = EXCLUDED.output_price,
+            source_url = EXCLUDED.source_url,
+            updated_at = now()
+        """,
+        (
+            price["provider"],
+            price["model"],
+            price["billing_mode"],
+            price["context_tier"],
+            price["currency"],
+            price["unit_tokens"],
+            price["input_price"],
+            price["cached_input_price"],
+            price["cache_write_price"],
+            price["output_price"],
+            price["source_url"],
+        ),
+    )
+
+
+def backfill_analysis_costs(conn) -> None:
+    price_rows = conn.execute(
+        """
+        SELECT *
+        FROM llm_model_prices
+        WHERE provider = 'openai'
+          AND billing_mode = 'standard'
+          AND context_tier = 'short'
+        """
+    ).fetchall()
+    jobs = conn.execute(
+        """
+        SELECT id, token_usage
+        FROM analysis_jobs
+        WHERE token_usage <> '{}'::jsonb
+        """
+    ).fetchall()
+    for job in jobs:
+        cost_breakdown = calculate_cost(dict(job.get("token_usage") or {}), list(price_rows))
+        conn.execute(
+            """
+            UPDATE analysis_jobs
+            SET cost_usd = %s,
+                cost_breakdown = %s,
+                updated_at = updated_at
+            WHERE id = %s
+            """,
+            (cost_breakdown["total_cost_usd"], Jsonb(cost_breakdown), job["id"]),
+        )
+
+
+def get_model_prices(
+    *,
+    provider: str = "openai",
+    billing_mode: str = "standard",
+    context_tier: str = "short",
+) -> list[dict]:
+    refresh_model_prices_if_stale()
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM llm_model_prices
+            WHERE provider = %s
+              AND billing_mode = %s
+              AND context_tier = %s
+            """,
+            (provider, billing_mode, context_tier),
+        ).fetchall()
+    return list(rows)
+
+
+def cost_for_usage(
+    token_usage: dict | None,
+    *,
+    provider: str = "openai",
+    billing_mode: str = "standard",
+    context_tier: str = "short",
+) -> dict:
+    return calculate_cost(
+        token_usage,
+        get_model_prices(provider=provider, billing_mode=billing_mode, context_tier=context_tier),
+    )
+
+
 def mark_succeeded(
     *,
     job_id: UUID | str,
@@ -200,6 +445,7 @@ def mark_succeeded(
     token_usage: dict | None = None,
 ) -> None:
     usage = token_usage or {}
+    cost_breakdown = cost_for_usage(usage)
     with connect() as conn:
         conn.execute(
             """
@@ -210,6 +456,8 @@ def mark_succeeded(
                 report_path = %s,
                 tokens_used = %s,
                 token_usage = %s,
+                cost_usd = %s,
+                cost_breakdown = %s,
                 progress_percent = 100,
                 current_step = 'Completed',
                 finished_at = now(),
@@ -217,12 +465,22 @@ def mark_succeeded(
                 error = NULL
             WHERE id = %s
             """,
-            (Jsonb(final_state), decision, report_path, total_tokens(usage), Jsonb(usage), job_id),
+            (
+                Jsonb(final_state),
+                decision,
+                report_path,
+                total_tokens(usage),
+                Jsonb(usage),
+                cost_breakdown["total_cost_usd"],
+                Jsonb(cost_breakdown),
+                job_id,
+            ),
         )
 
 
 def mark_failed(*, job_id: UUID | str, error: str, token_usage: dict | None = None) -> None:
     usage = token_usage or {}
+    cost_breakdown = cost_for_usage(usage)
     with connect() as conn:
         conn.execute(
             """
@@ -231,12 +489,21 @@ def mark_failed(*, job_id: UUID | str, error: str, token_usage: dict | None = No
                 error = %s,
                 tokens_used = %s,
                 token_usage = %s,
+                cost_usd = %s,
+                cost_breakdown = %s,
                 current_step = 'Failed',
                 finished_at = now(),
                 updated_at = now()
             WHERE id = %s
             """,
-            (error, total_tokens(usage), Jsonb(usage), job_id),
+            (
+                error,
+                total_tokens(usage),
+                Jsonb(usage),
+                cost_breakdown["total_cost_usd"],
+                Jsonb(cost_breakdown),
+                job_id,
+            ),
         )
 
 
@@ -250,4 +517,6 @@ def row_to_public(row: dict) -> dict:
     public["events"] = list(public.get("events") or [])
     public["token_usage"] = dict(public.get("token_usage") or {})
     public["tokens_used"] = int(public.get("tokens_used") or 0)
+    public["cost_usd"] = float(public.get("cost_usd") or 0)
+    public["cost_breakdown"] = dict(public.get("cost_breakdown") or {})
     return public

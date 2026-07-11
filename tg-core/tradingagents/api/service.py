@@ -104,19 +104,24 @@ def run_analysis_job(job_id: UUID | str) -> None:
         report_progress(job_id, 97, "Saving report")
         report_path = save_api_report(graph, final_state, ticker, str(job_id))
 
+        token_usage = token_tracker.summary()
+        apply_pricing_model_fallback(token_usage, config)
         db.mark_succeeded(
             job_id=job_id,
             final_state=to_jsonable(final_state),
             decision=str(decision),
             report_path=str(report_path) if report_path else None,
-            token_usage=token_tracker.summary(),
+            token_usage=token_usage,
         )
         print(f"[analysis:{job_id}] 100% Completed", flush=True)
     except Exception as exc:
+        token_usage = token_tracker.summary()
+        if "config" in locals():
+            apply_pricing_model_fallback(token_usage, config)
         db.mark_failed(
             job_id=job_id,
             error=f"{type(exc).__name__}: {exc}",
-            token_usage=token_tracker.summary(),
+            token_usage=token_usage,
         )
         print(f"[analysis:{job_id}] failed: {type(exc).__name__}: {exc}", flush=True)
 
@@ -238,6 +243,14 @@ def report_progress(job_id: UUID | str, progress: int, step: str) -> None:
         current_step=step,
         event=event,
     )
+
+
+def apply_pricing_model_fallback(token_usage: dict[str, Any], config: dict[str, Any]) -> None:
+    if token_usage.get("by_model") or not token_usage.get("total_tokens"):
+        return
+    fallback_model = config.get("deep_think_llm") or config.get("quick_think_llm")
+    if fallback_model:
+        token_usage["model"] = str(fallback_model)
 
 
 def build_config(overrides: dict[str, Any]) -> dict[str, Any]:

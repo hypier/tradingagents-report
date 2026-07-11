@@ -283,7 +283,7 @@ docker compose logs -f tradingagents-api
 - `analysts`、`stock_symbol`、`stock_name`、`market_type`
 - `decision.action`、`decision.confidence`、`decision.risk_score`、`decision.target_price`、`decision.reasoning`
 - `recommendation`、`summary`、`reports`
-- `performance_metrics`、`tokens_used`、`token_usage`
+- `performance_metrics`、`tokens_used`、`token_usage`、`actual_amount_usd`、`cost_breakdown`
 - `status`、`progress_percent`、`current_step`、`events`、`error`
 
 提交任务时可以通过顶层 `output_language` 或 `config_overrides.output_language` 设定分析语言。顶层 `output_language` 优先级更高，并会写入 job 的持久化配置。分析报告、决策字段和统一查询接口中的中文状态/阶段文案会按该语言返回。
@@ -302,7 +302,7 @@ docker compose logs -f tradingagents-api
   }
 }
 ```
-## 10. Token 使用量统计
+## 10. Token 使用量与费用统计
 
 分析任务会通过 LangChain LLM callback 汇总模型返回的 token usage，并保存到 PostgreSQL：
 
@@ -312,5 +312,17 @@ docker compose logs -f tradingagents-api
 - `token_usage.reasoning_tokens`：推理 token 数，取决于模型是否返回该字段。
 - `token_usage.by_model`：按模型名聚合的 token 明细。
 - `performance_metrics.token_usage`：结果格式中的同一份 token 明细，便于前端统一读取。
+- `actual_amount_usd` / `cost_usd`：按官方模型价格和实际 token usage 估算的美元金额。
+- `cost_breakdown`：按模型拆分的输入、缓存输入、缓存写入、输出 token 与费用明细。
+- `performance_metrics.cost_breakdown`：结果格式中的同一份费用明细。
+
+服务启动和费用计算前会按一小时缓存周期同步模型价格到 PostgreSQL 的 `llm_model_prices` 表，同步状态保存在 `llm_pricing_sources` 表。
+
+当前价格源：
+
+- `https://models.dev/api.json`
+- `https://basellm.github.io` 派生的结构化端点：`/api.json`、`/models.json`、`/pricing.json`
+
+价格字段按每 100 万 tokens 计费：`input`、`cache_read`、`cache_write`、`output`。如果价格源暂时不可用，服务会保留已有数据库价格并使用内置 `gpt-5.6-sol` fallback，不阻塞分析任务。
 
 如果上游模型或兼容网关没有返回 usage 字段，对应数值会保持为 `0`，不会影响分析任务完成。
