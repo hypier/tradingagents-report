@@ -109,6 +109,15 @@ class StaleGuardPropagationTests(unittest.TestCase):
             },
         )
 
+    def test_yfinance_identity_falls_back_to_short_name(self):
+        ticker = mock.Mock()
+        ticker.info = {"shortName": "Apple"}
+
+        with mock.patch.object(y_finance.yf, "Ticker", return_value=ticker):
+            identity = y_finance.get_yfinance_identity("AAPL")
+
+        self.assertEqual(identity["company_name"], "Apple")
+
     def test_get_yfin_data_online_raises_on_stale_frame(self):
         stale = pd.DataFrame(
             {

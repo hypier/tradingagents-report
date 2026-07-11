@@ -1,6 +1,7 @@
 """Tests for deterministic instrument-identity resolution (#814) and the
 context-anchored message placeholder (#888)."""
 
+import ast
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -114,18 +115,69 @@ class StructuredIdentityFacadeTests:
             structured_data.get_instrument_identity("AAPL")
 
 
+def _assert_provider_neutral_business_source(source: str, filename: str = "<source>"):
+    tree = ast.parse(source, filename=filename)
+    imported_names: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules = [alias.name for alias in node.names]
+            imported_names.update(modules)
+        elif isinstance(node, ast.ImportFrom):
+            modules = [node.module or ""]
+            imported_names.update(alias.name for alias in node.names)
+        else:
+            continue
+        assert not any(
+            module == "yfinance" or module.startswith("yfinance.")
+            for module in modules
+        )
+
+    references = {
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name)
+    } | {
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+    }
+    assert "normalize_symbol" not in imported_names | references
+    assert "load_ohlcv" not in imported_names | references
+    assert "yf.Ticker" not in source
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "source",
+    (
+        "import yfinance as vendor",
+        "from yfinance import Ticker",
+        "from tradingagents.dataflows.symbol_utils import normalize_symbol as normalize",
+        "from tradingagents.dataflows.stockstats_utils import load_ohlcv as load",
+        "symbols.normalize_symbol('AAPL')",
+        "stats.load_ohlcv('AAPL')",
+        "yf.Ticker('AAPL')",
+    ),
+)
+def test_business_dependency_guard_rejects_forbidden_forms(source):
+    with pytest.raises(AssertionError):
+        _assert_provider_neutral_business_source(source)
+
+
 @pytest.mark.unit
 def test_validator_and_identity_have_no_direct_yahoo_calls():
     source_root = Path(agent_utils.__file__).parents[2]
-    sources = (
-        Path(agent_utils.__file__).read_text(encoding="utf-8"),
-        (source_root / "dataflows" / "market_data_validator.py").read_text(encoding="utf-8"),
+    business_files = (
+        Path(agent_utils.__file__),
+        source_root / "dataflows" / "market_data_validator.py",
     )
 
-    for source in sources:
-        assert "import yfinance" not in source
-        assert "yf.Ticker" not in source
-        assert "stockstats_utils import load_ohlcv" not in source
+    for path in business_files:
+        _assert_provider_neutral_business_source(
+            path.read_text(encoding="utf-8"),
+            filename=str(path),
+        )
 
 
 @pytest.mark.unit

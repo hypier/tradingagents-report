@@ -66,7 +66,7 @@ def get_yfinance_identity(ticker: str) -> dict[str, str]:
     canonical = normalize_symbol(ticker)
     info = yf_retry(lambda: yf.Ticker(canonical).info)
     identity = {
-        "company_name": str(info.get("longName") or ""),
+        "company_name": str(info.get("longName") or info.get("shortName") or ""),
         "sector": str(info.get("sector") or ""),
         "industry": str(info.get("industry") or ""),
         "exchange": str(info.get("exchange") or ""),
