@@ -102,14 +102,18 @@ class VendorRoutingTests(unittest.TestCase):
     def test_default_policy_is_explicit_not_registry_order(self):
         set_config({"data_vendors": {"core_stock_apis": "default"}})
         with self._route(
-            {"yfinance": _returns("YF"), "tradingview": _returns("TV")}
-        ), mock.patch.dict(
-            interface.DEFAULT_VENDOR_CHAINS,
-            {"get_stock_data": ("tradingview", "yfinance", "alpha_vantage")},
-            clear=False,
+            {
+                "alpha_vantage": _returns("AV"),
+                "yfinance": _returns("YF"),
+                "tradingview": _returns("TV"),
+            }
         ):
             result = interface.route_to_vendor("get_stock_data", "AAPL")
         self.assertEqual(result, "TV")
+
+    def test_default_policy_is_immutable(self):
+        with self.assertRaises(TypeError):
+            interface.DEFAULT_VENDOR_CHAINS["get_stock_data"] = ("yfinance",)
 
     def test_missing_configuration_falls_back_without_warning(self):
         set_config({"data_vendors": {"core_stock_apis": "tradingview,yfinance"}})
@@ -148,13 +152,39 @@ class VendorRoutingTests(unittest.TestCase):
         with self._route_method(
             "get_ohlcv",
             {"tradingview": lambda: empty, "yfinance": lambda: good},
-        ), mock.patch.dict(
-            interface.DEFAULT_VENDOR_CHAINS,
-            {"get_ohlcv": ("tradingview", "yfinance")},
-            clear=False,
         ):
             result = interface.route_structured("get_ohlcv")
         self.assertEqual(result.provider, "yfinance")
+
+    def test_structured_route_accepts_only_declared_result_shapes(self):
+        set_config({"data_vendors": {"core_stock_apis": "default"}})
+        requested = parse_instrument("AAPL")
+        good = ProviderResult(
+            pd.DataFrame({"Close": [1]}), "yfinance", requested, "AAPL"
+        )
+
+        invalid_results = (
+            42,
+            ["not", "structured"],
+            pd.DataFrame({"Close": [999]}),
+            ProviderResult([1, 2], "tradingview", requested, "NASDAQ:AAPL"),
+        )
+        for invalid in invalid_results:
+            with self.subTest(invalid=type(invalid).__name__), self._route_method(
+                "get_ohlcv",
+                {
+                    "alpha_vantage": lambda: ProviderResult(
+                        pd.DataFrame({"Close": [2]}),
+                        "alpha_vantage",
+                        requested,
+                        "AAPL",
+                    ),
+                    "yfinance": lambda: good,
+                    "tradingview": lambda invalid=invalid: invalid,
+                },
+            ):
+                result = interface.route_structured("get_ohlcv")
+            self.assertIs(result, good)
 
     def test_structured_route_rejects_empty_identity_dict(self):
         set_config({"data_vendors": {"instrument_data": "tradingview,yfinance"}})

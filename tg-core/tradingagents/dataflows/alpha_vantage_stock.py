@@ -51,21 +51,40 @@ def fetch_alpha_vantage_ohlcv(
     end_date: str,
 ) -> ProviderResult[pd.DataFrame]:
     """Parse Alpha Vantage's filtered daily response into provider-neutral OHLCV."""
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    if end < start:
+        raise ValueError("end_date must not be before start_date")
+
     response = get_stock(symbol, start_date, end_date)
     try:
         raw = pd.read_csv(StringIO(response))
     except (TypeError, ValueError, pd.errors.ParserError) as exc:
         raise VendorUnavailableError("Alpha Vantage returned malformed OHLCV CSV") from exc
 
-    source_columns = ("timestamp", "open", "high", "low", "close", "volume")
     if raw.empty:
         raise NoMarketDataError(symbol, symbol, "Alpha Vantage returned no price rows")
-    if any(column not in raw.columns for column in source_columns):
+
+    date_column = next(
+        (column for column in ("Date", "timestamp") if column in raw.columns),
+        None,
+    )
+    if date_column is None:
+        serialized_index = next(
+            (column for column in raw.columns if str(column).startswith("Unnamed:")),
+            None,
+        )
+        date_column = serialized_index
+    if date_column is None:
+        raise NoMarketDataError(symbol, symbol, "Alpha Vantage returned no date field")
+
+    value_columns = ("open", "high", "low", "close", "volume")
+    if any(column not in raw.columns for column in value_columns):
         raise VendorUnavailableError("Alpha Vantage OHLCV CSV is missing required columns")
 
-    frame = raw[list(source_columns)].rename(
+    frame = raw[[date_column, *value_columns]].rename(
         columns={
-            "timestamp": "Date",
+            date_column: "Date",
             "open": "Open",
             "high": "High",
             "low": "Low",
@@ -76,8 +95,17 @@ def fetch_alpha_vantage_ohlcv(
     frame["Date"] = pd.to_datetime(frame["Date"], errors="coerce")
     numeric = ["Open", "High", "Low", "Close", "Volume"]
     frame[numeric] = frame[numeric].apply(pd.to_numeric, errors="coerce")
-    if frame["Date"].isna().any() or frame[numeric].isna().any().any():
+    if frame["Date"].isna().any():
+        raise NoMarketDataError(symbol, symbol, "Alpha Vantage returned invalid dates")
+    if frame[numeric].isna().any().any():
         raise VendorUnavailableError("Alpha Vantage returned invalid OHLCV fields")
+    frame = frame[(frame["Date"] >= start) & (frame["Date"] <= end)]
+    if frame.empty:
+        raise NoMarketDataError(
+            symbol,
+            symbol,
+            f"no rows between {start_date} and {end_date}",
+        )
     frame = frame.sort_values("Date").reset_index(drop=True)
 
     return ProviderResult(

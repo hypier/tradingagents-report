@@ -129,7 +129,8 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # Category-level configuration (default for all tools in category).
     # The configured value is the exact vendor chain — requests are NOT silently
     # routed to vendors you didn't choose. For ordered fallback, list several,
-    # e.g. "yfinance,alpha_vantage". "default" uses all available vendors.
+    # e.g. "yfinance,alpha_vantage". "default" uses the immutable method-specific
+    # capability policy declared by the routing layer.
     "data_vendors": {
         "instrument_data": "tradingview,yfinance",
         "core_stock_apis": "tradingview,yfinance,alpha_vantage",

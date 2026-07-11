@@ -1,6 +1,7 @@
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from types import MappingProxyType
 from typing import Any
 
 import pandas as pd
@@ -188,7 +189,7 @@ VENDOR_METHODS = {
     },
 }
 
-DEFAULT_VENDOR_CHAINS: dict[str, tuple[str, ...]] = {
+DEFAULT_VENDOR_CHAINS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "get_instrument_identity": ("tradingview", "yfinance"),
     "get_stock_data": ("tradingview", "yfinance", "alpha_vantage"),
     "get_ohlcv": ("tradingview", "yfinance", "alpha_vantage"),
@@ -202,7 +203,7 @@ DEFAULT_VENDOR_CHAINS: dict[str, tuple[str, ...]] = {
     "get_insider_transactions": ("yfinance", "alpha_vantage"),
     "get_macro_indicators": ("fred",),
     "get_prediction_markets": ("polymarket",),
-}
+})
 
 def get_category_for_method(method: str) -> str:
     """Get the category that contains the specified method."""
@@ -336,14 +337,16 @@ def _is_usable_string(result: Any) -> bool:
 
 
 def _is_usable_structured(result: Any) -> bool:
-    data = result.data if isinstance(result, ProviderResult) else result
-    if data is None:
+    if isinstance(result, dict):
+        return bool(result)
+    if not isinstance(result, ProviderResult):
         return False
+    data = result.data
     if isinstance(data, pd.DataFrame):
         return not data.empty
     if isinstance(data, dict):
         return bool(data)
-    return True
+    return False
 
 
 def route_to_vendor(method: str, *args, **kwargs) -> str:

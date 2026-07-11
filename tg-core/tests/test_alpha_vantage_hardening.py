@@ -13,6 +13,7 @@ import pytest
 import tradingagents.dataflows.alpha_vantage_common as av
 import tradingagents.dataflows.alpha_vantage_fundamentals as avf
 import tradingagents.dataflows.alpha_vantage_stock as avs
+from tradingagents.dataflows.errors import NoMarketDataError
 
 
 class _FakeResponse:
@@ -60,6 +61,47 @@ def test_structured_alpha_vantage_ohlcv_parses_filtered_stock_response(monkeypat
             }
         )
     )
+
+
+def test_structured_alpha_vantage_ohlcv_rejects_invalid_end_date(monkeypatch):
+    monkeypatch.setattr(avs, "get_stock", lambda *args: "")
+    with pytest.raises(ValueError, match="time data"):
+        avs.fetch_alpha_vantage_ohlcv("AAPL", "2026-07-10", "not-a-date")
+
+
+def test_structured_alpha_vantage_ohlcv_rejects_reversed_range(monkeypatch):
+    monkeypatch.setattr(avs, "get_stock", lambda *args: "")
+    with pytest.raises(ValueError, match="end_date"):
+        avs.fetch_alpha_vantage_ohlcv("AAPL", "2026-07-11", "2026-07-10")
+
+
+def test_structured_alpha_vantage_ohlcv_refilters_upstream_rows(monkeypatch):
+    csv = (
+        "Date,open,high,low,close,volume\n"
+        "2026-07-11,110,115,109,114,1300\n"
+        "2026-07-10,100,105,99,104,1234\n"
+        "2026-07-09,90,95,89,94,1200\n"
+    )
+    monkeypatch.setattr(avs, "get_stock", lambda *args: csv)
+
+    result = avs.fetch_alpha_vantage_ohlcv("AAPL", "2026-07-10", "2026-07-10")
+
+    assert result.data["Date"].tolist() == [pd.Timestamp("2026-07-10")]
+
+
+@pytest.mark.parametrize(
+    "csv",
+    [
+        "open,high,low,close,volume\n1,2,0,1,10\n",
+        "timestamp,open,high,low,close,volume\nnot-a-date,1,2,0,1,10\n",
+        "timestamp,open,high,low,close,volume\n2026-07-09,1,2,0,1,10\n",
+    ],
+)
+def test_structured_alpha_vantage_ohlcv_rejects_unusable_dates(monkeypatch, csv):
+    monkeypatch.setattr(avs, "get_stock", lambda *args: csv)
+
+    with pytest.raises(NoMarketDataError):
+        avs.fetch_alpha_vantage_ohlcv("AAPL", "2026-07-10", "2026-07-10")
 
 
 @pytest.mark.unit
