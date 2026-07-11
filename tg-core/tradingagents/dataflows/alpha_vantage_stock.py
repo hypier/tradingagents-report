@@ -1,6 +1,11 @@
 from datetime import datetime
+from io import StringIO
+
+import pandas as pd
 
 from .alpha_vantage_common import _filter_csv_by_date_range, _make_api_request
+from .errors import NoMarketDataError, VendorUnavailableError
+from .provider_models import ProviderResult, parse_instrument
 
 
 def get_stock(
@@ -38,3 +43,49 @@ def get_stock(
     response = _make_api_request("TIME_SERIES_DAILY_ADJUSTED", params)
 
     return _filter_csv_by_date_range(response, start_date, end_date)
+
+
+def fetch_alpha_vantage_ohlcv(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+) -> ProviderResult[pd.DataFrame]:
+    """Parse Alpha Vantage's filtered daily response into provider-neutral OHLCV."""
+    response = get_stock(symbol, start_date, end_date)
+    try:
+        raw = pd.read_csv(StringIO(response))
+    except (TypeError, ValueError, pd.errors.ParserError) as exc:
+        raise VendorUnavailableError("Alpha Vantage returned malformed OHLCV CSV") from exc
+
+    source_columns = ("timestamp", "open", "high", "low", "close", "volume")
+    if raw.empty:
+        raise NoMarketDataError(symbol, symbol, "Alpha Vantage returned no price rows")
+    if any(column not in raw.columns for column in source_columns):
+        raise VendorUnavailableError("Alpha Vantage OHLCV CSV is missing required columns")
+
+    frame = raw[list(source_columns)].rename(
+        columns={
+            "timestamp": "Date",
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
+        }
+    )
+    frame["Date"] = pd.to_datetime(frame["Date"], errors="coerce")
+    numeric = ["Open", "High", "Low", "Close", "Volume"]
+    frame[numeric] = frame[numeric].apply(pd.to_numeric, errors="coerce")
+    if frame["Date"].isna().any() or frame[numeric].isna().any().any():
+        raise VendorUnavailableError("Alpha Vantage returned invalid OHLCV fields")
+    frame = frame.sort_values("Date").reset_index(drop=True)
+
+    return ProviderResult(
+        data=frame,
+        provider="alpha_vantage",
+        requested=parse_instrument(symbol),
+        resolved_symbol=symbol.upper(),
+        as_of=frame["Date"].max().to_pydatetime(),
+        adjustment_mode="adjusted",
+        provenance={"function": "TIME_SERIES_DAILY_ADJUSTED"},
+    )

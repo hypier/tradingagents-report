@@ -1,9 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
+import pandas as pd
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
 
+from .provider_models import ProviderResult, parse_instrument
 from .stockstats_utils import (
     StockstatsUtils,
     _assert_ohlcv_not_stale,
@@ -16,50 +18,75 @@ from .stockstats_utils import (
 from .symbol_utils import NoMarketDataError, normalize_symbol
 
 
+def fetch_yfinance_ohlcv(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+) -> ProviderResult[pd.DataFrame]:
+    """Fetch and validate an inclusive Yahoo Finance OHLCV range."""
+    datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    canonical = normalize_symbol(symbol)
+    ticker = yf.Ticker(canonical)
+    end_inclusive = (end_dt + relativedelta(days=1)).strftime("%Y-%m-%d")
+    data = yf_retry(lambda: ticker.history(start=start_date, end=end_inclusive)).copy()
+
+    if data.empty:
+        raise NoMarketDataError(
+            symbol, canonical, f"no rows between {start_date} and {end_date}"
+        )
+    if data.index.tz is not None:
+        data.index = data.index.tz_localize(None)
+    _assert_ohlcv_not_stale(data, end_date, symbol, canonical)
+
+    for column in ("Open", "High", "Low", "Close", "Adj Close"):
+        if column in data.columns:
+            data[column] = data[column].round(2)
+    index_name = data.index.name or "Date"
+    data.index.name = index_name
+    data = data.reset_index().rename(columns={index_name: "Date"})
+    as_of = pd.to_datetime(data["Date"], errors="coerce").max()
+
+    return ProviderResult(
+        data=data,
+        provider="yfinance",
+        requested=parse_instrument(symbol),
+        resolved_symbol=canonical,
+        as_of=(
+            as_of.to_pydatetime().replace(tzinfo=timezone.utc)
+            if not pd.isna(as_of)
+            else None
+        ),
+        provenance={"source": "Ticker.history"},
+    )
+
+
+def get_yfinance_identity(ticker: str) -> dict[str, str]:
+    """Return normalized instrument identity fields from Yahoo Finance."""
+    canonical = normalize_symbol(ticker)
+    info = yf_retry(lambda: yf.Ticker(canonical).info)
+    identity = {
+        "company_name": str(info.get("longName") or ""),
+        "sector": str(info.get("sector") or ""),
+        "industry": str(info.get("industry") or ""),
+        "exchange": str(info.get("exchange") or ""),
+        "quote_type": str(info.get("quoteType") or ""),
+    }
+    if not any(identity.values()):
+        raise NoMarketDataError(ticker, canonical, "Yahoo returned no instrument identity")
+    return identity
+
+
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ):
 
-    datetime.strptime(start_date, "%Y-%m-%d")
-    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-
-    # Resolve broker/forex symbols to Yahoo's convention (XAUUSD+ -> GC=F).
-    canonical = normalize_symbol(symbol)
-    ticker = yf.Ticker(canonical)
-
-    # yfinance treats ``end`` as EXCLUSIVE, so it would drop the requested
-    # end_date row (and the current day when end_date is today). Request one day
-    # past end_date so the requested range is actually inclusive (#986/#987).
-    end_inclusive = (end_dt + relativedelta(days=1)).strftime("%Y-%m-%d")
-    data = yf_retry(lambda: ticker.history(start=start_date, end=end_inclusive))
-
-    # Empty result means the symbol is unknown/delisted. Raise a typed error
-    # instead of returning prose: the routing layer turns it into a single
-    # unambiguous "no data" signal so the agent never fabricates a price.
-    if data.empty:
-        raise NoMarketDataError(
-            symbol, canonical, f"no rows between {start_date} and {end_date}"
-        )
-
-    # Remove timezone info from index for cleaner output
-    if data.index.tz is not None:
-        data.index = data.index.tz_localize(None)
-
-    # Reject a stale frame (e.g. a year-old partial response) before it is
-    # formatted into the report. Raises NoMarketDataError, which the router
-    # turns into one clear unavailable signal (#1021).
-    _assert_ohlcv_not_stale(data, end_date, symbol, canonical)
-
-    # Round numerical values to 2 decimal places for cleaner display
-    numeric_columns = ["Open", "High", "Low", "Close", "Adj Close"]
-    for col in numeric_columns:
-        if col in data.columns:
-            data[col] = data[col].round(2)
-
-    # Convert DataFrame to CSV string
-    csv_string = data.to_csv()
+    result = fetch_yfinance_ohlcv(symbol, start_date, end_date)
+    data = result.data
+    canonical = result.resolved_symbol
+    csv_string = data.to_csv(index=False)
 
     # Add header information; note the resolved symbol when it differs so the
     # agent (and user) can see which instrument was actually priced.

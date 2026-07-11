@@ -7,10 +7,12 @@ string, not a dict).
 """
 import json
 
+import pandas as pd
 import pytest
 
 import tradingagents.dataflows.alpha_vantage_common as av
 import tradingagents.dataflows.alpha_vantage_fundamentals as avf
+import tradingagents.dataflows.alpha_vantage_stock as avs
 
 
 class _FakeResponse:
@@ -35,6 +37,29 @@ def test_request_passes_timeout(monkeypatch):
     monkeypatch.setattr(av.requests, "get", _patched_get("Date,Close\n2025-01-02,1.0", captured))
     av._make_api_request("TIME_SERIES_DAILY", {"symbol": "AAPL"})
     assert captured.get("timeout") == av.REQUEST_TIMEOUT  # #990
+
+
+def test_structured_alpha_vantage_ohlcv_parses_filtered_stock_response(monkeypatch):
+    csv = (
+        "timestamp,open,high,low,close,adjusted_close,volume,dividend_amount,split_coefficient\n"
+        "2026-07-10,100,105,99,104,104,1234,0,1\n"
+    )
+    monkeypatch.setattr(avs, "get_stock", lambda *args: csv)
+
+    result = avs.fetch_alpha_vantage_ohlcv("AAPL", "2026-07-10", "2026-07-10")
+
+    assert result.provider == "alpha_vantage"
+    assert result.resolved_symbol == "AAPL"
+    assert list(result.data.columns) == ["Date", "Open", "High", "Low", "Close", "Volume"]
+    assert result.data.equals(
+        pd.DataFrame(
+            {
+                "Date": [pd.Timestamp("2026-07-10")],
+                "Open": [100], "High": [105], "Low": [99],
+                "Close": [104], "Volume": [1234],
+            }
+        )
+    )
 
 
 @pytest.mark.unit

@@ -18,6 +18,7 @@ from tradingagents.dataflows.alpha_vantage_common import (
 from tradingagents.dataflows.config import set_config
 from tradingagents.dataflows.errors import (
     NoMarketDataError,
+    VendorAuthenticationError,
     VendorError,
     VendorNotConfiguredError,
     VendorRateLimitError,
@@ -99,6 +100,57 @@ class RouterHandlesBaseTypesTests(unittest.TestCase):
             clear=False,
         ), self.assertRaises(AlphaVantageNotConfiguredError):
             interface.route_to_vendor("get_stock_data", "AAPL", "2026-01-01", "2026-01-10")
+
+    def test_failure_warning_redacts_credential_values(self):
+        set_config({"data_vendors": {"core_stock_apis": "tradingview,yfinance"}})
+
+        def _rejected(*args, **kwargs):
+            raise VendorAuthenticationError("api_key=supersecret rejected")
+
+        with mock.patch.dict(
+            interface.VENDOR_METHODS,
+            {
+                "get_stock_data": {
+                    "tradingview": _rejected,
+                    "yfinance": lambda *args, **kwargs: "YF",
+                }
+            },
+            clear=False,
+        ), self.assertLogs(
+            "tradingagents.dataflows.interface", level="WARNING"
+        ) as captured:
+            result = interface.route_to_vendor("get_stock_data", "AAPL")
+
+        self.assertEqual(result, "YF")
+        logs = "\n".join(captured.output)
+        self.assertIn("[REDACTED]", logs)
+        self.assertNotIn("supersecret", logs)
+
+    def test_missing_configuration_stays_debug_only_when_fallback_has_no_data(self):
+        set_config({"data_vendors": {"core_stock_apis": "tradingview,yfinance"}})
+
+        def _missing(*args, **kwargs):
+            raise VendorNotConfiguredError("missing key")
+
+        def _no_rows(symbol, *args, **kwargs):
+            raise NoMarketDataError(symbol, symbol, "no rows")
+
+        with mock.patch.dict(
+            interface.VENDOR_METHODS,
+            {
+                "get_stock_data": {
+                    "tradingview": _missing,
+                    "yfinance": _no_rows,
+                }
+            },
+            clear=False,
+        ), self.assertLogs(
+            "tradingagents.dataflows.interface", level="DEBUG"
+        ) as captured:
+            result = interface.route_to_vendor("get_stock_data", "FAKE")
+
+        self.assertIn("NO_DATA_AVAILABLE", result)
+        self.assertFalse(any("WARNING" in line for line in captured.output))
 
 
 if __name__ == "__main__":

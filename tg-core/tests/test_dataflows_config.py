@@ -20,7 +20,10 @@ class DataflowsConfigIsolationTests(unittest.TestCase):
         cfg["tool_vendors"]["get_stock_data"] = "alpha_vantage"
 
         fresh = get_config()
-        self.assertEqual(fresh["data_vendors"]["core_stock_apis"], "yfinance")
+        self.assertEqual(
+            fresh["data_vendors"]["core_stock_apis"],
+            "tradingview,yfinance,alpha_vantage",
+        )
         self.assertNotIn("get_stock_data", fresh["tool_vendors"])
 
     def test_set_config_does_not_alias_caller_nested_dicts(self):
@@ -48,9 +51,28 @@ class DataflowsConfigIsolationTests(unittest.TestCase):
 
         fresh = get_config()
         self.assertEqual(fresh["data_vendors"]["core_stock_apis"], "alpha_vantage")
-        self.assertEqual(fresh["data_vendors"]["technical_indicators"], "yfinance")
-        self.assertEqual(fresh["data_vendors"]["fundamental_data"], "yfinance")
-        self.assertEqual(fresh["data_vendors"]["news_data"], "yfinance")
+        self.assertEqual(
+            fresh["data_vendors"]["technical_indicators"],
+            "tradingview,yfinance,alpha_vantage",
+        )
+        self.assertEqual(
+            fresh["data_vendors"]["fundamental_data"],
+            "tradingview,yfinance,alpha_vantage",
+        )
+        self.assertEqual(
+            fresh["data_vendors"]["news_data"],
+            "tradingview,yfinance,alpha_vantage",
+        )
+
+    def test_tradingview_first_defaults_and_insider_override(self):
+        fresh = get_config()
+        self.assertEqual(
+            fresh["data_vendors"]["instrument_data"], "tradingview,yfinance"
+        )
+        self.assertEqual(
+            fresh["tool_vendors"]["get_insider_transactions"],
+            "yfinance,alpha_vantage",
+        )
 
     def test_nested_dict_updates_merge_one_level_deep(self):
         set_config({"tool_vendors": {"get_stock_data": "alpha_vantage"}})

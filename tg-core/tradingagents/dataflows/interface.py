@@ -1,4 +1,9 @@
 import logging
+import re
+from collections.abc import Callable
+from typing import Any
+
+import pandas as pd
 
 from .alpha_vantage import (
     get_balance_sheet as get_alpha_vantage_balance_sheet,
@@ -11,6 +16,7 @@ from .alpha_vantage import (
     get_news as get_alpha_vantage_news,
     get_stock as get_alpha_vantage_stock,
 )
+from .alpha_vantage_stock import fetch_alpha_vantage_ohlcv
 from .config import get_config
 from .errors import (
     NoMarketDataError,
@@ -19,7 +25,22 @@ from .errors import (
 )
 from .fred import get_macro_data as get_fred_macro_data
 from .polymarket import get_prediction_markets as get_polymarket_prediction_markets
+from .provider_models import ProviderResult
+from .tradingview_fundamentals import (
+    get_tradingview_balance_sheet,
+    get_tradingview_cashflow,
+    get_tradingview_fundamentals,
+    get_tradingview_income_statement,
+)
+from .tradingview_news import get_tradingview_global_news, get_tradingview_news
+from .tradingview_stock import (
+    fetch_tradingview_ohlcv,
+    get_tradingview_identity,
+    get_tradingview_indicators,
+    get_tradingview_stock,
+)
 from .y_finance import (
+    fetch_yfinance_ohlcv,
     get_balance_sheet as get_yfinance_balance_sheet,
     get_cashflow as get_yfinance_cashflow,
     get_fundamentals as get_yfinance_fundamentals,
@@ -27,6 +48,7 @@ from .y_finance import (
     get_insider_transactions as get_yfinance_insider_transactions,
     get_stock_stats_indicators_window,
     get_YFin_data_online,
+    get_yfinance_identity,
 )
 from .yfinance_news import get_global_news_yfinance, get_news_yfinance
 
@@ -34,10 +56,15 @@ logger = logging.getLogger(__name__)
 
 # Tools organized by category
 TOOLS_CATEGORIES = {
+    "instrument_data": {
+        "description": "Instrument identity",
+        "tools": ["get_instrument_identity"],
+    },
     "core_stock_apis": {
         "description": "OHLCV stock price data",
         "tools": [
-            "get_stock_data"
+            "get_stock_data",
+            "get_ohlcv",
         ]
     },
     "technical_indicators": {
@@ -78,6 +105,7 @@ TOOLS_CATEGORIES = {
 }
 
 VENDOR_LIST = [
+    "tradingview",
     "yfinance",
     "fred",
     "polymarket",
@@ -93,39 +121,56 @@ OPTIONAL_CATEGORIES = {"macro_data", "prediction_markets"}
 
 # Mapping of methods to their vendor-specific implementations
 VENDOR_METHODS = {
+    "get_instrument_identity": {
+        "tradingview": get_tradingview_identity,
+        "yfinance": get_yfinance_identity,
+    },
     # core_stock_apis
     "get_stock_data": {
-        "alpha_vantage": get_alpha_vantage_stock,
+        "tradingview": get_tradingview_stock,
         "yfinance": get_YFin_data_online,
+        "alpha_vantage": get_alpha_vantage_stock,
+    },
+    "get_ohlcv": {
+        "tradingview": fetch_tradingview_ohlcv,
+        "yfinance": fetch_yfinance_ohlcv,
+        "alpha_vantage": fetch_alpha_vantage_ohlcv,
     },
     # technical_indicators
     "get_indicators": {
-        "alpha_vantage": get_alpha_vantage_indicator,
+        "tradingview": get_tradingview_indicators,
         "yfinance": get_stock_stats_indicators_window,
+        "alpha_vantage": get_alpha_vantage_indicator,
     },
     # fundamental_data
     "get_fundamentals": {
-        "alpha_vantage": get_alpha_vantage_fundamentals,
+        "tradingview": get_tradingview_fundamentals,
         "yfinance": get_yfinance_fundamentals,
+        "alpha_vantage": get_alpha_vantage_fundamentals,
     },
     "get_balance_sheet": {
-        "alpha_vantage": get_alpha_vantage_balance_sheet,
+        "tradingview": get_tradingview_balance_sheet,
         "yfinance": get_yfinance_balance_sheet,
+        "alpha_vantage": get_alpha_vantage_balance_sheet,
     },
     "get_cashflow": {
-        "alpha_vantage": get_alpha_vantage_cashflow,
+        "tradingview": get_tradingview_cashflow,
         "yfinance": get_yfinance_cashflow,
+        "alpha_vantage": get_alpha_vantage_cashflow,
     },
     "get_income_statement": {
-        "alpha_vantage": get_alpha_vantage_income_statement,
+        "tradingview": get_tradingview_income_statement,
         "yfinance": get_yfinance_income_statement,
+        "alpha_vantage": get_alpha_vantage_income_statement,
     },
     # news_data
     "get_news": {
-        "alpha_vantage": get_alpha_vantage_news,
+        "tradingview": get_tradingview_news,
         "yfinance": get_news_yfinance,
+        "alpha_vantage": get_alpha_vantage_news,
     },
     "get_global_news": {
+        "tradingview": get_tradingview_global_news,
         "yfinance": get_global_news_yfinance,
         "alpha_vantage": get_alpha_vantage_global_news,
     },
@@ -141,6 +186,22 @@ VENDOR_METHODS = {
     "get_prediction_markets": {
         "polymarket": get_polymarket_prediction_markets,
     },
+}
+
+DEFAULT_VENDOR_CHAINS: dict[str, tuple[str, ...]] = {
+    "get_instrument_identity": ("tradingview", "yfinance"),
+    "get_stock_data": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_ohlcv": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_indicators": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_fundamentals": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_balance_sheet": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_cashflow": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_income_statement": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_news": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_global_news": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_insider_transactions": ("yfinance", "alpha_vantage"),
+    "get_macro_indicators": ("fred",),
+    "get_prediction_markets": ("polymarket",),
 }
 
 def get_category_for_method(method: str) -> str:
@@ -165,98 +226,168 @@ def get_vendor(category: str, method: str = None) -> str:
     # Fall back to category-level configuration
     return config.get("data_vendors", {}).get(category, "default")
 
-def route_to_vendor(method: str, *args, **kwargs):
-    """Route method calls to appropriate vendor implementation with fallback support."""
-    category = get_category_for_method(method)
-    vendor_config = get_vendor(category, method)
-    primary_vendors = [v.strip() for v in vendor_config.split(',')]
-
+def _vendor_chain(method: str, category: str) -> list[str]:
     if method not in VENDOR_METHODS:
         raise ValueError(f"Method '{method}' not supported")
-
-    all_available_vendors = list(VENDOR_METHODS[method].keys())
-
-    # The configured vendor list IS the chain: we do NOT silently fall back to
-    # vendors the user did not choose (#988/#289) — that returned data from an
-    # unexpected source and caused cross-vendor inconsistencies. For multi-vendor
-    # fallback, list them in order, e.g. data_vendors="yfinance,alpha_vantage".
-    # The "default" sentinel (no explicit config) uses all available vendors.
-    explicit = [v for v in primary_vendors if v and v != "default"]
+    available = list(VENDOR_METHODS[method])
+    configured = [
+        vendor.strip() for vendor in get_vendor(category, method).split(",")
+    ]
+    explicit = [vendor for vendor in configured if vendor and vendor != "default"]
     if explicit:
-        vendor_chain = [v for v in explicit if v in VENDOR_METHODS[method]]
-        if not vendor_chain:
+        chain = [vendor for vendor in explicit if vendor in VENDOR_METHODS[method]]
+        if not chain:
             raise ValueError(
                 f"Configured vendor(s) {explicit} not available for '{method}'. "
-                f"Available: {all_available_vendors}."
+                f"Available: {available}."
             )
-    else:
-        vendor_chain = all_available_vendors
+        return chain
 
+    if method not in DEFAULT_VENDOR_CHAINS:
+        raise ValueError(f"No default vendor policy declared for '{method}'")
+    chain = [
+        vendor
+        for vendor in DEFAULT_VENDOR_CHAINS[method]
+        if vendor in VENDOR_METHODS[method]
+    ]
+    if not chain:
+        raise ValueError(f"No default vendor is registered for '{method}'")
+    return chain
+
+
+_SECRET_PATTERN = re.compile(
+    r"(?i)(api[_ -]?key|token|secret)(\s*[=:]\s*|\s+)([^\s,;]+)"
+)
+
+
+def _safe_error(error: Exception) -> str:
+    return _SECRET_PATTERN.sub(r"\1=[REDACTED]", str(error))
+
+
+def _no_data_message(error: NoMarketDataError) -> str:
+    resolved = (
+        ""
+        if error.canonical == error.symbol
+        else f" (resolved to '{error.canonical}')"
+    )
+    reason = f" ({error.detail})" if error.detail else ""
+    return (
+        f"NO_DATA_AVAILABLE: No usable market data for '{error.symbol}'{resolved} from "
+        f"any configured vendor{reason}. The symbol may be invalid, delisted, "
+        f"not covered, or the vendor returned stale data. Do not estimate or "
+        f"fabricate values — report that data is unavailable for this symbol."
+    )
+
+
+def _execute_route(
+    method: str,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    is_usable: Callable[[Any], bool],
+) -> tuple[Any | None, str, NoMarketDataError | None, Exception | None]:
+    """Execute one capability chain for string and structured entry points."""
+    category = get_category_for_method(method)
     last_no_data: NoMarketDataError | None = None
     first_error: Exception | None = None
-    for vendor in vendor_chain:
+
+    for vendor in _vendor_chain(method, category):
         vendor_impl = VENDOR_METHODS[method][vendor]
         impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
-
         try:
-            return impl_func(*args, **kwargs)
-        except VendorRateLimitError:
-            logger.warning("Vendor %r rate-limited for %s; trying next vendor.", vendor, method)
-            continue
-        except VendorNotConfiguredError as e:
-            logger.warning("Vendor %r not configured for %s; trying next vendor.", vendor, method)
+            result = impl_func(*args, **kwargs)
+            if is_usable(result):
+                return result, category, last_no_data, first_error
+            symbol = str(args[0]) if args else method
+            last_no_data = NoMarketDataError(
+                symbol, detail=f"{vendor} returned an empty or invalid result"
+            )
+        except VendorRateLimitError as error:
+            logger.warning(
+                "Vendor %r rate-limited for %s; trying next vendor.", vendor, method
+            )
             if first_error is None:
-                first_error = e  # Surface it if no other vendor can serve the call.
-            continue
-        except NoMarketDataError as e:
-            last_no_data = e  # No data here; another configured vendor may have it
-            continue
-        except Exception as e:
-            # Don't let one vendor's failure crash the call when another can
-            # serve it, but never swallow silently: a broken primary must be
-            # visible in the logs (#989), not hidden behind a fallback's verdict.
-            logger.warning("Vendor %r failed for %s: %s", vendor, method, e)
+                first_error = error
+        except VendorNotConfiguredError as error:
+            logger.debug(
+                "Vendor %r not configured for %s; trying next vendor.", vendor, method
+            )
             if first_error is None:
-                first_error = e
-            continue
+                first_error = error
+        except NoMarketDataError as error:
+            last_no_data = error
+        except Exception as error:
+            logger.warning(
+                "Vendor %r failed for %s: %s",
+                vendor,
+                method,
+                _safe_error(error),
+            )
+            if first_error is None:
+                first_error = error
+    return None, category, last_no_data, first_error
 
-    # If any vendor reported "no data", the symbol is genuinely unavailable.
-    # Return one explicit, instructive sentinel rather than a vendor-specific
-    # empty string, so the agent reports "unavailable" instead of inventing a
-    # value. This takes precedence over incidental fallback errors.
+
+def _is_usable_string(result: Any) -> bool:
+    if not isinstance(result, str) or not result.strip():
+        return False
+    return not result.lstrip().lower().startswith(
+        ("error ", "error retrieving", "error fetching")
+    )
+
+
+def _is_usable_structured(result: Any) -> bool:
+    data = result.data if isinstance(result, ProviderResult) else result
+    if data is None:
+        return False
+    if isinstance(data, pd.DataFrame):
+        return not data.empty
+    if isinstance(data, dict):
+        return bool(data)
+    return True
+
+
+def route_to_vendor(method: str, *args, **kwargs) -> str:
+    """Route a compatibility-string method through its explicit vendor chain."""
+    result, category, last_no_data, first_error = _execute_route(
+        method, args, kwargs, _is_usable_string
+    )
+    if result is not None:
+        return result
     if last_no_data is not None:
-        if first_error is not None:
-            # A vendor also hit a real error; surface it in logs so the no-data
-            # verdict can't hide a broken primary (network/auth/etc.).
+        if first_error is not None and not isinstance(
+            first_error, VendorNotConfiguredError
+        ):
             logger.warning(
                 "Returning NO_DATA for %s, but a vendor errored earlier: %s",
-                method, first_error,
+                method,
+                _safe_error(first_error),
             )
-        sym = last_no_data.symbol
-        canonical = last_no_data.canonical
-        resolved = "" if canonical == sym else f" (resolved to '{canonical}')"
-        # Surface the typed error's detail (e.g. "latest row is 2025-06-11 ...
-        # stale") so the agent sees the specific reason — invalid symbol, no
-        # coverage, or stale data — not just a generic "unavailable".
-        reason = f" ({last_no_data.detail})" if last_no_data.detail else ""
-        return (
-            f"NO_DATA_AVAILABLE: No usable market data for '{sym}'{resolved} from "
-            f"any configured vendor{reason}. The symbol may be invalid, delisted, "
-            f"not covered, or the vendor returned stale data. Do not estimate or "
-            f"fabricate values — report that data is unavailable for this symbol."
-        )
-
-    # No vendor returned data and none reported clean "no data" — surface the
-    # first real error (e.g. the primary vendor's network failure). Optional
-    # enrichment categories degrade to a sentinel instead, so flavour data can't
-    # abort the run.
+        return _no_data_message(last_no_data)
     if first_error is not None:
         if category in OPTIONAL_CATEGORIES:
-            logger.warning("Optional %s unavailable for %s: %s", category, method, first_error)
+            safe_error = _safe_error(first_error)
+            logger.warning(
+                "Optional %s unavailable for %s: %s", category, method, safe_error
+            )
             return (
                 f"DATA_UNAVAILABLE: optional {category} could not be retrieved "
-                f"({first_error}). Proceed without it; do not fabricate values."
+                f"({safe_error}). Proceed without it; do not fabricate values."
             )
         raise first_error
+    raise RuntimeError(f"No available vendor for '{method}'")
 
+
+def route_structured(
+    method: str, *args, **kwargs
+) -> ProviderResult[Any] | dict[str, str]:
+    """Route a structured method and reject empty provider results."""
+    result, _, last_no_data, first_error = _execute_route(
+        method, args, kwargs, _is_usable_structured
+    )
+    if result is not None:
+        return result
+    if last_no_data is not None:
+        raise last_no_data
+    if first_error is not None:
+        raise first_error
     raise RuntimeError(f"No available vendor for '{method}'")
