@@ -16,11 +16,14 @@ from .tradingview_client import TradingViewClient
 from .tradingview_symbols import resolve_tradingview_symbol
 
 
+def _tradingview_market(asset_class: str) -> str:
+    return {"equity": "stock"}.get(asset_class, asset_class)
+
+
 def _search_markets(client: TradingViewClient, query: str, asset_class: str):
-    filter_name = {"equity": "stock"}.get(asset_class, asset_class)
     payload = client.get(
         f"/api/search/market/{quote(query, safe='')}",
-        params={"filter": filter_name},
+        params={"filter": _tradingview_market(asset_class)},
     )
     markets = payload.get("markets", [])
     return markets if isinstance(markets, list) else []
@@ -112,7 +115,11 @@ def get_tradingview_news(
     ref, resolved = _resolve(ticker, api)
     payload = api.get(
         "/api/news",
-        params={"symbol": resolved.symbol, "lang": "en", "market": ref.asset_class},
+        params={
+            "symbol": resolved.symbol,
+            "lang": "en",
+            "market": _tradingview_market(ref.asset_class),
+        },
     )
     items = payload.get("items")
     if not isinstance(items, list) or not items:

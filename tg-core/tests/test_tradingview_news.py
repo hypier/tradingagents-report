@@ -44,7 +44,7 @@ def test_company_news_filters_future_and_formats_source():
     assert "FUTURE" not in output
     client.get.assert_called_once_with(
         "/api/news",
-        params={"symbol": "NASDAQ:AAPL", "lang": "en", "market": "equity"},
+        params={"symbol": "NASDAQ:AAPL", "lang": "en", "market": "stock"},
     )
 
 
