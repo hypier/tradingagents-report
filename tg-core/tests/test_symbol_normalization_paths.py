@@ -1,9 +1,7 @@
-"""Symbol normalization must apply on every yfinance path, not just price fetch.
+"""Symbol resolution must remain owned by each provider-facing data path.
 
-Regression tests for #983 (instrument identity), #984 (reflection returns), and
-the news path: a broker symbol like XAUUSD must resolve to the same Yahoo symbol
-(GC=F) that the price path uses, so identity, realized-return, and news lookups
-hit the right instrument instead of failing/mismatching.
+Regression tests for provider-neutral instrument identity plus the remaining
+Yahoo-specific reflection-return (#984) and news paths.
 """
 import pandas as pd
 
@@ -13,23 +11,19 @@ import tradingagents.graph.trading_graph as tg
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 
-def test_identity_lookup_normalizes_symbol(monkeypatch):
+def test_identity_lookup_delegates_raw_symbol_to_structured_facade(monkeypatch):
     seen = {}
 
-    class FakeTicker:
-        def __init__(self, symbol):
-            seen["symbol"] = symbol
+    def fake_identity(symbol):
+        seen["symbol"] = symbol
+        return {"company_name": "Gold Futures", "quote_type": "FUTURE"}
 
-        @property
-        def info(self):
-            return {"longName": "Gold Futures", "quoteType": "FUTURE"}
-
-    monkeypatch.setattr(au.yf, "Ticker", FakeTicker)
+    monkeypatch.setattr(au, "get_instrument_identity", fake_identity)
     au.resolve_instrument_identity.cache_clear()
 
     identity = au.resolve_instrument_identity("XAUUSD")
 
-    assert seen["symbol"] == "GC=F"  # normalized, not the raw broker symbol
+    assert seen["symbol"] == "XAUUSD"  # provider-neutral facade owns symbol resolution
     assert identity.get("company_name") == "Gold Futures"
 
 

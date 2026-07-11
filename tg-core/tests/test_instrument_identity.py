@@ -2,17 +2,21 @@
 context-anchored message placeholder (#888)."""
 
 import unittest
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 
+import tradingagents.agents.utils.agent_utils as agent_utils
+import tradingagents.dataflows.structured_data as structured_data
 from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
     create_msg_delete,
     get_instrument_context_from_state,
     resolve_instrument_identity,
 )
+from tradingagents.dataflows.provider_models import ProviderResult, parse_instrument
 
 
 @pytest.mark.unit
@@ -20,49 +24,108 @@ class ResolveInstrumentIdentityTests(unittest.TestCase):
     def setUp(self):
         resolve_instrument_identity.cache_clear()
 
-    def test_resolves_company_metadata_from_yfinance(self):
-        with patch("tradingagents.agents.utils.agent_utils.yf.Ticker") as mock:
-            mock.return_value.info = {
-                "longName": "TOTO LTD.",
-                "shortName": "TOTO",
+    def test_resolves_company_metadata_from_provider_router(self):
+        fetch = Mock(
+            return_value={
+                "company_name": "TOTO LTD.",
                 "sector": "Industrials",
                 "industry": "Building Products & Equipment",
                 "exchange": "PNK",
-                "quoteType": "EQUITY",
+                "quote_type": "EQUITY",
             }
+        )
+        with patch.object(agent_utils, "get_instrument_identity", fetch):
             identity = resolve_instrument_identity("totdy")
-        mock.assert_called_once_with("TOTDY")
+        fetch.assert_called_once_with("totdy")
         self.assertEqual(identity["company_name"], "TOTO LTD.")
         self.assertEqual(identity["sector"], "Industrials")
         self.assertEqual(identity["industry"], "Building Products & Equipment")
         self.assertEqual(identity["exchange"], "PNK")
 
-    def test_falls_back_to_short_name(self):
-        with patch("tradingagents.agents.utils.agent_utils.yf.Ticker") as mock:
-            mock.return_value.info = {"shortName": "TOTO", "sector": "Industrials"}
+    def test_uses_provider_company_name(self):
+        with patch.object(
+            agent_utils,
+            "get_instrument_identity",
+            return_value={"company_name": "TOTO", "sector": "Industrials"},
+        ):
             identity = resolve_instrument_identity("TOTDY")
         self.assertEqual(identity["company_name"], "TOTO")
 
     def test_skips_placeholder_values(self):
-        with patch("tradingagents.agents.utils.agent_utils.yf.Ticker") as mock:
-            mock.return_value.info = {"longName": "  ", "sector": "None", "industry": "n/a"}
+        with patch.object(
+            agent_utils,
+            "get_instrument_identity",
+            return_value={"company_name": "  ", "sector": "None", "industry": "n/a"},
+        ):
             identity = resolve_instrument_identity("TOTDY")
         self.assertEqual(identity, {})
 
     def test_fails_open_on_exception(self):
-        with patch(
-            "tradingagents.agents.utils.agent_utils.yf.Ticker",
+        with patch.object(
+            agent_utils,
+            "get_instrument_identity",
             side_effect=RuntimeError("rate limited"),
         ):
             self.assertEqual(resolve_instrument_identity("TOTDY"), {})
 
     def test_result_is_cached(self):
-        with patch("tradingagents.agents.utils.agent_utils.yf.Ticker") as mock:
-            mock.return_value.info = {"longName": "TOTO LTD."}
+        fetch = Mock(return_value={"company_name": "TOTO LTD."})
+        with patch.object(agent_utils, "get_instrument_identity", fetch):
             first = resolve_instrument_identity("TOTDY")
             second = resolve_instrument_identity("TOTDY")
-        mock.assert_called_once()  # second call served from cache
+        fetch.assert_called_once()  # second call served from cache
         self.assertEqual(first, second)
+
+
+@pytest.mark.unit
+class StructuredIdentityFacadeTests:
+    def test_unwraps_provider_result_and_sanitizes_values(self, monkeypatch):
+        routed = ProviderResult(
+            data={
+                "company_name": " Apple Inc. ",
+                "exchange": " NASDAQ ",
+                "sector": "",
+                "employees": 100,
+            },
+            provider="tradingview",
+            requested=parse_instrument("AAPL"),
+            resolved_symbol="NASDAQ:AAPL",
+        )
+        monkeypatch.setattr(structured_data, "route_structured", lambda *args: routed)
+
+        assert structured_data.get_instrument_identity("AAPL") == {
+            "company_name": "Apple Inc.",
+            "exchange": "NASDAQ",
+        }
+
+    def test_accepts_raw_identity_dict(self, monkeypatch):
+        route = Mock(return_value={"company_name": "Apple Inc.", "exchange": "NASDAQ"})
+        monkeypatch.setattr(structured_data, "route_structured", route)
+
+        identity = structured_data.get_instrument_identity("AAPL")
+
+        route.assert_called_once_with("get_instrument_identity", "AAPL")
+        assert identity == {"company_name": "Apple Inc.", "exchange": "NASDAQ"}
+
+    def test_rejects_unexpected_identity_type(self, monkeypatch):
+        monkeypatch.setattr(structured_data, "route_structured", lambda *args: ["Apple"])
+
+        with pytest.raises(TypeError):
+            structured_data.get_instrument_identity("AAPL")
+
+
+@pytest.mark.unit
+def test_validator_and_identity_have_no_direct_yahoo_calls():
+    source_root = Path(agent_utils.__file__).parents[2]
+    sources = (
+        Path(agent_utils.__file__).read_text(encoding="utf-8"),
+        (source_root / "dataflows" / "market_data_validator.py").read_text(encoding="utf-8"),
+    )
+
+    for source in sources:
+        assert "import yfinance" not in source
+        assert "yf.Ticker" not in source
+        assert "stockstats_utils import load_ohlcv" not in source
 
 
 @pytest.mark.unit
@@ -103,8 +166,8 @@ class GetInstrumentContextFromStateTests(unittest.TestCase):
         self.assertEqual(get_instrument_context_from_state(state), "PRECOMPUTED")
 
     def test_fallback_is_network_free_ticker_only(self):
-        # No instrument_context and no yfinance call — must not hit the network.
-        with patch("tradingagents.agents.utils.agent_utils.yf.Ticker") as mock:
+        # No instrument_context and no provider call — must not hit the network.
+        with patch.object(agent_utils, "get_instrument_identity") as mock:
             context = get_instrument_context_from_state(
                 {"company_of_interest": "NVDA", "asset_type": "stock"}
             )
