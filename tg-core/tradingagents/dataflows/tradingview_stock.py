@@ -1,0 +1,160 @@
+"""TradingView adapters for company identity, OHLCV, and technical indicators."""
+
+from __future__ import annotations
+
+from datetime import datetime, time, timedelta, timezone
+from typing import Any
+from urllib.parse import quote
+
+import pandas as pd
+
+from .errors import NoMarketDataError
+from .provider_models import ProviderResult, parse_instrument
+from .stockstats_utils import _assert_ohlcv_not_stale, calculate_indicator_window
+from .tradingview_client import TradingViewClient
+from .tradingview_symbols import resolve_tradingview_symbol
+
+
+def _search_markets(client: TradingViewClient, query: str, asset_class: str):
+    filter_name = {"equity": "stock"}.get(asset_class, asset_class)
+    data = client.get(
+        f"/api/search/market/{quote(query, safe='')}",
+        params={"filter": filter_name},
+    )
+    markets = data.get("markets", [])
+    return markets if isinstance(markets, list) else []
+
+
+def _resolve(symbol: str, client: TradingViewClient):
+    ref = parse_instrument(symbol)
+    search = None
+    if not ref.exchange_hint:
+        def search(query: str):
+            return _search_markets(client, query, ref.asset_class)
+
+    return ref, resolve_tradingview_symbol(ref, search=search)
+
+
+def fetch_tradingview_ohlcv(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    *,
+    client: TradingViewClient | None = None,
+) -> ProviderResult[pd.DataFrame]:
+    """Fetch and validate an inclusive daily TradingView OHLCV range."""
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    if end < start:
+        raise ValueError("end_date must not be before start_date")
+
+    api = client or TradingViewClient()
+    ref, resolved = _resolve(symbol, api)
+    end_of_day = datetime.combine(end.date(), time(23, 59, 59), tzinfo=timezone.utc)
+    payload = api.get(
+        f"/api/price/{resolved.symbol}",
+        params={
+            "range": max(2, (end - start).days + 10),
+            "to": int(end_of_day.timestamp()),
+            "timeframe": "D",
+            "type": "Japanese",
+        },
+    )
+
+    history = payload.get("history")
+    if not isinstance(history, list) or not history:
+        raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned no price history")
+
+    source_columns = ["time", "open", "max", "min", "close", "volume"]
+    raw = pd.DataFrame(history)
+    if any(column not in raw.columns for column in source_columns):
+        raise NoMarketDataError(symbol, resolved.symbol, "TradingView history is missing OHLC fields")
+
+    frame = raw[source_columns].rename(
+        columns={
+            "time": "Date",
+            "open": "Open",
+            "max": "High",
+            "min": "Low",
+            "close": "Close",
+            "volume": "Volume",
+        }
+    )
+    frame["Date"] = pd.to_datetime(frame["Date"], unit="s", utc=True, errors="coerce").dt.tz_localize(None)
+    numeric_columns = ["Open", "High", "Low", "Close", "Volume"]
+    frame[numeric_columns] = frame[numeric_columns].apply(pd.to_numeric, errors="coerce")
+    if frame[["Date", "Open", "High", "Low", "Close"]].isna().any().any():
+        raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned invalid OHLC fields")
+
+    frame = frame.sort_values("Date")
+    frame = frame[(frame["Date"] >= start) & (frame["Date"] < end + timedelta(days=1))]
+    frame = frame.reset_index(drop=True)
+    if frame.empty:
+        raise NoMarketDataError(
+            symbol,
+            resolved.symbol,
+            f"no rows between {start_date} and {end_date}",
+        )
+    _assert_ohlcv_not_stale(frame, end_date, symbol, resolved.symbol)
+
+    return ProviderResult(
+        data=frame,
+        provider="tradingview",
+        requested=ref,
+        resolved_symbol=resolved.symbol,
+        as_of=frame["Date"].max().to_pydatetime().replace(tzinfo=timezone.utc),
+        adjustment_mode="Japanese",
+        provenance={"endpoint": f"/api/price/{resolved.symbol}"},
+    )
+
+
+def get_tradingview_stock(symbol: str, start_date: str, end_date: str) -> str:
+    """Return TradingView daily prices in the existing stock report format."""
+    result = fetch_tradingview_ohlcv(symbol, start_date, end_date)
+    label = result.resolved_symbol
+    if result.resolved_symbol != result.requested.raw_symbol.upper():
+        label = f"{result.resolved_symbol} (from {result.requested.raw_symbol})"
+    header = f"# Stock data for {label} from {start_date} to {end_date}\n"
+    header += f"# Total records: {len(result.data)}\n"
+    header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    return header + result.data.to_csv(index=False)
+
+
+def get_tradingview_indicators(
+    symbol: str,
+    indicator: str,
+    curr_date: str,
+    look_back_days: int,
+) -> str:
+    """Calculate stockstats indicators from TradingView daily candles."""
+    end = datetime.strptime(curr_date, "%Y-%m-%d")
+    start = end - timedelta(days=look_back_days + 250)
+    result = fetch_tradingview_ohlcv(
+        symbol,
+        start.strftime("%Y-%m-%d"),
+        curr_date,
+    )
+    return calculate_indicator_window(
+        result.data, symbol, indicator, curr_date, look_back_days
+    )
+
+
+def get_tradingview_identity(
+    ticker: str,
+    *,
+    client: TradingViewClient | None = None,
+) -> dict[str, str]:
+    """Return normalized company identity fields from TradingView."""
+    api = client or TradingViewClient()
+    _, resolved = _resolve(ticker, api)
+    payload = api.get(f"/api/market-data/{resolved.symbol}/company")
+    company: Any = payload.get("company")
+    if not isinstance(company, dict):
+        raise NoMarketDataError(ticker, resolved.symbol, "TradingView returned no company identity")
+    return {
+        "company_name": str(company.get("description") or ""),
+        "sector": str(company.get("sector") or ""),
+        "industry": str(company.get("industry") or ""),
+        "exchange": str(company.get("listed_exchange") or resolved.exchange or ""),
+        "quote_type": "stock",
+    }

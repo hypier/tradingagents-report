@@ -68,3 +68,18 @@ class TestCleanDataframeAcrossVersions:
         df["close_5_sma"]  # triggers calculation
         assert "close_5_sma" in df.columns
         assert df["close_5_sma"].notna().any()
+
+    def test_indicator_window_accepts_legacy_date_column_and_preserves_text(self):
+        result = su.calculate_indicator_window(
+            _ohlcv("index"), "AAPL", "close_10_ema", "2026-04-14", 1
+        )
+
+        assert result.startswith(
+            "## close_10_ema values from 2026-04-13 to 2026-04-14:\n\n"
+        )
+        assert "2026-04-14:" in result
+        assert result.endswith(
+            "10 EMA: A responsive short-term average. Usage: Capture quick shifts in momentum "
+            "and potential entry points. Tips: Prone to noise in choppy markets; use alongside "
+            "longer averages for filtering false signals."
+        )
