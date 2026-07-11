@@ -148,6 +148,7 @@ _INCOME_STATEMENT_FIELDS = frozenset(
         "equity_in_earnings",
         "gross_profit",
         "income_tax",
+        "interest_expense_on_debt",
         "minority_interest_exp",
         "net_income",
         "net_income_bef_disc_oper",
@@ -289,6 +290,9 @@ def _statement_frame(
             if not isinstance(period, str) or not period or index >= len(history_ends):
                 continue
             fiscal_end = _fiscal_end(history_ends[index])
+            existing = periods.get(period)
+            if existing is not None and existing["end"] is None and fiscal_end is not None:
+                existing["end"] = fiscal_end
             values = {
                 field: series[index]
                 for field, series in history_fields.items()
@@ -296,11 +300,9 @@ def _statement_frame(
             }
             if not values:
                 continue
-            if period in periods:
-                if periods[period]["end"] is None and fiscal_end is not None:
-                    periods[period]["end"] = fiscal_end
+            if existing is not None:
                 for field, value in values.items():
-                    periods[period]["values"].setdefault(field, value)
+                    existing["values"].setdefault(field, value)
             else:
                 periods[period] = {"end": fiscal_end, "values": values}
 

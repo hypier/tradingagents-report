@@ -218,7 +218,11 @@ def test_statement_uses_distinct_field_family_and_excludes_nested_values(
                 "common_equity_total",
                 "total_equity",
             ],
-            ["oper_income", "common_dividends_cash_flow"],
+            [
+                "oper_income",
+                "interest_expense_on_debt",
+                "common_dividends_cash_flow",
+            ],
         ),
         (
             get_tradingview_income_statement,
@@ -234,6 +238,7 @@ def test_statement_uses_distinct_field_family_and_excludes_nested_values(
                 "ebitda",
                 "pretax_income",
                 "income_tax",
+                "interest_expense_on_debt",
                 "net_income",
             ],
             ["total_assets", "cash_f_operating_activities"],
@@ -254,7 +259,7 @@ def test_statement_uses_distinct_field_family_and_excludes_nested_values(
                 "changes_in_working_capital",
                 "free_cash_flow",
             ],
-            ["total_assets", "total_revenue"],
+            ["total_assets", "total_revenue", "interest_expense_on_debt"],
         ),
     ],
 )
@@ -305,6 +310,34 @@ def test_duplicate_current_period_backfills_history_end_before_cutoff_and_sortin
         {
             "history_annual": {
                 "total_revenue_fy_h": [299, 200],
+                "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
+                "fiscal_period_end_fy_h": [
+                    epoch("2025-12-31"),
+                    epoch("2024-12-31"),
+                ],
+            }
+        },
+    ]
+
+    output = get_tradingview_income_statement("NASDAQ:AAPL", "annual", "2025-12-31", client=client)
+
+    assert ",FY-2025,FY-2024" in output
+    assert "total_revenue,300,200" in output
+
+
+def test_duplicate_period_backfills_end_when_matching_history_cells_are_null():
+    client = Mock()
+    client.get.side_effect = [
+        {
+            "financials_annual": {
+                "total_revenue_fy": 300,
+                "fiscal_period_fy": "FY-2025",
+                "fiscal_period_end_fy": None,
+            }
+        },
+        {
+            "history_annual": {
+                "total_revenue_fy_h": [None, 200],
                 "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
                 "fiscal_period_end_fy_h": [
                     epoch("2025-12-31"),
