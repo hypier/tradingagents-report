@@ -97,6 +97,7 @@ flowchart TB
 
     A1 --> T["LangChain Tools"]
     T --> D["数据供应商路由"]
+    D --> TV["TradingView Data API"]
     D --> Y["Yahoo Finance"]
     D --> AV["Alpha Vantage"]
     D --> F["FRED"]
@@ -182,7 +183,7 @@ Market → Sentiment → News → Fundamentals
 4. LLM 不再返回工具调用时，将最终内容写入对应报告字段。
 5. `create_msg_delete()` 删除上一阶段消息，并加入带标的、日期和资产类型的占位消息。
 
-情绪分析员是例外：它在节点内部直接预取 Yahoo 新闻、StockTwits 和 Reddit 数据，再执行一次结构化 LLM 调用。它不会走 `tools_social` 循环；保留该 ToolNode 主要是为了兼容现有图结构和旧的 `social` wire key。
+情绪分析员是例外：它在节点内部直接预取配置的市场新闻供应商、StockTwits 和 Reddit 数据，再执行一次结构化 LLM 调用。它不会走 `tools_social` 循环；保留该 ToolNode 主要是为了兼容现有图结构和旧的 `social` wire key。
 
 ### 5.3 辩论轮次
 
@@ -214,7 +215,7 @@ Market → Sentiment → News → Fundamentals
 | Agent | 输入 | 工具或外部数据 | 输出字段 |
 |---|---|---|---|
 | Market Analyst | 标的、日期、身份上下文 | OHLCV、技术指标、验证快照 | `market_report` |
-| Sentiment Analyst | 标的、近 7 天窗口 | Yahoo 新闻、StockTwits、Reddit | `sentiment_report` |
+| Sentiment Analyst | 标的、近 7 天窗口 | 配置的市场新闻供应商、StockTwits、Reddit | `sentiment_report` |
 | News Analyst | 标的、日期、资产类型 | 标的新闻、全球新闻、FRED、Polymarket | `news_report` |
 | Fundamentals Analyst | 标的、日期 | 公司概况、资产负债表、现金流、利润表 | `fundamentals_report` |
 
@@ -315,26 +316,28 @@ Agent 通过 12 个 LangChain 工具访问数据：
 
 ### 8.2 数据供应商矩阵
 
-| 能力 | Yahoo Finance | Alpha Vantage | FRED | Polymarket | StockTwits | Reddit |
-|---|---:|---:|---:|---:|---:|---:|
-| OHLCV | 是 | 是 | 否 | 否 | 否 | 否 |
-| 技术指标 | 本地 stockstats 计算 | 是 | 否 | 否 | 否 | 否 |
-| 公司基本面与财报 | 是 | 是 | 否 | 否 | 否 | 否 |
-| 标的新闻 | 是 | 是 | 否 | 否 | 否 | 否 |
-| 全球新闻 | 是 | 是 | 否 | 否 | 否 | 否 |
-| 内部人交易 | 是 | 是 | 否 | 否 | 否 | 否 |
-| 宏观时间序列 | 否 | 否 | 是 | 否 | 否 | 否 |
-| 事件概率 | 否 | 否 | 否 | 是 | 否 | 否 |
-| 社交情绪 | 否 | 否 | 否 | 否 | 是 | 是 |
+| 能力 | TradingView | Yahoo Finance | Alpha Vantage | FRED | Polymarket | StockTwits | Reddit |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 标的身份 | 是 | 是 | 否 | 否 | 否 | 否 | 否 |
+| OHLCV | 是 | 是 | 是 | 否 | 否 | 否 | 否 |
+| 技术指标 | 本地 stockstats 计算 | 本地 stockstats 计算 | 是 | 否 | 否 | 否 | 否 |
+| 公司基本面与财报 | 是 | 是 | 是 | 否 | 否 | 否 | 否 |
+| 标的新闻 | 是 | 是 | 是 | 否 | 否 | 否 | 否 |
+| 全球新闻 | 是 | 是 | 是 | 否 | 否 | 否 | 否 |
+| 内部人交易 | 否 | 是 | 是 | 否 | 否 | 否 | 否 |
+| 宏观时间序列 | 否 | 否 | 否 | 是 | 否 | 否 | 否 |
+| 事件概率 | 否 | 否 | 否 | 否 | 是 | 否 | 否 |
+| 社交情绪 | 否 | 否 | 否 | 否 | 否 | 是 | 是 |
 
 默认配置使用：
 
 ```python
 data_vendors = {
-    "core_stock_apis": "yfinance",
-    "technical_indicators": "yfinance",
-    "fundamental_data": "yfinance",
-    "news_data": "yfinance",
+    "instrument_data": "tradingview,yfinance",
+    "core_stock_apis": "tradingview,yfinance,alpha_vantage",
+    "technical_indicators": "tradingview,yfinance,alpha_vantage",
+    "fundamental_data": "tradingview,yfinance,alpha_vantage",
+    "news_data": "tradingview,yfinance,alpha_vantage",
     "macro_data": "fred",
     "prediction_markets": "polymarket",
 }
@@ -345,10 +348,14 @@ data_vendors = {
 供应商配置就是实际调用链，不会静默加入未选择的供应商。例如：
 
 ```python
-config["data_vendors"]["core_stock_apis"] = "yfinance,alpha_vantage"
+config["data_vendors"]["core_stock_apis"] = "tradingview,yfinance"
 ```
 
-表示先调用 yfinance，只有在限流、未配置或无数据等情况下才尝试 Alpha Vantage。`tool_vendors` 可以覆盖单个工具，并且优先级高于类别配置。
+表示先调用 TradingView，只有在限流、未配置或无数据等情况下才尝试 Yahoo Finance。`tool_vendors` 可以覆盖单个工具，并且优先级高于类别配置。显式链是完整边界，路由绝不会尝试链外供应商；设为 `"default"` 才会使用不可变的方法级默认链。
+
+方法级默认链为：身份 `tradingview,yfinance`；价格、OHLCV、技术指标、基本面、财报、标的新闻和全球新闻 `tradingview,yfinance,alpha_vantage`；内部人交易 `yfinance,alpha_vantage`；宏观 `fred`；预测市场 `polymarket`。默认 `tool_vendors` 将内部人交易固定为 `yfinance,alpha_vantage`，因此它优先于 `news_data` 类别链。
+
+TradingView 使用 `TRADINGVIEW_RAPIDAPI_KEY`，其优先级高于 `RAPIDAPI_KEY`。没有任一 key 时，`VendorNotConfiguredError` 会让包含后续供应商的链继续回退；只有没有后续供应商时才会报告配置缺失。每日 OHLCV 请求始终显式传递 `type=Japanese`，不能依赖上游默认 candle 类型。
 
 路由层用统一错误类型决定行为：
 
@@ -363,7 +370,19 @@ FRED 和 Polymarket 属于可选增强数据。它们失败时返回 `DATA_UNAVA
 
 ### 8.4 标的代码标准化
 
-`normalize_symbol()` 是 CLI、行情、新闻、身份解析和收益计算的统一入口，主要规则如下：
+`normalize_symbol()` 保留为 Yahoo 兼容入口。新的 provider-neutral 路径先解析 `InstrumentRef`，再由 TradingView 符号解析器处理；主要 TradingView 映射如下：
+
+| 用户输入 | TradingView 代码 |
+|---|---|
+| `NASDAQ:AAPL` | `NASDAQ:AAPL` |
+| `0700.HK` | `HKEX:700` |
+| `600519.SS` | `SSE:600519` |
+| `BTC-USDT` | `BINANCE:BTCUSDT` |
+| `EURUSD` | `OANDA:EURUSD` |
+| `SPX500` | `SP:SPX` |
+| `XAUUSD` | `COMEX:GC1!` |
+
+裸股票（如 `AAPL`）通过 TradingView 市场搜索解析。Yahoo 兼容规则仍适用于它的 adapter：
 
 | 用户输入 | Yahoo 标准代码 | 规则 |
 |---|---|---|

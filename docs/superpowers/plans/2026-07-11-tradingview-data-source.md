@@ -676,7 +676,7 @@ def test_fetch_returns_uses_provider_neutral_ohlcv(monkeypatch):
     graph = MagicMock(spec=TradingAgentsGraph)
     graph._resolve_benchmark.return_value = "SPY"
     raw, alpha, days = TradingAgentsGraph._fetch_returns(graph, "NVDA", "2026-01-05")
-    assert (round(raw, 4), round(alpha, 4), days) == (0.04, 0.005, 2)
+    assert (round(raw, 4), round(alpha, 4), days) == (0.04, 0.035, 2)
     assert [call.args[0] for call in fetch.call_args_list] == ["NVDA", "SPY"]
 ```
 
@@ -718,7 +718,7 @@ git commit -m "refactor: remove Yahoo assumptions from graph and prompts"
 **Interfaces:**
 - Verifies all public tools and provider-neutral paths; produces no new runtime interface.
 
-- [ ] **Step 1: Add opt-in live test**
+- [x] **Step 1: Add opt-in live test**
 
 ```python
 @pytest.mark.integration
@@ -735,7 +735,7 @@ def test_live_aapl_daily_japanese_ohlcv():
     assert result.adjustment_mode == "Japanese"
 ```
 
-- [ ] **Step 2: Document configuration and selection behavior**
+- [x] **Step 2: Document configuration and selection behavior**
 
 README and architecture docs must state:
 
@@ -746,7 +746,7 @@ README and architecture docs must state:
 - missing-key fallback
 - TradingView symbol examples and explicit Japanese candle invariant
 
-- [ ] **Step 3: Run focused suites**
+- [x] **Step 3: Run focused suites**
 
 Run:
 
@@ -763,7 +763,7 @@ cd tg-core
 
 Expected: all selected tests pass with no external-network dependency.
 
-- [ ] **Step 4: Run full static and test verification**
+- [x] **Step 4: Run full static and test verification**
 
 Run:
 
@@ -775,7 +775,7 @@ cd tg-core
 
 Expected: ruff exits 0 and the full suite passes.
 
-- [ ] **Step 5: Run the opt-in live test**
+- [x] **Step 5: Run the opt-in live test**
 
 Read the already authorized ignored key file into only the test process environment, without printing it:
 
@@ -787,7 +787,7 @@ TRADINGVIEW_RAPIDAPI_KEY="$(<../.agents/skills/tradingview-api-integration/.rapi
 
 Expected: `test_live_aapl_daily_japanese_ohlcv` passes. If the external service is unavailable, report it separately; do not weaken unit contracts.
 
-- [ ] **Step 6: Verify no secret or business-layer Yahoo dependency**
+- [x] **Step 6: Verify no secret or business-layer Yahoo dependency**
 
 Run:
 
@@ -800,7 +800,7 @@ rg -n "import yfinance|yf\.Ticker|stockstats_utils import load_ohlcv" \
 
 Expected: both commands produce no matches.
 
-- [ ] **Step 7: Commit documentation and live test**
+- [x] **Step 7: Commit documentation and live test**
 
 ```bash
 git add tg-core/tests/test_tradingview_live.py tg-core/README.md tg-core/docs/PROJECT_ARCHITECTURE.md docs/superpowers/plans/2026-07-11-tradingview-data-source.md

@@ -153,7 +153,14 @@ export MINIMAX_API_KEY=...         # MiniMax — Global (api.minimax.io)
 export MINIMAX_CN_API_KEY=...      # MiniMax — China (api.minimaxi.com)
 export OPENROUTER_API_KEY=...      # OpenRouter
 export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage
+# Set TRADINGVIEW_RAPIDAPI_KEY for the TradingView Data API on RapidAPI.
 ```
+
+For TradingView, `TRADINGVIEW_RAPIDAPI_KEY` takes precedence over the generic
+`RAPIDAPI_KEY`. Either name can be set in the process environment or `.env`.
+The key is optional when another configured vendor can serve the requested
+capability: an unconfigured TradingView adapter falls through to the next
+vendor in that capability's chain.
 
 For Azure OpenAI, copy `.env.enterprise.example` to `.env.enterprise` and fill in your credentials.
 
@@ -179,13 +186,40 @@ You will see a screen where you can select your desired tickers, analysis date, 
 
 ### Markets and tickers
 
-TradingAgents works with any market Yahoo Finance covers, using the exchange-suffixed ticker. Company identity and the alpha benchmark resolve automatically per market.
+TradingAgents resolves symbols through its configured market-data providers.
+TradingView accepts qualified exchange symbols directly and deterministically
+maps common user-facing symbols before requesting market data. Examples include
+`NASDAQ:AAPL`, `0700.HK` to `HKEX:700`, `600519.SS` to `SSE:600519`,
+`BTC-USDT` to `BINANCE:BTCUSDT`, `EURUSD` to `OANDA:EURUSD`, `SPX500` to
+`SP:SPX`, and `XAUUSD` to `COMEX:GC1!`. Bare equities such as `AAPL` are
+resolved through TradingView market search.
 
 - US: `AAPL`, `SPY`
 - Hong Kong: `0700.HK` · Tokyo: `7203.T` · London: `AZN.L`
 - India: `RELIANCE.NS`, `.BO` · Canada: `.TO` · Australia: `.AX`
 - China A-shares: Shanghai `.SS`, Shenzhen `.SZ` (e.g. `600519.SS` for Kweichow Moutai)
 - Crypto: `BTC-USD`, `ETH-USD`
+
+### Market-data provider routing
+
+`data_vendors` selects a category-level ordered provider chain and
+`tool_vendors` overrides it for an individual method. A configured value is an
+explicit boundary: `"tradingview,yfinance"` tries only those providers, in that
+order, and never adds an unlisted provider. Use `"default"` to select the
+immutable method-specific policy.
+
+The default capability chains are TradingView then Yahoo Finance then Alpha
+Vantage for stock prices, OHLCV, technical indicators, fundamentals, financial
+statements, company news, and global news; TradingView then Yahoo Finance for
+instrument identity; Yahoo Finance then Alpha Vantage for insider
+transactions; FRED for macro data; and Polymarket for prediction markets.
+The default `tool_vendors` entry keeps insider transactions on
+`"yfinance,alpha_vantage"`, taking precedence over the `news_data` category.
+
+TradingView daily OHLCV requests always send `type=Japanese`; this is an
+explicit candle-mode invariant, not an inferred API default. When TradingView
+has no RapidAPI key, a chain with a subsequent provider continues to that
+provider. A TradingView-only chain instead reports the missing configuration.
 
 <p align="center">
   <img src="assets/cli/cli_init.png" width="100%" style="display: inline-block; margin: 0 2%;">
