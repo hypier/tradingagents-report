@@ -792,13 +792,18 @@ Expected: `test_live_aapl_daily_japanese_ohlcv` passes. If the external service 
 Run:
 
 ```bash
-git grep -nE '(TRADINGVIEW_RAPIDAPI_KEY|RAPIDAPI_KEY)=[^[:space:]]+'
+# Filename-only literal-key scan. These deliberately exclude the preceding
+# safe process-substitution value, while checking likely RapidAPI key forms.
+git grep -lE '(TRADINGVIEW_RAPIDAPI_KEY|RAPIDAPI_KEY)=[[:alnum:]_-]{20,}'
+git grep -lE '(TRADINGVIEW_RAPIDAPI_KEY|RAPIDAPI_KEY)="[[:alnum:]_-]{20,}"'
+git grep -lE "(TRADINGVIEW_RAPIDAPI_KEY|RAPIDAPI_KEY)='[[:alnum:]_-]{20,}'"
 rg -n "import yfinance|yf\.Ticker|stockstats_utils import load_ohlcv" \
   tg-core/tradingagents/agents tg-core/tradingagents/graph \
   tg-core/tradingagents/dataflows/market_data_validator.py
 ```
 
-Expected: both commands produce no matches.
+Expected: all three literal-key scans and the Yahoo dependency scan produce no
+matches.
 
 - [x] **Step 7: Commit documentation and live test**
 
