@@ -1,10 +1,12 @@
 """Tests for TradingMemoryLog — storage, deferred reflection, PM injection, legacy removal."""
 
-from unittest.mock import MagicMock, patch
+import inspect
+from unittest.mock import MagicMock, Mock, call
 
 import pandas as pd
 import pytest
 
+import tradingagents.graph.trading_graph as trading_graph_module
 from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
 from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating
 from tradingagents.agents.utils.memory import TradingMemoryLog
@@ -54,9 +56,10 @@ def _resolve_entry(log, ticker, date, decision, reflection="Good call."):
     log.update_with_outcome(ticker, date, 0.05, 0.02, 5, reflection)
 
 
-def _price_df(prices):
-    """Minimal DataFrame matching yfinance .history() output shape."""
-    return pd.DataFrame({"Close": prices})
+def _price_df(prices, dates=None):
+    """Minimal provider-neutral OHLCV frame."""
+    dates = dates or pd.date_range("2026-01-05", periods=len(prices), freq="D")
+    return pd.DataFrame({"Date": dates, "Close": prices})
 
 
 def _make_pm_state(past_context=""):
@@ -486,55 +489,112 @@ class TestDeferredReflection:
 
     # TradingAgentsGraph._fetch_returns
 
-    def test_fetch_returns_valid_ticker(self):
-        stock_prices = [100.0, 102.0, 104.0, 103.0, 105.0, 106.0]
-        spy_prices   = [400.0, 402.0, 404.0, 403.0, 405.0, 406.0]
+    def test_fetch_returns_uses_provider_neutral_ohlcv(self, monkeypatch):
+        frames = {
+            "NVDA": _price_df([100, 102, 104]),
+            "SPY": _price_df([400, 401, 402]),
+        }
+        fetch = Mock(side_effect=lambda symbol, start, end: frames[symbol])
+        monkeypatch.setattr(trading_graph_module, "get_ohlcv", fetch, raising=False)
         mock_graph = MagicMock(spec=TradingAgentsGraph)
-        with patch("yfinance.Ticker") as mock_ticker_cls:
-            def _make_ticker(sym):
-                m = MagicMock()
-                m.history.return_value = _price_df(spy_prices if sym == "SPY" else stock_prices)
-                return m
-            mock_ticker_cls.side_effect = _make_ticker
-            raw, alpha, days = TradingAgentsGraph._fetch_returns(mock_graph, "NVDA", "2026-01-05")
-        assert raw is not None and alpha is not None and days is not None
-        assert isinstance(raw, float) and isinstance(alpha, float) and isinstance(days, int)
-        assert days == 5
+        raw, alpha, days = TradingAgentsGraph._fetch_returns(
+            mock_graph, "NVDA", "2026-01-05"
+        )
+        assert (round(raw, 4), round(alpha, 4), days) == (0.04, 0.035, 2)
+        assert fetch.call_args_list == [
+            call("NVDA", "2026-01-05", "2026-02-04"),
+            call("SPY", "2026-01-05", "2026-02-04"),
+        ]
 
-    def test_fetch_returns_too_recent(self):
+    def test_fetch_returns_too_recent(self, monkeypatch):
         """Only 1 data point available → returns (None, None, None), no crash."""
+        monkeypatch.setattr(
+            trading_graph_module,
+            "get_ohlcv",
+            Mock(return_value=_price_df([100.0])),
+            raising=False,
+        )
         mock_graph = MagicMock(spec=TradingAgentsGraph)
-        with patch("yfinance.Ticker") as mock_ticker_cls:
-            m = MagicMock()
-            m.history.return_value = _price_df([100.0])
-            mock_ticker_cls.return_value = m
-            raw, alpha, days = TradingAgentsGraph._fetch_returns(mock_graph, "NVDA", "2026-04-19")
+        raw, alpha, days = TradingAgentsGraph._fetch_returns(
+            mock_graph, "NVDA", "2026-04-19"
+        )
         assert raw is None and alpha is None and days is None
 
-    def test_fetch_returns_delisted(self):
-        """Empty DataFrame → returns (None, None, None), no crash."""
+    def test_fetch_returns_provider_error_fails_open(self, monkeypatch):
+        """Provider errors return (None, None, None), ready for a later retry."""
+        monkeypatch.setattr(
+            trading_graph_module,
+            "get_ohlcv",
+            Mock(side_effect=ValueError("No OHLCV data available")),
+            raising=False,
+        )
         mock_graph = MagicMock(spec=TradingAgentsGraph)
-        with patch("yfinance.Ticker") as mock_ticker_cls:
-            m = MagicMock()
-            m.history.return_value = pd.DataFrame({"Close": []})
-            mock_ticker_cls.return_value = m
-            raw, alpha, days = TradingAgentsGraph._fetch_returns(mock_graph, "XXXXXFAKE", "2026-01-10")
+        raw, alpha, days = TradingAgentsGraph._fetch_returns(
+            mock_graph, "XXXXXFAKE", "2026-01-10"
+        )
         assert raw is None and alpha is None and days is None
 
-    def test_fetch_returns_spy_shorter_than_stock(self):
-        """SPY having fewer rows than the stock must not raise IndexError."""
-        stock_prices = [100.0, 102.0, 104.0, 103.0, 105.0, 106.0]
-        spy_prices   = [400.0, 402.0, 403.0]
+    def test_fetch_returns_inner_aligns_dates_and_normalizes_index(self, monkeypatch):
+        stock = _price_df(
+            [999, 100, "bad", 110, 121],
+            ["2026-01-04", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-09"],
+        )
+        bench = pd.DataFrame(
+            {"Close": [400, 404, 408, 412]},
+            index=pd.DatetimeIndex(
+                ["2026-01-05", "2026-01-07", "2026-01-08", "2026-01-09"],
+                tz="US/Eastern",
+            ),
+        )
+        fetch = Mock(side_effect=[stock, bench])
+        monkeypatch.setattr(trading_graph_module, "get_ohlcv", fetch, raising=False)
         mock_graph = MagicMock(spec=TradingAgentsGraph)
-        with patch("yfinance.Ticker") as mock_ticker_cls:
-            def _make_ticker(sym):
-                m = MagicMock()
-                m.history.return_value = _price_df(spy_prices if sym == "SPY" else stock_prices)
-                return m
-            mock_ticker_cls.side_effect = _make_ticker
-            raw, alpha, days = TradingAgentsGraph._fetch_returns(mock_graph, "NVDA", "2026-01-05")
-        assert raw is not None and alpha is not None and days is not None
+        raw, alpha, days = TradingAgentsGraph._fetch_returns(
+            mock_graph, "NVDA", "2026-01-05"
+        )
+        assert raw == pytest.approx(0.21)
+        assert alpha == pytest.approx(0.18)
         assert days == 2
+
+    def test_fetch_returns_deduplicates_dates_before_alignment(self, monkeypatch):
+        frames = [
+            _price_df([100, 999, 110], ["2026-01-05", "2026-01-05", "2026-01-06"]),
+            _price_df([400, 404], ["2026-01-05", "2026-01-06"]),
+        ]
+        monkeypatch.setattr(
+            trading_graph_module, "get_ohlcv", Mock(side_effect=frames), raising=False
+        )
+        raw, alpha, days = TradingAgentsGraph._fetch_returns(
+            MagicMock(spec=TradingAgentsGraph), "NVDA", "2026-01-05"
+        )
+        assert raw == pytest.approx(0.1)
+        assert alpha == pytest.approx(0.09)
+        assert days == 1
+
+    def test_fetch_returns_preserves_timezone_local_calendar_dates(self, monkeypatch):
+        stock = _price_df([100, 110], ["2026-01-05", "2026-01-06"])
+        bench = pd.DataFrame(
+            {"Close": [400, 404]},
+            index=pd.date_range("2026-01-05", periods=2, freq="D", tz="Asia/Shanghai"),
+        )
+        monkeypatch.setattr(
+            trading_graph_module,
+            "get_ohlcv",
+            Mock(side_effect=[stock, bench]),
+            raising=False,
+        )
+        raw, alpha, days = TradingAgentsGraph._fetch_returns(
+            MagicMock(spec=TradingAgentsGraph), "NVDA", "2026-01-05"
+        )
+        assert raw == pytest.approx(0.1)
+        assert alpha == pytest.approx(0.09)
+        assert days == 1
+
+    def test_trading_graph_has_no_direct_yahoo_dependencies(self):
+        source = inspect.getsource(trading_graph_module)
+        assert "import yfinance" not in source
+        assert "yf.Ticker" not in source
+        assert "normalize_symbol" not in source
 
     # TradingAgentsGraph._resolve_benchmark — picks index for alpha calc
 
