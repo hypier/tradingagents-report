@@ -108,6 +108,24 @@ def test_historical_undated_company_news_returns_existing_no_news_text():
     )
 
 
+def test_company_news_excludes_undated_and_incomplete_current_articles():
+    client = Mock()
+    client.get.return_value = {
+        "items": [
+            {"title": "CURRENT BUT UNDATED", "provider": {"name": "Reuters"}, "link": "https://example.com"},
+            article("   ", "2026-07-09"),
+            article("NO PROVIDER", "2026-07-09", provider={"name": "Unknown"}),
+            article("NO LINK", "2026-07-09", link="", storyPath="not-a-path"),
+        ]
+    }
+
+    output = get_tradingview_news(
+        "NASDAQ:AAPL", "2026-07-08", "2026-07-10", client=client
+    )
+
+    assert output == "No news found for NASDAQ:AAPL between 2026-07-08 and 2026-07-10"
+
+
 def test_global_empty_window_returns_existing_no_news_text():
     client = Mock()
     client.get.return_value = {"items": [article("FUTURE", "2026-07-13")]}

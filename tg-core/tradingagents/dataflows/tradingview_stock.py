@@ -10,7 +10,11 @@ import pandas as pd
 
 from .errors import NoMarketDataError
 from .provider_models import ProviderResult, parse_instrument
-from .stockstats_utils import _assert_ohlcv_not_stale, calculate_indicator_window
+from .stockstats_utils import (
+    _assert_ohlcv_not_stale,
+    calculate_indicator_window,
+    validate_indicator,
+)
 from .tradingview_client import TradingViewClient
 from .tradingview_symbols import resolve_tradingview_symbol
 
@@ -131,6 +135,7 @@ def get_tradingview_indicators(
     look_back_days: int,
 ) -> str:
     """Calculate stockstats indicators from TradingView daily candles."""
+    validate_indicator(indicator)
     end = datetime.strptime(curr_date, "%Y-%m-%d")
     start = end - timedelta(days=look_back_days + 250)
     result = fetch_tradingview_ohlcv(
@@ -155,10 +160,19 @@ def get_tradingview_identity(
     company: Any = payload.get("company")
     if not isinstance(company, dict):
         raise NoMarketDataError(ticker, resolved.symbol, "TradingView returned no company identity")
-    return {
-        "company_name": str(company.get("description") or ""),
-        "sector": str(company.get("sector") or ""),
-        "industry": str(company.get("industry") or ""),
-        "exchange": str(company.get("listed_exchange") or resolved.exchange or ""),
-        "quote_type": "stock",
+
+    identity = {
+        "company_name": _identity_field(company.get("description")),
+        "sector": _identity_field(company.get("sector")),
+        "industry": _identity_field(company.get("industry")),
+        "exchange": _identity_field(company.get("listed_exchange")),
     }
+    if not any(identity.values()):
+        raise NoMarketDataError(ticker, resolved.symbol, "TradingView returned no company identity")
+    return {**identity, "quote_type": "stock"}
+
+
+def _identity_field(value: Any) -> str:
+    """Normalize TradingView company fields and discard placeholder values."""
+    text = value.strip() if isinstance(value, str) else str(value or "").strip()
+    return "" if text.lower() in {"", "-", "n/a", "na", "none", "null", "unknown"} else text

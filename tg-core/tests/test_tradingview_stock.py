@@ -253,6 +253,14 @@ def test_identity_maps_company_fields():
     client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL/company")
 
 
+def test_identity_rejects_company_without_meaningful_fields():
+    client = Mock()
+    client.get.return_value = {"symbol": "NASDAQ:AAPL", "company": {}}
+
+    with pytest.raises(NoMarketDataError, match="no company identity"):
+        get_tradingview_identity("NASDAQ:AAPL", client=client)
+
+
 def test_get_tradingview_stock_preserves_header_and_csv_format(monkeypatch):
     frame = pd.DataFrame(
         {
@@ -301,3 +309,13 @@ def test_get_tradingview_indicators_fetches_warmup_and_delegates(monkeypatch):
     fetch.assert_called_once_with("NASDAQ:AAPL", expected_start, "2026-07-10")
     calculate.assert_called_once_with(frame, "NASDAQ:AAPL", "rsi", "2026-07-10", 5)
     assert output == "indicator report"
+
+
+def test_get_tradingview_indicators_validates_before_fetching(monkeypatch):
+    fetch = Mock()
+    monkeypatch.setattr(tv, "fetch_tradingview_ohlcv", fetch)
+
+    with pytest.raises(ValueError, match="not supported"):
+        tv.get_tradingview_indicators("NASDAQ:AAPL", "not-an-indicator", "2026-07-10", 5)
+
+    fetch.assert_not_called()

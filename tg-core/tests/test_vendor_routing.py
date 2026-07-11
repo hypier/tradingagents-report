@@ -195,6 +195,20 @@ class VendorRoutingTests(unittest.TestCase):
             result = interface.route_structured("get_instrument_identity")
         self.assertEqual(result, {"company_name": "Apple"})
 
+    def test_structured_identity_falls_back_after_tradingview_has_no_data(self):
+        set_config({"data_vendors": {"instrument_data": "tradingview,yfinance"}})
+        with self._route_method(
+            "get_instrument_identity",
+            {
+                "tradingview": _raises(
+                    NoMarketDataError("AAPL", "NASDAQ:AAPL", "no company identity")
+                ),
+                "yfinance": lambda: {"company_name": "Apple Inc.", "quote_type": "stock"},
+            },
+        ):
+            result = interface.route_structured("get_instrument_identity")
+        self.assertEqual(result["company_name"], "Apple Inc.")
+
     def _route_method(self, method, vendors):
         return mock.patch.dict(interface.VENDOR_METHODS, {method: vendors}, clear=False)
 

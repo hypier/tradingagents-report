@@ -83,6 +83,18 @@ def test_status_mapping_does_not_leak_key(status, error):
     assert "secret-value" not in str(caught.value)
 
 
+def test_client_error_repr_does_not_leak_key():
+    response = Mock(status_code=401)
+    session = Mock()
+    session.get.return_value = response
+    client = TradingViewClient(api_key="secret-value", session=session)
+
+    with pytest.raises(VendorAuthenticationError) as caught:
+        client.get("/api/test")
+
+    assert "secret-value" not in repr(caught.value)
+
+
 @pytest.mark.parametrize(
     "exception",
     [requests.Timeout("timed out"), requests.RequestException("request failed")],

@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from dateutil.relativedelta import relativedelta
 
@@ -51,17 +51,34 @@ def _published_at(item: dict[str, Any]) -> datetime | None:
 
 def _article_data(item: dict[str, Any]) -> dict[str, Any]:
     provider = item.get("provider")
-    publisher = provider.get("name", "Unknown") if isinstance(provider, dict) else "Unknown"
-    link = item.get("link")
-    if not link and item.get("storyPath"):
-        link = f"https://www.tradingview.com{item['storyPath']}"
+    publisher = _article_text(provider.get("name")) if isinstance(provider, dict) else ""
+    direct_link = _direct_link(item.get("link"))
+    story_path_link = _story_path_link(item.get("storyPath"))
     return {
-        "title": item.get("title", "No title"),
+        "title": _article_text(item.get("title")),
         "summary": item.get("summary") or item.get("description") or "",
         "publisher": publisher,
-        "link": link or "",
+        "link": direct_link or story_path_link,
         "pub_date": _published_at(item),
     }
+
+
+def _article_text(value: Any) -> str:
+    text = value.strip() if isinstance(value, str) else ""
+    return "" if text.lower() in {"", "-", "n/a", "na", "none", "null", "unknown", "no title"} else text
+
+
+def _direct_link(value: Any) -> str:
+    link = value.strip() if isinstance(value, str) else ""
+    parsed = urlparse(link)
+    return link if parsed.scheme in {"http", "https"} and parsed.netloc else ""
+
+
+def _story_path_link(value: Any) -> str:
+    path = value.strip() if isinstance(value, str) else ""
+    if not path.startswith("/") or path.startswith("//"):
+        return ""
+    return f"https://www.tradingview.com{path}"
 
 
 def _filtered_articles(
@@ -79,6 +96,8 @@ def _filtered_articles(
         if not isinstance(item, dict):
             continue
         data = _article_data(item)
+        if not all((data["title"], data["publisher"], data["link"], data["pub_date"])):
+            continue
         if not in_news_window(data["pub_date"], start_dt, end_dt):
             continue
         key = (data["title"], data["pub_date"])

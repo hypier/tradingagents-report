@@ -22,6 +22,7 @@ from tradingagents.dataflows.errors import (
     VendorError,
     VendorNotConfiguredError,
     VendorRateLimitError,
+    VendorUnavailableError,
 )
 from tradingagents.dataflows.fred import FredNotConfiguredError
 
@@ -29,7 +30,13 @@ from tradingagents.dataflows.fred import FredNotConfiguredError
 @pytest.mark.unit
 class HierarchyTests(unittest.TestCase):
     def test_all_conditions_derive_from_vendor_error(self):
-        for cls in (NoMarketDataError, VendorRateLimitError, VendorNotConfiguredError):
+        for cls in (
+            NoMarketDataError,
+            VendorRateLimitError,
+            VendorNotConfiguredError,
+            VendorAuthenticationError,
+            VendorUnavailableError,
+        ):
             self.assertTrue(issubclass(cls, VendorError))
 
     def test_not_configured_is_still_a_value_error(self):
