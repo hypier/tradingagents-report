@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
-from tradingagents.dataflows import tradingview_stock as tv
+from tradingagents.dataflows import interface, tradingview_stock as tv
 from tradingagents.dataflows.errors import NoMarketDataError
 from tradingagents.dataflows.provider_models import ProviderResult, parse_instrument
 
@@ -229,6 +229,102 @@ def test_ohlcv_rejects_null_or_non_finite_numeric_fields(field, value):
 
     with pytest.raises(NoMarketDataError, match="OHLCV"):
         fetch_tradingview_ohlcv("NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client)
+
+
+@pytest.mark.parametrize("timestamp", [None, "not-a-timestamp", float("inf")])
+def test_ohlcv_rejects_missing_invalid_or_non_finite_timestamp(timestamp):
+    client = Mock()
+    client.get.return_value = _price_payload(
+        [{"time": timestamp, "open": 100, "max": 105, "min": 99, "close": 104, "volume": 10}]
+    )
+
+    with pytest.raises(NoMarketDataError, match="OHLCV"):
+        fetch_tradingview_ohlcv("NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client)
+
+
+def test_ohlcv_rejects_duplicate_timestamp():
+    bar = {"time": _epoch("2026-07-10"), "open": 100, "max": 105, "min": 99, "close": 104, "volume": 10}
+    client = Mock()
+    client.get.return_value = _price_payload([bar, bar.copy()])
+
+    with pytest.raises(NoMarketDataError, match="duplicate"):
+        fetch_tradingview_ohlcv("NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"max": 98, "min": 99},
+        {"max": 99},
+        {"min": 101},
+        {"volume": -1},
+    ],
+)
+def test_ohlcv_rejects_impossible_price_or_negative_volume(overrides):
+    bar = {"time": _epoch("2026-07-10"), "open": 100, "max": 105, "min": 99, "close": 104, "volume": 10}
+    bar.update(overrides)
+    client = Mock()
+    client.get.return_value = _price_payload([bar])
+
+    with pytest.raises(NoMarketDataError, match="invalid OHLCV"):
+        fetch_tradingview_ohlcv("NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client)
+
+
+def test_ohlcv_accepts_zero_volume():
+    client = Mock()
+    client.get.return_value = _price_payload(
+        [{"time": _epoch("2026-07-10"), "open": 100, "max": 105, "min": 99, "close": 104, "volume": 0}]
+    )
+
+    result = fetch_tradingview_ohlcv(
+        "NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client
+    )
+
+    assert result.data.loc[0, "Volume"] == 0
+
+
+def test_structured_ohlcv_route_falls_back_after_invalid_tradingview_bar(monkeypatch):
+    client = Mock()
+    client.get.return_value = _price_payload(
+        [{"time": _epoch("2026-07-10"), "open": 100, "max": 99, "min": 98, "close": 99, "volume": 10}]
+    )
+    requested = parse_instrument("NASDAQ:AAPL")
+    yahoo_result = ProviderResult(
+        pd.DataFrame(
+            {
+                "Date": [pd.Timestamp("2026-07-10")],
+                "Open": [100],
+                "High": [105],
+                "Low": [99],
+                "Close": [104],
+                "Volume": [10],
+            }
+        ),
+        "yfinance",
+        requested,
+        "AAPL",
+    )
+    yahoo = Mock(return_value=yahoo_result)
+    monkeypatch.setattr(
+        interface,
+        "get_vendor",
+        lambda category, method=None: "tradingview,yfinance",
+    )
+    monkeypatch.setitem(
+        interface.VENDOR_METHODS,
+        "get_ohlcv",
+        {
+            "tradingview": lambda *args: fetch_tradingview_ohlcv(*args, client=client),
+            "yfinance": yahoo,
+        },
+    )
+
+    result = interface.route_structured(
+        "get_ohlcv", "NASDAQ:AAPL", "2026-07-10", "2026-07-10"
+    )
+
+    assert result is yahoo_result
+    yahoo.assert_called_once_with("NASDAQ:AAPL", "2026-07-10", "2026-07-10")
 
 
 def test_identity_maps_company_fields():

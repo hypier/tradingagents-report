@@ -142,6 +142,106 @@ class VendorRoutingTests(unittest.TestCase):
             result = interface.route_to_vendor("get_stock_data", "AAPL")
         self.assertEqual(result, "AV")
 
+    def test_company_news_falls_back_after_legacy_no_news_text(self):
+        set_config(
+            {"data_vendors": {"news_data": "tradingview,yfinance,alpha_vantage"}}
+        )
+        alpha_vantage = mock.Mock(side_effect=AssertionError("outside fallback chain"))
+        with self._route_method(
+            "get_news",
+            {
+                "tradingview": _returns("No news found for AAPL between 2026-07-01 and 2026-07-10"),
+                "yfinance": _returns("## AAPL News, from 2026-07-01 to 2026-07-10:\n\n### Article"),
+                "alpha_vantage": alpha_vantage,
+            },
+        ):
+            result = interface.route_to_vendor(
+                "get_news", "AAPL", "2026-07-01", "2026-07-10"
+            )
+        self.assertIn("### Article", result)
+        alpha_vantage.assert_not_called()
+
+    def test_global_news_falls_back_after_legacy_no_news_text(self):
+        set_config(
+            {"data_vendors": {"news_data": "tradingview,yfinance,alpha_vantage"}}
+        )
+        alpha_vantage = mock.Mock(side_effect=AssertionError("outside fallback chain"))
+        with self._route_method(
+            "get_global_news",
+            {
+                "tradingview": _returns("No global news found between 2026-07-03 and 2026-07-10"),
+                "yfinance": _returns("## Global News\n\n### Article"),
+                "alpha_vantage": alpha_vantage,
+            },
+        ):
+            result = interface.route_to_vendor("get_global_news", "2026-07-10", 7, 50)
+        self.assertIn("### Article", result)
+        alpha_vantage.assert_not_called()
+
+    def test_company_news_returns_legacy_no_news_after_configured_chain_is_empty(self):
+        set_config(
+            {"data_vendors": {"news_data": "tradingview,yfinance,alpha_vantage"}}
+        )
+        with self._route_method(
+            "get_news",
+            {
+                "tradingview": _returns("No news found for AAPL between 2026-07-01 and 2026-07-10"),
+                "yfinance": _returns("No news found for AAPL between 2026-07-01 and 2026-07-10"),
+                "alpha_vantage": _returns("No news found for AAPL between 2026-07-01 and 2026-07-10"),
+            },
+        ):
+            result = interface.route_to_vendor(
+                "get_news", "AAPL", "2026-07-01", "2026-07-10"
+            )
+        self.assertEqual(
+            result, "No news found for AAPL between 2026-07-01 and 2026-07-10"
+        )
+
+    def test_global_news_returns_legacy_no_news_after_configured_chain_is_empty(self):
+        set_config(
+            {"data_vendors": {"news_data": "tradingview,yfinance,alpha_vantage"}}
+        )
+        with self._route_method(
+            "get_global_news",
+            {
+                "tradingview": _returns("No global news found between 2026-07-03 and 2026-07-10"),
+                "yfinance": _returns("No global news found between 2026-07-03 and 2026-07-10"),
+                "alpha_vantage": _returns("No global news found between 2026-07-03 and 2026-07-10"),
+            },
+        ):
+            result = interface.route_to_vendor("get_global_news", "2026-07-10", 7, 50)
+        self.assertEqual(
+            result, "No global news found between 2026-07-03 and 2026-07-10"
+        )
+
+    def test_explicit_news_chain_does_not_fall_back_beyond_its_boundary(self):
+        set_config({"tool_vendors": {"get_news": "tradingview"}})
+        yfinance = mock.Mock(side_effect=AssertionError("outside explicit chain"))
+        with self._route_method(
+            "get_news",
+            {
+                "tradingview": _returns("No news found for AAPL"),
+                "yfinance": yfinance,
+            },
+        ):
+            result = interface.route_to_vendor("get_news", "AAPL", "2026-07-01", "2026-07-10")
+        self.assertEqual(result, "No news found for AAPL")
+        yfinance.assert_not_called()
+
+    def test_insider_no_transactions_text_remains_a_usable_response(self):
+        set_config({"data_vendors": {"news_data": "yfinance,alpha_vantage"}})
+        alpha_vantage = mock.Mock(side_effect=AssertionError("must not fall back"))
+        with self._route_method(
+            "get_insider_transactions",
+            {
+                "yfinance": _returns("No insider transactions reported for symbol 'AAPL'"),
+                "alpha_vantage": alpha_vantage,
+            },
+        ):
+            result = interface.route_to_vendor("get_insider_transactions", "AAPL")
+        self.assertIn("No insider transactions", result)
+        alpha_vantage.assert_not_called()
+
     def test_structured_route_rejects_empty_provider_result(self):
         set_config({"data_vendors": {"core_stock_apis": "default"}})
         requested = parse_instrument("AAPL")

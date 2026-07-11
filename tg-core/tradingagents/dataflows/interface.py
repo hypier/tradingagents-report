@@ -280,24 +280,44 @@ def _no_data_message(error: NoMarketDataError) -> str:
     )
 
 
+_LEGACY_NO_NEWS_PREFIXES = {
+    "get_news": "no news found",
+    "get_global_news": "no global news found",
+}
+
+
+def _is_legacy_no_news(method: str, result: Any) -> bool:
+    """Recognize only legacy news no-content strings that require fallback."""
+    prefix = _LEGACY_NO_NEWS_PREFIXES.get(method)
+    return bool(
+        prefix
+        and isinstance(result, str)
+        and result.strip().lower().startswith(prefix)
+    )
+
+
 def _execute_route(
     method: str,
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
     is_usable: Callable[[Any], bool],
-) -> tuple[Any | None, str, NoMarketDataError | None, Exception | None]:
+) -> tuple[Any | None, str, NoMarketDataError | None, Exception | None, str | None]:
     """Execute one capability chain for string and structured entry points."""
     category = get_category_for_method(method)
     last_no_data: NoMarketDataError | None = None
     first_error: Exception | None = None
+    last_no_news: str | None = None
 
     for vendor in _vendor_chain(method, category):
         vendor_impl = VENDOR_METHODS[method][vendor]
         impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
         try:
             result = impl_func(*args, **kwargs)
+            if _is_legacy_no_news(method, result):
+                last_no_news = result
+                continue
             if is_usable(result):
-                return result, category, last_no_data, first_error
+                return result, category, last_no_data, first_error, last_no_news
             symbol = str(args[0]) if args else method
             last_no_data = NoMarketDataError(
                 symbol, detail=f"{vendor} returned an empty or invalid result"
@@ -325,7 +345,7 @@ def _execute_route(
             )
             if first_error is None:
                 first_error = error
-    return None, category, last_no_data, first_error
+    return None, category, last_no_data, first_error, last_no_news
 
 
 def _is_usable_string(result: Any) -> bool:
@@ -351,11 +371,13 @@ def _is_usable_structured(result: Any) -> bool:
 
 def route_to_vendor(method: str, *args, **kwargs) -> str:
     """Route a compatibility-string method through its explicit vendor chain."""
-    result, category, last_no_data, first_error = _execute_route(
+    result, category, last_no_data, first_error, last_no_news = _execute_route(
         method, args, kwargs, _is_usable_string
     )
     if result is not None:
         return result
+    if last_no_news is not None and last_no_data is None and first_error is None:
+        return last_no_news
     if last_no_data is not None:
         if first_error is not None and not isinstance(
             first_error, VendorNotConfiguredError
@@ -384,7 +406,7 @@ def route_structured(
     method: str, *args, **kwargs
 ) -> ProviderResult[Any] | dict[str, str]:
     """Route a structured method and reject empty provider results."""
-    result, _, last_no_data, first_error = _execute_route(
+    result, _, last_no_data, first_error, _ = _execute_route(
         method, args, kwargs, _is_usable_structured
     )
     if result is not None:

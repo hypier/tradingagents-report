@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta, timezone
+from math import isfinite
 from typing import Any
 from urllib.parse import quote
 
@@ -84,7 +85,10 @@ def fetch_tradingview_ohlcv(
             "volume": "Volume",
         }
     )
-    frame["Date"] = pd.to_datetime(frame["Date"], unit="s", utc=True, errors="coerce").dt.tz_localize(None)
+    timestamps = pd.to_numeric(frame["Date"], errors="coerce")
+    if timestamps.isna().any() or not timestamps.map(isfinite).all():
+        raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned invalid OHLCV fields")
+    frame["Date"] = pd.to_datetime(timestamps, unit="s", utc=True, errors="coerce").dt.tz_localize(None)
     numeric_columns = ["Open", "High", "Low", "Close", "Volume"]
     frame[numeric_columns] = frame[numeric_columns].apply(pd.to_numeric, errors="coerce")
     numeric_values = frame[numeric_columns]
@@ -92,6 +96,18 @@ def fetch_tradingview_ohlcv(
         [float("inf"), float("-inf")]
     ).any().any()
     if frame["Date"].isna().any() or invalid_numeric:
+        raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned invalid OHLCV fields")
+    if frame["Date"].duplicated().any():
+        raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned duplicate OHLCV timestamps")
+    invalid_bar = (
+        (frame["High"] < frame["Low"])
+        | (frame["High"] < frame["Open"])
+        | (frame["High"] < frame["Close"])
+        | (frame["Low"] > frame["Open"])
+        | (frame["Low"] > frame["Close"])
+        | (frame["Volume"] < 0)
+    )
+    if invalid_bar.any():
         raise NoMarketDataError(symbol, resolved.symbol, "TradingView returned invalid OHLCV fields")
 
     frame = frame.sort_values("Date")

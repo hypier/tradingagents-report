@@ -181,6 +181,15 @@ def test_validator_and_identity_have_no_direct_yahoo_calls():
 
 
 @pytest.mark.unit
+def test_graph_identity_docstring_is_provider_neutral():
+    source_root = Path(agent_utils.__file__).parents[2]
+    graph_source = (source_root / "graph" / "trading_graph.py").read_text(encoding="utf-8")
+
+    assert "Deterministic provider-routed lookup" in graph_source
+    assert "Deterministic yfinance lookup" not in graph_source
+
+
+@pytest.mark.unit
 class BuildInstrumentContextTests(unittest.TestCase):
     def test_mentions_exact_symbol_without_identity(self):
         context = build_instrument_context("7203.T")
