@@ -39,66 +39,137 @@ _FUNDAMENTAL_FIELDS = (
 )
 
 # TradingView exposes all statement fields in the same response shape. These
-# explicit families keep the three compatibility adapters semantically distinct.
-_BALANCE_SHEET_PREFIXES = (
-    "accounts_payable",
-    "accounts_receivable",
-    "book_value",
-    "capital_surplus",
-    "cash_n_",
-    "common_stock",
-    "deferred_tax_asset",
-    "deferred_tax_liabilit",
-    "goodwill",
-    "intangible_asset",
-    "inventor",
-    "long_term_debt",
-    "long_term_investment",
-    "minority_interest",
-    "net_debt",
-    "other_asset",
-    "other_liabilit",
-    "preferred_stock",
-    "property_plant_equipment",
-    "retained_earning",
-    "short_term_debt",
-    "total_asset",
-    "total_current_asset",
-    "total_current_liabilit",
-    "total_debt",
-    "total_equity",
-    "total_liabilit",
-    "treasury_stock",
+# provider-native families keep the compatibility adapters semantically distinct.
+_BALANCE_SHEET_FIELDS = frozenset(
+    {
+        "accounts_payable",
+        "accounts_receivables_net",
+        "cash_n_equivalents",
+        "cash_n_short_term_invest",
+        "common_equity_total",
+        "common_stock_par",
+        "current_port_debt_capital_leases",
+        "deferred_income_current",
+        "goodwill",
+        "invested_capital",
+        "long_term_debt",
+        "long_term_debt_excl_capital_lease",
+        "long_term_investments",
+        "minority_interest",
+        "net_debt",
+        "other_common_equity",
+        "other_current_assets_total",
+        "other_current_liabilities",
+        "other_liabilities_total",
+        "other_receivables",
+        "paid_in_capital",
+        "ppe_total_gross",
+        "ppe_total_net",
+        "preferred_stock_carrying_value",
+        "retained_earnings",
+        "shrhldrs_equity",
+        "short_term_debt",
+        "short_term_debt_excl_current_port",
+        "short_term_invest",
+        "tangible_assets",
+        "total_assets",
+        "total_current_assets",
+        "total_current_liabilities",
+        "total_debt",
+        "total_equity",
+        "total_inventory",
+        "total_liabilities",
+        "total_liabilities_shrhldrs_equity",
+        "total_non_current_assets",
+        "total_non_current_liabilities",
+        "total_receivables_net",
+        "treasury_stock_common",
+        "working_capital",
+    }
 )
-_CASH_FLOW_PREFIXES = (
-    "capital_expenditure",
-    "cash_f_",
-    "change_in_",
-    "dividends_paid",
-    "free_cash_flow",
-    "issuance_of_",
-    "net_cash_flow",
-    "repurchase_of_",
+_CASH_FLOW_FIELDS = frozenset(
+    {
+        "capital_expenditures",
+        "capital_expenditures_fixed_assets",
+        "capital_expenditures_other_assets",
+        "cash_f_financing_activities",
+        "cash_f_investing_activities",
+        "cash_f_operating_activities",
+        "cash_flow_deferred_taxes",
+        "cash_flow_deprecation_n_amortization",
+        "change_in_accounts_payable",
+        "change_in_accounts_receivable",
+        "change_in_inventories",
+        "change_in_other_assets",
+        "changes_in_working_capital",
+        "common_dividends_cash_flow",
+        "free_cash_flow",
+        "funds_f_operations",
+        "issuance_of_debt_net",
+        "issuance_of_long_term_debt",
+        "issuance_of_short_term_debt",
+        "issuance_of_stock_net",
+        "non_cash_items",
+        "other_financing_cash_flow_items_total",
+        "other_financing_cash_flow_sources",
+        "other_financing_cash_flow_uses",
+        "other_investing_cash_flow_items_total",
+        "other_investing_cash_flow_sources",
+        "other_investing_cash_flow_uses",
+        "preferred_dividends_cash_flow",
+        "proceeds_from_stock_options",
+        "purchase_of_business",
+        "purchase_of_investments",
+        "purchase_of_stock",
+        "purchase_sale_business",
+        "purchase_sale_investments",
+        "reduction_of_long_term_debt",
+        "sale_of_stock",
+        "sales_of_business",
+        "sales_of_investments",
+        "supplying_of_long_term_debt",
+        "total_cash_dividends_paid",
+    }
 )
-_INCOME_STATEMENT_PREFIXES = (
-    "basic_eps",
-    "cost_of_",
-    "depreciation_amortization",
-    "diluted_eps",
-    "earnings_per_share",
-    "ebit",
-    "gross_profit",
-    "income_tax",
-    "interest_expense",
-    "net_income",
-    "normalized_income",
-    "operating_expense",
-    "operating_income",
-    "pretax_income",
-    "research_development",
-    "revenue",
-    "selling_general_admin",
-    "total_revenue",
+_INCOME_STATEMENT_FIELDS = frozenset(
+    {
+        "after_tax_other_income",
+        "cost_of_goods",
+        "cost_of_goods_excl_dep_amort",
+        "dep_amort_exp_income_s",
+        "depreciation_depletion",
+        "diluted_net_income",
+        "discontinued_operations",
+        "earnings_per_share",
+        "earnings_per_share_basic",
+        "earnings_per_share_diluted",
+        "ebit",
+        "ebitda",
+        "equity_in_earnings",
+        "gross_profit",
+        "income_tax",
+        "minority_interest_exp",
+        "net_income",
+        "net_income_bef_disc_oper",
+        "net_income_starting_line",
+        "non_oper_income",
+        "non_oper_interest_income",
+        "oper_income",
+        "operating_expenses",
+        "other_income",
+        "other_oper_expense_total",
+        "pretax_equity_in_earnings",
+        "pretax_income",
+        "research_and_dev",
+        "revenue",
+        "sell_gen_admin_exp_other",
+        "sell_gen_admin_exp_total",
+        "total_extra_items",
+        "total_non_oper_income",
+        "total_oper_expense",
+        "total_revenue",
+        "unusual_expense_inc",
+    }
 )
 
 
@@ -173,14 +244,14 @@ def _is_cell(value: Any) -> bool:
 
 
 def _allowed_fields(
-    data: Mapping[str, Any], suffix: str, prefixes: tuple[str, ...]
+    data: Mapping[str, Any], suffix: str, field_family: frozenset[str]
 ) -> dict[str, Any]:
     fields = {}
     for key, value in data.items():
         if not isinstance(key, str) or not key.endswith(suffix):
             continue
         field = key[: -len(suffix)]
-        if field.startswith(prefixes):
+        if field in field_family:
             fields[field] = value
     return fields
 
@@ -190,7 +261,7 @@ def _statement_frame(
     history: Mapping[str, Any],
     frequency: str,
     curr_date: str | None,
-    prefixes: tuple[str, ...],
+    field_family: frozenset[str],
 ) -> pd.DataFrame:
     period_suffix = "fq" if frequency == "quarterly" else "fy"
     period_key = f"fiscal_period_{period_suffix}"
@@ -201,14 +272,10 @@ def _statement_frame(
 
     current_period = current.get(period_key)
     current_end = _fiscal_end(current.get(period_end_key))
-    if (
-        isinstance(current_period, str)
-        and current_period
-        and (cutoff is None or (current_end is not None and current_end <= cutoff))
-    ):
+    if isinstance(current_period, str) and current_period:
         values = {
             field: value
-            for field, value in _allowed_fields(current, value_suffix, prefixes).items()
+            for field, value in _allowed_fields(current, value_suffix, field_family).items()
             if _is_cell(value)
         }
         if values:
@@ -216,46 +283,43 @@ def _statement_frame(
 
     history_periods = history.get(f"{period_key}_h")
     history_ends = history.get(f"{period_end_key}_h")
-    history_fields = _allowed_fields(history, f"{value_suffix}_h", prefixes)
+    history_fields = _allowed_fields(history, f"{value_suffix}_h", field_family)
     if isinstance(history_periods, list) and isinstance(history_ends, list):
         for index, period in enumerate(history_periods):
             if not isinstance(period, str) or not period or index >= len(history_ends):
                 continue
             fiscal_end = _fiscal_end(history_ends[index])
-            if cutoff is not None and (fiscal_end is None or fiscal_end > cutoff):
-                continue
             values = {
                 field: series[index]
                 for field, series in history_fields.items()
-                if isinstance(series, list)
-                and index < len(series)
-                and _is_cell(series[index])
+                if isinstance(series, list) and index < len(series) and _is_cell(series[index])
             }
             if not values:
                 continue
             if period in periods:
+                if periods[period]["end"] is None and fiscal_end is not None:
+                    periods[period]["end"] = fiscal_end
                 for field, value in values.items():
                     periods[period]["values"].setdefault(field, value)
             else:
                 periods[period] = {"end": fiscal_end, "values": values}
+
+    if cutoff is not None:
+        periods = {
+            period: data
+            for period, data in periods.items()
+            if data["end"] is not None and data["end"] <= cutoff
+        }
 
     ordered_periods = sorted(
         periods,
         key=lambda period: (periods[period]["end"] or date.min, period),
         reverse=True,
     )
-    fields = sorted(
-        {
-            field
-            for period in ordered_periods
-            for field in periods[period]["values"]
-        }
-    )
+    fields = sorted({field for period in ordered_periods for field in periods[period]["values"]})
     return pd.DataFrame(
         {
-            period: {
-                field: periods[period]["values"].get(field) for field in fields
-            }
+            period: {field: periods[period]["values"].get(field) for field in fields}
             for period in ordered_periods
         },
         index=fields,
@@ -268,7 +332,7 @@ def _get_statement(
     curr_date: str | None,
     title: str,
     detail: str,
-    prefixes: tuple[str, ...],
+    field_family: frozenset[str],
     client: TradingViewClient | None,
 ) -> str:
     frequency = "quarterly" if freq.lower() == "quarterly" else "annual"
@@ -285,7 +349,7 @@ def _get_statement(
         history if isinstance(history, Mapping) else {},
         frequency,
         curr_date,
-        prefixes,
+        field_family,
     )
     if frame.empty:
         raise NoMarketDataError(ticker, symbol, f"no {detail} data")
@@ -306,7 +370,7 @@ def get_tradingview_balance_sheet(
         curr_date,
         "Balance Sheet data",
         "balance sheet",
-        _BALANCE_SHEET_PREFIXES,
+        _BALANCE_SHEET_FIELDS,
         client,
     )
 
@@ -325,7 +389,7 @@ def get_tradingview_cashflow(
         curr_date,
         "Cash Flow data",
         "cash flow",
-        _CASH_FLOW_PREFIXES,
+        _CASH_FLOW_FIELDS,
         client,
     )
 
@@ -344,6 +408,6 @@ def get_tradingview_income_statement(
         curr_date,
         "Income Statement data",
         "income statement",
-        _INCOME_STATEMENT_PREFIXES,
+        _INCOME_STATEMENT_FIELDS,
         client,
     )
