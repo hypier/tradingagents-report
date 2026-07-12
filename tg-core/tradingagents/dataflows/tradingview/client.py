@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -17,7 +18,9 @@ from ..errors import (
 
 _API_HOST = "tradingview-data1.p.rapidapi.com"
 _BASE_URL = f"https://{_API_HOST}"
-_TIMEOUT_SECONDS = 20
+_TIMEOUT_SECONDS = 30
+_MAX_REQUEST_ATTEMPTS = 3
+_RETRY_BACKOFF_SECONDS = 0.5
 
 
 def get_tradingview_api_key() -> str:
@@ -52,15 +55,21 @@ class TradingViewClient:
         }
         url = f"{_BASE_URL}/{path.lstrip('/')}"
 
-        try:
-            response = self._session.get(
-                url,
-                headers=headers,
-                params=params,
-                timeout=_TIMEOUT_SECONDS,
-            )
-        except requests.RequestException:
-            raise VendorUnavailableError("TradingView Data API request failed") from None
+        for attempt in range(_MAX_REQUEST_ATTEMPTS):
+            try:
+                response = self._session.get(
+                    url,
+                    headers=headers,
+                    params=params,
+                    timeout=_TIMEOUT_SECONDS,
+                )
+                break
+            except requests.RequestException:
+                if attempt == _MAX_REQUEST_ATTEMPTS - 1:
+                    raise VendorUnavailableError(
+                        "TradingView Data API request failed"
+                    ) from None
+                time.sleep(_RETRY_BACKOFF_SECONDS * (attempt + 1))
 
         if response.status_code in (401, 403):
             raise VendorAuthenticationError(

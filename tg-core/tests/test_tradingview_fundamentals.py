@@ -1,6 +1,9 @@
 """TradingView fundamentals and financial-statement adapter tests."""
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from threading import Event
 from unittest.mock import Mock
 
 import pytest
@@ -84,28 +87,92 @@ def test_fundamentals_omits_missing_values_and_rejects_unmapped_payload():
 def statement_client_with_periods(field, periods):
     period_ends = [epoch("2026-06-30"), epoch("2026-03-31"), epoch("2025-12-31")]
     client = Mock()
+    client.get.return_value = {
+        "symbol": "NASDAQ:AAPL",
+        "financials_quarterly": {
+            f"{field}_fq": 30,
+            "fiscal_period_fq": periods[0],
+            "fiscal_period_end_fq": period_ends[0],
+        },
+        "history_quarterly": {
+            f"{field}_fq_h": [30, 20, 10],
+            "fiscal_period_fq_h": periods,
+            "fiscal_period_end_fq_h": period_ends,
+        },
+    }
+    return client
+
+
+def test_default_clients_share_one_market_data_request(monkeypatch):
+    request_started = Event()
+    release_request = Event()
+    client = Mock()
 
     def response(path, params=None):
-        if path.endswith("financials-quarterly"):
-            return {
-                "symbol": "NASDAQ:AAPL",
-                "financials_quarterly": {
-                    f"{field}_fq": 30,
-                    "fiscal_period_fq": periods[0],
-                    "fiscal_period_end_fq": period_ends[0],
-                },
-            }
+        assert path == "/api/market-data/NASDAQ:CACHE"
+        request_started.set()
+        assert release_request.wait(timeout=2)
         return {
-            "symbol": "NASDAQ:AAPL",
+            "symbol": "NASDAQ:CACHE",
+            "company": {"description": "Cache Corp"},
+            "indicators": {"market_cap_basic": 1000},
+            "financials_quarterly": {
+                "total_assets_fq": 100,
+                "cash_f_operating_activities_fq": 50,
+                "total_revenue_fq": 80,
+                "fiscal_period_fq": "2026-Q1",
+                "fiscal_period_end_fq": epoch("2026-03-31"),
+            },
             "history_quarterly": {
-                f"{field}_fq_h": [30, 20, 10],
-                "fiscal_period_fq_h": periods,
-                "fiscal_period_end_fq_h": period_ends,
+                "total_assets_fq_h": [90],
+                "cash_f_operating_activities_fq_h": [40],
+                "total_revenue_fq_h": [70],
+                "fiscal_period_fq_h": ["2025-Q4"],
+                "fiscal_period_end_fq_h": [epoch("2025-12-31")],
             },
         }
 
     client.get.side_effect = response
-    return client
+    monkeypatch.setattr(
+        "tradingagents.dataflows.tradingview.fundamentals.TradingViewClient",
+        Mock(return_value=client),
+    )
+
+    functions = [
+        get_tradingview_fundamentals,
+        get_tradingview_balance_sheet,
+        get_tradingview_cashflow,
+        get_tradingview_income_statement,
+    ]
+    with ThreadPoolExecutor(max_workers=len(functions)) as executor:
+        futures = [executor.submit(function, "NASDAQ:CACHE") for function in functions]
+        assert request_started.wait(timeout=2)
+        release_request.set()
+        outputs = [future.result(timeout=2) for future in futures]
+
+    assert all(outputs)
+    client.get.assert_called_once_with("/api/market-data/NASDAQ:CACHE")
+
+
+def test_default_market_data_cache_expires(monkeypatch):
+    now = [100.0]
+    client = Mock()
+    client.get.return_value = {
+        "symbol": "NASDAQ:TTL",
+        "company": {"description": "TTL Corp"},
+    }
+    monkeypatch.setattr(time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(
+        "tradingagents.dataflows.tradingview.fundamentals.TradingViewClient",
+        Mock(return_value=client),
+    )
+
+    get_tradingview_fundamentals("NASDAQ:TTL")
+    get_tradingview_fundamentals("NASDAQ:TTL")
+    now[0] += 301
+    get_tradingview_fundamentals("NASDAQ:TTL")
+
+    assert client.get.call_count == 2
 
 
 @pytest.mark.parametrize(
@@ -126,42 +193,32 @@ def test_statement_filters_fields_and_future_periods(function, title, required_f
     assert "2025-Q4" in output
     assert "2026-Q2" not in output
     assert required_field in output
-    assert [call.args[0] for call in client.get.call_args_list] == [
-        "/api/market-data/NASDAQ:AAPL/financials-quarterly",
-        "/api/market-data/NASDAQ:AAPL/history-quarterly",
-    ]
+    client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL")
 
 
 def test_annual_statement_reconstructs_history_and_deduplicates_current_period():
     client = Mock()
-    client.get.side_effect = [
-        {
-            "financials_annual": {
-                "total_revenue_fy": 300,
-                "fiscal_period_fy": "FY-2025",
-                "fiscal_period_end_fy": epoch("2025-12-31"),
-            }
+    client.get.return_value = {
+        "financials_annual": {
+            "total_revenue_fy": 300,
+            "fiscal_period_fy": "FY-2025",
+            "fiscal_period_end_fy": epoch("2025-12-31"),
         },
-        {
-            "history_annual": {
-                "total_revenue_fy_h": [299, 200],
-                "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
-                "fiscal_period_end_fy_h": [
-                    epoch("2025-12-31"),
-                    epoch("2024-12-31"),
-                ],
-            }
+        "history_annual": {
+            "total_revenue_fy_h": [299, 200],
+            "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
+            "fiscal_period_end_fy_h": [
+                epoch("2025-12-31"),
+                epoch("2024-12-31"),
+            ],
         },
-    ]
+    }
 
     output = get_tradingview_income_statement("NASDAQ:AAPL", "annual", "2026-01-01", client=client)
 
     assert output.count("FY-2025") == 1
     assert "total_revenue,300,200" in output
-    assert [call.args[0] for call in client.get.call_args_list] == [
-        "/api/market-data/NASDAQ:AAPL/financials-annual",
-        "/api/market-data/NASDAQ:AAPL/history-annual",
-    ]
+    client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL")
 
 
 @pytest.mark.parametrize(
@@ -176,19 +233,17 @@ def test_statement_uses_distinct_field_family_and_excludes_nested_values(
     function, included, excluded
 ):
     client = Mock()
-    client.get.side_effect = [
-        {
-            "financials_quarterly": {
-                "total_assets_fq": 100,
-                "cash_f_operating_activities_fq": 50,
-                "total_revenue_fq": 80,
-                f"{included}_exchange_rate_fq": {"USD": 1},
-                "fiscal_period_fq": "2026-Q1",
-                "fiscal_period_end_fq": epoch("2026-03-31"),
-            }
+    client.get.return_value = {
+        "financials_quarterly": {
+            "total_assets_fq": 100,
+            "cash_f_operating_activities_fq": 50,
+            "total_revenue_fq": 80,
+            f"{included}_exchange_rate_fq": {"USD": 1},
+            "fiscal_period_fq": "2026-Q1",
+            "fiscal_period_end_fq": epoch("2026-03-31"),
         },
-        {"history_quarterly": {}},
-    ]
+        "history_quarterly": {},
+    }
 
     output = function("NASDAQ:AAPL", client=client)
 
@@ -268,24 +323,20 @@ def test_statement_classifies_provider_native_current_and_history_fields(
 ):
     all_fields = included_fields + excluded_fields
     client = Mock()
-    client.get.side_effect = [
-        {
-            "financials_quarterly": {
-                **{f"{field}_fq": 100 + index for index, field in enumerate(all_fields)},
-                f"{included_fields[0]}_rates_fq": {"USD": 1},
-                "fiscal_period_fq": "2026-Q1",
-                "fiscal_period_end_fq": epoch("2026-03-31"),
-            }
+    client.get.return_value = {
+        "financials_quarterly": {
+            **{f"{field}_fq": 100 + index for index, field in enumerate(all_fields)},
+            f"{included_fields[0]}_rates_fq": {"USD": 1},
+            "fiscal_period_fq": "2026-Q1",
+            "fiscal_period_end_fq": epoch("2026-03-31"),
         },
-        {
-            "history_quarterly": {
-                **{f"{field}_fq_h": [90 + index] for index, field in enumerate(all_fields)},
-                f"{included_fields[0]}_rates_fq_h": [{"USD": 1}],
-                "fiscal_period_fq_h": ["2025-Q4"],
-                "fiscal_period_end_fq_h": [epoch("2025-12-31")],
-            }
+        "history_quarterly": {
+            **{f"{field}_fq_h": [90 + index] for index, field in enumerate(all_fields)},
+            f"{included_fields[0]}_rates_fq_h": [{"USD": 1}],
+            "fiscal_period_fq_h": ["2025-Q4"],
+            "fiscal_period_end_fq_h": [epoch("2025-12-31")],
         },
-    ]
+    }
 
     output = function("NASDAQ:AAPL", "quarterly", "2026-03-31", client=client)
 
@@ -299,25 +350,21 @@ def test_statement_classifies_provider_native_current_and_history_fields(
 
 def test_duplicate_current_period_backfills_history_end_before_cutoff_and_sorting():
     client = Mock()
-    client.get.side_effect = [
-        {
-            "financials_annual": {
-                "total_revenue_fy": 300,
-                "fiscal_period_fy": "FY-2025",
-                "fiscal_period_end_fy": None,
-            }
+    client.get.return_value = {
+        "financials_annual": {
+            "total_revenue_fy": 300,
+            "fiscal_period_fy": "FY-2025",
+            "fiscal_period_end_fy": None,
         },
-        {
-            "history_annual": {
-                "total_revenue_fy_h": [299, 200],
-                "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
-                "fiscal_period_end_fy_h": [
-                    epoch("2025-12-31"),
-                    epoch("2024-12-31"),
-                ],
-            }
+        "history_annual": {
+            "total_revenue_fy_h": [299, 200],
+            "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
+            "fiscal_period_end_fy_h": [
+                epoch("2025-12-31"),
+                epoch("2024-12-31"),
+            ],
         },
-    ]
+    }
 
     output = get_tradingview_income_statement("NASDAQ:AAPL", "annual", "2025-12-31", client=client)
 
@@ -327,25 +374,21 @@ def test_duplicate_current_period_backfills_history_end_before_cutoff_and_sortin
 
 def test_duplicate_period_backfills_end_when_matching_history_cells_are_null():
     client = Mock()
-    client.get.side_effect = [
-        {
-            "financials_annual": {
-                "total_revenue_fy": 300,
-                "fiscal_period_fy": "FY-2025",
-                "fiscal_period_end_fy": None,
-            }
+    client.get.return_value = {
+        "financials_annual": {
+            "total_revenue_fy": 300,
+            "fiscal_period_fy": "FY-2025",
+            "fiscal_period_end_fy": None,
         },
-        {
-            "history_annual": {
-                "total_revenue_fy_h": [None, 200],
-                "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
-                "fiscal_period_end_fy_h": [
-                    epoch("2025-12-31"),
-                    epoch("2024-12-31"),
-                ],
-            }
+        "history_annual": {
+            "total_revenue_fy_h": [None, 200],
+            "fiscal_period_fy_h": ["FY-2025", "FY-2024"],
+            "fiscal_period_end_fy_h": [
+                epoch("2025-12-31"),
+                epoch("2024-12-31"),
+            ],
         },
-    ]
+    }
 
     output = get_tradingview_income_statement("NASDAQ:AAPL", "annual", "2025-12-31", client=client)
 

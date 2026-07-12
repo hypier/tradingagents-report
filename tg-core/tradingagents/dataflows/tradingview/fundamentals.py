@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Mapping
 from datetime import date, datetime, timezone
+from threading import Lock
 from typing import Any
 from urllib.parse import quote
 
@@ -13,6 +15,10 @@ from ..errors import NoMarketDataError
 from ..provider_models import parse_instrument
 from .client import TradingViewClient
 from .symbols import resolve_tradingview_symbol
+
+_MARKET_DATA_CACHE_TTL_SECONDS = 300
+_MARKET_DATA_CACHE: dict[str, tuple[float, str, dict[str, Any]]] = {}
+_MARKET_DATA_CACHE_LOCK = Lock()
 
 _FUNDAMENTAL_FIELDS = (
     ("company", "description", "Name"),
@@ -195,6 +201,28 @@ def _resolve(ticker: str, client: TradingViewClient) -> str:
     return resolve_tradingview_symbol(ref, search=search).symbol
 
 
+def _get_market_data(
+    ticker: str,
+    client: TradingViewClient | None,
+) -> tuple[str, dict[str, Any]]:
+    if client is not None:
+        symbol = _resolve(ticker, client)
+        return symbol, client.get(f"/api/market-data/{symbol}")
+
+    cache_key = ticker.strip().upper()
+    with _MARKET_DATA_CACHE_LOCK:
+        now = time.monotonic()
+        cached = _MARKET_DATA_CACHE.get(cache_key)
+        if cached is not None and now - cached[0] < _MARKET_DATA_CACHE_TTL_SECONDS:
+            return cached[1], cached[2]
+
+        api = TradingViewClient()
+        symbol = _resolve(ticker, api)
+        payload = api.get(f"/api/market-data/{symbol}")
+        _MARKET_DATA_CACHE[cache_key] = (time.monotonic(), symbol, payload)
+        return symbol, payload
+
+
 def _header(title: str, symbol: str, freq: str | None = None) -> str:
     suffix = f" ({freq})" if freq is not None else ""
     header = f"# {title} for {symbol}{suffix}\n"
@@ -210,9 +238,7 @@ def get_tradingview_fundamentals(
 ) -> str:
     """Return a TradingView fundamentals overview in the existing text format."""
     del curr_date
-    api = client or TradingViewClient()
-    symbol = _resolve(ticker, api)
-    payload = api.get(f"/api/market-data/{symbol}")
+    symbol, payload = _get_market_data(ticker, client)
 
     lines = []
     for section_name, field, label in _FUNDAMENTAL_FIELDS:
@@ -338,14 +364,11 @@ def _get_statement(
     client: TradingViewClient | None,
 ) -> str:
     frequency = "quarterly" if freq.lower() == "quarterly" else "annual"
-    api = client or TradingViewClient()
-    symbol = _resolve(ticker, api)
+    symbol, payload = _get_market_data(ticker, client)
     current_key = f"financials_{frequency}"
     history_key = f"history_{frequency}"
-    current_payload = api.get(f"/api/market-data/{symbol}/financials-{frequency}")
-    history_payload = api.get(f"/api/market-data/{symbol}/history-{frequency}")
-    current = current_payload.get(current_key)
-    history = history_payload.get(history_key)
+    current = payload.get(current_key)
+    history = payload.get(history_key)
     frame = _statement_frame(
         current if isinstance(current, Mapping) else {},
         history if isinstance(history, Mapping) else {},

@@ -58,8 +58,33 @@ def test_get_sends_required_headers():
             "x-rapidapi-key": "secret-value",
         },
         params={"language": "en"},
-        timeout=20,
+        timeout=30,
     )
+
+
+def test_get_retries_timeout_and_returns_later_success():
+    response = Mock(status_code=200)
+    response.json.return_value = {
+        "success": True,
+        "data": {"value": 1},
+    }
+    session = Mock()
+    session.get.side_effect = [requests.Timeout("timed out"), response]
+    client = TradingViewClient(api_key="secret-value", session=session)
+
+    assert client.get("/api/test") == {"value": 1}
+    assert session.get.call_count == 2
+
+
+def test_get_stops_after_three_transport_failures():
+    session = Mock()
+    session.get.side_effect = requests.Timeout("timed out")
+    client = TradingViewClient(api_key="secret-value", session=session)
+
+    with pytest.raises(VendorUnavailableError):
+        client.get("/api/test")
+
+    assert session.get.call_count == 3
 
 
 @pytest.mark.parametrize(
