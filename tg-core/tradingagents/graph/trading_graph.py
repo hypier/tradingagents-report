@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import yfinance as yf
+import pandas as pd
 from langgraph.prebuilt import ToolNode
 
 # Import the abstract tool methods from agent_utils
@@ -29,6 +29,7 @@ from tradingagents.agents.utils.agent_utils import (
 )
 from tradingagents.agents.utils.memory import TradingMemoryLog
 from tradingagents.dataflows.config import set_config
+from tradingagents.dataflows.structured_data import get_ohlcv
 from tradingagents.dataflows.utils import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients import create_llm_client
@@ -42,6 +43,28 @@ from .setup import GraphSetup
 from .signal_processing import SignalProcessor
 
 logger = logging.getLogger(__name__)
+
+
+def _normalized_close_series(frame: pd.DataFrame) -> pd.Series:
+    """Return numeric closes indexed by unique, timezone-naive dates."""
+    if "Date" in frame.columns:
+        raw_dates = frame["Date"]
+    elif isinstance(frame.index, pd.DatetimeIndex):
+        raw_dates = frame.index
+    else:
+        raise ValueError("OHLCV data must have a Date column or DatetimeIndex")
+
+    dates = pd.DatetimeIndex(pd.to_datetime(raw_dates, errors="coerce"))
+    if dates.tz is not None:
+        dates = dates.tz_localize(None)
+    normalized = pd.DataFrame(
+        {
+            "Date": dates.normalize(),
+            "Close": pd.to_numeric(frame["Close"], errors="coerce").to_numpy(),
+        }
+    )
+    normalized = normalized.dropna().drop_duplicates("Date", keep="first").sort_values("Date")
+    return normalized.set_index("Date")["Close"]
 
 
 def _coerce_max_retries(value):
@@ -259,30 +282,26 @@ class TradingAgentsGraph:
         actual_holding_days)`` or ``(None, None, None)`` if price data is
         unavailable (too recent, delisted, or network error).
         """
-        from tradingagents.dataflows.symbol_utils import normalize_symbol
-
         try:
             start = datetime.strptime(trade_date, "%Y-%m-%d")
-            end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays
+            end = start + timedelta(days=30)
             end_str = end.strftime("%Y-%m-%d")
 
-            # Normalize so the realized-return lookup hits the same instrument
-            # the analysis priced (e.g. XAUUSD -> GC=F) (#984). The benchmark is
-            # already a canonical Yahoo symbol from ``_resolve_benchmark``.
-            stock = yf.Ticker(normalize_symbol(ticker)).history(start=trade_date, end=end_str)
-            bench = yf.Ticker(benchmark).history(start=trade_date, end=end_str)
+            stock = _normalized_close_series(get_ohlcv(ticker, trade_date, end_str))
+            bench = _normalized_close_series(get_ohlcv(benchmark, trade_date, end_str))
+            aligned = pd.concat({"stock": stock, "bench": bench}, axis=1, join="inner")
 
-            if len(stock) < 2 or len(bench) < 2:
+            if len(aligned) < 2:
                 return None, None, None
 
-            actual_days = min(holding_days, len(stock) - 1, len(bench) - 1)
+            actual_days = min(holding_days, len(aligned) - 1)
             raw = float(
-                (stock["Close"].iloc[actual_days] - stock["Close"].iloc[0])
-                / stock["Close"].iloc[0]
+                (aligned["stock"].iloc[actual_days] - aligned["stock"].iloc[0])
+                / aligned["stock"].iloc[0]
             )
             bench_ret = float(
-                (bench["Close"].iloc[actual_days] - bench["Close"].iloc[0])
-                / bench["Close"].iloc[0]
+                (aligned["bench"].iloc[actual_days] - aligned["bench"].iloc[0])
+                / aligned["bench"].iloc[0]
             )
             alpha = raw - bench_ret
             return raw, alpha, actual_days
@@ -336,7 +355,7 @@ class TradingAgentsGraph:
     def resolve_instrument_context(self, ticker: str, asset_type: str = "stock") -> str:
         """Resolve ticker identity once and return the full instrument context.
 
-        Deterministic yfinance lookup (cached, fail-open) injected into a
+        Deterministic provider-routed lookup (cached, fail-open) injected into a
         context string so every agent anchors to the real company instead of
         hallucinating one from the price chart (#814). Both the propagate()
         path and the CLI call this so the resolved identity reaches the whole

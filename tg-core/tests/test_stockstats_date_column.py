@@ -6,10 +6,12 @@ instead of `Date`, which would otherwise silently drop every indicator.
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
 import pandas as pd
 import pytest
 
-from tradingagents.dataflows import stockstats_utils as su
+from tradingagents.dataflows import stockstats_utils as su, y_finance
 
 
 def _ohlcv(date_col: str) -> pd.DataFrame:
@@ -68,3 +70,60 @@ class TestCleanDataframeAcrossVersions:
         df["close_5_sma"]  # triggers calculation
         assert "close_5_sma" in df.columns
         assert df["close_5_sma"].notna().any()
+
+    def test_indicator_window_accepts_legacy_date_column_and_preserves_text(self):
+        result = su.calculate_indicator_window(
+            _ohlcv("index"), "AAPL", "close_10_ema", "2026-04-14", 1
+        )
+
+        assert result.startswith(
+            "## close_10_ema values from 2026-04-13 to 2026-04-14:\n\n"
+        )
+        assert "2026-04-14:" in result
+        assert result.endswith(
+            "10 EMA: A responsive short-term average. Usage: Capture quick shifts in momentum "
+            "and potential entry points. Tips: Prone to noise in choppy markets; use alongside "
+            "longer averages for filtering false signals."
+        )
+
+
+@pytest.mark.unit
+class TestYahooIndicatorWindowCompatibility:
+    def test_unsupported_indicator_is_rejected_before_loading_ohlcv(self, monkeypatch):
+        load = Mock()
+        monkeypatch.setattr(y_finance, "load_ohlcv", load)
+
+        with pytest.raises(
+            ValueError,
+            match=r"Indicator unsupported is not supported\. Please choose from:",
+        ):
+            y_finance.get_stock_stats_indicators_window(
+                "AAPL", "unsupported", "2026-04-14", 1
+            )
+
+        load.assert_not_called()
+
+    def test_calculation_error_uses_established_per_day_fallback(
+        self, monkeypatch, capsys
+    ):
+        monkeypatch.setattr(y_finance, "load_ohlcv", Mock(return_value=_ohlcv("Date")))
+        monkeypatch.setattr(
+            y_finance,
+            "calculate_indicator_window",
+            Mock(side_effect=RuntimeError("bad frame")),
+        )
+        fallback = Mock(side_effect=lambda symbol, indicator, date: f"fallback-{date}")
+        monkeypatch.setattr(y_finance, "get_stockstats_indicator", fallback)
+
+        result = y_finance.get_stock_stats_indicators_window(
+            "AAPL", "close_10_ema", "2026-04-14", 1
+        )
+
+        assert result.startswith(
+            "## close_10_ema values from 2026-04-13 to 2026-04-14:\n\n"
+            "2026-04-14: fallback-2026-04-14\n"
+            "2026-04-13: fallback-2026-04-13\n"
+        )
+        assert result.endswith(su.BEST_INDICATOR_PARAMS["close_10_ema"])
+        assert fallback.call_count == 2
+        assert "Error getting bulk stockstats data: bad frame" in capsys.readouterr().out

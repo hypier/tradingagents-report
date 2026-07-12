@@ -8,6 +8,8 @@ import inspect
 import pytest
 
 import tradingagents.agents.analysts.news_analyst as na
+import tradingagents.agents.analysts.sentiment_analyst as sentiment_analyst
+import tradingagents.agents.analysts.social_media_analyst as social_media_analyst
 from tradingagents.agents.utils.news_data_tools import get_news
 
 
@@ -23,3 +25,16 @@ def test_news_prompt_matches_get_news_signature():
     src = inspect.getsource(na)
     assert "get_news(ticker, start_date, end_date)" in src
     assert "get_news(query" not in src
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("module", [sentiment_analyst, social_media_analyst])
+def test_sentiment_prompts_are_news_provider_neutral(module):
+    src = inspect.getsource(module)
+    assert "Yahoo Finance" not in src
+
+
+@pytest.mark.unit
+def test_sentiment_prompt_names_configured_market_news_providers():
+    src = inspect.getsource(sentiment_analyst)
+    assert "configured market news providers" in src

@@ -1,9 +1,7 @@
-"""Symbol normalization must apply on every yfinance path, not just price fetch.
+"""Symbol resolution must remain owned by each provider-facing data path.
 
-Regression tests for #983 (instrument identity), #984 (reflection returns), and
-the news path: a broker symbol like XAUUSD must resolve to the same Yahoo symbol
-(GC=F) that the price path uses, so identity, realized-return, and news lookups
-hit the right instrument instead of failing/mismatching.
+Regression tests for provider-neutral instrument identity and return paths,
+plus the remaining Yahoo-specific news path.
 """
 import pandas as pd
 
@@ -13,45 +11,42 @@ import tradingagents.graph.trading_graph as tg
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 
-def test_identity_lookup_normalizes_symbol(monkeypatch):
+def test_identity_lookup_delegates_raw_symbol_to_structured_facade(monkeypatch):
     seen = {}
 
-    class FakeTicker:
-        def __init__(self, symbol):
-            seen["symbol"] = symbol
+    def fake_identity(symbol):
+        seen["symbol"] = symbol
+        return {"company_name": "Gold Futures", "quote_type": "FUTURE"}
 
-        @property
-        def info(self):
-            return {"longName": "Gold Futures", "quoteType": "FUTURE"}
-
-    monkeypatch.setattr(au.yf, "Ticker", FakeTicker)
+    monkeypatch.setattr(au, "get_instrument_identity", fake_identity)
     au.resolve_instrument_identity.cache_clear()
 
     identity = au.resolve_instrument_identity("XAUUSD")
 
-    assert seen["symbol"] == "GC=F"  # normalized, not the raw broker symbol
+    assert seen["symbol"] == "XAUUSD"  # provider-neutral facade owns symbol resolution
     assert identity.get("company_name") == "Gold Futures"
 
 
-def test_fetch_returns_normalizes_symbol(monkeypatch):
+def test_fetch_returns_delegates_raw_symbols_to_structured_facade(monkeypatch):
     queried = []
 
-    class FakeTicker:
-        def __init__(self, symbol):
-            queried.append(symbol)
+    def fake_ohlcv(symbol, start_date, end_date):
+        queried.append(symbol)
+        return pd.DataFrame(
+            {
+                "Date": pd.date_range("2025-01-02", periods=7, freq="D"),
+                "Close": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0],
+            }
+        )
 
-        def history(self, *args, **kwargs):
-            return pd.DataFrame({"Close": [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0]})
-
-    monkeypatch.setattr(tg.yf, "Ticker", FakeTicker)
+    monkeypatch.setattr(tg, "get_ohlcv", fake_ohlcv)
 
     # _fetch_returns does not use ``self``; call unbound to avoid building the graph.
     raw, alpha, days = TradingAgentsGraph._fetch_returns(
         None, "XAUUSD", "2025-01-02", holding_days=5, benchmark="SPY"
     )
 
-    assert queried[0] == "GC=F"  # stock symbol normalized (#984)
-    assert queried[1] == "SPY"   # benchmark left as the canonical symbol
+    assert queried == ["XAUUSD", "SPY"]
     assert raw is not None and days is not None
 
 

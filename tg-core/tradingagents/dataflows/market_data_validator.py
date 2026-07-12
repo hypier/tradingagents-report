@@ -15,7 +15,7 @@ from collections.abc import Iterable
 import pandas as pd
 from stockstats import wrap
 
-from tradingagents.dataflows.stockstats_utils import load_ohlcv
+from tradingagents.dataflows.structured_data import get_ohlcv
 
 # A fixed, common indicator set so the snapshot is the same shape every run.
 DEFAULT_SNAPSHOT_INDICATORS: tuple[str, ...] = (
@@ -28,11 +28,17 @@ DEFAULT_SNAPSHOT_INDICATORS: tuple[str, ...] = (
 def _verified_rows(symbol: str, curr_date: str) -> pd.DataFrame:
     """OHLCV on or before curr_date, date-sorted. Raises if nothing usable.
 
-    ``load_ohlcv`` already normalizes the Date column and filters out
-    look-ahead rows, but we re-apply the cutoff defensively — this is a
-    verification path, so it must not trust its input to be pre-filtered.
+    The structured provider route requests one year through ``curr_date``.
+    We re-apply the cutoff defensively because this verification path must not
+    trust its input to be pre-filtered.
     """
-    data = load_ohlcv(symbol, curr_date)
+    end_date = pd.Timestamp(curr_date)
+    start_date = end_date - pd.DateOffset(years=1)
+    data = get_ohlcv(
+        symbol,
+        start_date.strftime("%Y-%m-%d"),
+        end_date.strftime("%Y-%m-%d"),
+    )
     if data is None or data.empty:
         raise ValueError(f"No OHLCV data available for {symbol}.")
 

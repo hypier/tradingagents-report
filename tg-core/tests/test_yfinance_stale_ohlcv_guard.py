@@ -60,6 +60,64 @@ class StaleGuardUnitTests(unittest.TestCase):
 
 @pytest.mark.unit
 class StaleGuardPropagationTests(unittest.TestCase):
+    def test_structured_fetch_and_compatibility_output_share_validated_data(self):
+        frame = pd.DataFrame(
+            {
+                "Open": [100.123], "High": [102.456], "Low": [99.0],
+                "Close": [101.999], "Volume": [1_000],
+            },
+            index=pd.DatetimeIndex([pd.Timestamp("2026-06-11")], name="Date"),
+        )
+
+        ticker = mock.Mock()
+        ticker.history.return_value = frame
+        with mock.patch.object(y_finance.yf, "Ticker", return_value=ticker):
+            result = y_finance.fetch_yfinance_ohlcv(
+                "AAPL", "2026-06-01", "2026-06-11"
+            )
+        self.assertEqual(result.provider, "yfinance")
+        self.assertEqual(result.resolved_symbol, "AAPL")
+        self.assertEqual(list(result.data.columns), ["Date", "Open", "High", "Low", "Close", "Volume"])
+        self.assertEqual(result.data.loc[0, "Close"], 102.0)
+
+        with mock.patch.object(y_finance, "fetch_yfinance_ohlcv", return_value=result):
+            output = y_finance.get_YFin_data_online(
+                "AAPL", "2026-06-01", "2026-06-11"
+            )
+        self.assertIn("# Total records: 1", output)
+        self.assertIn("2026-06-11,100.12,102.46,99.0,102.0,1000", output)
+
+    def test_yfinance_identity_maps_vendor_fields(self):
+        ticker = mock.Mock()
+        ticker.info = {
+            "longName": "Apple Inc.",
+            "sector": "Technology",
+            "industry": "Consumer Electronics",
+            "exchange": "NMS",
+            "quoteType": "EQUITY",
+        }
+        with mock.patch.object(y_finance.yf, "Ticker", return_value=ticker):
+            identity = y_finance.get_yfinance_identity("AAPL")
+        self.assertEqual(
+            identity,
+            {
+                "company_name": "Apple Inc.",
+                "sector": "Technology",
+                "industry": "Consumer Electronics",
+                "exchange": "NMS",
+                "quote_type": "EQUITY",
+            },
+        )
+
+    def test_yfinance_identity_falls_back_to_short_name(self):
+        ticker = mock.Mock()
+        ticker.info = {"shortName": "Apple"}
+
+        with mock.patch.object(y_finance.yf, "Ticker", return_value=ticker):
+            identity = y_finance.get_yfinance_identity("AAPL")
+
+        self.assertEqual(identity["company_name"], "Apple")
+
     def test_get_yfin_data_online_raises_on_stale_frame(self):
         stale = pd.DataFrame(
             {
