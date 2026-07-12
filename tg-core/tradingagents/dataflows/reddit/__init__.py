@@ -21,6 +21,7 @@ import html
 import http.client
 import json
 import logging
+import os
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -47,6 +48,52 @@ _ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
 # discussion. wallstreetbets has the most volume but most noise; stocks /
 # investing trend more measured. Caller can override.
 DEFAULT_SUBREDDITS = ("wallstreetbets", "stocks", "investing")
+_RATE_LIMITED_UNTIL = 0.0
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _reddit_enabled() -> bool:
+    return _env_bool("TRADINGAGENTS_REDDIT_ENABLED", True)
+
+
+def _retry_429_enabled() -> bool:
+    return _env_bool("TRADINGAGENTS_REDDIT_RETRY_ON_429", False)
+
+
+def _cooldown_seconds() -> float:
+    return max(0.0, _env_float("TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS", 900.0))
+
+
+def _rate_limit_remaining() -> float:
+    return max(0.0, _RATE_LIMITED_UNTIL - time.time())
+
+
+def _is_rate_limited() -> bool:
+    return _rate_limit_remaining() > 0
+
+
+def _mark_rate_limited(wait: float | None = None) -> float:
+    global _RATE_LIMITED_UNTIL
+    cooldown = wait if wait is not None else _cooldown_seconds()
+    cooldown = max(0.0, cooldown)
+    _RATE_LIMITED_UNTIL = max(_RATE_LIMITED_UNTIL, time.time() + cooldown)
+    return cooldown
 
 
 def _search_qs(ticker: str, limit: int) -> str:
@@ -104,14 +151,35 @@ def _fetch_subreddit_rss(
     per-IP rate limit) we back off once — honouring ``Retry-After`` when
     present — before giving up, so a transient burst doesn't blank the feed.
     """
+    if _is_rate_limited():
+        logger.info(
+            "Reddit RSS skipped for r/%s · %s: rate limited, %.0fs cooldown remaining",
+            sub, ticker, _rate_limit_remaining(),
+        )
+        return []
+
     url = _RSS.format(sub=sub, qs=_search_qs(ticker, limit))
     req = Request(url, headers={"User-Agent": _UA})
     try:
         with urlopen(req, timeout=timeout) as resp:
             root = ET.fromstring(resp.read())
     except HTTPError as exc:
-        if exc.code == 429 and _retry:
+        if exc.code == 429:
             wait = _retry_after_seconds(exc) or 5.0
+            if not _retry:
+                cooldown = _mark_rate_limited(_retry_after_seconds(exc))
+                logger.warning(
+                    "Reddit RSS retry also hit 429 for r/%s · %s; cooling down %.0fs",
+                    sub, ticker, cooldown,
+                )
+                return []
+            if not (_retry and _retry_429_enabled()):
+                cooldown = _mark_rate_limited(_retry_after_seconds(exc))
+                logger.warning(
+                    "Reddit RSS rate limited for r/%s · %s; cooling down %.0fs and skipping Reddit temporarily",
+                    sub, ticker, cooldown,
+                )
+                return []
             logger.warning(
                 "Reddit RSS 429 for r/%s · %s — backing off %.1fs then retrying once",
                 sub, ticker, wait,
@@ -202,12 +270,20 @@ def fetch_reddit_posts(
     stay under Reddit's public per-IP rate limit; combined with the RSS-first
     path it makes 429s rare even when several analyses run back-to-back.
     """
+    if not _reddit_enabled():
+        return "<Reddit unavailable: disabled by TRADINGAGENTS_REDDIT_ENABLED>"
+
     # Crypto reaches us as a Yahoo pair (BTC-USD); search Reddit for the base
     # ("BTC") so the query actually matches discussion instead of near-nothing.
     ticker = crypto_base(ticker) or ticker
     blocks = []
     total_posts = 0
     for i, sub in enumerate(subreddits):
+        if _is_rate_limited():
+            blocks.append(
+                f"r/{sub}: <Reddit unavailable: rate limited; retry after ~{int(_rate_limit_remaining())}s>"
+            )
+            continue
         if i > 0:
             time.sleep(inter_request_delay)
         posts = _fetch_subreddit(ticker, sub, limit_per_sub, timeout)
@@ -242,6 +318,8 @@ def fetch_reddit_posts(
             )
         blocks.append("\n".join(lines))
 
+    if total_posts == 0 and any("Reddit unavailable" in block for block in blocks):
+        return "\n\n".join(blocks)
     if total_posts == 0:
         return (
             f"<no Reddit posts found mentioning {ticker.upper()} across "

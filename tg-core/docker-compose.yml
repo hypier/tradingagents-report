@@ -1,12 +1,58 @@
 services:
   tradingagents:
-    build: .
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${TRADINGAGENTS_PYTHON_IMAGE:-python:3.12-slim}
     env_file:
-      - .env
+      - path: .env
+        required: false
     volumes:
       - tradingagents_data:/home/appuser/.tradingagents
     tty: true
     stdin_open: true
+
+  tradingagents-api:
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${TRADINGAGENTS_PYTHON_IMAGE:-python:3.12-slim}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - TRADINGAGENTS_DATABASE_URL=postgresql://tradingagents:tradingagents@postgres:5432/tradingagents
+    entrypoint:
+      - uvicorn
+    command:
+      - tradingagents.api.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - tradingagents_data:/home/appuser/.tradingagents
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=tradingagents
+      - POSTGRES_USER=tradingagents
+      - POSTGRES_PASSWORD=tradingagents
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradingagents -d tradingagents"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   ollama:
     image: ollama/ollama:latest
@@ -16,9 +62,13 @@ services:
       - ollama
 
   tradingagents-ollama:
-    build: .
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${TRADINGAGENTS_PYTHON_IMAGE:-python:3.12-slim}
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - TRADINGAGENTS_LLM_PROVIDER=ollama
       - OLLAMA_BASE_URL=http://ollama:11434/v1
@@ -33,4 +83,5 @@ services:
 
 volumes:
   tradingagents_data:
+  postgres_data:
   ollama_data:
