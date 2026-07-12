@@ -1,4 +1,4 @@
-from .alpha_vantage_common import AlphaVantageNotConfiguredError, _make_api_request
+from .common import AlphaVantageNotConfiguredError, _make_api_request
 
 
 def get_indicator(

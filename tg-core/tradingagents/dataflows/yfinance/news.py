@@ -6,10 +6,10 @@ from datetime import datetime
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
 
-from .config import get_config
-from .news_utils import in_news_window as _in_news_window
-from .stockstats_utils import yf_retry
-from .symbol_utils import normalize_symbol
+from ..config import get_config
+from ..news_utils import in_news_window as _in_news_window
+from ..stockstats_utils import yf_retry
+from .symbols import normalize_symbol
 
 
 def _extract_article_data(article: dict) -> dict:

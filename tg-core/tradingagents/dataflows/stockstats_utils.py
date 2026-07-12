@@ -9,8 +9,9 @@ from stockstats import wrap
 from yfinance.exceptions import YFRateLimitError
 
 from .config import get_config
-from .symbol_utils import NoMarketDataError, normalize_symbol
+from .errors import NoMarketDataError
 from .utils import safe_ticker_component
+from .yfinance.symbols import normalize_symbol
 
 logger = logging.getLogger(__name__)
 

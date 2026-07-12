@@ -8,7 +8,7 @@ from typing import Any
 
 import requests
 
-from tradingagents.dataflows.errors import (
+from ..errors import (
     VendorAuthenticationError,
     VendorNotConfiguredError,
     VendorRateLimitError,

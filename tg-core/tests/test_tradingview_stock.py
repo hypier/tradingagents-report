@@ -6,9 +6,10 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
-from tradingagents.dataflows import interface, tradingview_stock as tv
+from tradingagents.dataflows import interface
 from tradingagents.dataflows.errors import NoMarketDataError
 from tradingagents.dataflows.provider_models import ProviderResult, parse_instrument
+from tradingagents.dataflows.tradingview import stock as tv
 
 fetch_tradingview_ohlcv = tv.fetch_tradingview_ohlcv
 get_tradingview_identity = tv.get_tradingview_identity

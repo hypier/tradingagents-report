@@ -6,7 +6,7 @@ plus the remaining Yahoo-specific news path.
 import pandas as pd
 
 import tradingagents.agents.utils.agent_utils as au
-import tradingagents.dataflows.yfinance_news as ynews
+import tradingagents.dataflows.yfinance.news as ynews
 import tradingagents.graph.trading_graph as tg
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 

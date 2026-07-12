@@ -4,7 +4,7 @@ import pytest
 
 from tradingagents.dataflows.errors import NoMarketDataError
 from tradingagents.dataflows.provider_models import parse_instrument
-from tradingagents.dataflows.tradingview_symbols import resolve_tradingview_symbol
+from tradingagents.dataflows.tradingview.symbols import resolve_tradingview_symbol
 
 
 @pytest.mark.parametrize(

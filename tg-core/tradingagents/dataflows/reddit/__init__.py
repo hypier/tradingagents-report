@@ -30,7 +30,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .symbol_utils import crypto_base
+from ..symbol_utils import crypto_base
 
 logger = logging.getLogger(__name__)
 

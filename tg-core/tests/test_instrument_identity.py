@@ -153,7 +153,7 @@ def _assert_provider_neutral_business_source(source: str, filename: str = "<sour
     (
         "import yfinance as vendor",
         "from yfinance import Ticker",
-        "from tradingagents.dataflows.symbol_utils import normalize_symbol as normalize",
+        "from tradingagents.dataflows.yfinance.symbols import normalize_symbol as normalize",
         "from tradingagents.dataflows.stockstats_utils import load_ohlcv as load",
         "symbols.normalize_symbol('AAPL')",
         "stats.load_ohlcv('AAPL')",

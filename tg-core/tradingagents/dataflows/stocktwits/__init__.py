@@ -19,7 +19,7 @@ import json
 import logging
 from urllib.request import Request, urlopen
 
-from .symbol_utils import crypto_base
+from ..symbol_utils import crypto_base
 
 logger = logging.getLogger(__name__)
 

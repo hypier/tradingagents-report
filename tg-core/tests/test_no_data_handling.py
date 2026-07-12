@@ -16,7 +16,7 @@ import pytest
 
 from tradingagents.dataflows import interface, stockstats_utils
 from tradingagents.dataflows.config import set_config
-from tradingagents.dataflows.symbol_utils import NoMarketDataError
+from tradingagents.dataflows.errors import NoMarketDataError
 
 
 @pytest.mark.unit

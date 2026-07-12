@@ -9,11 +9,11 @@ from urllib.parse import quote, urlparse
 
 from dateutil.relativedelta import relativedelta
 
-from .config import get_config
-from .news_utils import in_news_window
-from .provider_models import parse_instrument
-from .tradingview_client import TradingViewClient
-from .tradingview_symbols import resolve_tradingview_symbol
+from ..config import get_config
+from ..news_utils import in_news_window
+from ..provider_models import parse_instrument
+from .client import TradingViewClient
+from .symbols import resolve_tradingview_symbol
 
 
 def _tradingview_market(asset_class: str) -> str:

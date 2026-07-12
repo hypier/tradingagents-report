@@ -9,10 +9,10 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from .errors import NoMarketDataError
-from .provider_models import parse_instrument
-from .tradingview_client import TradingViewClient
-from .tradingview_symbols import resolve_tradingview_symbol
+from ..errors import NoMarketDataError
+from ..provider_models import parse_instrument
+from .client import TradingViewClient
+from .symbols import resolve_tradingview_symbol
 
 _FUNDAMENTAL_FIELDS = (
     ("company", "description", "Name"),

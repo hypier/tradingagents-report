@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
-from .errors import NoMarketDataError
-from .provider_models import InstrumentRef, ProviderSymbol
+from ..errors import NoMarketDataError
+from ..provider_models import InstrumentRef, ProviderSymbol
 
 _DETERMINISTIC_SYMBOLS = {
     "0700.HK": "HKEX:700",

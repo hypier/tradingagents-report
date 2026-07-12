@@ -11,7 +11,7 @@ from tradingagents.dataflows.errors import (
     VendorRateLimitError,
     VendorUnavailableError,
 )
-from tradingagents.dataflows.tradingview_client import (
+from tradingagents.dataflows.tradingview.client import (
     TradingViewClient,
     get_tradingview_api_key,
 )

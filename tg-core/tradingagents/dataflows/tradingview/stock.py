@@ -9,15 +9,15 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from .errors import NoMarketDataError
-from .provider_models import ProviderResult, parse_instrument
-from .stockstats_utils import (
+from ..errors import NoMarketDataError
+from ..provider_models import ProviderResult, parse_instrument
+from ..stockstats_utils import (
     _assert_ohlcv_not_stale,
     calculate_indicator_window,
     validate_indicator,
 )
-from .tradingview_client import TradingViewClient
-from .tradingview_symbols import resolve_tradingview_symbol
+from .client import TradingViewClient
+from .symbols import resolve_tradingview_symbol
 
 
 def _search_markets(client: TradingViewClient, query: str, asset_class: str):

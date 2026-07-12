@@ -1,3 +1,9 @@
+"""数据供应商路由入口。
+
+本模块只负责根据配置选择供应商、执行显式 fallback 链，并统一文本与
+结构化结果的失败语义；具体的数据请求仍由各供应商包实现。
+"""
+
 import logging
 import re
 from collections.abc import Callable, Mapping
@@ -17,7 +23,7 @@ from .alpha_vantage import (
     get_news as get_alpha_vantage_news,
     get_stock as get_alpha_vantage_stock,
 )
-from .alpha_vantage_stock import fetch_alpha_vantage_ohlcv
+from .alpha_vantage.stock import fetch_alpha_vantage_ohlcv
 from .config import get_config
 from .errors import (
     NoMarketDataError,
@@ -27,20 +33,20 @@ from .errors import (
 from .fred import get_macro_data as get_fred_macro_data
 from .polymarket import get_prediction_markets as get_polymarket_prediction_markets
 from .provider_models import ProviderResult
-from .tradingview_fundamentals import (
+from .tradingview.fundamentals import (
     get_tradingview_balance_sheet,
     get_tradingview_cashflow,
     get_tradingview_fundamentals,
     get_tradingview_income_statement,
 )
-from .tradingview_news import get_tradingview_global_news, get_tradingview_news
-from .tradingview_stock import (
+from .tradingview.news import get_tradingview_global_news, get_tradingview_news
+from .tradingview.stock import (
     fetch_tradingview_ohlcv,
     get_tradingview_identity,
     get_tradingview_indicators,
     get_tradingview_stock,
 )
-from .y_finance import (
+from .yfinance.market import (
     fetch_yfinance_ohlcv,
     get_balance_sheet as get_yfinance_balance_sheet,
     get_cashflow as get_yfinance_cashflow,
@@ -51,11 +57,11 @@ from .y_finance import (
     get_YFin_data_online,
     get_yfinance_identity,
 )
-from .yfinance_news import get_global_news_yfinance, get_news_yfinance
+from .yfinance.news import get_global_news_yfinance, get_news_yfinance
 
 logger = logging.getLogger(__name__)
 
-# Tools organized by category
+# 工具按数据类别分组，类别级供应商配置以此作为查找键。
 TOOLS_CATEGORIES = {
     "instrument_data": {
         "description": "Instrument identity",
@@ -113,20 +119,22 @@ VENDOR_LIST = [
     "alpha_vantage",
 ]
 
-# Optional enrichment categories. These add macro/event context to the news
-# analyst but are not core to a decision, so a vendor failure here degrades to a
-# sentinel instead of aborting the run (a bad LLM-supplied indicator, a missing
-# key, or a network blip should not crash an analysis over flavour data). Core
-# categories (prices, fundamentals, news) still raise so a broken primary is loud.
+# 可选增强类只为新闻分析提供宏观或事件背景，不是决策的核心输入。
+# 因此其供应商故障会降级为可读的 sentinel，而价格、基本面和新闻等核心
+# 类别仍必须显式失败，避免在缺失关键数据时静默继续分析。
 OPTIONAL_CATEGORIES = {"macro_data", "prediction_markets"}
 
-# Mapping of methods to their vendor-specific implementations
+# 能力到供应商实现的唯一注册表。新增供应商能力时应同时更新此映射和默认链，
+# 防止路由层隐式调用未配置或未声明的 Provider。
 VENDOR_METHODS = {
+    # 标的身份：将用户输入的 ticker 规范化为公司名称、交易所、资产类别等元数据，
+    # 供后续分析展示与供应商符号解析使用。
     "get_instrument_identity": {
         "tradingview": get_tradingview_identity,
         "yfinance": get_yfinance_identity,
     },
-    # core_stock_apis
+    # 核心行情：get_stock_data 返回面向文本报告的历史价格数据；get_ohlcv 返回
+    # 带 ProviderResult 溯源信息的结构化开高低收量数据，供指标和校验工具使用。
     "get_stock_data": {
         "tradingview": get_tradingview_stock,
         "yfinance": get_YFin_data_online,
@@ -137,13 +145,15 @@ VENDOR_METHODS = {
         "yfinance": fetch_yfinance_ohlcv,
         "alpha_vantage": fetch_alpha_vantage_ohlcv,
     },
-    # technical_indicators
+    # 技术指标：根据标的、截止日期和回看窗口计算 SMA、RSI、MACD 等指标，
+    # 用于市场分析师生成技术面判断。
     "get_indicators": {
         "tradingview": get_tradingview_indicators,
         "yfinance": get_stock_stats_indicators_window,
         "alpha_vantage": get_alpha_vantage_indicator,
     },
-    # fundamental_data
+    # 基本面：get_fundamentals 提供公司概览和关键财务比率；其余三个能力分别返回
+    # 资产负债表、现金流量表和利润表，以支持基本面分析师按报表维度取数。
     "get_fundamentals": {
         "tradingview": get_tradingview_fundamentals,
         "yfinance": get_yfinance_fundamentals,
@@ -164,7 +174,9 @@ VENDOR_METHODS = {
         "yfinance": get_yfinance_income_statement,
         "alpha_vantage": get_alpha_vantage_income_statement,
     },
-    # news_data
+    # 新闻与内部人数据：get_news 获取指定标的在日期窗口内的新闻；
+    # get_global_news 获取市场级新闻；get_insider_transactions 获取内部人买卖记录。
+    # 三者均受历史日期边界约束，避免回测时引入未来信息。
     "get_news": {
         "tradingview": get_tradingview_news,
         "yfinance": get_news_yfinance,
@@ -179,16 +191,18 @@ VENDOR_METHODS = {
         "alpha_vantage": get_alpha_vantage_insider_transactions,
         "yfinance": get_yfinance_insider_transactions,
     },
-    # macro_data
+    # 宏观数据：从 FRED 获取利率、通胀、就业和增长等指标，作为宏观背景补充。
     "get_macro_indicators": {
         "fred": get_fred_macro_data,
     },
-    # prediction_markets
+    # 预测市场：从 Polymarket 获取事件结果的市场隐含概率，仅作为前瞻性补充信息。
     "get_prediction_markets": {
         "polymarket": get_polymarket_prediction_markets,
     },
 }
 
+# 没有显式配置供应商时使用的回退顺序。MappingProxyType 防止运行期间被修改，
+# 从而使分析过程中的供应商选择保持确定性。
 DEFAULT_VENDOR_CHAINS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "get_instrument_identity": ("tradingview", "yfinance"),
     "get_stock_data": ("tradingview", "yfinance", "alpha_vantage"),
@@ -206,34 +220,34 @@ DEFAULT_VENDOR_CHAINS: Mapping[str, tuple[str, ...]] = MappingProxyType({
 })
 
 def get_category_for_method(method: str) -> str:
-    """Get the category that contains the specified method."""
+    """返回能力所属的数据类别，用于读取类别级供应商配置。"""
     for category, info in TOOLS_CATEGORIES.items():
         if method in info["tools"]:
             return category
     raise ValueError(f"Method '{method}' not found in any category")
 
 def get_vendor(category: str, method: str = None) -> str:
-    """Get the configured vendor for a data category or specific tool method.
-    Tool-level configuration takes precedence over category-level.
-    """
+    """读取供应商配置，工具级 ``tool_vendors`` 优先于类别级配置。"""
     config = get_config()
 
-    # Check tool-level configuration first (if method provided)
+    # 单一能力可以覆盖同类别的默认供应商，例如让新闻和行情使用不同来源。
     if method:
         tool_vendors = config.get("tool_vendors", {})
         if method in tool_vendors:
             return tool_vendors[method]
 
-    # Fall back to category-level configuration
+    # 未设置工具级覆盖时，回退到类别级 ``data_vendors`` 配置。
     return config.get("data_vendors", {}).get(category, "default")
 
 def _vendor_chain(method: str, category: str) -> list[str]:
+    """构造一次调用的供应商链，只接受已注册的显式配置。"""
     if method not in VENDOR_METHODS:
         raise ValueError(f"Method '{method}' not supported")
     available = list(VENDOR_METHODS[method])
     configured = [
         vendor.strip() for vendor in get_vendor(category, method).split(",")
     ]
+    # 逗号分隔的显式配置定义完整链，不额外拼接默认供应商，避免意外访问。
     explicit = [vendor for vendor in configured if vendor and vendor != "default"]
     if explicit:
         chain = [vendor for vendor in explicit if vendor in VENDOR_METHODS[method]]
@@ -262,10 +276,12 @@ _SECRET_PATTERN = re.compile(
 
 
 def _safe_error(error: Exception) -> str:
+    """在日志和返回文本中隐藏异常消息里可能出现的凭据。"""
     return _SECRET_PATTERN.sub(r"\1=[REDACTED]", str(error))
 
 
 def _no_data_message(error: NoMarketDataError) -> str:
+    """将所有供应商均无有效数据的情形转为可供 Agent 使用的明确提示。"""
     resolved = (
         ""
         if error.canonical == error.symbol
@@ -302,7 +318,11 @@ def _execute_route(
     kwargs: dict[str, Any],
     is_usable: Callable[[Any], bool],
 ) -> tuple[Any | None, str, NoMarketDataError | None, Exception | None, str | None]:
-    """Execute one capability chain for string and structured entry points."""
+    """执行供应商链，并保留失败类型供上层决定抛出或降级。
+
+    返回值区分“无数据”、供应商异常和旧版新闻空结果，避免文本接口把这些
+    状态混为一谈，也让结构化接口能够保留 ``NoMarketDataError``。
+    """
     category = get_category_for_method(method)
     last_no_data: NoMarketDataError | None = None
     first_error: Exception | None = None
@@ -313,6 +333,7 @@ def _execute_route(
         impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
         try:
             result = impl_func(*args, **kwargs)
+            # 旧新闻实现以特定文本表达空结果；视为可 fallback 的无内容，而非成功。
             if _is_legacy_no_news(method, result):
                 last_no_news = result
                 continue
@@ -349,6 +370,7 @@ def _execute_route(
 
 
 def _is_usable_string(result: Any) -> bool:
+    """判断文本兼容接口是否返回了可消费的非错误内容。"""
     if not isinstance(result, str) or not result.strip():
         return False
     return not result.lstrip().lower().startswith(
@@ -357,6 +379,7 @@ def _is_usable_string(result: Any) -> bool:
 
 
 def _is_usable_structured(result: Any) -> bool:
+    """判断结构化接口是否含有非空 DataFrame 或字典数据。"""
     if isinstance(result, dict):
         return bool(result)
     if not isinstance(result, ProviderResult):
@@ -370,7 +393,11 @@ def _is_usable_structured(result: Any) -> bool:
 
 
 def route_to_vendor(method: str, *args, **kwargs) -> str:
-    """Route a compatibility-string method through its explicit vendor chain."""
+    """路由文本兼容接口。
+
+    核心数据类别最终抛出供应商错误；可选增强类别返回安全的
+    ``DATA_UNAVAILABLE`` 文本，使调用方可在缺少补充信息时继续分析。
+    """
     result, category, last_no_data, first_error, last_no_news = _execute_route(
         method, args, kwargs, _is_usable_string
     )
@@ -405,7 +432,11 @@ def route_to_vendor(method: str, *args, **kwargs) -> str:
 def route_structured(
     method: str, *args, **kwargs
 ) -> ProviderResult[Any] | dict[str, str]:
-    """Route a structured method and reject empty provider results."""
+    """路由结构化接口，并将空结果统一转换为显式异常。
+
+    此入口用于需要 ``ProviderResult`` 元数据的调用方，不能像文本接口一样
+    用错误字符串替代数据，以免下游误将失败当作有效行情或基本面。
+    """
     result, _, last_no_data, first_error, _ = _execute_route(
         method, args, kwargs, _is_usable_structured
     )

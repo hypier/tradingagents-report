@@ -16,9 +16,8 @@ import tradingagents.dataflows.config as config_module
 import tradingagents.default_config as default_config
 from tradingagents.dataflows import interface
 from tradingagents.dataflows.config import set_config
-from tradingagents.dataflows.errors import VendorNotConfiguredError
+from tradingagents.dataflows.errors import NoMarketDataError, VendorNotConfiguredError
 from tradingagents.dataflows.provider_models import ProviderResult, parse_instrument
-from tradingagents.dataflows.symbol_utils import NoMarketDataError
 
 
 def _reset_config():

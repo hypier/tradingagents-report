@@ -6,7 +6,7 @@ from io import StringIO
 import pandas as pd
 import requests
 
-from .errors import VendorNotConfiguredError, VendorRateLimitError
+from ..errors import VendorNotConfiguredError, VendorRateLimitError
 
 API_BASE_URL = "https://www.alphavantage.co/query"
 

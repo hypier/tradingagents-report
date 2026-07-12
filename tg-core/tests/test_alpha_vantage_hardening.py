@@ -10,9 +10,9 @@ import json
 import pandas as pd
 import pytest
 
-import tradingagents.dataflows.alpha_vantage_common as av
-import tradingagents.dataflows.alpha_vantage_fundamentals as avf
-import tradingagents.dataflows.alpha_vantage_stock as avs
+import tradingagents.dataflows.alpha_vantage.common as av
+import tradingagents.dataflows.alpha_vantage.fundamentals as avf
+import tradingagents.dataflows.alpha_vantage.stock as avs
 from tradingagents.dataflows.errors import NoMarketDataError
 
 

@@ -4,12 +4,9 @@ import unittest
 
 import pytest
 
-from tradingagents.dataflows.symbol_utils import (
-    NoMarketDataError,
-    crypto_base,
-    is_yahoo_safe,
-    normalize_symbol,
-)
+from tradingagents.dataflows.errors import NoMarketDataError
+from tradingagents.dataflows.symbol_utils import crypto_base
+from tradingagents.dataflows.yfinance.symbols import is_yahoo_safe, normalize_symbol
 
 
 @pytest.mark.unit

@@ -5,8 +5,9 @@ import pandas as pd
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
 
-from .provider_models import ProviderResult, parse_instrument
-from .stockstats_utils import (
+from ..errors import NoMarketDataError
+from ..provider_models import ProviderResult, parse_instrument
+from ..stockstats_utils import (
     StockstatsUtils,
     _assert_ohlcv_not_stale,
     calculate_indicator_window,
@@ -15,7 +16,7 @@ from .stockstats_utils import (
     validate_indicator,
     yf_retry,
 )
-from .symbol_utils import NoMarketDataError, normalize_symbol
+from .symbols import normalize_symbol
 
 
 def fetch_yfinance_ohlcv(

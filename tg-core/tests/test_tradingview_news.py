@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from unittest.mock import Mock
 
-from tradingagents.dataflows.tradingview_news import (
+from tradingagents.dataflows.tradingview.news import (
     get_tradingview_global_news,
     get_tradingview_news,
 )

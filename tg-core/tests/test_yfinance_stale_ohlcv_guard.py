@@ -13,12 +13,12 @@ import pandas as pd
 import pytest
 
 import tradingagents.dataflows.config as config_module
-import tradingagents.dataflows.y_finance as y_finance
+import tradingagents.dataflows.yfinance.market as y_finance
 import tradingagents.default_config as default_config
 from tradingagents.dataflows import interface
 from tradingagents.dataflows.config import set_config
+from tradingagents.dataflows.errors import NoMarketDataError
 from tradingagents.dataflows.stockstats_utils import _assert_ohlcv_not_stale
-from tradingagents.dataflows.symbol_utils import NoMarketDataError
 
 
 def _frame(date):

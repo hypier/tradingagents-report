@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from .errors import VendorNotConfiguredError
+from ..errors import VendorNotConfiguredError
 
 logger = logging.getLogger(__name__)
 

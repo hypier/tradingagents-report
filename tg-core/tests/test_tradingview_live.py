@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from tradingagents.dataflows.tradingview_stock import fetch_tradingview_ohlcv
+from tradingagents.dataflows.tradingview.stock import fetch_tradingview_ohlcv
 
 
 @pytest.mark.integration

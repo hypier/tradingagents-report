@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from tradingagents.dataflows.errors import NoMarketDataError
-from tradingagents.dataflows.tradingview_fundamentals import (
+from tradingagents.dataflows.tradingview.fundamentals import (
     get_tradingview_balance_sheet,
     get_tradingview_cashflow,
     get_tradingview_fundamentals,

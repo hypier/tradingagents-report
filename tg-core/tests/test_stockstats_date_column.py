@@ -11,7 +11,8 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
-from tradingagents.dataflows import stockstats_utils as su, y_finance
+from tradingagents.dataflows import stockstats_utils as su
+from tradingagents.dataflows.yfinance import market as y_finance
 
 
 def _ohlcv(date_col: str) -> pd.DataFrame:
