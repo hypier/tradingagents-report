@@ -326,3 +326,13 @@ docker compose logs -f tradingagents-api
 价格字段按每 100 万 tokens 计费：`input`、`cache_read`、`cache_write`、`output`。如果价格源暂时不可用，服务会保留已有数据库价格并使用内置 `gpt-5.6-sol` fallback，不阻塞分析任务。
 
 如果上游模型或兼容网关没有返回 usage 字段，对应数值会保持为 `0`，不会影响分析任务完成。
+
+## 11. Reddit 429 降级策略
+
+Reddit RSS 是无鉴权公共接口，容易按 IP 触发 `HTTP 429 Too Many Requests`。服务默认遇到 429 后不会立即重试，而是进入全局冷却并在冷却期间跳过 Reddit 数据源，分析任务继续执行：
+
+- `TRADINGAGENTS_REDDIT_RETRY_ON_429=false`：默认不重试，避免每个 subreddit 额外等待。
+- `TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS=900`：默认冷却 15 分钟。
+- `TRADINGAGENTS_REDDIT_ENABLED=false`：可完全禁用 Reddit 数据源。
+
+如果确实需要一次短退避重试，可设置 `TRADINGAGENTS_REDDIT_RETRY_ON_429=true`。
