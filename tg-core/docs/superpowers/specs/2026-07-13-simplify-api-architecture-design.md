@@ -57,7 +57,7 @@ tg-core/
 │   ├── __init__.py
 │   ├── app.py
 │   ├── formatters.py
-│   ├── runner.py
+│   ├── job_worker.py
 │   ├── schemas.py
 │   └── security.py
 ├── cli/
@@ -95,7 +95,7 @@ tg-core/
 - `schemas.py`：HTTP Pydantic 请求与响应模型。
 - `security.py`：`X-API-Key` 校验。
 - `formatters.py`：将应用结果转换为现有附件兼容 JSON。
-- `runner.py`：API 进程内的单 worker 唤醒队列。
+- `job_worker.py`：API 进程内的单 worker 唤醒队列，只管理线程生命周期和 job ID 投递。
 
 Docker Compose 的 Uvicorn 入口改为 `api.app:app`。迁移完成后删除
 `tradingagents/api/`，顶层 `api/` 是唯一 HTTP 实现和唯一服务入口。
@@ -222,7 +222,7 @@ POST /api/v1/analyses
   -> HTTP schema 校验
   -> application.jobs.create_job
   -> infrastructure.analysis_jobs.insert_job
-  -> api.runner.enqueue
+  -> api.job_worker.enqueue
 
 worker
   -> application.jobs.run_job
