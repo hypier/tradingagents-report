@@ -19,7 +19,6 @@ from rich.table import Table
 from rich.text import Text
 
 from cli.announcements import display_announcements, fetch_announcements
-from cli.stats_handler import StatsCallbackHandler
 from cli.utils import (
     ask_anthropic_effort,
     ask_gemini_thinking_config,
@@ -48,6 +47,7 @@ from tradingagents.graph.analyst_execution import (
     sync_analyst_tracker_from_chunk,
 )
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.llm_clients.token_usage import TokenUsageCallback
 from tradingagents.reporting import write_report_tree
 
 console = Console()
@@ -995,7 +995,7 @@ def run_analysis(checkpoint: bool | None = None):
     config = _build_run_config(selections, checkpoint)
 
     # Create stats callback handler for tracking LLM/tool calls
-    stats_handler = StatsCallbackHandler()
+    stats_handler = TokenUsageCallback()
 
     # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
     selected_set = {analyst.value for analyst in selections["analysts"]}
