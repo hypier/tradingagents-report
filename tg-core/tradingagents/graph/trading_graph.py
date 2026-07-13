@@ -378,7 +378,13 @@ class TradingAgentsGraph:
             f"asset={asset_type}",
         ])
 
-    def propagate(self, company_name, trade_date, asset_type: str = "stock"):
+    def propagate(
+        self,
+        company_name,
+        trade_date,
+        asset_type: str = "stock",
+        on_chunk=None,
+    ):
         """Run the trading agents graph for a company on a specific date.
 
         ``asset_type`` selects between the stock pipeline (default) and the
@@ -413,7 +419,12 @@ class TradingAgentsGraph:
                 logger.info("Starting fresh for %s on %s", company_name, trade_date)
 
         try:
-            return self._run_graph(company_name, trade_date, asset_type=asset_type)
+            return self._run_graph(
+                company_name,
+                trade_date,
+                asset_type=asset_type,
+                on_chunk=on_chunk,
+            )
         finally:
             if self._checkpointer_ctx is not None:
                 self._checkpointer_ctx.__exit__(None, None, None)
@@ -435,7 +446,7 @@ class TradingAgentsGraph:
             )
         return write_report_tree(final_state, ticker, save_path)
 
-    def _run_graph(self, company_name, trade_date, asset_type: str = "stock"):
+    def _run_graph(self, company_name, trade_date, asset_type: str = "stock", on_chunk=None):
         """Execute the graph and write the resulting state to disk and memory log."""
         # Initialize state — inject memory log context for PM and the
         # deterministically resolved instrument identity for all agents.
@@ -448,7 +459,7 @@ class TradingAgentsGraph:
             past_context=past_context,
             instrument_context=instrument_context,
         )
-        args = self.propagator.get_graph_args()
+        args = self.propagator.get_graph_args(callbacks=self.callbacks)
 
         # Inject thread_id so same ticker+date+graph-shape resumes; a different
         # date or graph shape starts fresh (#1089).
@@ -456,27 +467,18 @@ class TradingAgentsGraph:
             tid = thread_id(company_name, str(trade_date), self._run_signature(asset_type))
             args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = tid
 
-        if self.debug:
-            trace = []
-            last_printed = None
-            for chunk in self.graph.stream(init_agent_state, **args):
-                if chunk["messages"]:
-                    msg = chunk["messages"][-1]
-                    # Nodes after the trader don't append to messages, so the
-                    # same trailing message repeats across chunks. Print it only
-                    # when it changes (#1027); the trace/state merge is unchanged.
-                    signature = (type(msg).__name__, getattr(msg, "content", None))
-                    if signature != last_printed:
-                        msg.pretty_print()
-                        last_printed = signature
-                    trace.append(chunk)
-            # Streamed chunks are per-node deltas. Merge them so the returned
-            # state matches what graph.invoke() yields in the non-debug path.
-            final_state = {}
-            for chunk in trace:
-                final_state.update(chunk)
-        else:
-            final_state = self.graph.invoke(init_agent_state, **args)
+        final_state = {}
+        last_printed = None
+        for chunk in self.graph.stream(init_agent_state, **args):
+            final_state.update(chunk)
+            if on_chunk is not None:
+                on_chunk(chunk)
+            if self.debug and chunk.get("messages"):
+                message = chunk["messages"][-1]
+                signature = (type(message).__name__, getattr(message, "content", None))
+                if signature != last_printed:
+                    message.pretty_print()
+                    last_printed = signature
 
         # Store current state for reflection.
         self.curr_state = final_state
