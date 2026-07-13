@@ -1029,7 +1029,10 @@ git commit -m "refactor: add persistent analysis job use cases"
 - 修改：`tg-core/tests/test_api_app.py`
 - 修改：`tg-core/tests/test_api_security.py`
 - 修改：`tg-core/tests/test_api_formatters.py`
+- 修改：`tg-core/tests/test_application_jobs.py`
 - 创建：`tg-core/tests/test_api_job_worker.py`
+- 删除：`tg-core/tests/test_api_db.py`
+- 删除：`tg-core/tests/test_api_service.py`
 
 **接口：**
 
@@ -1044,6 +1047,24 @@ git commit -m "refactor: add persistent analysis job use cases"
 ```python
 from api import app as api_app
 ```
+
+将旧 `tests/test_api_service.py` 的两个配置边界测试迁移到
+`tests/test_application_jobs.py`，并使用新的应用层函数：
+
+```python
+def test_build_config_rejects_request_level_backend_url():
+    with pytest.raises(ValueError, match="backend_url"):
+        jobs.build_config({"backend_url": "http://attacker.invalid/v1"})
+
+
+def test_build_config_rejects_unsupported_checkpoint_override():
+    with pytest.raises(ValueError, match="checkpoint_enabled"):
+        jobs.build_config({"checkpoint_enabled": True})
+```
+
+删除 `tests/test_api_db.py`，因为其中的连接、锁和费用持久化覆盖已由
+`test_infrastructure_database.py`、`test_infrastructure_analysis_jobs.py` 和
+`test_infrastructure_llm_prices.py` 取代；不得保留对已删除 `tradingagents.api.db` 的测试 import。
 
 `tests/test_api_job_worker.py` 写入：
 
@@ -1201,6 +1222,13 @@ rg -n "tradingagents\.api|api\.runner" tg-core -g '*.py' -g '*.yml' -g '*.toml'
 
 预期：没有输出。设计和历史文档中的说明不作为代码 import 检查对象。
 
+删除已迁移或已被基础设施测试取代的旧测试：
+
+```text
+tests/test_api_db.py
+tests/test_api_service.py
+```
+
 - [ ] **步骤 7：运行 API 契约测试**
 
 ```bash
@@ -1222,7 +1250,9 @@ uv run --extra dev pytest \
 git add tg-core/api tg-core/application tg-core/infrastructure \
   tg-core/tradingagents/api tg-core/pyproject.toml tg-core/docker-compose.yml \
   tg-core/tests/test_api_app.py tg-core/tests/test_api_security.py \
-  tg-core/tests/test_api_formatters.py tg-core/tests/test_api_job_worker.py
+  tg-core/tests/test_api_formatters.py tg-core/tests/test_api_job_worker.py \
+  tg-core/tests/test_application_jobs.py tg-core/tests/test_api_db.py \
+  tg-core/tests/test_api_service.py
 git commit -m "refactor: move HTTP API to top-level package"
 ```
 
