@@ -55,7 +55,7 @@ tg-core/
 
 ---
 
-### 任务 1：统一 LLM usage 与定价模块
+### Task 1: 统一 LLM usage 与定价模块
 
 **文件：**
 
@@ -241,7 +241,7 @@ git commit -m "refactor: centralize LLM usage and pricing"
 
 ---
 
-### 任务 2：建立共享分析执行与进度事件
+### Task 2: 建立共享分析执行与进度事件
 
 **文件：**
 
@@ -531,7 +531,7 @@ git commit -m "refactor: add shared analysis application flow"
 
 ---
 
-### 任务 3：拆出 PostgreSQL 基础模块
+### Task 3: 拆出 PostgreSQL 基础模块
 
 **文件：**
 
@@ -737,7 +737,7 @@ git commit -m "refactor: separate PostgreSQL infrastructure"
 
 ---
 
-### 任务 4：建立持久化 Job 与价格刷新用例
+### Task 4: 建立持久化 Job 与价格刷新用例
 
 **文件：**
 
@@ -1013,7 +1013,7 @@ git commit -m "refactor: add persistent analysis job use cases"
 
 ---
 
-### 任务 5：将 FastAPI 迁移到顶层 api 并命名 job_worker
+### Task 5: 将 FastAPI 迁移到顶层 api 并命名 job_worker
 
 **文件：**
 
@@ -1228,7 +1228,7 @@ git commit -m "refactor: move HTTP API to top-level package"
 
 ---
 
-### 任务 6：让 CLI 使用共享分析执行流程
+### Task 6: 让 CLI 使用共享分析执行流程
 
 **文件：**
 
@@ -1351,7 +1351,7 @@ git commit -m "refactor: run CLI through shared analysis application"
 
 ---
 
-### 任务 7：更新文档、清理旧路径并完成验证
+### Task 7: 更新文档、清理旧路径并完成验证
 
 **文件：**
 
