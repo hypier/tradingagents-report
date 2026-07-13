@@ -9,6 +9,16 @@ import pytest
 from application import jobs
 
 
+def test_build_config_rejects_request_level_backend_url():
+    with pytest.raises(ValueError, match="backend_url"):
+        jobs.build_config({"backend_url": "http://attacker.invalid/v1"})
+
+
+def test_build_config_rejects_unsupported_checkpoint_override():
+    with pytest.raises(ValueError, match="checkpoint_enabled"):
+        jobs.build_config({"checkpoint_enabled": True})
+
+
 def test_run_job_claims_inside_execution_lock(monkeypatch):
     events = []
 

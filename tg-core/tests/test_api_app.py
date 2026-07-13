@@ -2,13 +2,13 @@ import asyncio
 
 from fastapi.testclient import TestClient
 
-from tradingagents.api import app as api_app
+from api import app as api_app
 
 
 def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch):
     events = []
 
-    class StubRunner:
+    class StubWorker:
         def start(self):
             events.append("start")
 
@@ -18,20 +18,25 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
         def stop(self):
             events.append("stop")
 
-    monkeypatch.setattr(api_app.db, "init_database", lambda: events.append("init"))
+    monkeypatch.setattr(api_app.database, "init_database", lambda: events.append("init"))
     monkeypatch.setattr(
-        api_app.db,
+        api_app.llm_prices,
+        "seed_fallback_model_prices",
+        lambda: events.append("seed"),
+    )
+    monkeypatch.setattr(
+        api_app.analysis_jobs,
         "recover_interrupted_jobs",
         lambda: events.append("recover"),
         raising=False,
     )
     monkeypatch.setattr(
-        api_app.db,
+        api_app.analysis_jobs,
         "list_queued_job_ids",
         lambda: ["job-1", "job-2"],
         raising=False,
     )
-    monkeypatch.setattr(api_app, "job_runner", StubRunner(), raising=False)
+    monkeypatch.setattr(api_app, "job_worker", StubWorker(), raising=False)
     monkeypatch.setattr(
         api_app,
         "start_pricing_refresh",
@@ -47,6 +52,7 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
 
     assert events == [
         "init",
+        "seed",
         "recover",
         "start",
         ("enqueue", "job-1"),
@@ -61,7 +67,7 @@ def test_health_returns_503_when_database_is_unavailable(monkeypatch):
     def fail_healthcheck():
         raise RuntimeError("database unavailable")
 
-    monkeypatch.setattr(api_app.db, "healthcheck", fail_healthcheck)
+    monkeypatch.setattr(api_app.database, "healthcheck", fail_healthcheck)
 
     response = TestClient(api_app.app).get("/health")
 

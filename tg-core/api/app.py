@@ -7,12 +7,13 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 
-from tradingagents.api import db
-from tradingagents.api.formatters import analysis_document_from_row
-from tradingagents.api.runner import job_runner
-from tradingagents.api.schemas import AnalysisJob, AnalysisRequest, HealthResponse
-from tradingagents.api.security import require_api_key
-from tradingagents.api.service import create_analysis_job
+from api.formatters import analysis_document_from_row
+from api.job_worker import job_worker
+from api.schemas import AnalysisJob, AnalysisRequest, HealthResponse
+from api.security import require_api_key
+from application.jobs import CreateAnalysisJob, create_job
+from application.pricing import refresh_and_backfill_model_prices
+from infrastructure import analysis_jobs, database, llm_prices
 
 logger = logging.getLogger(__name__)
 
@@ -27,23 +28,24 @@ def start_pricing_refresh() -> None:
 
 def _refresh_pricing_safely() -> None:
     try:
-        db.refresh_and_backfill_model_prices()
+        refresh_and_backfill_model_prices()
     except Exception:
         logger.exception("Background LLM pricing refresh failed")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    db.init_database()
-    db.recover_interrupted_jobs()
-    job_runner.start()
-    for job_id in db.list_queued_job_ids():
-        job_runner.enqueue(job_id)
+    database.init_database()
+    llm_prices.seed_fallback_model_prices()
+    analysis_jobs.recover_interrupted_jobs()
+    job_worker.start()
+    for job_id in analysis_jobs.list_queued_job_ids():
+        job_worker.enqueue(job_id)
     start_pricing_refresh()
     try:
         yield
     finally:
-        job_runner.stop()
+        job_worker.stop()
 
 
 app = FastAPI(
@@ -57,7 +59,7 @@ app = FastAPI(
 @app.get("/health", response_model=HealthResponse)
 def health(response: Response) -> HealthResponse:
     try:
-        db.healthcheck()
+        database.healthcheck()
         return HealthResponse(status="ok", database="ok")
     except Exception as exc:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
@@ -72,12 +74,21 @@ def health(response: Response) -> HealthResponse:
 )
 def submit_analysis(request: AnalysisRequest) -> dict:
     try:
-        row = create_analysis_job(request)
+        row = create_job(
+            CreateAnalysisJob(
+                ticker=request.ticker,
+                trade_date=request.trade_date,
+                asset_type=request.asset_type,
+                analysts=tuple(request.analysts),
+                config_overrides=request.config_overrides,
+                output_language=request.output_language,
+            )
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    job_runner.enqueue(row["id"])
-    return db.row_to_public(row)
+    job_worker.enqueue(row["id"])
+    return analysis_jobs.row_to_public(row)
 
 
 @app.get(
@@ -92,13 +103,18 @@ def get_analyses(
     offset: int = Query(default=0, ge=0),
 ) -> list[dict]:
     ticker_value = ticker.upper() if ticker else None
-    rows = db.list_jobs(ticker=ticker_value, status=status_filter, limit=limit, offset=offset)
-    return db.rows_to_public(rows)
+    rows = analysis_jobs.list_jobs(
+        ticker=ticker_value,
+        status=status_filter,
+        limit=limit,
+        offset=offset,
+    )
+    return analysis_jobs.rows_to_public(rows)
 
 
 @app.get("/api/v1/analyses/{job_id}", dependencies=[Depends(require_api_key)])
 def get_analysis(job_id: UUID) -> dict:
-    row = db.get_job(job_id)
+    row = analysis_jobs.get_job(job_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="analysis job not found")
-    return analysis_document_from_row(db.row_to_public(row))
+    return analysis_document_from_row(analysis_jobs.row_to_public(row))

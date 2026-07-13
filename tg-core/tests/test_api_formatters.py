@@ -1,6 +1,6 @@
 import pytest
 
-from tradingagents.api.formatters import analysis_document_from_row
+from api.formatters import analysis_document_from_row
 
 
 @pytest.mark.parametrize(

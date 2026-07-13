@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tradingagents.api import app as api_app
+from api import app as api_app
 
 
 def test_submit_analysis_requires_api_key(monkeypatch):

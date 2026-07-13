@@ -53,7 +53,7 @@ bedrock = [
 tradingagents = "cli.main:app"
 
 [tool.setuptools.packages.find]
-include = ["tradingagents*", "cli*"]
+include = ["tradingagents*", "cli*", "api*", "application*", "infrastructure*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]

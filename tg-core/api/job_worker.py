@@ -5,15 +5,13 @@ import queue
 import threading
 from uuid import UUID
 
-from tradingagents.api.service import run_analysis_job
+from application.jobs import run_job
 
 logger = logging.getLogger(__name__)
 _STOP = object()
 
 
-class AnalysisJobRunner:
-    """Single-worker wake-up queue backed by durable PostgreSQL job rows."""
-
+class AnalysisJobWorker:
     def __init__(self) -> None:
         self._queue: queue.Queue[UUID | str | object] = queue.Queue()
         self._scheduled: set[str] = set()
@@ -23,7 +21,11 @@ class AnalysisJobRunner:
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
-        self._thread = threading.Thread(target=self._work, name="analysis-job-runner", daemon=True)
+        self._thread = threading.Thread(
+            target=self._work,
+            name="analysis-job-worker",
+            daemon=True,
+        )
         self._thread.start()
 
     def enqueue(self, job_id: UUID | str) -> None:
@@ -47,9 +49,9 @@ class AnalysisJobRunner:
             try:
                 if job_id is _STOP:
                     return
-                run_analysis_job(job_id)
+                run_job(job_id)
             except Exception:
-                logger.exception("Analysis job runner failed for %s", job_id)
+                logger.exception("Analysis job worker failed for %s", job_id)
             finally:
                 if job_id is not _STOP:
                     with self._mutex:
@@ -57,4 +59,4 @@ class AnalysisJobRunner:
                 self._queue.task_done()
 
 
-job_runner = AnalysisJobRunner()
+job_worker = AnalysisJobWorker()
