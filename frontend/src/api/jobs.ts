@@ -11,7 +11,14 @@ export interface AnalysisJob {
   status: JobStatus
   progress_percent: number
   current_step: string | null
-  events: Array<{ progress?: number; step?: string; message?: string; timestamp?: string }>
+  events: Array<{
+    progress?: number
+    progress_percent?: number
+    step?: string
+    message?: string
+    time?: string
+    timestamp?: string
+  }>
   tokens_used: number
   token_usage: Record<string, unknown>
   cost_usd: number
@@ -35,7 +42,14 @@ export interface AnalysisDetail {
   status_label: string
   progress_percent: number
   current_step: string | null
-  events: Array<{ progress?: number; step?: string; message?: string; timestamp?: string }>
+  events: Array<{
+    progress?: number
+    progress_percent?: number
+    step?: string
+    message?: string
+    time?: string
+    timestamp?: string
+  }>
   summary: string
   decision: {
     action?: string

@@ -263,11 +263,13 @@
                 <el-timeline-item
                   v-for="(event, index) in [...detail.events].reverse()"
                   :key="index"
-                  :timestamp="formatDateTime(event.timestamp)"
+                  :timestamp="formatDateTime(event.timestamp || event.time)"
                   placement="top"
                 >
                   <strong>{{ event.message || event.step || '状态更新' }}</strong>
-                  <p v-if="event.progress != null">进度 {{ event.progress }}%</p>
+                  <p v-if="event.progress != null || event.progress_percent != null">
+                    进度 {{ event.progress ?? event.progress_percent }}%
+                  </p>
                 </el-timeline-item>
               </el-timeline>
               <el-empty v-else description="暂无执行事件" :image-size="80" />
