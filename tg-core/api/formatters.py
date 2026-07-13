@@ -28,31 +28,11 @@ RESEARCH_REPORT_KEYS = {
     "judge_decision": "research_team_decision",
 }
 
-CHINESE_ACTIONS = {
-    "Buy": "买入",
-    "Overweight": "增持",
-    "Hold": "持有",
-    "Underweight": "减持",
-    "Sell": "卖出",
-}
-
 STATUS_MAP = {
     "queued": "queued",
     "running": "running",
     "succeeded": "completed",
     "failed": "failed",
-}
-
-CHINESE_STATUS_MAP = {
-    "queued": "排队中",
-    "running": "运行中",
-    "succeeded": "已完成",
-    "failed": "失败",
-}
-
-CHINESE_MARKET_TYPES = {
-    "stock": "股票",
-    "crypto": "加密货币",
 }
 
 ENGLISH_MARKET_TYPES = {
@@ -68,19 +48,8 @@ RISK_LEVELS = {
     "Sell": "High",
 }
 
-CHINESE_RISK_LEVELS = {
-    "Buy": "中等",
-    "Overweight": "中等",
-    "Hold": "低",
-    "Underweight": "中等",
-    "Sell": "高",
-}
-
-
 def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
     config = row.get("config") or {}
-    request = row.get("request") or {}
-    language = str(config.get("output_language") or request.get("output_language") or "English")
     final_state = row.get("final_state") or {}
     created_at = ensure_datetime(row.get("created_at"))
     updated_at = ensure_datetime(row.get("updated_at"))
@@ -106,30 +75,28 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "confidence_score": decision_fields.get("confidence", 0),
         "created_at": mongo_date(created_at),
         "decision": {
-            "action": localize_action(rating, language),
+            "action": rating,
             "confidence": decision_fields.get("confidence", 0),
             "risk_score": decision_fields.get("risk_score", risk_score_for_rating(rating)),
             "target_price": decision_fields.get("target_price"),
-            "reasoning": localize_markdown_labels(
-                decision_fields.get("reasoning") or str(final_state.get("final_trade_decision") or ""),
-                language,
-            ),
+            "reasoning": decision_fields.get("reasoning")
+            or str(final_state.get("final_trade_decision") or ""),
         },
         "execution_time": elapsed,
         "key_points": [],
-        "market_type": localize_market_type(str(row.get("asset_type") or "stock"), language),
+        "market_type": ENGLISH_MARKET_TYPES.get(str(row.get("asset_type") or "stock"), "stock"),
         "model_info": model_info(config),
         "performance_metrics": performance_metrics(config, elapsed, token_usage, cost_breakdown),
-        "recommendation": build_recommendation(rating, decision_fields, final_state, language),
-        "reports": localize_reports(reports, language),
-        "research_depth": research_depth(row.get("analysts") or [], language),
-        "risk_level": localize_risk_level(rating, language),
+        "recommendation": build_recommendation(rating, decision_fields, final_state),
+        "reports": reports,
+        "research_depth": research_depth(row.get("analysts") or []),
+        "risk_level": RISK_LEVELS.get(rating, "Medium"),
         "source": "api",
         "status": job_status,
-        "status_label": localize_status(job_status, language),
+        "status_label": STATUS_MAP.get(job_status, job_status),
         "stock_name": ticker,
         "stock_symbol": ticker,
-        "summary": summarize(localize_markdown_labels(str(final_state.get("final_trade_decision") or ""), language)),
+        "summary": summarize(str(final_state.get("final_trade_decision") or "")),
         "task_id": str(row.get("id")),
         "timestamp": mongo_date(updated_at),
         "tokens_used": tokens_used,
@@ -141,8 +108,8 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "updated_at": mongo_date(updated_at),
         "user_id": None,
         "progress_percent": int(row.get("progress_percent") or 0),
-        "current_step": localize_step(row.get("current_step"), language),
-        "events": localize_events(row.get("events") or [], language),
+        "current_step": row.get("current_step"),
+        "events": list(row.get("events") or []),
         "error": row.get("error"),
         "report_path": row.get("report_path"),
     }
@@ -230,128 +197,17 @@ def build_recommendation(
     rating: str,
     decision_fields: dict[str, Any],
     final_state: dict[str, Any],
-    language: str,
 ) -> str:
     reasoning = decision_fields.get("reasoning") or final_state.get("final_trade_decision") or ""
     target = decision_fields.get("target_price")
-    action = localize_action(rating, language)
-    if is_chinese(language):
-        target_part = f"目标价格：{target}。" if target is not None else ""
-        return f"投资建议：{action}。{target_part}决策依据：{localize_markdown_labels(str(reasoning), language)}"
     target_part = f" Target price: {target}." if target is not None else ""
-    return f"Investment recommendation: {action}.{target_part} Rationale: {reasoning}"
+    return f"Investment recommendation: {rating}.{target_part} Rationale: {reasoning}"
 
 
-def localize_reports(reports: dict[str, Any], language: str) -> dict[str, Any]:
-    if not is_chinese(language):
-        return reports
-    return {key: localize_markdown_labels(value, language) for key, value in reports.items()}
-
-
-def localize_markdown_labels(value: Any, language: str) -> Any:
-    if not isinstance(value, str) or not is_chinese(language):
-        return value
-    replacements = {
-        "**Rating**": "**评级**",
-        "**Executive Summary**": "**执行摘要**",
-        "**Investment Thesis**": "**投资逻辑**",
-        "**Price Target**": "**目标价格**",
-        "**Time Horizon**": "**时间周期**",
-        "**Recommendation**": "**建议**",
-        "**Rationale**": "**理由**",
-        "**Strategic Actions**": "**策略行动**",
-        "**Action**": "**操作**",
-        "**Reasoning**": "**理由**",
-        "**Entry Price**": "**入场价格**",
-        "**Stop Loss**": "**止损**",
-        "**Position Sizing**": "**仓位规模**",
-        "FINAL TRANSACTION PROPOSAL": "最终交易建议",
-    }
-    output = value
-    for old, new in replacements.items():
-        output = output.replace(old, new)
-    for english, chinese in CHINESE_ACTIONS.items():
-        output = re.sub(rf"\b{english}\b", chinese, output)
-        output = re.sub(rf"\b{english.upper()}\b", chinese, output)
-    return output
-
-
-def localize_action(rating: str, language: str) -> str:
-    if is_chinese(language):
-        return CHINESE_ACTIONS.get(rating, rating)
-    return rating
-
-
-def localize_status(status: str, language: str) -> str:
-    if is_chinese(language):
-        return CHINESE_STATUS_MAP.get(status, status)
-    return STATUS_MAP.get(status, status)
-
-
-def localize_market_type(asset_type: str, language: str) -> str:
-    if is_chinese(language):
-        return CHINESE_MARKET_TYPES.get(asset_type, asset_type)
-    return ENGLISH_MARKET_TYPES.get(asset_type, asset_type)
-
-
-def localize_risk_level(rating: str, language: str) -> str:
-    if is_chinese(language):
-        return CHINESE_RISK_LEVELS.get(rating, "中等")
-    return RISK_LEVELS.get(rating, "Medium")
-
-
-def research_depth(analysts: list[str], language: str) -> str:
+def research_depth(analysts: list[str]) -> str:
     if len(analysts) >= 3:
-        return "全面" if is_chinese(language) else "Comprehensive"
-    return "快速" if is_chinese(language) else "Quick"
-
-
-def localize_step(step: Any, language: str) -> Any:
-    if not isinstance(step, str) or not is_chinese(language):
-        return step
-    replacements = {
-        "Queued": "排队中",
-        "Starting analysis": "开始分析",
-        "Resolving pending memory entries": "处理历史记忆记录",
-        "Creating initial graph state": "创建初始分析状态",
-        "Starting LangGraph stream": "启动分析流程",
-        "Running analyst team": "分析师团队运行中",
-        "Running Market Analyst": "市场分析师运行中",
-        "Market Analyst completed": "市场分析师已完成",
-        "Running Sentiment Analyst": "情绪分析师运行中",
-        "Sentiment Analyst completed": "情绪分析师已完成",
-        "Running News Analyst": "新闻分析师运行中",
-        "News Analyst completed": "新闻分析师已完成",
-        "Running Fundamentals Analyst": "基本面分析师运行中",
-        "Fundamentals Analyst completed": "基本面分析师已完成",
-        "Running Trader": "交易员运行中",
-        "Portfolio Manager completed": "投资组合经理已完成",
-        "Persisting final state": "保存最终状态",
-        "Storing decision memory": "保存决策记忆",
-        "Saving report": "保存报告",
-        "Completed": "已完成",
-        "Failed": "失败",
-    }
-    output = step
-    for old, new in replacements.items():
-        output = output.replace(old, new)
-    output = re.sub(r"Running research debate \((\d+)/(\d+)\)", r"研究辩论运行中（\1/\2）", output)
-    output = re.sub(r"Running risk debate \((\d+)/(\d+)\)", r"风险辩论运行中（\1/\2）", output)
-    return output
-
-
-def localize_events(events: list[dict[str, Any]], language: str) -> list[dict[str, Any]]:
-    localized = []
-    for event in events:
-        item = dict(event)
-        item["message"] = localize_step(item.get("message"), language)
-        localized.append(item)
-    return localized
-
-
-def is_chinese(language: str) -> bool:
-    normalized = language.strip().lower()
-    return any(token in normalized for token in ["chinese", "zh", "中文", "简体", "繁体"])
+        return "Comprehensive"
+    return "Quick"
 
 
 def model_info(config: dict[str, Any]) -> str:

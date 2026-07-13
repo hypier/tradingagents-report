@@ -1,5 +1,7 @@
 from contextlib import contextmanager
 
+import pytest
+
 from infrastructure import database
 
 
@@ -15,6 +17,13 @@ def test_database_url_uses_environment_override(monkeypatch):
     monkeypatch.setenv("TRADINGAGENTS_DATABASE_URL", "postgresql://example.test/tradingagents")
 
     assert database.database_url() == "postgresql://example.test/tradingagents"
+
+
+def test_database_url_requires_environment_configuration(monkeypatch):
+    monkeypatch.delenv("TRADINGAGENTS_DATABASE_URL", raising=False)
+
+    with pytest.raises(RuntimeError, match="TRADINGAGENTS_DATABASE_URL"):
+        database.database_url()
 
 
 def test_connect_uses_configured_url_dict_rows_and_autocommit(monkeypatch):

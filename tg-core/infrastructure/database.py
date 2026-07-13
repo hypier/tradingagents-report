@@ -7,12 +7,15 @@ from contextlib import contextmanager
 import psycopg
 from psycopg.rows import dict_row
 
-DEFAULT_DATABASE_URL = "postgresql://tradingagents:tradingagents@localhost:5432/tradingagents"
+DATABASE_URL_ENV_VAR = "TRADINGAGENTS_DATABASE_URL"
 ANALYSIS_LOCK_KEY = 8_724_631_904
 
 
 def database_url() -> str:
-    return os.getenv("TRADINGAGENTS_DATABASE_URL", DEFAULT_DATABASE_URL)
+    url = os.getenv(DATABASE_URL_ENV_VAR, "").strip()
+    if not url:
+        raise RuntimeError(f"{DATABASE_URL_ENV_VAR} must be configured in .env")
+    return url
 
 
 def connect(*, autocommit: bool = False):
