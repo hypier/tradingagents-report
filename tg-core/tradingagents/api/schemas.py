@@ -6,7 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
 AnalystKey = Literal["market", "social", "news", "fundamentals"]
 AssetType = Literal["stock", "crypto"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]

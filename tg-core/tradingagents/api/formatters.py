@@ -5,7 +5,6 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID
 
-
 REPORT_KEYS = {
     "market_report": "market_report",
     "sentiment_report": "sentiment_report",
@@ -97,6 +96,7 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
     tokens_used = int(row.get("tokens_used") or token_usage.get("total_tokens") or 0)
     cost_usd = float(row.get("cost_usd") or 0)
     cost_breakdown = dict(row.get("cost_breakdown") or {})
+    job_status = str(row.get("status") or "queued")
 
     return {
         "_id": {"$oid": uuid_to_object_id(row.get("id"))},
@@ -125,7 +125,8 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "research_depth": research_depth(row.get("analysts") or [], language),
         "risk_level": localize_risk_level(rating, language),
         "source": "api",
-        "status": localize_status(str(row.get("status") or "queued"), language),
+        "status": job_status,
+        "status_label": localize_status(job_status, language),
         "stock_name": ticker,
         "stock_symbol": ticker,
         "summary": summarize(localize_markdown_labels(str(final_state.get("final_trade_decision") or ""), language)),

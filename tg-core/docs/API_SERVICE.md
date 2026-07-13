@@ -1,7 +1,7 @@
 # TradingAgents API 服务设计
 
-> 生成日期：2026-07-10  
-> 服务入口：`tradingagents.api.app:app`  
+> 生成日期：2026-07-10
+> 服务入口：`tradingagents.api.app:app`
 > 数据库：PostgreSQL，Docker Compose 服务名 `postgres`
 
 ## 1. 目标
@@ -9,7 +9,7 @@
 将 TradingAgents 从交互式 CLI 和 Python API 释放为 HTTP 服务：
 
 - 通过 REST API 提交分析任务。
-- HTTP 请求快速返回 `job_id`，后台执行完整 `TradingAgentsGraph.propagate()`。
+- HTTP 请求快速返回 `job_id`，后台执行完整 LangGraph 分析流程并持续记录进度。
 - PostgreSQL 保存请求参数、任务状态、最终决策、完整状态 JSON、报告路径和错误信息。
 - Docker Compose 启动 API 服务和 PostgreSQL。
 
@@ -17,7 +17,16 @@
 
 ## 2. 启动方式
 
-本地 Docker 启动 PostgreSQL 和 API：
+先创建 `.env` 并生成两个独立随机值：
+
+```bash
+TRADINGAGENTS_API_KEY=$(openssl rand -hex 32)
+TRADINGAGENTS_POSTGRES_PASSWORD=$(openssl rand -hex 32)
+printf 'TRADINGAGENTS_API_KEY=%s\nTRADINGAGENTS_POSTGRES_PASSWORD=%s\n' \
+  "$TRADINGAGENTS_API_KEY" "$TRADINGAGENTS_POSTGRES_PASSWORD" > .env
+```
+
+再启动 PostgreSQL 和 API：
 
 ```bash
 docker compose up --build postgres tradingagents-api
@@ -35,16 +44,16 @@ Swagger 文档：
 http://localhost:8000/docs
 ```
 
-PostgreSQL 默认连接：
+PostgreSQL 仅绑定本机回环地址。使用 `.env` 中密码连接：
 
 ```text
-postgresql://tradingagents:tradingagents@localhost:5432/tradingagents
+postgresql://tradingagents:<TRADINGAGENTS_POSTGRES_PASSWORD>@localhost:5432/tradingagents
 ```
 
 容器内 API 使用：
 
 ```text
-postgresql://tradingagents:tradingagents@postgres:5432/tradingagents
+postgresql://tradingagents:<TRADINGAGENTS_POSTGRES_PASSWORD>@postgres:5432/tradingagents
 ```
 
 可通过环境变量覆盖：
@@ -104,6 +113,7 @@ GET /health
 ```http
 POST /api/v1/analyses
 Content-Type: application/json
+X-API-Key: <TRADINGAGENTS_API_KEY>
 ```
 
 请求：
@@ -130,6 +140,8 @@ Content-Type: application/json
 - `asset_type` 可省略，服务会根据 ticker 判断 `stock` 或 `crypto`。
 - Crypto 标的会自动移除 `fundamentals` 分析师。
 - `config_overrides` 只允许覆盖安全白名单内的运行参数。
+- `backend_url` 只能由服务端环境配置，不能由请求覆盖。
+- API 进度执行路径不支持 `checkpoint_enabled`；中断任务会明确标记失败。
 
 响应状态码：`202 Accepted`
 
@@ -180,12 +192,11 @@ GET /api/v1/analyses/{job_id}
 
 ```json
 {
-  "id": "8ac1c3aa-65b2-4b66-b688-ece60c451fd3",
+  "task_id": "8ac1c3aa-65b2-4b66-b688-ece60c451fd3",
   "status": "succeeded",
-  "decision": "Hold",
-  "request": {},
-  "config": {},
-  "final_state": {},
+  "status_label": "completed",
+  "decision": {"action": "Hold"},
+  "reports": {},
   "report_path": "/home/appuser/.tradingagents/logs/api_reports/NVDA/8ac1c3aa.../complete_report.md"
 }
 ```
@@ -197,6 +208,7 @@ GET /api/v1/analyses/{job_id}
 ```bash
 curl -X POST http://localhost:8000/api/v1/analyses \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
   -d '{
     "ticker": "NVDA",
     "trade_date": "2026-01-15",
@@ -211,25 +223,29 @@ curl -X POST http://localhost:8000/api/v1/analyses \
 查询状态：
 
 ```bash
-curl http://localhost:8000/api/v1/analyses/<job_id>
+curl -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
+  http://localhost:8000/api/v1/analyses/<job_id>
 ```
 
 
 ## 6. 当前实现边界
 
-- 后台任务运行在 API 进程内，适合单机轻量使用；生产环境建议替换为队列和 worker。
+- PostgreSQL 保存排队任务，单 worker 串行执行分析，避免全局数据源配置和记忆日志并发污染。
+- 服务重启后会重新投递 `queued` 任务，并将被中断的 `running` 任务明确标记为失败。
+- 当前 worker 仍运行在 API 进程内；生产环境建议替换为独立队列和 worker。
 - 任务执行仍依赖外部 LLM 和数据源 API key。
 - 失败任务会保存异常类型和异常消息到 `analysis_jobs.error`。
 - `final_state` 会尽量保留完整状态，但 LangChain 消息对象会被转换为 JSON 友好的结构。
-- API 不做鉴权；对外暴露前应增加认证、限流和审计。
+- 除 `/health` 外，API 使用 `X-API-Key` 鉴权；公网部署仍应增加反向代理限流和审计。
 
 ## 7. 后续建议
 
 1. 引入独立 worker 队列，例如 Redis Queue、Celery 或 Dramatiq。
-2. 增加 API key 鉴权和任务级权限隔离。
+2. 增加多用户 API key、密钥轮换和任务级权限隔离。
 3. 增加任务取消接口。
 4. 增加分页总数和运行耗时统计。
 5. 将 `final_state` 拆分为报告表、消息表和工具调用表，便于检索和前端展示。
+
 ## 8. 运行进度与过程日志
 
 提交任务后，任务详情接口会在运行过程中持续返回进度字段：
@@ -260,7 +276,8 @@ curl http://localhost:8000/api/v1/analyses/<job_id>
 查询进度：
 
 ```bash
-curl http://localhost:8000/api/v1/analyses/<job_id>
+curl -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
+  http://localhost:8000/api/v1/analyses/<job_id>
 ```
 
 查看服务端打印的分析过程：
@@ -284,9 +301,9 @@ docker compose logs -f tradingagents-api
 - `decision.action`、`decision.confidence`、`decision.risk_score`、`decision.target_price`、`decision.reasoning`
 - `recommendation`、`summary`、`reports`
 - `performance_metrics`、`tokens_used`、`token_usage`、`actual_amount_usd`、`cost_breakdown`
-- `status`、`progress_percent`、`current_step`、`events`、`error`
+- `status`、`status_label`、`progress_percent`、`current_step`、`events`、`error`
 
-提交任务时可以通过顶层 `output_language` 或 `config_overrides.output_language` 设定分析语言。顶层 `output_language` 优先级更高，并会写入 job 的持久化配置。分析报告、决策字段和统一查询接口中的中文状态/阶段文案会按该语言返回。
+提交任务时可以通过顶层 `output_language` 或 `config_overrides.output_language` 设定分析语言。顶层 `output_language` 优先级更高，并会写入 job 的持久化配置。机器可读的 `status` 始终保持固定英文枚举；本地化状态放在 `status_label`，阶段文案和分析内容按请求语言返回。
 
 示例：
 
@@ -302,6 +319,7 @@ docker compose logs -f tradingagents-api
   }
 }
 ```
+
 ## 10. Token 使用量与费用统计
 
 分析任务会通过 LangChain LLM callback 汇总模型返回的 token usage，并保存到 PostgreSQL：
@@ -316,7 +334,7 @@ docker compose logs -f tradingagents-api
 - `cost_breakdown`：按模型拆分的输入、缓存输入、缓存写入、输出 token 与费用明细。
 - `performance_metrics.cost_breakdown`：结果格式中的同一份费用明细。
 
-服务启动和费用计算前会按一小时缓存周期同步模型价格到 PostgreSQL 的 `llm_model_prices` 表，同步状态保存在 `llm_pricing_sources` 表。
+服务就绪后会在后台同步模型价格到 PostgreSQL 的 `llm_model_prices` 表；距离上次成功不足一小时会跳过同步。同步状态保存在 `llm_pricing_sources` 表，任务费用只读取已缓存价格，不等待外部价格源。
 
 当前价格源：
 

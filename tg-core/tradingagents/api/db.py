@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -19,14 +20,15 @@ from tradingagents.api.pricing import (
 )
 
 DEFAULT_DATABASE_URL = "postgresql://tradingagents:tradingagents@localhost:5432/tradingagents"
+ANALYSIS_LOCK_KEY = 8_724_631_904
 
 
 def database_url() -> str:
     return os.getenv("TRADINGAGENTS_DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
-def connect():
-    return psycopg.connect(database_url(), row_factory=dict_row)
+def connect(*, autocommit: bool = False):
+    return psycopg.connect(database_url(), autocommit=autocommit, row_factory=dict_row)
 
 
 def init_database() -> None:
@@ -113,8 +115,6 @@ def init_database() -> None:
             """
         )
         seed_fallback_model_prices(conn)
-        refresh_model_prices_if_stale(conn)
-        backfill_analysis_costs(conn)
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS analysis_jobs_ticker_created_idx
@@ -170,6 +170,70 @@ def insert_job(
 def get_job(job_id: UUID | str) -> dict | None:
     with connect() as conn:
         return conn.execute("SELECT * FROM analysis_jobs WHERE id = %s", (job_id,)).fetchone()
+
+
+@contextmanager
+def analysis_execution_lock():
+    """Serialize graph runs across API processes that share the database."""
+    with connect(autocommit=True) as conn:
+        conn.execute("SELECT pg_advisory_lock(%s)", (ANALYSIS_LOCK_KEY,))
+        try:
+            yield
+        finally:
+            conn.execute("SELECT pg_advisory_unlock(%s)", (ANALYSIS_LOCK_KEY,))
+
+
+def claim_job(job_id: UUID | str) -> dict | None:
+    with connect() as conn:
+        return conn.execute(
+            """
+            UPDATE analysis_jobs
+            SET status = 'running',
+                started_at = COALESCE(started_at, now()),
+                updated_at = now(),
+                progress_percent = GREATEST(progress_percent, 1),
+                current_step = 'Starting analysis',
+                error = NULL
+            WHERE id = %s AND status = 'queued'
+            RETURNING *
+            """,
+            (job_id,),
+        ).fetchone()
+
+
+def recover_interrupted_jobs() -> int:
+    """Fail orphaned running jobs when no analysis process currently owns the lock."""
+    with connect() as conn:
+        lock_row = conn.execute(
+            "SELECT pg_try_advisory_lock(%s) AS acquired",
+            (ANALYSIS_LOCK_KEY,),
+        ).fetchone()
+        if not lock_row or not lock_row["acquired"]:
+            return 0
+        try:
+            cursor = conn.execute(
+                """
+                UPDATE analysis_jobs
+                SET status = 'failed',
+                    error = COALESCE(error, 'Analysis interrupted by API process restart'),
+                    current_step = 'Failed',
+                    finished_at = now(),
+                    updated_at = now()
+                WHERE status = 'running'
+                """
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.execute("SELECT pg_advisory_unlock(%s)", (ANALYSIS_LOCK_KEY,))
+
+
+def list_queued_job_ids() -> list[UUID]:
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id FROM analysis_jobs WHERE status = 'queued' ORDER BY created_at"
+        ).fetchall()
+    return [row["id"] for row in rows]
 
 
 def list_jobs(
@@ -372,24 +436,33 @@ def upsert_model_price(conn, price: dict) -> None:
 
 
 def backfill_analysis_costs(conn) -> None:
-    price_rows = conn.execute(
-        """
-        SELECT *
-        FROM llm_model_prices
-        WHERE provider = 'openai'
-          AND billing_mode = 'standard'
-          AND context_tier = 'short'
-        """
-    ).fetchall()
     jobs = conn.execute(
         """
-        SELECT id, token_usage
+        SELECT id, token_usage, COALESCE(config->>'llm_provider', 'openai') AS provider
         FROM analysis_jobs
         WHERE token_usage <> '{}'::jsonb
         """
     ).fetchall()
+    prices_by_provider: dict[str, list[dict]] = {}
     for job in jobs:
-        cost_breakdown = calculate_cost(dict(job.get("token_usage") or {}), list(price_rows))
+        provider = str(job.get("provider") or "openai")
+        if provider not in prices_by_provider:
+            prices_by_provider[provider] = list(
+                conn.execute(
+                    """
+                    SELECT *
+                    FROM llm_model_prices
+                    WHERE provider = %s
+                      AND billing_mode = 'standard'
+                      AND context_tier = 'short'
+                    """,
+                    (provider,),
+                ).fetchall()
+            )
+        cost_breakdown = calculate_cost(
+            dict(job.get("token_usage") or {}),
+            prices_by_provider[provider],
+        )
         conn.execute(
             """
             UPDATE analysis_jobs
@@ -408,7 +481,6 @@ def get_model_prices(
     billing_mode: str = "standard",
     context_tier: str = "short",
 ) -> list[dict]:
-    refresh_model_prices_if_stale()
     with connect() as conn:
         rows = conn.execute(
             """
@@ -421,6 +493,12 @@ def get_model_prices(
             (provider, billing_mode, context_tier),
         ).fetchall()
     return list(rows)
+
+
+def refresh_and_backfill_model_prices() -> None:
+    with connect() as conn:
+        refresh_model_prices_if_stale(conn)
+        backfill_analysis_costs(conn)
 
 
 def cost_for_usage(
@@ -443,9 +521,10 @@ def mark_succeeded(
     decision: str,
     report_path: str | None,
     token_usage: dict | None = None,
+    provider: str,
 ) -> None:
     usage = token_usage or {}
-    cost_breakdown = cost_for_usage(usage)
+    cost_breakdown = cost_for_usage(usage, provider=provider)
     with connect() as conn:
         conn.execute(
             """
@@ -478,9 +557,15 @@ def mark_succeeded(
         )
 
 
-def mark_failed(*, job_id: UUID | str, error: str, token_usage: dict | None = None) -> None:
+def mark_failed(
+    *,
+    job_id: UUID | str,
+    error: str,
+    token_usage: dict | None = None,
+    provider: str,
+) -> None:
     usage = token_usage or {}
-    cost_breakdown = cost_for_usage(usage)
+    cost_breakdown = cost_for_usage(usage, provider=provider)
     with connect() as conn:
         conn.execute(
             """

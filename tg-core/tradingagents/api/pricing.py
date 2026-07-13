@@ -4,7 +4,7 @@ import json
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 DEFAULT_PRICING_SOURCE = "https://models.dev/api.json"

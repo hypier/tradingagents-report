@@ -19,6 +19,9 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_BENCHMARK_TICKER":     "benchmark_ticker",
     "TRADINGAGENTS_TEMPERATURE":          "temperature",
     "TRADINGAGENTS_LLM_MAX_RETRIES":      "llm_max_retries",
+    "TRADINGAGENTS_REDDIT_ENABLED":        "reddit_enabled",
+    "TRADINGAGENTS_REDDIT_RETRY_ON_429":   "reddit_retry_on_429",
+    "TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS": "reddit_429_cooldown_seconds",
     # Provider-specific reasoning/thinking knobs (None = each provider's own
     # default). Settable here for non-interactive runs; the CLI also offers an
     # interactive choice, which is skipped when the matching var is set.
@@ -116,6 +119,9 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "news_article_limit": 20,             # max articles per ticker (ticker-news)
     "global_news_article_limit": 10,      # max articles for global/macro news
     "global_news_lookback_days": 7,       # macro news lookback window
+    "reddit_enabled": True,
+    "reddit_retry_on_429": False,
+    "reddit_429_cooldown_seconds": 900.0,
     # Search queries used by get_global_news for macro headlines. Extend or
     # replace to broaden geographic / sector coverage.
     "global_news_queries": [

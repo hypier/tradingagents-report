@@ -9,16 +9,20 @@ from urllib.error import HTTPError
 
 import pytest
 
+from tradingagents import default_config
 from tradingagents.dataflows import reddit
 
 
 @pytest.fixture(autouse=True)
 def reset_reddit_rate_limit(monkeypatch):
     reddit._RATE_LIMITED_UNTIL = 0.0
-    monkeypatch.delenv("TRADINGAGENTS_REDDIT_ENABLED", raising=False)
-    monkeypatch.delenv("TRADINGAGENTS_REDDIT_RETRY_ON_429", raising=False)
-    monkeypatch.delenv("TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS", raising=False)
-    yield
+    config = {
+        "reddit_enabled": True,
+        "reddit_retry_on_429": False,
+        "reddit_429_cooldown_seconds": 900.0,
+    }
+    monkeypatch.setattr(reddit, "get_config", lambda: config)
+    yield config
     reddit._RATE_LIMITED_UNTIL = 0.0
 
 _SAMPLE_ATOM = """<?xml version="1.0" encoding="UTF-8"?>
@@ -35,6 +39,43 @@ _SAMPLE_ATOM = """<?xml version="1.0" encoding="UTF-8"?>
   </entry>
 </feed>
 """
+
+
+def test_reddit_environment_settings_use_validated_default_config():
+    assert default_config._ENV_OVERRIDES["TRADINGAGENTS_REDDIT_ENABLED"] == "reddit_enabled"
+    assert (
+        default_config._ENV_OVERRIDES["TRADINGAGENTS_REDDIT_RETRY_ON_429"]
+        == "reddit_retry_on_429"
+    )
+    assert (
+        default_config._ENV_OVERRIDES["TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS"]
+        == "reddit_429_cooldown_seconds"
+    )
+    assert default_config.DEFAULT_CONFIG["reddit_enabled"] is True
+    assert default_config.DEFAULT_CONFIG["reddit_retry_on_429"] is False
+    assert default_config.DEFAULT_CONFIG["reddit_429_cooldown_seconds"] == 900.0
+
+
+def test_reddit_runtime_reads_validated_dataflow_config(monkeypatch):
+    monkeypatch.setattr(
+        reddit,
+        "get_config",
+        lambda: {
+            "reddit_enabled": False,
+            "reddit_retry_on_429": False,
+            "reddit_429_cooldown_seconds": 900.0,
+        },
+        raising=False,
+    )
+    monkeypatch.setattr(
+        reddit,
+        "_fetch_subreddit",
+        lambda *_args, **_kwargs: pytest.fail("disabled Reddit must not issue a request"),
+    )
+
+    result = reddit.fetch_reddit_posts("NVDA")
+
+    assert result == "<Reddit unavailable: disabled by TRADINGAGENTS_REDDIT_ENABLED>"
 
 
 def _resp(read_fn):
@@ -143,8 +184,8 @@ class TestRss429Backoff:
         assert posts == []
         assert reddit._is_rate_limited()
 
-    def test_429_then_success_retries_once_when_enabled(self, monkeypatch):
-        monkeypatch.setenv("TRADINGAGENTS_REDDIT_RETRY_ON_429", "true")
+    def test_429_then_success_retries_once_when_enabled(self, reset_reddit_rate_limit):
+        reset_reddit_rate_limit["reddit_retry_on_429"] = True
         err = HTTPError("url", 429, "Too Many Requests", {}, None)
         with patch.object(reddit, "urlopen", side_effect=[err, _atom_resp()]) as op, \
              patch.object(reddit.time, "sleep") as slept:
@@ -153,8 +194,8 @@ class TestRss429Backoff:
         slept.assert_called_once()         # backed off before retrying
         assert len(posts) == 2
 
-    def test_429_twice_gives_up_after_one_retry_when_enabled(self, monkeypatch):
-        monkeypatch.setenv("TRADINGAGENTS_REDDIT_RETRY_ON_429", "true")
+    def test_429_twice_gives_up_after_one_retry_when_enabled(self, reset_reddit_rate_limit):
+        reset_reddit_rate_limit["reddit_retry_on_429"] = True
         err = HTTPError("url", 429, "Too Many Requests", {}, None)
         with patch.object(reddit, "urlopen", side_effect=[err, err]) as op, \
              patch.object(reddit.time, "sleep"):
@@ -163,16 +204,18 @@ class TestRss429Backoff:
         assert posts == []
         assert reddit._is_rate_limited()
 
-    def test_retry_after_header_is_honoured_when_retry_enabled(self, monkeypatch):
-        monkeypatch.setenv("TRADINGAGENTS_REDDIT_RETRY_ON_429", "true")
+    def test_retry_after_header_is_honoured_when_retry_enabled(self, reset_reddit_rate_limit):
+        reset_reddit_rate_limit["reddit_retry_on_429"] = True
         err = HTTPError("url", 429, "Too Many Requests", {"Retry-After": "12"}, None)
         with patch.object(reddit, "urlopen", side_effect=[err, _atom_resp()]), \
              patch.object(reddit.time, "sleep") as slept:
             reddit._fetch_subreddit_rss("NVDA", "stocks", 5, 5.0)
         slept.assert_called_once_with(12.0)
 
-    def test_fetch_reddit_posts_skips_remaining_subreddits_during_cooldown(self, monkeypatch):
-        monkeypatch.setenv("TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS", "60")
+    def test_fetch_reddit_posts_skips_remaining_subreddits_during_cooldown(
+        self, reset_reddit_rate_limit
+    ):
+        reset_reddit_rate_limit["reddit_429_cooldown_seconds"] = 60.0
         err = HTTPError("url", 429, "Too Many Requests", {}, None)
         with patch.object(reddit, "urlopen", side_effect=err) as op:
             out = reddit.fetch_reddit_posts(

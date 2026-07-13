@@ -8,7 +8,8 @@ from uuid import UUID, uuid4
 from tradingagents.api import db
 from tradingagents.api.schemas import AnalysisRequest
 from tradingagents.api.token_usage import TokenUsageCallback
-from tradingagents.dataflows.symbol_utils import crypto_base, is_yahoo_safe, normalize_symbol
+from tradingagents.dataflows.symbol_utils import crypto_base
+from tradingagents.dataflows.yfinance.symbols import is_yahoo_safe, normalize_symbol
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
@@ -23,7 +24,6 @@ ALLOWED_CONFIG_OVERRIDES = {
     "llm_provider",
     "deep_think_llm",
     "quick_think_llm",
-    "backend_url",
     "google_thinking_level",
     "openai_reasoning_effort",
     "anthropic_effort",
@@ -31,7 +31,6 @@ ALLOWED_CONFIG_OVERRIDES = {
     "max_debate_rounds",
     "max_risk_discuss_rounds",
     "max_recur_limit",
-    "checkpoint_enabled",
     "temperature",
     "llm_max_retries",
     "benchmark_ticker",
@@ -73,11 +72,15 @@ def create_analysis_job(request: AnalysisRequest) -> dict:
 
 
 def run_analysis_job(job_id: UUID | str) -> None:
-    row = db.get_job(job_id)
-    if row is None:
-        return
+    with db.analysis_execution_lock():
+        row = db.claim_job(job_id)
+        if row is None:
+            return
+        _run_claimed_analysis_job(row)
 
-    db.mark_running(job_id)
+
+def _run_claimed_analysis_job(row: dict[str, Any]) -> None:
+    job_id = row["id"]
     token_tracker = TokenUsageCallback()
     try:
         request = row["request"]
@@ -112,6 +115,7 @@ def run_analysis_job(job_id: UUID | str) -> None:
             decision=str(decision),
             report_path=str(report_path) if report_path else None,
             token_usage=token_usage,
+            provider=str(config.get("llm_provider") or "openai"),
         )
         print(f"[analysis:{job_id}] 100% Completed", flush=True)
     except Exception as exc:
@@ -122,6 +126,11 @@ def run_analysis_job(job_id: UUID | str) -> None:
             job_id=job_id,
             error=f"{type(exc).__name__}: {exc}",
             token_usage=token_usage,
+            provider=str(
+                (config if "config" in locals() else row.get("config") or {}).get(
+                    "llm_provider", "openai"
+                )
+            ),
         )
         print(f"[analysis:{job_id}] failed: {type(exc).__name__}: {exc}", flush=True)
 
@@ -134,9 +143,6 @@ def run_graph_with_progress(
     asset_type: str,
     analysts: list[str],
 ) -> tuple[dict, str]:
-    if graph.config.get("checkpoint_enabled"):
-        report_progress(job_id, 2, "Checkpoint mode is enabled; running without API resume hooks")
-
     graph.ticker = ticker
     report_progress(job_id, 3, "Resolving pending memory entries")
     graph._resolve_pending_entries(ticker)
@@ -262,6 +268,8 @@ def build_config(overrides: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("output_language must be a non-empty string")
     config = DEFAULT_CONFIG.copy()
     config.update(overrides)
+    if config.get("checkpoint_enabled"):
+        raise ValueError("checkpoint_enabled is not supported by the API execution path")
     if config.get("output_language"):
         config["output_language"] = str(config["output_language"]).strip()
     return config

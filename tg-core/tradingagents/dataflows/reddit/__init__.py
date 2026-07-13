@@ -21,7 +21,6 @@ import html
 import http.client
 import json
 import logging
-import os
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -31,6 +30,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from ..config import get_config
 from ..symbol_utils import crypto_base
 
 logger = logging.getLogger(__name__)
@@ -51,33 +51,16 @@ DEFAULT_SUBREDDITS = ("wallstreetbets", "stocks", "investing")
 _RATE_LIMITED_UNTIL = 0.0
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None or raw == "":
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
-
-
 def _reddit_enabled() -> bool:
-    return _env_bool("TRADINGAGENTS_REDDIT_ENABLED", True)
+    return bool(get_config().get("reddit_enabled", True))
 
 
 def _retry_429_enabled() -> bool:
-    return _env_bool("TRADINGAGENTS_REDDIT_RETRY_ON_429", False)
+    return bool(get_config().get("reddit_retry_on_429", False))
 
 
 def _cooldown_seconds() -> float:
-    return max(0.0, _env_float("TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS", 900.0))
+    return max(0.0, float(get_config().get("reddit_429_cooldown_seconds", 900.0)))
 
 
 def _rate_limit_remaining() -> float:

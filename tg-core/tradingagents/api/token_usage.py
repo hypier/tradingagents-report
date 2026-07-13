@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from contextlib import suppress
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
-
 
 TOKEN_KEYS = {
     "input_tokens": "prompt_tokens",
@@ -129,21 +129,17 @@ def normalize_usage(usage: dict[str, Any]) -> dict[str, int]:
     if isinstance(output_details, dict):
         reasoning = output_details.get("reasoning") or output_details.get("reasoning_tokens")
         if reasoning is not None:
-            try:
+            with suppress(TypeError, ValueError):
                 normalized["reasoning_tokens"] = normalized.get("reasoning_tokens", 0) + int(reasoning)
-            except (TypeError, ValueError):
-                pass
 
     input_details = usage.get("input_token_details") or usage.get("prompt_tokens_details") or {}
     if isinstance(input_details, dict):
         cache_read = input_details.get("cache_read") or input_details.get("cached_tokens")
         if cache_read is not None:
-            try:
+            with suppress(TypeError, ValueError):
                 normalized["cache_read_input_tokens"] = (
                     normalized.get("cache_read_input_tokens", 0) + int(cache_read)
                 )
-            except (TypeError, ValueError):
-                pass
 
     if "total_tokens" not in normalized:
         total = normalized.get("prompt_tokens", 0) + normalized.get("completion_tokens", 0)
