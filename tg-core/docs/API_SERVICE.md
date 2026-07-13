@@ -1,7 +1,7 @@
 # TradingAgents API 服务设计
 
 > 生成日期：2026-07-10
-> 服务入口：`tradingagents.api.app:app`
+> 唯一 Uvicorn 服务入口：`api.app:app`
 > 数据库：PostgreSQL，Docker Compose 服务名 `postgres`
 
 ## 1. 目标
@@ -14,6 +14,14 @@
 - Docker Compose 启动 API 服务和 PostgreSQL。
 
 当前 API 不提供真实交易、下单、账户或券商能力，只暴露投研分析任务。
+
+## 1.1 模块边界
+
+HTTP API 和 CLI 是并列的适配层。HTTP 服务唯一由 `api.app:app` 启动；路由、鉴权和响应格式位于 `api/`，共享分析、持久化 job、定价协调和进度估算位于 `application/`。`tradingagents/` 保持 LangGraph、Agent、数据源和 LLM 能力，`infrastructure/` 直接实现 PostgreSQL 访问。
+
+`api/job_worker.py` 只维护 API 进程内的单线程唤醒队列和去重集合。它从队列取出 job ID 后调用 `application.jobs.run_job()`；任务的领取、分析执行、报告保存、成本计算和成功/失败状态更新都属于 `application/jobs.py`，不属于 worker。
+
+模块之间保持直接函数调用：不额外引入 ports、Repository、依赖注入、ORM、Alembic 或外部队列。
 
 ## 2. 启动方式
 
@@ -232,7 +240,7 @@ curl -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
 
 - PostgreSQL 保存排队任务，单 worker 串行执行分析，避免全局数据源配置和记忆日志并发污染。
 - 服务重启后会重新投递 `queued` 任务，并将被中断的 `running` 任务明确标记为失败。
-- 当前 worker 仍运行在 API 进程内；生产环境建议替换为独立队列和 worker。
+- `api/job_worker.py` 是 API 进程内的单线程唤醒队列；实际 job 用例在 `application/jobs.py` 执行。
 - 任务执行仍依赖外部 LLM 和数据源 API key。
 - 失败任务会保存异常类型和异常消息到 `analysis_jobs.error`。
 - `final_state` 会尽量保留完整状态，但 LangChain 消息对象会被转换为 JSON 友好的结构。
@@ -322,7 +330,7 @@ docker compose logs -f tradingagents-api
 
 ## 10. Token 使用量与费用统计
 
-分析任务会通过 LangChain LLM callback 汇总模型返回的 token usage，并保存到 PostgreSQL：
+`tradingagents.llm_clients.token_usage.TokenUsageCallback` 汇总 LangChain 返回的 token usage。`tradingagents.llm_clients.pricing` 提供纯成本计算和价格刷新判断；`application/pricing.py` 协调刷新，`infrastructure/llm_prices.py` 只读写 PostgreSQL。分析 job 将汇总结果保存到 PostgreSQL：
 
 - `tokens_used`：总 token 数，优先使用模型返回的 `total_tokens`。
 - `token_usage.prompt_tokens`：输入 token 数。
@@ -334,7 +342,7 @@ docker compose logs -f tradingagents-api
 - `cost_breakdown`：按模型拆分的输入、缓存输入、缓存写入、输出 token 与费用明细。
 - `performance_metrics.cost_breakdown`：结果格式中的同一份费用明细。
 
-服务就绪后会在后台同步模型价格到 PostgreSQL 的 `llm_model_prices` 表；距离上次成功不足一小时会跳过同步。同步状态保存在 `llm_pricing_sources` 表，任务费用只读取已缓存价格，不等待外部价格源。
+服务就绪时，API 生命周期会触发 `application.pricing.refresh_and_backfill_model_prices()` 的后台调用；距离上次成功不足一小时会跳过同步。同步状态保存在 `llm_pricing_sources` 表，任务费用只读取已缓存价格，不等待外部价格源。
 
 当前价格源：
 

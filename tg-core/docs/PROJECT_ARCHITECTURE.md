@@ -32,6 +32,9 @@ TradingAgents 是一个用大语言模型模拟投研团队协作的金融研究
 
 ```text
 TradingAgents/
+├── api/                         # FastAPI HTTP 适配层，唯一服务入口 api.app:app
+├── application/                 # CLI/API 共享分析、job、定价与进度用例
+├── infrastructure/              # 直接 PostgreSQL 实现
 ├── cli/                         # Typer + Rich 交互式命令行
 ├── scripts/                     # 结构化输出真实模型冒烟脚本
 ├── tests/                       # pytest 单元、集成和冒烟测试
@@ -49,7 +52,6 @@ TradingAgents/
 │   ├── llm_clients/             # 多模型供应商适配与能力表
 │   ├── default_config.py        # 默认配置和环境变量覆盖
 │   └── reporting.py             # 统一报告目录写入
-├── main.py                      # 最小 Python API 示例
 ├── pyproject.toml               # 打包、依赖、pytest 和 Ruff 配置
 ├── Dockerfile
 └── docker-compose.yml
@@ -64,20 +66,23 @@ TradingAgents/
 | `tradingagents.dataflows` | 接入并路由金融数据供应商 | `route_to_vendor()` |
 | `tradingagents.llm_clients` | 创建不同供应商的聊天模型 | `create_llm_client()` |
 | `tradingagents.reporting` | 输出分阶段 Markdown 报告 | `write_report_tree()` |
-| `cli` | 收集参数、流式展示进度和保存报告 | `tradingagents` 命令 |
+| `application` | CLI/API 共享分析、持久化 job、定价协调和进度估算 | `run_analysis()`、`run_job()` |
+| `infrastructure` | 直接 PostgreSQL 连接、job 和模型价格读写 | `database.connect()` |
+| `api` | HTTP 路由、鉴权、序列化和进程内 job 唤醒 | `api.app:app` |
+| `cli` | 收集参数、终端展示和报告交互 | `tradingagents` 命令 |
 
 ## 4. 总体架构
 
-项目采用分层架构。CLI 和 Python API 只负责输入与展示；状态图负责编排；Agent 负责推理和状态转换；工具层统一金融数据接口；供应商层处理外部 API 差异。
+项目采用分层架构。`api/` 与 `cli/` 是并列适配层，二者经由 `application/` 调用共享分析用例；状态图负责编排，Agent 负责推理和状态转换，工具层统一金融数据接口，供应商层处理外部 API 差异。`infrastructure/` 只直接实现 PostgreSQL 访问。
 
 ```mermaid
-flowchart TB
-    U["用户或上层应用"] --> E1["交互式 CLI"]
-    U --> E2["Python API"]
-
-    E1 --> C["配置与运行参数"]
-    E2 --> C
-    C --> G["TradingAgentsGraph / LangGraph"]
+flowchart LR
+    U["用户或上层应用"] --> API["api/\nHTTP 适配层\napi.app:app"]
+    U --> CLI["cli/\n命令行适配层"]
+    API --> APP["application/\nanalysis · jobs · pricing · progress"]
+    CLI --> APP
+    APP --> G["tradingagents/\nTradingAgentsGraph / LangGraph"]
+    APP --> I["infrastructure/\n直接 PostgreSQL"]
 
     subgraph O["编排层"]
         G --> S["AgentState"]
@@ -112,6 +117,8 @@ flowchart TB
     L --> LP["OpenAI / Anthropic / Google / Azure / Bedrock / 兼容 API"]
 
     A5 --> OUT["最终评级、JSON 状态、Markdown 报告"]
+
+    API -. "API 进程内单线程唤醒" .-> APP
 ```
 
 ### 4.1 分层依赖方向
@@ -119,7 +126,9 @@ flowchart TB
 推荐理解为以下单向依赖：
 
 ```text
-CLI / Application
+api / cli
+        ↓
+application
         ↓
 TradingAgentsGraph / GraphSetup
         ↓
@@ -130,6 +139,8 @@ LangChain tools
 dataflows.interface
         ↓
 具体数据供应商
+
+application → infrastructure（直接 PostgreSQL 函数调用）
 ```
 
 LLM 适配层由 `TradingAgentsGraph` 在初始化阶段创建，然后以依赖注入方式传给 Agent 工厂。Agent 不直接判断当前使用哪家模型供应商。
@@ -576,7 +587,17 @@ tradingagents --no-checkpoint
 tradingagents --clear-checkpoints
 ```
 
-### 11.2 Python API
+### 11.2 HTTP API
+
+唯一 Uvicorn 服务入口是 `api.app:app`：
+
+```bash
+uvicorn api.app:app --host 0.0.0.0 --port 8000
+```
+
+`api/app.py` 只处理 HTTP 生命周期、路由、鉴权和响应。它启动 `api/job_worker.py` 的 API 进程内单线程唤醒队列；该队列只调用 `application.jobs.run_job()`，不承载 job 业务逻辑。PostgreSQL schema、job 记录和模型价格缓存分别由 `infrastructure/` 直接实现。
+
+### 11.3 程序化图入口
 
 ```python
 from tradingagents.default_config import DEFAULT_CONFIG
@@ -597,7 +618,7 @@ report = graph.save_reports(final_state, "NVDA")
 
 `propagate()` 返回完整状态和五档评级。`save_reports()` 返回 `complete_report.md` 的路径。
 
-### 11.3 Docker
+### 11.4 Docker
 
 ```bash
 cp .env.example .env
@@ -612,7 +633,7 @@ docker compose --profile ollama run --rm tradingagents-ollama
 
 镜像使用 Python 3.12 多阶段构建、非 root 用户和持久化数据卷。运行容器的 entrypoint 是 `tradingagents`。
 
-### 11.4 结构化输出冒烟脚本
+### 11.5 结构化输出冒烟脚本
 
 `scripts/smoke_structured_output.py` 直接验证 Research Manager、Trader、Portfolio Manager 和 SignalProcessor，不运行完整数据分析链，因此成本较低：
 
@@ -727,14 +748,14 @@ GitHub Actions 在 Python 3.10、3.11、3.12、3.13 上运行 pytest；另有干
 
 ### 14.2 运行时观测
 
-CLI 的 `StatsCallbackHandler` 统计：
+`tradingagents.llm_clients.token_usage.TokenUsageCallback` 由 CLI 和 application job 复用，统计：
 
 - LLM 调用次数。
 - 工具调用次数。
 - 输入与输出 token。
-- 总耗时和每个分析员的 wall time。
+- 总 token 数、推理 token 和按模型聚合的 token。
 
-CLI 还把消息和工具调用追加到 `message_tool.log`。当前没有统一的结构化日志、trace ID、指标后端或单次运行成本核算。
+CLI 在 callback 之外单独计算总耗时和各分析员 wall time，并把消息和工具调用追加到 `message_tool.log`。当前没有统一的结构化日志、trace ID 或指标后端。
 
 ### 14.3 安全与稳定性措施
 
@@ -794,9 +815,9 @@ CLI 还把消息和工具调用追加到 `message_tool.log`。当前没有统一
 
 以下内容对项目整理和后续规划尤其重要。
 
-### 16.1 CLI 与 Python API 存在两条执行路径
+### 16.1 CLI 与 HTTP API 共享分析用例
 
-`TradingAgentsGraph.propagate()` 是完整的程序化运行器，它负责：
+`application.analysis.run_analysis()` 是 CLI 与 HTTP job 的共享分析入口。它构造 `TradingAgentsGraph` 并通过 `propagate()` 执行完整的程序化生命周期，负责：
 
 - 回填历史 pending 决策。
 - 注入历史经验。
@@ -806,14 +827,7 @@ CLI 还把消息和工具调用追加到 `message_tool.log`。当前没有统一
 - 保存新的 pending 决策。
 - 成功后清理检查点。
 
-CLI 的 `run_analysis()` 为了实时展示，直接调用 `graph.graph.stream()` 并自行合并 chunk。当前代码没有复用上述 `propagate()` 的持久化生命周期，也没有在 CLI 流式路径中重新编译 checkpointer 或注入 thread ID。因此：
-
-- CLI 报告和消息日志能正常保存。
-- CLI 当前不会走程序化 API 的历史决策回填、记忆注入、最终状态日志和新决策记忆流程。
-- 虽然 CLI 暴露 `--checkpoint` 并能修改配置、清理数据库，但当前直接 stream 路径没有接上完整的恢复逻辑。
-- 现有测试覆盖检查点工具和 CLI 配置优先级，但没有覆盖 CLI 崩溃后端到端恢复。
-
-建议把“执行图”和“消费流式事件”拆成共享 runner，使 CLI 与 API 使用同一套生命周期钩子。
+CLI 通过 callback 消费进度并保留 Rich 展示与本地报告交互；HTTP API 通过 `application.jobs` 将进度和结果写入 PostgreSQL。两者不共享 UI 和持久化边界，但共享图执行。API job 仍在 API 进程内单线程执行，因此不适合将多个 API 进程横向扩展为并发 worker。
 
 ### 16.2 不包含真实下单或交易所执行
 
@@ -849,7 +863,7 @@ OHLCV、财报和新闻代码做了日期边界保护，但 StockTwits、Reddit 
 
 | 优先级 | 建议 | 目的 |
 |---|---|---|
-| P0 | 合并 CLI 与 API 的共享运行生命周期 | 让 checkpoint、memory、状态日志在所有入口一致 |
+| P0 | 保持 CLI 与 API 在 `application.analysis` 中共享运行生命周期 | 防止两种适配层再次分叉 |
 | P0 | 明确 README 中研究框架与交易执行的边界 | 防止用户误以为系统会真实或模拟下单 |
 | P1 | 将数据配置从模块全局状态改为每次运行隔离 | 支持并发、服务化和多租户 |
 | P1 | 为分析员设计并行分支与稳定的事件聚合 | 降低总延迟 |
@@ -864,6 +878,12 @@ OHLCV、财报和新闻代码做了日期边界保护，但 StockTwits、Reddit 
 | 主题 | 文件 |
 |---|---|
 | 总编排类 | [`tradingagents/graph/trading_graph.py`](../tradingagents/graph/trading_graph.py) |
+| HTTP 服务入口 | [`api/app.py`](../api/app.py)（`api.app:app`） |
+| API 进程内 job 唤醒 | [`api/job_worker.py`](../api/job_worker.py) |
+| 共享分析用例 | [`application/analysis.py`](../application/analysis.py) |
+| 持久化 job 用例 | [`application/jobs.py`](../application/jobs.py) |
+| PostgreSQL 实现 | [`infrastructure/database.py`](../infrastructure/database.py)、[`infrastructure/analysis_jobs.py`](../infrastructure/analysis_jobs.py) |
+| Token callback 与定价逻辑 | [`tradingagents/llm_clients/token_usage.py`](../tradingagents/llm_clients/token_usage.py)、[`tradingagents/llm_clients/pricing.py`](../tradingagents/llm_clients/pricing.py) |
 | 图节点和边 | [`tradingagents/graph/setup.py`](../tradingagents/graph/setup.py) |
 | 条件路由 | [`tradingagents/graph/conditional_logic.py`](../tradingagents/graph/conditional_logic.py) |
 | 状态初始化 | [`tradingagents/graph/propagation.py`](../tradingagents/graph/propagation.py) |

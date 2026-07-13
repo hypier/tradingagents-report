@@ -316,3 +316,28 @@ def test_mark_failed_only_updates_running_job_and_returns_bool(monkeypatch):
     assert updated is True
     assert "WHERE id = %s AND status = 'running'" in executed[0][0]
     assert executed[0][1][1] == 11
+
+
+def test_mark_failed_returns_false_when_job_is_already_terminal(monkeypatch):
+    class Cursor:
+        rowcount = 0
+
+    class Connection:
+        def execute(self, _sql, _params=()):
+            return Cursor()
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    monkeypatch.setattr(analysis_jobs.database, "connect", connect)
+
+    assert (
+        analysis_jobs.mark_failed(
+            job_id="job-id",
+            error="failed",
+            token_usage=None,
+            cost_breakdown={"total_cost_usd": 0},
+        )
+        is False
+    )
