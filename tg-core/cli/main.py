@@ -18,6 +18,7 @@ from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
 
+from application.analysis import AnalysisCommand, run_analysis as run_application_analysis
 from cli.announcements import display_announcements, fetch_announcements
 from cli.utils import (
     ask_anthropic_effort,
@@ -46,7 +47,6 @@ from tradingagents.graph.analyst_execution import (
     get_initial_analyst_node,
     sync_analyst_tracker_from_chunk,
 )
-from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.llm_clients.token_usage import TokenUsageCallback
 from tradingagents.reporting import write_report_tree
 
@@ -988,6 +988,18 @@ def _build_run_config(selections: dict, checkpoint: bool | None) -> dict:
     return config
 
 
+def _build_analysis_command(selections, analysts, config) -> AnalysisCommand:
+    return AnalysisCommand(
+        ticker=selections["ticker"],
+        trade_date=selections["analysis_date"],
+        asset_type=str(
+            getattr(selections["asset_type"], "value", selections["asset_type"])
+        ),
+        analysts=tuple(analysts),
+        config=config,
+    )
+
+
 def run_analysis(checkpoint: bool | None = None):
     # First get all user selections
     selections = get_user_selections()
@@ -1002,14 +1014,7 @@ def run_analysis(checkpoint: bool | None = None):
     selected_analyst_keys = [a for a in ANALYST_ORDER if a in selected_set]
     analyst_execution_plan = build_analyst_execution_plan(selected_analyst_keys)
     analyst_wall_time_tracker = AnalystWallTimeTracker(analyst_execution_plan)
-
-    # Initialize the graph with callbacks bound to LLMs
-    graph = TradingAgentsGraph(
-        selected_analyst_keys,
-        config=config,
-        debug=True,
-        callbacks=[stats_handler],
-    )
+    command = _build_analysis_command(selections, selected_analyst_keys, config)
 
     # Initialize message buffer with selected analysts
     message_buffer.init_for_analysis(selected_analyst_keys)
@@ -1097,26 +1102,8 @@ def run_analysis(checkpoint: bool | None = None):
         )
         update_display(layout, spinner_text, stats_handler=stats_handler, start_time=start_time)
 
-        # Initialize state and get graph args with callbacks.
-        # Resolve the instrument identity once here so all agents anchor to
-        # the real company (#814); the CLI builds state directly rather than
-        # going through propagate(), so this must happen on the CLI path too.
-        instrument_context = graph.resolve_instrument_context(
-            selections["ticker"], selections["asset_type"]
-        )
-        init_agent_state = graph.propagator.create_initial_state(
-            selections["ticker"],
-            selections["analysis_date"],
-            asset_type=selections["asset_type"],
-            instrument_context=instrument_context,
-        )
-        # Pass callbacks to graph config for tool execution tracking
-        # (LLM tracking is handled separately via LLM constructor)
-        args = graph.propagator.get_graph_args(callbacks=[stats_handler])
-
-        # Stream the analysis
-        trace = []
-        for chunk in graph.graph.stream(init_agent_state, **args):
+        def handle_analysis_event(event):
+            chunk = event.state_update or {}
             # Process all messages in chunk, deduplicating by message ID
             for message in chunk.get("messages", []):
                 msg_id = getattr(message, "id", None)
@@ -1216,13 +1203,12 @@ def run_analysis(checkpoint: bool | None = None):
             # Update the display
             update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
-            trace.append(chunk)
-
-        # Streamed chunks are per-node deltas, not full state. Merge them
-        # so every report field populated across the run is present.
-        final_state = {}
-        for chunk in trace:
-            final_state.update(chunk)
+        result = run_application_analysis(
+            command,
+            callbacks=(stats_handler,),
+            on_event=handle_analysis_event,
+        )
+        final_state = result.final_state
 
         # Update all agent statuses to completed
         for agent in message_buffer.agent_status:
