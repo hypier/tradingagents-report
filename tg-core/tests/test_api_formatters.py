@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from api import formatters
-from api.formatters import analysis_document_from_row
+from api.formatters import analysis_result_from_row
 
 
 def test_formatter_source_contains_no_chinese_characters():
@@ -17,16 +17,31 @@ def test_formatter_source_contains_no_chinese_characters():
     "language",
     ["English", "Chinese"],
 )
-def test_analysis_status_label_is_not_localized_by_output_language(language):
+def test_analysis_result_uses_single_canonical_fields(language):
     row = {
         "id": "00000000-0000-0000-0000-000000000001",
         "ticker": "NVDA",
+        "trade_date": "2026-01-15",
         "asset_type": "stock",
         "status": "succeeded",
+        "analysts": ["market"],
         "config": {"output_language": language},
+        "final_state": {"final_trade_decision": "Overweight"},
+        "token_usage": {"total_tokens": 42},
+        "cost_usd": 0.12,
+        "cost_breakdown": {"total_cost_usd": 0.12},
+        "events": [{"message": "must not be included"}],
     }
 
-    document = analysis_document_from_row(row)
+    document = analysis_result_from_row(row)
 
+    assert set(document) == {
+        "id", "request_id", "ticker", "trade_date", "asset_type", "analysts", "status",
+        "progress", "decision", "reports", "usage", "cost", "error", "created_at",
+        "updated_at", "started_at", "finished_at",
+    }
     assert document["status"] == "succeeded"
-    assert document["status_label"] == "completed"
+    assert document["decision"]["action"] == "Overweight"
+    assert document["usage"] == {"tokens": 42, "token_usage": {"total_tokens": 42}}
+    assert document["cost"] == {"usd": 0.12, "breakdown": {"total_cost_usd": 0.12}}
+    assert "events" not in document

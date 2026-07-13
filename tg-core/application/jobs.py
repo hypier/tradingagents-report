@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -11,11 +10,9 @@ from application.analysis import AnalysisCommand, run_analysis
 from infrastructure import analysis_jobs, database, llm_prices
 from tradingagents.dataflows.listings import ListingRef, listing_from_parts, resolve_listing
 from tradingagents.dataflows.symbol_utils import crypto_base
-from tradingagents.dataflows.utils import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.pricing import calculate_cost
 from tradingagents.llm_clients.token_usage import TokenUsageCallback
-from tradingagents.reporting import write_report_tree
 
 logger = logging.getLogger("uvicorn.error.application.jobs")
 
@@ -169,26 +166,6 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             callbacks=(tracker,),
             on_event=record_progress,
         )
-        logger.info("Saving analysis report job=%s ticker=%s", row["id"], row["ticker"])
-        report_path = save_api_report(
-            result.final_state,
-            ticker=row["ticker"],
-            job_id=str(row["id"]),
-            results_dir=Path(config["results_dir"]),
-        )
-        if report_path is not None:
-            logger.info(
-                "Saved analysis report job=%s ticker=%s path=%s",
-                row["id"],
-                row["ticker"],
-                report_path,
-            )
-        else:
-            logger.warning(
-                "Analysis report was not saved job=%s ticker=%s",
-                row["id"],
-                row["ticker"],
-            )
         usage = tracker.summary()
         costs = _calculate_cost_safely(usage, config, row["id"])
         if costs is _UNPRICED_COST_BREAKDOWN:
@@ -211,7 +188,7 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             job_id=row["id"],
             final_state=to_jsonable(result.final_state),
             decision=result.decision,
-            report_path=str(report_path) if report_path else None,
+            report_path=None,
             token_usage=usage,
             cost_breakdown=costs,
         )
@@ -237,27 +214,6 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         )
         if not updated:
             logger.warning("Analysis job %s left running state before failure update", row["id"])
-
-
-def save_api_report(
-    final_state: dict[str, Any],
-    *,
-    ticker: str,
-    job_id: str,
-    results_dir: Path,
-) -> Path | None:
-    save_path = results_dir / "api_reports" / safe_ticker_component(ticker) / job_id
-    try:
-        return write_report_tree(final_state, ticker, save_path)
-    except OSError:
-        logger.warning(
-            "Unable to save API report for job=%s ticker=%s path=%s",
-            job_id,
-            ticker,
-            save_path,
-            exc_info=True,
-        )
-        return None
 
 
 def apply_pricing_model_fallback(token_usage: dict[str, Any], config: dict[str, Any]) -> None:

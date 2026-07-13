@@ -224,11 +224,6 @@ def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, caplog,
     monkeypatch.setattr(jobs, "TokenUsageCallback", Tracker)
     monkeypatch.setattr(jobs, "run_analysis", fake_run_analysis)
     monkeypatch.setattr(
-        jobs,
-        "save_api_report",
-        lambda _final_state, **_kwargs: tmp_path / "complete_report.md",
-    )
-    monkeypatch.setattr(
         jobs.analysis_jobs,
         "update_progress",
         lambda **kwargs: progress.append(kwargs),
@@ -253,11 +248,9 @@ def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, caplog,
     assert progress[0]["event"]["kind"] == "stage"
     assert succeeded["decision"] == "Hold"
     assert succeeded["final_state"] == {"final_trade_decision": "Hold"}
-    assert succeeded["report_path"] == str(tmp_path / "complete_report.md")
+    assert succeeded["report_path"] is None
     assert succeeded["cost_breakdown"] == {"total_cost_usd": 0.25}
     assert "Analysis progress job=job-1 ticker=AAPL progress=48% step=Researching" in caplog.text
-    assert "Saving analysis report job=job-1 ticker=AAPL" in caplog.text
-    assert "Saved analysis report job=job-1 ticker=AAPL path=" in caplog.text
     assert "Analysis job completed job=job-1 ticker=AAPL decision=Hold tokens=10" in caplog.text
 
 
@@ -277,7 +270,6 @@ def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, caplo
         "run_analysis",
         lambda *_args, **_kwargs: SimpleNamespace(final_state={}, decision="Hold"),
     )
-    monkeypatch.setattr(jobs, "save_api_report", lambda _final_state, **_kwargs: None)
     monkeypatch.setattr(
         jobs.llm_prices,
         "get_model_prices",
@@ -295,9 +287,7 @@ def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, caplo
 
     assert provider_arguments == [{"provider": "anthropic"}]
     assert len(succeeded) == 1
-    assert "Saving analysis report job=job-1 ticker=AAPL" in caplog.text
-    assert "Saved analysis report job=job-1 ticker=AAPL" not in caplog.text
-    assert "Analysis report was not saved job=job-1 ticker=AAPL" in caplog.text
+    assert "Analysis job completed job=job-1 ticker=AAPL decision=Hold tokens=10" in caplog.text
 
 
 def test_run_claimed_job_marks_graph_failure(monkeypatch, caplog, tmp_path):
@@ -384,7 +374,6 @@ def test_run_claimed_job_marks_failed_when_successful_analysis_cannot_be_priced(
         "run_analysis",
         lambda *_args, **_kwargs: SimpleNamespace(final_state={}, decision="Hold"),
     )
-    monkeypatch.setattr(jobs, "save_api_report", lambda _final_state, **_kwargs: None)
     monkeypatch.setattr(
         jobs.llm_prices,
         "get_model_prices",
@@ -415,25 +404,6 @@ def test_run_claimed_job_marks_failed_when_successful_analysis_cannot_be_priced(
     assert any(record.exc_info for record in caplog.records)
 
 
-def test_save_api_report_logs_os_error_and_leaves_analysis_successful(monkeypatch, caplog, tmp_path):
-    monkeypatch.setattr(
-        jobs,
-        "write_report_tree",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk full")),
-    )
-
-    report_path = jobs.save_api_report(
-        {},
-        ticker="AAPL",
-        job_id="job-1",
-        results_dir=tmp_path,
-    )
-
-    assert report_path is None
-    assert "job=job-1 ticker=AAPL" in caplog.text
-    assert str(tmp_path / "api_reports" / "AAPL" / "job-1") in caplog.text
-
-
 def test_run_claimed_job_only_warns_when_success_state_transition_conflicts(
     monkeypatch, caplog, tmp_path
 ):
@@ -449,7 +419,6 @@ def test_run_claimed_job_only_warns_when_success_state_transition_conflicts(
         "run_analysis",
         lambda *_args, **_kwargs: SimpleNamespace(final_state={}, decision="Hold"),
     )
-    monkeypatch.setattr(jobs, "save_api_report", lambda _final_state, **_kwargs: None)
     monkeypatch.setattr(jobs.llm_prices, "get_model_prices", lambda **_kwargs: [])
     monkeypatch.setattr(jobs, "calculate_cost", lambda usage, prices: {"total_cost_usd": 0})
     monkeypatch.setattr(jobs.analysis_jobs, "mark_succeeded", lambda **_kwargs: False)

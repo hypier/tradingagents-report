@@ -106,6 +106,56 @@ class AnalysisResult(AnalysisJob):
     final_state: dict[str, Any] | None = None
 
 
+class AnalysisProgress(BaseModel):
+    percent: int = 0
+    current_step: str | None = None
+
+
+class AnalysisDecision(BaseModel):
+    action: str
+    confidence: float = 0
+    risk_score: float = 0
+    target_price: float | None = None
+    reasoning: str = ""
+
+
+class AnalysisUsage(BaseModel):
+    tokens: int = 0
+    token_usage: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnalysisCost(BaseModel):
+    usd: float = 0
+    breakdown: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnalysisDetail(BaseModel):
+    id: UUID
+    request_id: UUID | None = None
+    ticker: str
+    trade_date: date | None = None
+    asset_type: AssetType
+    analysts: list[AnalystKey]
+    status: JobStatus
+    progress: AnalysisProgress
+    decision: AnalysisDecision
+    reports: dict[str, Any] = Field(default_factory=dict)
+    usage: AnalysisUsage
+    cost: AnalysisCost
+    error: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class AnalysisEventLog(BaseModel):
+    time: datetime | None = None
+    progress_percent: int = 0
+    message: str
+    kind: str = "stage"
+
+
 class HealthResponse(BaseModel):
     status: Literal["ok", "error"]
     database: Literal["ok", "error"]

@@ -87,7 +87,7 @@ API 启动时自动创建 `analysis_jobs` 表：
 | `final_state` | JSONB | 成功后的完整图状态，已转成 JSON 可序列化对象 |
 | `decision` | TEXT | 最终评级或交易信号 |
 | `error` | TEXT | 失败原因 |
-| `report_path` | TEXT | Markdown 报告路径 |
+| `report_path` | TEXT | 保留字段；API 任务不写入本地 Markdown，值始终为 `NULL` |
 | `created_at` | TIMESTAMPTZ | 创建时间 |
 | `updated_at` | TIMESTAMPTZ | 更新时间 |
 | `started_at` | TIMESTAMPTZ | 开始时间 |
@@ -200,20 +200,29 @@ GET /api/v1/analyses?status=succeeded&ticker=NVDA&limit=50&offset=0
 GET /api/v1/analyses/{job_id}
 ```
 
-统一返回任务状态、运行进度和分析结果。任务未完成时 `reports` 可能为空；任务完成后返回完整附件格式 JSON。
+返回紧凑的任务状态、运行进度、决策、报告、用量和成本。任务未完成时 `reports` 为空；任务完成后从数据库的 `final_state` 生成报告内容。详情响应不包含运行事件。
 
 成功响应包含：
 
 ```json
 {
-  "task_id": "8ac1c3aa-65b2-4b66-b688-ece60c451fd3",
+  "id": "8ac1c3aa-65b2-4b66-b688-ece60c451fd3",
   "status": "succeeded",
-  "status_label": "completed",
+  "progress": {"percent": 100, "current_step": "Completed"},
   "decision": {"action": "Hold"},
   "reports": {},
-  "report_path": "/home/appuser/.tradingagents/logs/api_reports/NVDA/8ac1c3aa.../complete_report.md"
+  "usage": {"tokens": 1234, "token_usage": {}},
+  "cost": {"usd": 0.01, "breakdown": {}}
 }
 ```
+
+### 4.5 查询运行事件
+
+```http
+GET /api/v1/analyses/{job_id}/events
+```
+
+仅返回任务阶段和工具调用的时间线。前端在任务运行中轮询此端点；完成后的报告详情不重复包含这些事件。
 
 ## 5. curl 示例
 

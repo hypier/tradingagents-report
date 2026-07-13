@@ -7,9 +7,15 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 
-from api.formatters import analysis_document_from_row
+from api.formatters import analysis_result_from_row
 from api.job_worker import job_worker
-from api.schemas import AnalysisJob, AnalysisRequest, HealthResponse
+from api.schemas import (
+    AnalysisDetail,
+    AnalysisEventLog,
+    AnalysisJob,
+    AnalysisRequest,
+    HealthResponse,
+)
 from api.security import require_api_key
 from application.jobs import CreateAnalysisJob, create_job
 from application.pricing import refresh_and_backfill_model_prices
@@ -120,9 +126,25 @@ def get_analyses(
     return analysis_jobs.rows_to_public(rows)
 
 
-@app.get("/api/v1/analyses/{job_id}", dependencies=[Depends(require_api_key)])
+@app.get(
+    "/api/v1/analyses/{job_id}/events",
+    response_model=list[AnalysisEventLog],
+    dependencies=[Depends(require_api_key)],
+)
+def get_analysis_events(job_id: UUID) -> list[dict]:
+    row = analysis_jobs.get_job(job_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="analysis job not found")
+    return list(row.get("events") or [])
+
+
+@app.get(
+    "/api/v1/analyses/{job_id}",
+    response_model=AnalysisDetail,
+    dependencies=[Depends(require_api_key)],
+)
 def get_analysis(job_id: UUID) -> dict:
     row = analysis_jobs.get_job(job_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="analysis job not found")
-    return analysis_document_from_row(analysis_jobs.row_to_public(row))
+    return analysis_result_from_row(analysis_jobs.row_to_public(row))

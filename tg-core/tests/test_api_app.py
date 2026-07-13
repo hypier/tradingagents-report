@@ -1,4 +1,5 @@
 import asyncio
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 
@@ -73,3 +74,33 @@ def test_health_returns_503_when_database_is_unavailable(monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["status"] == "error"
+
+
+def test_get_analysis_events_returns_only_persisted_timeline(monkeypatch):
+    job_id = UUID("00000000-0000-0000-0000-000000000001")
+    monkeypatch.setattr(
+        api_app.analysis_jobs,
+        "get_job",
+        lambda _job_id: {
+            "events": [
+                {
+                    "time": "2026-01-15T00:00:00+00:00",
+                    "progress_percent": 10,
+                    "message": "Market Analyst: calling get_stock_data",
+                    "kind": "tool_call",
+                }
+            ],
+            "final_state": {"market_report": "must not be returned"},
+        },
+    )
+
+    events = api_app.get_analysis_events(job_id)
+
+    assert events == [
+        {
+            "time": "2026-01-15T00:00:00+00:00",
+            "progress_percent": 10,
+            "message": "Market Analyst: calling get_stock_data",
+            "kind": "tool_call",
+        }
+    ]

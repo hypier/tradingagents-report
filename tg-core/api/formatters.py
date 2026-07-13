@@ -48,8 +48,7 @@ RISK_LEVELS = {
     "Sell": "High",
 }
 
-def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
-    config = row.get("config") or {}
+def analysis_result_from_row(row: dict[str, Any]) -> dict[str, Any]:
     final_state = row.get("final_state") or {}
     created_at = ensure_datetime(row.get("created_at"))
     updated_at = ensure_datetime(row.get("updated_at"))
@@ -60,20 +59,23 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
     rating = parse_rating(str(row.get("decision") or final_state.get("final_trade_decision") or ""))
     decision_fields = parse_decision_fields(str(final_state.get("final_trade_decision") or ""))
     reports = build_reports(final_state)
-    elapsed = elapsed_seconds(started_at, finished_at or updated_at)
     token_usage = dict(row.get("token_usage") or {})
     tokens_used = int(row.get("tokens_used") or token_usage.get("total_tokens") or 0)
     cost_usd = float(row.get("cost_usd") or 0)
     cost_breakdown = dict(row.get("cost_breakdown") or {})
-    job_status = str(row.get("status") or "queued")
 
     return {
-        "_id": {"$oid": uuid_to_object_id(row.get("id"))},
-        "analysis_date": trade_date.isoformat() if trade_date else None,
-        "analysis_id": build_analysis_id(ticker, trade_date, created_at),
+        "id": row.get("id"),
+        "request_id": row.get("request_id"),
+        "ticker": ticker,
+        "trade_date": trade_date,
+        "asset_type": str(row.get("asset_type") or "stock"),
         "analysts": list(row.get("analysts") or []),
-        "confidence_score": decision_fields.get("confidence", 0),
-        "created_at": mongo_date(created_at),
+        "status": str(row.get("status") or "queued"),
+        "progress": {
+            "percent": int(row.get("progress_percent") or 0),
+            "current_step": row.get("current_step"),
+        },
         "decision": {
             "action": rating,
             "confidence": decision_fields.get("confidence", 0),
@@ -82,36 +84,14 @@ def analysis_document_from_row(row: dict[str, Any]) -> dict[str, Any]:
             "reasoning": decision_fields.get("reasoning")
             or str(final_state.get("final_trade_decision") or ""),
         },
-        "execution_time": elapsed,
-        "key_points": [],
-        "market_type": ENGLISH_MARKET_TYPES.get(str(row.get("asset_type") or "stock"), "stock"),
-        "model_info": model_info(config),
-        "performance_metrics": performance_metrics(config, elapsed, token_usage, cost_breakdown),
-        "recommendation": build_recommendation(rating, decision_fields, final_state),
         "reports": reports,
-        "research_depth": research_depth(row.get("analysts") or []),
-        "risk_level": RISK_LEVELS.get(rating, "Medium"),
-        "source": "api",
-        "status": job_status,
-        "status_label": STATUS_MAP.get(job_status, job_status),
-        "stock_name": ticker,
-        "stock_symbol": ticker,
-        "summary": summarize(str(final_state.get("final_trade_decision") or "")),
-        "task_id": str(row.get("id")),
-        "timestamp": mongo_date(updated_at),
-        "tokens_used": tokens_used,
-        "token_usage": token_usage,
-        "actual_amount": cost_usd,
-        "actual_amount_usd": cost_usd,
-        "cost_usd": cost_usd,
-        "cost_breakdown": cost_breakdown,
-        "updated_at": mongo_date(updated_at),
-        "user_id": None,
-        "progress_percent": int(row.get("progress_percent") or 0),
-        "current_step": row.get("current_step"),
-        "events": list(row.get("events") or []),
+        "usage": {"tokens": tokens_used, "token_usage": token_usage},
+        "cost": {"usd": cost_usd, "breakdown": cost_breakdown},
         "error": row.get("error"),
-        "report_path": row.get("report_path"),
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "started_at": started_at,
+        "finished_at": finished_at,
     }
 
 
