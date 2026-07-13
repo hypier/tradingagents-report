@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import re
 
+from ..listings import resolve_listing
 from ..symbol_utils import crypto_base
 
 logger = logging.getLogger(__name__)
@@ -97,8 +98,15 @@ def normalize_symbol(raw: str) -> str:
     # Broker CFD/qualifier suffixes Yahoo never uses.
     s = s.rstrip("+")
 
+    try:
+        listing = resolve_listing(s)
+    except ValueError:
+        listing = None
+
     crypto = _normalize_crypto(s)
-    if s in _ALIASES:
+    if listing is not None and listing.exchange is not None:
+        canonical = listing.display_ticker
+    elif s in _ALIASES:
         canonical = _ALIASES[s]
     elif crypto is not None:
         canonical = crypto

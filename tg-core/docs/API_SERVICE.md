@@ -145,6 +145,12 @@ Authorization: Bearer <TRADINGAGENTS_API_KEY>
 
 说明：
 
+- 必须提供 `ticker` 或 `instrument`。API 不搜索或猜测标的；调用方应先在前端完成搜索和上市地确认。
+- `ticker` 可使用本地市场代码（如 `0005.HK`）或显式交易所代码（如 `HKEX:5`）。两者都会解析为同一确定性上市地。
+- `instrument` 是显式形式，适合前端已确认的标的：`{"exchange":"HKEX","symbol":"5","display_ticker":"0005.HK"}`。`display_ticker` 可省略；提供时必须与交易所和代码一致。
+- 同时提供 `ticker` 和 `instrument` 时，两者必须表示同一上市地，否则请求返回 `422`。
+- 已支持的本地市场后缀包括 `.HK`、`.SS`、`.SZ`、`.T`、`.TW` 和 `.TWO`；数据供应商在其各自适配层将该上市地转换为所需代码。
+- `request_id` 可选，为客户端生成的 UUID。重试同一请求时复用它；服务会返回既有 job，不会创建重复分析。复用同一 `request_id` 但修改请求内容会返回 `409`。
 - `asset_type` 可省略，服务会根据 ticker 判断 `stock` 或 `crypto`。
 - Crypto 标的会自动移除 `fundamentals` 分析师。
 - `config_overrides` 只允许覆盖安全白名单内的运行参数。
@@ -219,12 +225,30 @@ curl -X POST http://localhost:8000/api/v1/analyses \
   -H "Authorization: Bearer $TRADINGAGENTS_API_KEY" \
   -d '{
     "ticker": "NVDA",
+    "request_id": "e941c1e8-efb6-4346-aa91-2afc811cb98f",
     "trade_date": "2026-01-15",
     "analysts": ["market", "news"],
     "config_overrides": {
       "llm_provider": "openai",
       "output_language": "Chinese"
     }
+  }'
+```
+
+提交已由前端确认的港股也可以使用显式上市地对象：
+
+```bash
+curl -X POST http://localhost:8000/api/v1/analyses \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TRADINGAGENTS_API_KEY" \
+  -d '{
+    "instrument": {
+      "exchange": "HKEX",
+      "symbol": "5",
+      "display_ticker": "0005.HK"
+    },
+    "trade_date": "2026-01-15",
+    "asset_type": "stock"
   }'
 ```
 

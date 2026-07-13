@@ -11,7 +11,9 @@ from tradingagents.dataflows.tradingview.symbols import resolve_tradingview_symb
     ("raw", "expected"),
     [
         ("NASDAQ:AAPL", "NASDAQ:AAPL"),
+        ("0005.HK", "HKEX:5"),
         ("0700.HK", "HKEX:700"),
+        ("HKEX:5", "HKEX:5"),
         ("600519.SS", "SSE:600519"),
         ("BTC-USDT", "BINANCE:BTCUSDT"),
         ("EURUSD", "OANDA:EURUSD"),

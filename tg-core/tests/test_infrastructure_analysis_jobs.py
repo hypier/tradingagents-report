@@ -2,6 +2,8 @@ from contextlib import contextmanager
 from decimal import Decimal
 from uuid import UUID
 
+import pytest
+
 from infrastructure import analysis_jobs
 
 
@@ -44,6 +46,76 @@ def test_insert_job_persists_queued_defaults_and_returns_row(monkeypatch):
     assert params[4].obj == ["fundamentals"]
     assert params[5].obj == {"research_depth": 1}
     assert params[6].obj == {"llm_provider": "openai"}
+
+
+def test_insert_job_returns_existing_job_for_matching_request_id(monkeypatch):
+    executed = []
+    existing = {"id": "existing-job", "request": {"ticker": "0700.HK"}}
+
+    class Cursor:
+        def __init__(self, row):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class Connection:
+        def execute(self, sql, params=()):
+            executed.append((sql, params))
+            return Cursor(None if "INSERT" in sql else existing)
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    monkeypatch.setattr(analysis_jobs.database, "connect", connect)
+
+    result = analysis_jobs.insert_job(
+        job_id=UUID("00000000-0000-0000-0000-000000000001"),
+        request_id=UUID("00000000-0000-0000-0000-000000000010"),
+        ticker="0700.HK",
+        trade_date="2026-07-13",
+        asset_type="stock",
+        analysts=["market"],
+        request={"ticker": "0700.HK"},
+        config={},
+    )
+
+    assert result is existing
+    assert "ON CONFLICT (request_id)" in executed[0][0]
+
+
+def test_insert_job_rejects_different_request_for_reused_request_id(monkeypatch):
+    existing = {"id": "existing-job", "request": {"ticker": "0700.HK"}}
+
+    class Cursor:
+        def __init__(self, row):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class Connection:
+        def execute(self, sql, _params=()):
+            return Cursor(None if "INSERT" in sql else existing)
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    monkeypatch.setattr(analysis_jobs.database, "connect", connect)
+
+    with pytest.raises(analysis_jobs.RequestIdConflictError):
+        analysis_jobs.insert_job(
+            job_id=UUID("00000000-0000-0000-0000-000000000001"),
+            request_id=UUID("00000000-0000-0000-0000-000000000010"),
+            ticker="AAPL",
+            trade_date="2026-07-13",
+            asset_type="stock",
+            analysts=["market"],
+            request={"ticker": "AAPL"},
+            config={},
+        )
 
 
 def test_get_job_returns_database_row(monkeypatch):

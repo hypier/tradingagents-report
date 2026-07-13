@@ -9,6 +9,10 @@ import pytest
 from application import jobs
 
 
+def test_job_logger_uses_uvicorn_error_hierarchy():
+    assert jobs.logger.name == "uvicorn.error.application.jobs"
+
+
 def test_build_config_rejects_request_level_backend_url():
     with pytest.raises(ValueError, match="backend_url"):
         jobs.build_config({"backend_url": "http://attacker.invalid/v1"})
@@ -40,6 +44,31 @@ def test_run_job_claims_inside_execution_lock(monkeypatch):
     assert events == ["lock", ("claim", "job-1"), "unlock"]
 
 
+def test_run_job_logs_when_a_queued_job_starts(monkeypatch, caplog):
+    row = {
+        "id": "job-1",
+        "ticker": "AAPL",
+        "trade_date": date(2026, 1, 15),
+        "analysts": ["market"],
+    }
+
+    @contextmanager
+    def execution_lock():
+        yield
+
+    caplog.set_level("INFO", logger=jobs.logger.name)
+    monkeypatch.setattr(jobs.database, "analysis_execution_lock", execution_lock)
+    monkeypatch.setattr(jobs.analysis_jobs, "claim_job", lambda _job_id: row)
+    monkeypatch.setattr(jobs, "_run_claimed_job", lambda _row: None)
+
+    jobs.run_job("job-1")
+
+    assert (
+        "Starting analysis job=job-1 ticker=AAPL trade_date=2026-01-15 analysts=market"
+        in caplog.text
+    )
+
+
 def test_create_job_normalizes_request_and_persists_public_config(monkeypatch):
     persisted = {}
     job_id = UUID("00000000-0000-0000-0000-000000000001")
@@ -68,6 +97,7 @@ def test_create_job_normalizes_request_and_persists_public_config(monkeypatch):
     assert persisted["analysts"] == ["market"]
     assert persisted["request"] == {
         "ticker": "BTC-USD",
+        "instrument": {"symbol": "BTC-USD", "display_ticker": "BTC-USD"},
         "trade_date": "2026-01-15",
         "asset_type": "crypto",
         "analysts": ["market"],
@@ -77,8 +107,86 @@ def test_create_job_normalizes_request_and_persists_public_config(monkeypatch):
     assert "results_dir" not in persisted["config"]
 
 
+@pytest.mark.parametrize(
+    ("ticker", "instrument"),
+    [
+        ("0005.HK", None),
+        ("HKEX:5", None),
+        (None, {"exchange": "HKEX", "symbol": "5", "display_ticker": "0005.HK"}),
+    ],
+)
+def test_create_job_normalizes_equivalent_listing_inputs(monkeypatch, ticker, instrument):
+    persisted = {}
+    monkeypatch.setattr(jobs, "uuid4", lambda: UUID("00000000-0000-0000-0000-000000000002"))
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "insert_job",
+        lambda **kwargs: persisted.update(kwargs) or kwargs,
+    )
+
+    jobs.create_job(
+        jobs.CreateAnalysisJob(
+            ticker=ticker,
+            instrument=instrument,
+            trade_date=date(2026, 1, 15),
+            asset_type="stock",
+            analysts=("market",),
+            config_overrides={},
+        )
+    )
+
+    assert persisted["ticker"] == "0005.HK"
+    assert persisted["request"]["instrument"] == {
+        "exchange": "HKEX",
+        "symbol": "5",
+        "display_ticker": "0005.HK",
+    }
+
+
+def test_create_job_rejects_conflicting_ticker_and_instrument(monkeypatch):
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "insert_job",
+        lambda **_kwargs: pytest.fail("conflicting input must not be persisted"),
+    )
+
+    with pytest.raises(ValueError, match="does not match instrument"):
+        jobs.create_job(
+            jobs.CreateAnalysisJob(
+                ticker="0700.HK",
+                instrument={"exchange": "HKEX", "symbol": "5"},
+                trade_date=date(2026, 1, 15),
+                asset_type="stock",
+                analysts=("market",),
+                config_overrides={},
+            )
+        )
+
+
+def test_create_job_passes_request_id_to_persistence(monkeypatch):
+    persisted = {}
+    request_id = UUID("00000000-0000-0000-0000-000000000010")
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "insert_job",
+        lambda **kwargs: persisted.update(kwargs) or kwargs,
+    )
+
+    jobs.create_job(
+        jobs.CreateAnalysisJob(
+            ticker="0700.HK",
+            request_id=request_id,
+            trade_date=date(2026, 1, 15),
+            asset_type="stock",
+            analysts=("market",),
+            config_overrides={},
+        )
+    )
+
+    assert persisted["request_id"] == request_id
+
+
 def test_create_job_rejects_an_invalid_ticker(monkeypatch):
-    monkeypatch.setattr(jobs, "is_yahoo_safe", lambda _ticker: False)
     monkeypatch.setattr(
         jobs.analysis_jobs,
         "insert_job",
@@ -97,7 +205,7 @@ def test_create_job_rejects_an_invalid_ticker(monkeypatch):
         )
 
 
-def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, tmp_path):
+def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, caplog, tmp_path):
     progress = []
     succeeded = {}
     command = {}
@@ -132,6 +240,7 @@ def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, tmp_pat
         "mark_succeeded",
         lambda **kwargs: succeeded.update(kwargs) or True,
     )
+    caplog.set_level("INFO", logger=jobs.logger.name)
 
     jobs._run_claimed_job(row)
 
@@ -144,9 +253,13 @@ def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, tmp_pat
     assert succeeded["final_state"] == {"final_trade_decision": "Hold"}
     assert succeeded["report_path"] == str(tmp_path / "complete_report.md")
     assert succeeded["cost_breakdown"] == {"total_cost_usd": 0.25}
+    assert "Analysis progress job=job-1 ticker=AAPL progress=48% step=Researching" in caplog.text
+    assert "Saving analysis report job=job-1 ticker=AAPL" in caplog.text
+    assert "Saved analysis report job=job-1 ticker=AAPL path=" in caplog.text
+    assert "Analysis job completed job=job-1 ticker=AAPL decision=Hold tokens=10" in caplog.text
 
 
-def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, tmp_path):
+def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, caplog, tmp_path):
     provider_arguments = []
     succeeded = []
     row = _job_row(tmp_path)
@@ -174,14 +287,18 @@ def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, tmp_p
         "mark_succeeded",
         lambda **kwargs: succeeded.append(kwargs) or True,
     )
+    caplog.set_level("INFO", logger=jobs.logger.name)
 
     jobs._run_claimed_job(row)
 
     assert provider_arguments == [{"provider": "anthropic"}]
     assert len(succeeded) == 1
+    assert "Saving analysis report job=job-1 ticker=AAPL" in caplog.text
+    assert "Saved analysis report job=job-1 ticker=AAPL" not in caplog.text
+    assert "Analysis report was not saved job=job-1 ticker=AAPL" in caplog.text
 
 
-def test_run_claimed_job_marks_graph_failure(monkeypatch, tmp_path):
+def test_run_claimed_job_marks_graph_failure(monkeypatch, caplog, tmp_path):
     failed = {}
     row = _job_row(tmp_path)
 
@@ -202,12 +319,14 @@ def test_run_claimed_job_marks_graph_failure(monkeypatch, tmp_path):
         "mark_failed",
         lambda **kwargs: failed.update(kwargs) or True,
     )
+    caplog.set_level("ERROR", logger=jobs.logger.name)
 
     jobs._run_claimed_job(row)
 
     assert failed["error"] == "RuntimeError: provider failed"
     assert failed["token_usage"] == {"total_tokens": 0}
     assert failed["cost_breakdown"] == {"total_cost_usd": 0}
+    assert "Analysis job failed job=job-1 ticker=AAPL" in caplog.text
 
 
 def test_run_claimed_job_marks_failed_when_pricing_lookup_also_fails(monkeypatch, tmp_path):
@@ -248,7 +367,7 @@ def test_run_claimed_job_marks_failed_when_pricing_lookup_also_fails(monkeypatch
 
 
 def test_run_claimed_job_marks_failed_when_successful_analysis_cannot_be_priced(
-    monkeypatch, tmp_path
+    monkeypatch, caplog, tmp_path
 ):
     failed = []
     row = _job_row(tmp_path)
@@ -279,6 +398,7 @@ def test_run_claimed_job_marks_failed_when_successful_analysis_cannot_be_priced(
         "mark_failed",
         lambda **kwargs: failed.append(kwargs) or True,
     )
+    caplog.set_level("ERROR", logger=jobs.logger.name)
 
     jobs._run_claimed_job(row)
 
@@ -289,6 +409,8 @@ def test_run_claimed_job_marks_failed_when_successful_analysis_cannot_be_priced(
         "total_cost_usd": 0.0,
         "items": [],
     }
+    assert "Unable to calculate cost for analysis job=job-1 provider=openai" in caplog.text
+    assert any(record.exc_info for record in caplog.records)
 
 
 def test_save_api_report_logs_os_error_and_leaves_analysis_successful(monkeypatch, caplog, tmp_path):

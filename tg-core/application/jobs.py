@@ -9,15 +9,15 @@ from uuid import UUID, uuid4
 
 from application.analysis import AnalysisCommand, run_analysis
 from infrastructure import analysis_jobs, database, llm_prices
+from tradingagents.dataflows.listings import ListingRef, listing_from_parts, resolve_listing
 from tradingagents.dataflows.symbol_utils import crypto_base
 from tradingagents.dataflows.utils import safe_ticker_component
-from tradingagents.dataflows.yfinance.symbols import is_yahoo_safe, normalize_symbol
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.pricing import calculate_cost
 from tradingagents.llm_clients.token_usage import TokenUsageCallback
 from tradingagents.reporting import write_report_tree
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error.application.jobs")
 
 _UNPRICED_COST_BREAKDOWN = {
     "currency": "USD",
@@ -48,18 +48,19 @@ ALLOWED_CONFIG_OVERRIDES = {
 
 @dataclass(frozen=True)
 class CreateAnalysisJob:
-    ticker: str
+    ticker: str | None
     trade_date: date
     asset_type: str | None
     analysts: tuple[str, ...]
     config_overrides: dict[str, Any]
+    request_id: UUID | None = None
+    instrument: dict[str, str] | None = None
     output_language: str | None = None
 
 
 def create_job(request: CreateAnalysisJob) -> dict:
-    normalized_ticker = normalize_symbol(request.ticker)
-    if not is_yahoo_safe(normalized_ticker):
-        raise ValueError(f"invalid ticker symbol: {request.ticker!r}")
+    listing = resolve_job_listing(request.ticker, request.instrument)
+    normalized_ticker = listing.display_ticker
 
     asset_type = request.asset_type or detect_asset_type(normalized_ticker)
     analysts = filter_analysts(list(request.analysts or DEFAULT_ANALYSTS), asset_type)
@@ -72,6 +73,7 @@ def create_job(request: CreateAnalysisJob) -> dict:
     config = build_config(overrides)
     payload = {
         "ticker": normalized_ticker,
+        "instrument": listing.as_dict(),
         "trade_date": request.trade_date.isoformat(),
         "asset_type": asset_type,
         "analysts": analysts,
@@ -80,6 +82,7 @@ def create_job(request: CreateAnalysisJob) -> dict:
     }
     return analysis_jobs.insert_job(
         job_id=uuid4(),
+        request_id=request.request_id,
         ticker=normalized_ticker,
         trade_date=request.trade_date.isoformat(),
         asset_type=asset_type,
@@ -89,17 +92,63 @@ def create_job(request: CreateAnalysisJob) -> dict:
     )
 
 
+def resolve_job_listing(
+    ticker: str | None,
+    instrument: dict[str, str] | None,
+) -> ListingRef:
+    """Resolve API input without fetching or searching for an instrument."""
+    ticker_listing = resolve_listing(ticker) if ticker is not None else None
+    instrument_listing = None
+    if instrument is not None:
+        try:
+            instrument_listing = listing_from_parts(
+                instrument["exchange"],
+                instrument["symbol"],
+                instrument.get("display_ticker"),
+            )
+        except (KeyError, TypeError) as exc:
+            raise ValueError("instrument requires exchange and symbol") from exc
+
+    if ticker_listing is None and instrument_listing is None:
+        raise ValueError("ticker or instrument is required")
+    if ticker_listing and instrument_listing and ticker_listing != instrument_listing:
+        raise ValueError("ticker does not match instrument")
+    return instrument_listing or ticker_listing
+
+
 def run_job(job_id: UUID | str) -> None:
     with database.analysis_execution_lock():
         row = analysis_jobs.claim_job(job_id)
         if row is None:
             return
+        logger.info(
+            "Starting analysis job=%s ticker=%s trade_date=%s analysts=%s",
+            row["id"],
+            row["ticker"],
+            row["trade_date"].isoformat(),
+            ",".join(row["analysts"]),
+        )
         _run_claimed_job(row)
 
 
 def _run_claimed_job(row: dict[str, Any]) -> None:
     tracker = TokenUsageCallback()
     config = dict(row.get("config") or {})
+
+    def record_progress(event: Any) -> None:
+        logger.info(
+            "Analysis progress job=%s ticker=%s progress=%s%% step=%s",
+            row["id"],
+            row["ticker"],
+            event.progress_percent,
+            event.message,
+        )
+        analysis_jobs.update_progress(
+            job_id=row["id"],
+            progress_percent=event.progress_percent,
+            current_step=event.message,
+        )
+
     try:
         config = build_config(row["request"].get("config_overrides") or {})
         command = AnalysisCommand(
@@ -112,18 +161,28 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         result = run_analysis(
             command,
             callbacks=(tracker,),
-            on_event=lambda event: analysis_jobs.update_progress(
-                job_id=row["id"],
-                progress_percent=event.progress_percent,
-                current_step=event.message,
-            ),
+            on_event=record_progress,
         )
+        logger.info("Saving analysis report job=%s ticker=%s", row["id"], row["ticker"])
         report_path = save_api_report(
             result.final_state,
             ticker=row["ticker"],
             job_id=str(row["id"]),
             results_dir=Path(config["results_dir"]),
         )
+        if report_path is not None:
+            logger.info(
+                "Saved analysis report job=%s ticker=%s path=%s",
+                row["id"],
+                row["ticker"],
+                report_path,
+            )
+        else:
+            logger.warning(
+                "Analysis report was not saved job=%s ticker=%s",
+                row["id"],
+                row["ticker"],
+            )
         usage = tracker.summary()
         costs = _calculate_cost_safely(usage, config, row["id"])
         if costs is _UNPRICED_COST_BREAKDOWN:
@@ -135,6 +194,12 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             )
             if not updated:
                 logger.warning("Analysis job %s left running state before failure update", row["id"])
+            else:
+                logger.error(
+                    "Analysis job failed job=%s ticker=%s reason=cost calculation",
+                    row["id"],
+                    row["ticker"],
+                )
             return
         updated = analysis_jobs.mark_succeeded(
             job_id=row["id"],
@@ -146,7 +211,16 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         )
         if not updated:
             logger.warning("Analysis job %s left running state before success update", row["id"])
+        else:
+            logger.info(
+                "Analysis job completed job=%s ticker=%s decision=%s tokens=%s",
+                row["id"],
+                row["ticker"],
+                result.decision,
+                usage.get("total_tokens", 0),
+            )
     except Exception as exc:
+        logger.exception("Analysis job failed job=%s ticker=%s", row["id"], row["ticker"])
         usage = tracker.summary()
         costs = _calculate_cost_safely(usage, config, row["id"])
         updated = analysis_jobs.mark_failed(
@@ -196,11 +270,10 @@ def _calculate_cost_safely(
     try:
         return calculate_cost(usage, llm_prices.get_model_prices(provider=provider))
     except Exception:
-        logger.warning(
+        logger.exception(
             "Unable to calculate cost for analysis job=%s provider=%s",
             job_id,
             provider,
-            exc_info=True,
         )
         return _UNPRICED_COST_BREAKDOWN
 

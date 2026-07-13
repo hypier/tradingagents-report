@@ -4,15 +4,25 @@ from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from tradingagents.dataflows.listings import listing_from_parts, resolve_listing
 
 AnalystKey = Literal["market", "social", "news", "fundamentals"]
 AssetType = Literal["stock", "crypto"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 
 
+class InstrumentInput(BaseModel):
+    exchange: str = Field(min_length=2, max_length=16, examples=["HKEX", "NASDAQ"])
+    symbol: str = Field(min_length=1, max_length=32, examples=["5", "AAPL"])
+    display_ticker: str | None = Field(default=None, min_length=1, max_length=32)
+
+
 class AnalysisRequest(BaseModel):
-    ticker: str = Field(min_length=1, max_length=32, examples=["NVDA", "BTC-USD"])
+    ticker: str | None = Field(default=None, min_length=1, max_length=32, examples=["NVDA", "0005.HK", "HKEX:5"])
+    instrument: InstrumentInput | None = None
+    request_id: UUID | None = None
     trade_date: date
     asset_type: AssetType | None = None
     analysts: list[AnalystKey] = Field(
@@ -23,11 +33,30 @@ class AnalysisRequest(BaseModel):
 
     @field_validator("ticker")
     @classmethod
-    def normalize_ticker(cls, value: str) -> str:
+    def normalize_ticker(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         ticker = value.strip().upper()
         if not ticker:
             raise ValueError("ticker is required")
         return ticker
+
+    @model_validator(mode="after")
+    def require_consistent_listing_input(self) -> AnalysisRequest:
+        ticker_listing = resolve_listing(self.ticker) if self.ticker is not None else None
+        instrument_listing = None
+        if self.instrument is not None:
+            instrument_listing = listing_from_parts(
+                self.instrument.exchange,
+                self.instrument.symbol,
+                self.instrument.display_ticker,
+            )
+
+        if ticker_listing is None and instrument_listing is None:
+            raise ValueError("ticker or instrument is required")
+        if ticker_listing and instrument_listing and ticker_listing != instrument_listing:
+            raise ValueError("ticker does not match instrument")
+        return self
 
     @field_validator("output_language")
     @classmethod
@@ -49,6 +78,7 @@ class AnalysisRequest(BaseModel):
 
 class AnalysisJob(BaseModel):
     id: UUID
+    request_id: UUID | None = None
     ticker: str
     trade_date: date
     asset_type: AssetType

@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from ..errors import NoMarketDataError
+from ..listings import resolve_listing
 from ..provider_models import InstrumentRef, ProviderSymbol
 
 _DETERMINISTIC_SYMBOLS = {
@@ -48,6 +49,13 @@ def resolve_tradingview_symbol(
     search: Callable[[str], Iterable[Mapping[str, Any]]] | None = None,
 ) -> ProviderSymbol:
     """Resolve an instrument into a TradingView symbol without changing the input contract."""
+    try:
+        listing = resolve_listing(ref.raw_symbol)
+    except ValueError:
+        listing = None
+    if listing is not None and listing.exchange is not None:
+        return _provider_symbol(f"{listing.exchange}:{listing.symbol}")
+
     if ref.exchange_hint:
         return _provider_symbol(f"{ref.exchange_hint}:{ref.canonical_symbol}")
 

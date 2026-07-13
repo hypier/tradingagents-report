@@ -77,6 +77,12 @@ def submit_analysis(request: AnalysisRequest) -> dict:
         row = create_job(
             CreateAnalysisJob(
                 ticker=request.ticker,
+                request_id=request.request_id,
+                instrument=(
+                    request.instrument.model_dump(exclude_none=True)
+                    if request.instrument is not None
+                    else None
+                ),
                 trade_date=request.trade_date,
                 asset_type=request.asset_type,
                 analysts=tuple(request.analysts),
@@ -84,6 +90,8 @@ def submit_analysis(request: AnalysisRequest) -> dict:
                 output_language=request.output_language,
             )
         )
+    except analysis_jobs.RequestIdConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

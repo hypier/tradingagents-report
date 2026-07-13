@@ -9,6 +9,10 @@ from psycopg.types.json import Jsonb
 from infrastructure import database
 
 
+class RequestIdConflictError(ValueError):
+    """A client reused a request ID for a different analysis request."""
+
+
 def insert_job(
     *,
     job_id: UUID,
@@ -18,15 +22,18 @@ def insert_job(
     analysts: list[str],
     request: dict,
     config: dict,
+    request_id: UUID | None = None,
 ) -> dict:
     with database.connect() as conn:
         row = conn.execute(
             """
             INSERT INTO analysis_jobs (
                 id, ticker, trade_date, asset_type, analysts, status, request, config,
-                progress_percent, current_step, events, tokens_used, token_usage, cost_usd, cost_breakdown
+                progress_percent, current_step, events, tokens_used, token_usage, cost_usd, cost_breakdown,
+                request_id
             )
-            VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, 0, 'Queued', '[]'::jsonb, 0, '{}'::jsonb, 0, '{}'::jsonb)
+            VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, 0, 'Queued', '[]'::jsonb, 0, '{}'::jsonb, 0, '{}'::jsonb, %s)
+            ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING
             RETURNING *
             """,
             (
@@ -37,9 +44,20 @@ def insert_job(
                 Jsonb(analysts),
                 Jsonb(request),
                 Jsonb(config),
+                request_id,
             ),
         ).fetchone()
-    return row
+        if row is not None or request_id is None:
+            return row
+
+        existing = conn.execute(
+            "SELECT * FROM analysis_jobs WHERE request_id = %s", (request_id,)
+        ).fetchone()
+    if existing is None:
+        raise RuntimeError(f"request_id conflict without a persisted job: {request_id}")
+    if existing.get("request") != request:
+        raise RequestIdConflictError("request_id was already used for a different request")
+    return existing
 
 
 def get_job(job_id: UUID | str) -> dict | None:

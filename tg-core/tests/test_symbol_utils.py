@@ -18,6 +18,9 @@ class TestNormalizeSymbol(unittest.TestCase):
         for sym in ("AAPL", "MSFT", "TSM", "BRK.B", "0700.HK", "^GSPC", "GC=F"):
             self.assertEqual(normalize_symbol(sym), sym)
 
+    def test_explicit_listing_maps_to_yahoo_ticker(self):
+        self.assertEqual(normalize_symbol("HKEX:5"), "0005.HK")
+
     def test_lowercases_are_upper(self):
         self.assertEqual(normalize_symbol("aapl"), "AAPL")
         self.assertEqual(normalize_symbol("  msft  "), "MSFT")

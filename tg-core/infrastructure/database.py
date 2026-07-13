@@ -28,6 +28,7 @@ def init_database() -> None:
             """
             CREATE TABLE IF NOT EXISTS analysis_jobs (
                 id UUID PRIMARY KEY,
+                request_id UUID,
                 ticker TEXT NOT NULL,
                 trade_date DATE NOT NULL,
                 asset_type TEXT NOT NULL,
@@ -52,6 +53,9 @@ def init_database() -> None:
                 finished_at TIMESTAMPTZ
             )
             """
+        )
+        conn.execute(
+            "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS request_id UUID"
         )
         conn.execute(
             "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS progress_percent INTEGER NOT NULL DEFAULT 0"
@@ -103,6 +107,13 @@ def init_database() -> None:
                 model_count INTEGER NOT NULL DEFAULT 0,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
             )
+            """
+        )
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS analysis_jobs_request_id_key
+            ON analysis_jobs (request_id)
+            WHERE request_id IS NOT NULL
             """
         )
         conn.execute(
