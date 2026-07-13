@@ -13,5 +13,7 @@ def test_build_analysis_command_maps_cli_selections():
     )
 
     assert command.ticker == "AAPL"
+    assert command.trade_date == "2026-01-15"
+    assert command.asset_type == "stock"
     assert command.analysts == ("market", "news")
     assert command.config["llm_provider"] == "openai"
