@@ -12,3 +12,14 @@ def test_submit_analysis_requires_api_key(monkeypatch):
     )
 
     assert response.status_code == 401
+
+
+def test_openapi_documents_api_key_header():
+    schema = api_app.app.openapi()
+
+    assert "X-API-Key: <TRADINGAGENTS_API_KEY>" in schema["info"]["description"]
+    assert schema["components"]["securitySchemes"]["APIKeyHeader"] == {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+    }

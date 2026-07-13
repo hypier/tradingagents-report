@@ -205,16 +205,16 @@ VENDOR_METHODS = {
 # 从而使分析过程中的供应商选择保持确定性。
 DEFAULT_VENDOR_CHAINS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "get_instrument_identity": ("tradingview", "yfinance"),
-    "get_stock_data": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_ohlcv": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_indicators": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_fundamentals": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_balance_sheet": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_cashflow": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_income_statement": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_news": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_global_news": ("tradingview", "yfinance", "alpha_vantage"),
-    "get_insider_transactions": ("yfinance", "alpha_vantage"),
+    "get_stock_data": ("tradingview", "yfinance"),
+    "get_ohlcv": ("tradingview", "yfinance"),
+    "get_indicators": ("tradingview", "yfinance"),
+    "get_fundamentals": ("tradingview", "yfinance"),
+    "get_balance_sheet": ("tradingview", "yfinance"),
+    "get_cashflow": ("tradingview", "yfinance"),
+    "get_income_statement": ("tradingview", "yfinance"),
+    "get_news": ("tradingview", "yfinance"),
+    "get_global_news": ("tradingview", "yfinance"),
+    "get_insider_transactions": ("yfinance",),
     "get_macro_indicators": ("fred",),
     "get_prediction_markets": ("polymarket",),
 })
@@ -403,7 +403,14 @@ def route_to_vendor(method: str, *args, **kwargs) -> str:
     )
     if result is not None:
         return result
-    if last_no_news is not None and last_no_data is None and first_error is None:
+    if (
+        last_no_news is not None
+        and last_no_data is None
+        and (
+            first_error is None
+            or isinstance(first_error, VendorNotConfiguredError)
+        )
+    ):
         return last_no_news
     if last_no_data is not None:
         if first_error is not None and not isinstance(

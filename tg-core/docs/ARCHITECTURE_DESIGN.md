@@ -311,20 +311,20 @@ flowchart LR
 ```python
 data_vendors = {
     "instrument_data": "tradingview,yfinance",
-    "core_stock_apis": "tradingview,yfinance,alpha_vantage",
-    "technical_indicators": "tradingview,yfinance,alpha_vantage",
-    "fundamental_data": "tradingview,yfinance,alpha_vantage",
-    "news_data": "tradingview,yfinance,alpha_vantage",
+    "core_stock_apis": "tradingview,yfinance",
+    "technical_indicators": "tradingview,yfinance",
+    "fundamental_data": "tradingview,yfinance",
+    "news_data": "tradingview,yfinance",
     "macro_data": "fred",
     "prediction_markets": "polymarket",
 }
 
 tool_vendors = {
-    "get_insider_transactions": "yfinance,alpha_vantage",
+    "get_insider_transactions": "yfinance",
 }
 ```
 
-`tool_vendors` 优先于 `data_vendors`。显式配置就是完整调用边界，不会静默加入未配置供应商；`"default"` 才会解析为不可变的方法级策略。默认策略为：身份 `tradingview,yfinance`；价格、OHLCV、技术指标、基本面、财报、标的新闻和全球新闻 `tradingview,yfinance,alpha_vantage`；内部人交易 `yfinance,alpha_vantage`；宏观 `fred`；预测市场 `polymarket`。
+`tool_vendors` 优先于 `data_vendors`。显式配置就是完整调用边界，不会静默加入未配置供应商；`"default"` 才会解析为不可变的方法级策略。默认策略为：身份 `tradingview,yfinance`；价格、OHLCV、技术指标、基本面、财报、标的新闻和全球新闻 `tradingview,yfinance`；内部人交易 `yfinance`；宏观 `fred`；预测市场 `polymarket`。
 
 若要覆盖某个类别的默认链路，可显式配置，例如：
 
@@ -455,7 +455,7 @@ docker compose run --rm tradingagents
 docker compose --profile ollama run --rm tradingagents-ollama
 ```
 
-Docker 镜像使用 Python 3.12 slim，多阶段构建，运行阶段使用非 root 用户 `appuser`，默认入口是 `tradingagents`。
+Docker 镜像使用 Python 3.12 slim，多阶段构建，运行阶段使用非 root 用户 `appuser`，默认启动 Uvicorn API；Compose 的 CLI 服务显式使用 `tradingagents` 命令。
 
 ## 14. 配置优先级
 

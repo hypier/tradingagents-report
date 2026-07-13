@@ -127,7 +127,7 @@ X-API-Key: <TRADINGAGENTS_API_KEY>
   "config_overrides": {
     "llm_provider": "openai",
     "deep_think_llm": "gpt-5.6-sol",
-    "quick_think_llm": "gpt-5.6-sol",
+    "quick_think_llm": "gpt-5.5",
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,
     "output_language": "Chinese"

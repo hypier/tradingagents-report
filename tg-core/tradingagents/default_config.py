@@ -139,16 +139,16 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # capability policy declared by the routing layer.
     "data_vendors": {
         "instrument_data": "tradingview,yfinance",
-        "core_stock_apis": "tradingview,yfinance,alpha_vantage",
-        "technical_indicators": "tradingview,yfinance,alpha_vantage",
-        "fundamental_data": "tradingview,yfinance,alpha_vantage",
-        "news_data": "tradingview,yfinance,alpha_vantage",
+        "core_stock_apis": "tradingview,yfinance",
+        "technical_indicators": "tradingview,yfinance",
+        "fundamental_data": "tradingview,yfinance",
+        "news_data": "tradingview,yfinance",
         "macro_data": "fred",                # Options: fred (needs FRED_API_KEY)
         "prediction_markets": "polymarket",  # Options: polymarket (keyless)
     },
     # Tool-level configuration (takes precedence over category-level)
     "tool_vendors": {
-        "get_insider_transactions": "yfinance,alpha_vantage",
+        "get_insider_transactions": "yfinance",
         # Example: "get_stock_data": "alpha_vantage",  # Override category default
     },
     # Benchmark for alpha calculation in the reflection layer.

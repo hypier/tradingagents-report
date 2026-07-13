@@ -8,7 +8,9 @@ services:
       - path: .env
         required: false
     volumes:
-      - tradingagents_data:/home/appuser/.tradingagents
+      - ./data/tradingagents_data:/home/appuser/.tradingagents
+    command:
+      - tradingagents
     tty: true
     stdin_open: true
 
@@ -23,20 +25,30 @@ services:
     environment:
       - TRADINGAGENTS_API_KEY=${TRADINGAGENTS_API_KEY:?set TRADINGAGENTS_API_KEY in .env}
       - TRADINGAGENTS_DATABASE_URL=postgresql://tradingagents:${TRADINGAGENTS_POSTGRES_PASSWORD:?set TRADINGAGENTS_POSTGRES_PASSWORD in .env}@postgres:5432/tradingagents
-    entrypoint:
-      - uvicorn
-    command:
-      - tradingagents.api.app:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - tradingagents_data:/home/appuser/.tradingagents
+      - ./data/tradingagents_data:/home/appuser/.tradingagents
     depends_on:
       postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/health'))['status'] == 'ok'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ../frontend
+    environment:
+      - TRADINGAGENTS_API_KEY=${TRADINGAGENTS_API_KEY:?set TRADINGAGENTS_API_KEY in .env}
+      - NGINX_ENVSUBST_FILTER=TRADINGAGENTS_API_KEY
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      tradingagents-api:
         condition: service_healthy
 
   postgres:
@@ -48,7 +60,7 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tradingagents -d tradingagents"]
       interval: 5s
@@ -74,15 +86,15 @@ services:
       - TRADINGAGENTS_LLM_PROVIDER=ollama
       - OLLAMA_BASE_URL=http://ollama:11434/v1
     volumes:
-      - tradingagents_data:/home/appuser/.tradingagents
+      - ./data/tradingagents_data:/home/appuser/.tradingagents
     depends_on:
       - ollama
+    command:
+      - tradingagents
     tty: true
     stdin_open: true
     profiles:
       - ollama
 
 volumes:
-  tradingagents_data:
-  postgres_data:
   ollama_data:

@@ -196,6 +196,23 @@ class VendorRoutingTests(unittest.TestCase):
             result, "No news found for AAPL between 2026-07-01 and 2026-07-10"
         )
 
+    def test_company_news_ignores_unconfigured_fallback_after_no_news(self):
+        set_config(
+            {"data_vendors": {"news_data": "tradingview,yfinance,alpha_vantage"}}
+        )
+        with self._route_method(
+            "get_news",
+            {
+                "tradingview": _returns("No news found for AAPL"),
+                "yfinance": _returns("No news found for AAPL"),
+                "alpha_vantage": _raises(VendorNotConfiguredError("missing key")),
+            },
+        ):
+            result = interface.route_to_vendor(
+                "get_news", "AAPL", "2026-07-01", "2026-07-10"
+            )
+        self.assertEqual(result, "No news found for AAPL")
+
     def test_global_news_returns_legacy_no_news_after_configured_chain_is_empty(self):
         set_config(
             {"data_vendors": {"news_data": "tradingview,yfinance,alpha_vantage"}}

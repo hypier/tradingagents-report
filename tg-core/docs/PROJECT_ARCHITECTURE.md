@@ -334,10 +334,10 @@ Agent 通过 12 个 LangChain 工具访问数据：
 ```python
 data_vendors = {
     "instrument_data": "tradingview,yfinance",
-    "core_stock_apis": "tradingview,yfinance,alpha_vantage",
-    "technical_indicators": "tradingview,yfinance,alpha_vantage",
-    "fundamental_data": "tradingview,yfinance,alpha_vantage",
-    "news_data": "tradingview,yfinance,alpha_vantage",
+    "core_stock_apis": "tradingview,yfinance",
+    "technical_indicators": "tradingview,yfinance",
+    "fundamental_data": "tradingview,yfinance",
+    "news_data": "tradingview,yfinance",
     "macro_data": "fred",
     "prediction_markets": "polymarket",
 }
@@ -353,7 +353,7 @@ config["data_vendors"]["core_stock_apis"] = "tradingview,yfinance"
 
 表示先调用 TradingView，只有在限流、未配置或无数据等情况下才尝试 Yahoo Finance。`tool_vendors` 可以覆盖单个工具，并且优先级高于类别配置。显式链是完整边界，路由绝不会尝试链外供应商；设为 `"default"` 才会使用不可变的方法级默认链。
 
-方法级默认链为：身份 `tradingview,yfinance`；价格、OHLCV、技术指标、基本面、财报、标的新闻和全球新闻 `tradingview,yfinance,alpha_vantage`；内部人交易 `yfinance,alpha_vantage`；宏观 `fred`；预测市场 `polymarket`。默认 `tool_vendors` 将内部人交易固定为 `yfinance,alpha_vantage`，因此它优先于 `news_data` 类别链。
+方法级默认链为：身份 `tradingview,yfinance`；价格、OHLCV、技术指标、基本面、财报、标的新闻和全球新闻 `tradingview,yfinance`；内部人交易 `yfinance`；宏观 `fred`；预测市场 `polymarket`。默认 `tool_vendors` 将内部人交易固定为 `yfinance`，因此它优先于 `news_data` 类别链。
 
 TradingView 使用 `TRADINGVIEW_RAPIDAPI_KEY`，其优先级高于 `RAPIDAPI_KEY`。没有任一 key 时，`VendorNotConfiguredError` 会让包含后续供应商的链继续回退；只有没有后续供应商时才会报告配置缺失。每日 OHLCV 请求始终显式传递 `type=Japanese`，不能依赖上游默认 candle 类型。
 
@@ -610,7 +610,7 @@ Ollama profile：
 docker compose --profile ollama run --rm tradingagents-ollama
 ```
 
-镜像使用 Python 3.12 多阶段构建、非 root 用户和持久化数据卷。运行容器的 entrypoint 是 `tradingagents`。
+镜像使用 Python 3.12 多阶段构建、非 root 用户和持久化数据卷。镜像默认启动 Uvicorn API，Compose 的 CLI 服务显式使用 `tradingagents` 命令。
 
 ### 11.4 结构化输出冒烟脚本
 

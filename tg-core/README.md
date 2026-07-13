@@ -208,13 +208,13 @@ explicit boundary: `"tradingview,yfinance"` tries only those providers, in that
 order, and never adds an unlisted provider. Use `"default"` to select the
 immutable method-specific policy.
 
-The default capability chains are TradingView then Yahoo Finance then Alpha
-Vantage for stock prices, OHLCV, technical indicators, fundamentals, financial
-statements, company news, and global news; TradingView then Yahoo Finance for
-instrument identity; Yahoo Finance then Alpha Vantage for insider
+The default capability chains are TradingView then Yahoo Finance for stock
+prices, OHLCV, technical indicators, fundamentals, financial statements,
+company news, global news, and instrument identity; Yahoo Finance for insider
 transactions; FRED for macro data; and Polymarket for prediction markets.
-The default `tool_vendors` entry keeps insider transactions on
-`"yfinance,alpha_vantage"`, taking precedence over the `news_data` category.
+Alpha Vantage remains available only when explicitly configured. The default
+`tool_vendors` entry keeps insider transactions on `"yfinance"`, taking
+precedence over the `news_data` category.
 
 TradingView daily OHLCV requests always send `type=Japanese`; this is an
 explicit candle-mode invariant, not an inferred API default. When TradingView

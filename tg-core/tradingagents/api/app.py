@@ -49,7 +49,11 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="TradingAgents API",
     version="0.1.0",
-    description="Run TradingAgents analyses as asynchronous jobs and persist results in PostgreSQL.",
+    description=(
+        "Run TradingAgents analyses as asynchronous jobs and persist results in PostgreSQL.\n\n"
+        "Authenticated endpoints require this request header:\n\n"
+        "`X-API-Key: <TRADINGAGENTS_API_KEY>`"
+    ),
     lifespan=lifespan,
 )
 
