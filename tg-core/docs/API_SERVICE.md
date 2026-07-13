@@ -121,7 +121,7 @@ GET /health
 ```http
 POST /api/v1/analyses
 Content-Type: application/json
-X-API-Key: <TRADINGAGENTS_API_KEY>
+Authorization: Bearer <TRADINGAGENTS_API_KEY>
 ```
 
 请求：
@@ -216,7 +216,7 @@ GET /api/v1/analyses/{job_id}
 ```bash
 curl -X POST http://localhost:8000/api/v1/analyses \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
+  -H "Authorization: Bearer $TRADINGAGENTS_API_KEY" \
   -d '{
     "ticker": "NVDA",
     "trade_date": "2026-01-15",
@@ -231,7 +231,7 @@ curl -X POST http://localhost:8000/api/v1/analyses \
 查询状态：
 
 ```bash
-curl -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
+curl -H "Authorization: Bearer $TRADINGAGENTS_API_KEY" \
   http://localhost:8000/api/v1/analyses/<job_id>
 ```
 
@@ -244,7 +244,7 @@ curl -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
 - 任务执行仍依赖外部 LLM 和数据源 API key。
 - 失败任务会保存异常类型和异常消息到 `analysis_jobs.error`。
 - `final_state` 会尽量保留完整状态，但 LangChain 消息对象会被转换为 JSON 友好的结构。
-- 除 `/health` 外，API 使用 `X-API-Key` 鉴权；公网部署仍应增加反向代理限流和审计。
+- 除 `/health` 外，API 使用 `Authorization: Bearer <TRADINGAGENTS_API_KEY>` 鉴权；公网部署仍应增加反向代理限流和审计。
 
 ## 7. 后续建议
 
@@ -284,7 +284,7 @@ curl -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
 查询进度：
 
 ```bash
-curl -H "X-API-Key: $TRADINGAGENTS_API_KEY" \
+curl -H "Authorization: Bearer $TRADINGAGENTS_API_KEY" \
   http://localhost:8000/api/v1/analyses/<job_id>
 ```
 
