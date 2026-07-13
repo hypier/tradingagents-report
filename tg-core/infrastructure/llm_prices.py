@@ -7,7 +7,16 @@ from tradingagents.llm_clients.pricing import (
     FALLBACK_MODEL_PRICES,
     PRICING_REFRESH_INTERVAL,
     calculate_cost,
+    pricing_is_stale,
 )
+
+
+def pricing_refresh_is_due() -> bool:
+    with database.connect() as conn:
+        row = conn.execute(
+            "SELECT max(last_success_at) AS last_success_at FROM llm_pricing_sources"
+        ).fetchone()
+    return pricing_is_stale(row.get("last_success_at") if row else None)
 
 
 def seed_fallback_model_prices() -> None:

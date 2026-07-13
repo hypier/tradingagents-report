@@ -1,11 +1,50 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
 
 from infrastructure import database
+
+
+def insert_job(
+    *,
+    job_id: UUID,
+    ticker: str,
+    trade_date: str,
+    asset_type: str,
+    analysts: list[str],
+    request: dict,
+    config: dict,
+) -> dict:
+    with database.connect() as conn:
+        row = conn.execute(
+            """
+            INSERT INTO analysis_jobs (
+                id, ticker, trade_date, asset_type, analysts, status, request, config,
+                progress_percent, current_step, events, tokens_used, token_usage, cost_usd, cost_breakdown
+            )
+            VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, 0, 'Queued', '[]'::jsonb, 0, '{}'::jsonb, 0, '{}'::jsonb)
+            RETURNING *
+            """,
+            (
+                job_id,
+                ticker,
+                trade_date,
+                asset_type,
+                Jsonb(analysts),
+                Jsonb(request),
+                Jsonb(config),
+            ),
+        ).fetchone()
+    return row
+
+
+def get_job(job_id: UUID | str) -> dict | None:
+    with database.connect() as conn:
+        return conn.execute("SELECT * FROM analysis_jobs WHERE id = %s", (job_id,)).fetchone()
 
 
 def claim_job(job_id: UUID | str) -> dict | None:
@@ -51,6 +90,36 @@ def recover_interrupted_jobs() -> int:
             return cursor.rowcount
         finally:
             conn.execute("SELECT pg_advisory_unlock(%s)", (database.ANALYSIS_LOCK_KEY,))
+
+
+def list_queued_job_ids() -> list[UUID]:
+    with database.connect() as conn:
+        rows = conn.execute(
+            "SELECT id FROM analysis_jobs WHERE status = 'queued' ORDER BY created_at"
+        ).fetchall()
+    return [row["id"] for row in rows]
+
+
+def list_jobs(
+    *,
+    ticker: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict]:
+    with database.connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM analysis_jobs
+            WHERE (%s::text IS NULL OR ticker = %s)
+              AND (%s::text IS NULL OR status = %s)
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            (ticker, ticker, status, status, limit, offset),
+        ).fetchall()
+    return list(rows)
 
 
 def update_progress(
@@ -147,3 +216,18 @@ def total_tokens(token_usage: dict | None) -> int:
     if not token_usage:
         return 0
     return int(token_usage.get("total_tokens") or token_usage.get("total") or 0)
+
+
+def rows_to_public(rows: Iterable[dict]) -> list[dict]:
+    return [row_to_public(row) for row in rows]
+
+
+def row_to_public(row: dict) -> dict:
+    public = dict(row)
+    public["analysts"] = list(public.get("analysts") or [])
+    public["events"] = list(public.get("events") or [])
+    public["token_usage"] = dict(public.get("token_usage") or {})
+    public["tokens_used"] = int(public.get("tokens_used") or 0)
+    public["cost_usd"] = float(public.get("cost_usd") or 0)
+    public["cost_breakdown"] = dict(public.get("cost_breakdown") or {})
+    return public

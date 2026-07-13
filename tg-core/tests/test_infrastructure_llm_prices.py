@@ -3,6 +3,37 @@ from contextlib import contextmanager
 from infrastructure import llm_prices
 
 
+def test_pricing_refresh_is_due_uses_latest_source_success_without_network(monkeypatch):
+    executed = []
+    timestamps = []
+
+    class Cursor:
+        def fetchone(self):
+            return {"last_success_at": "2026-07-13T00:00:00+00:00"}
+
+    class Connection:
+        def execute(self, sql, params=()):
+            executed.append((sql, params))
+            return Cursor()
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    def pricing_is_stale(last_success_at):
+        timestamps.append(last_success_at)
+        return True
+
+    monkeypatch.setattr(llm_prices.database, "connect", connect)
+    monkeypatch.setattr(llm_prices, "pricing_is_stale", pricing_is_stale)
+
+    assert llm_prices.pricing_refresh_is_due() is True
+    assert timestamps == ["2026-07-13T00:00:00+00:00"]
+    assert executed == [
+        ("SELECT max(last_success_at) AS last_success_at FROM llm_pricing_sources", ())
+    ]
+
+
 def test_seed_fallback_model_prices_owns_connection_transaction(monkeypatch):
     executed = []
 
