@@ -146,6 +146,41 @@ def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, tmp_pat
     assert succeeded["cost_breakdown"] == {"total_cost_usd": 0.25}
 
 
+def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, tmp_path):
+    provider_arguments = []
+    succeeded = []
+    row = _job_row(tmp_path)
+    row["request"]["config_overrides"] = {"llm_provider": "anthropic"}
+
+    class Tracker:
+        def summary(self):
+            return {"total_tokens": 10}
+
+    monkeypatch.setattr(jobs, "TokenUsageCallback", Tracker)
+    monkeypatch.setattr(
+        jobs,
+        "run_analysis",
+        lambda *_args, **_kwargs: SimpleNamespace(final_state={}, decision="Hold"),
+    )
+    monkeypatch.setattr(jobs, "save_api_report", lambda _final_state, **_kwargs: None)
+    monkeypatch.setattr(
+        jobs.llm_prices,
+        "get_model_prices",
+        lambda **kwargs: provider_arguments.append(kwargs) or [{"model": "claude-test"}],
+    )
+    monkeypatch.setattr(jobs, "calculate_cost", lambda _usage, _prices: {"total_cost_usd": 0})
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "mark_succeeded",
+        lambda **kwargs: succeeded.append(kwargs) or True,
+    )
+
+    jobs._run_claimed_job(row)
+
+    assert provider_arguments == [{"provider": "anthropic"}]
+    assert len(succeeded) == 1
+
+
 def test_run_claimed_job_marks_graph_failure(monkeypatch, tmp_path):
     failed = {}
     row = _job_row(tmp_path)
