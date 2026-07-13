@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any
 
 ANALYST_REPORT_KEYS = {
@@ -6,6 +7,45 @@ ANALYST_REPORT_KEYS = {
     "news": ("news_report", "News Analyst completed"),
     "fundamentals": ("fundamentals_report", "Fundamentals Analyst completed"),
 }
+
+
+@dataclass(frozen=True)
+class ProgressUpdate:
+    progress_percent: int
+    message: str
+    kind: str
+
+
+class ProgressEventProjector:
+    """Turn graph state chunks into deduplicated, user-visible activity events."""
+
+    def __init__(self, analysts: tuple[str, ...] | list[str], config: dict[str, Any]) -> None:
+        self._analysts = analysts
+        self._config = config
+        self._last_stage: tuple[int, str] | None = None
+        self._seen_tool_calls: set[str] = set()
+
+    def consume(self, state: dict[str, Any], chunk: dict[str, Any]) -> list[ProgressUpdate]:
+        progress, stage = estimate_progress(state, self._analysts, self._config)
+        events: list[ProgressUpdate] = []
+        if (progress, stage) != self._last_stage:
+            self._last_stage = (progress, stage)
+            events.append(ProgressUpdate(progress, stage, "stage"))
+
+        actor = stage.removeprefix("Running ").split(" (")[0]
+        for message in chunk.get("messages", []):
+            message_id = getattr(message, "id", None)
+            for tool_call in getattr(message, "tool_calls", None) or []:
+                name = tool_call.get("name") if isinstance(tool_call, dict) else tool_call.name
+                call_id = tool_call.get("id") if isinstance(tool_call, dict) else tool_call.id
+                if not name:
+                    continue
+                key = f"{message_id or 'message'}:{call_id or name}"
+                if key in self._seen_tool_calls:
+                    continue
+                self._seen_tool_calls.add(key)
+                events.append(ProgressUpdate(progress, f"{actor}: calling {name}", "tool_call"))
+        return events
 
 
 def estimate_progress(

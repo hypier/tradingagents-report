@@ -246,9 +246,11 @@ def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, caplog,
 
     assert command["value"].ticker == "AAPL"
     assert command["value"].analysts == ("market",)
-    assert progress == [
-        {"job_id": row["id"], "progress_percent": 48, "current_step": "Researching"}
-    ]
+    assert progress[0]["job_id"] == row["id"]
+    assert progress[0]["progress_percent"] == 48
+    assert progress[0]["current_step"] == "Researching"
+    assert progress[0]["event"]["message"] == "Researching"
+    assert progress[0]["event"]["kind"] == "stage"
     assert succeeded["decision"] == "Hold"
     assert succeeded["final_state"] == {"final_trade_decision": "Hold"}
     assert succeeded["report_path"] == str(tmp_path / "complete_report.md")

@@ -4,7 +4,7 @@ from typing import Any
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-from .progress import estimate_progress
+from .progress import ProgressEventProjector
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,7 @@ class AnalysisEvent:
     progress_percent: int
     message: str
     state_update: dict[str, Any] | None = None
+    kind: str = "stage"
 
 
 @dataclass(frozen=True)
@@ -42,12 +43,20 @@ def run_analysis(
         callbacks=list(callbacks),
     )
     merged_state: dict[str, Any] = {}
+    projector = ProgressEventProjector(command.analysts, command.config)
 
     def handle_chunk(chunk: dict[str, Any]) -> None:
         merged_state.update(chunk)
-        progress, message = estimate_progress(merged_state, command.analysts, command.config)
         if on_event is not None:
-            on_event(AnalysisEvent(progress, message, dict(chunk)))
+            for update in projector.consume(merged_state, chunk):
+                on_event(
+                    AnalysisEvent(
+                        update.progress_percent,
+                        update.message,
+                        dict(chunk),
+                        update.kind,
+                    )
+                )
 
     final_state, decision = graph.propagate(
         command.ticker,

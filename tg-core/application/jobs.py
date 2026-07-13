@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -147,6 +147,12 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             job_id=row["id"],
             progress_percent=event.progress_percent,
             current_step=event.message,
+            event={
+                "time": datetime.now(timezone.utc).isoformat(),
+                "progress_percent": event.progress_percent,
+                "message": event.message,
+                "kind": getattr(event, "kind", "stage"),
+            },
         )
 
     try:
