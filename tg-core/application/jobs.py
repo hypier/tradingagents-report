@@ -19,6 +19,13 @@ from tradingagents.reporting import write_report_tree
 
 logger = logging.getLogger(__name__)
 
+_UNPRICED_COST_BREAKDOWN = {
+    "currency": "USD",
+    "total_cost": 0.0,
+    "total_cost_usd": 0.0,
+    "items": [],
+}
+
 DEFAULT_ANALYSTS = ["market", "social", "news", "fundamentals"]
 ALLOWED_CONFIG_OVERRIDES = {
     "llm_provider",
@@ -118,11 +125,17 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             results_dir=Path(config["results_dir"]),
         )
         usage = tracker.summary()
-        apply_pricing_model_fallback(usage, config)
-        costs = calculate_cost(
-            usage,
-            llm_prices.get_model_prices(provider=str(config["llm_provider"])),
-        )
+        costs = _calculate_cost_safely(usage, config, row["id"])
+        if costs is _UNPRICED_COST_BREAKDOWN:
+            updated = analysis_jobs.mark_failed(
+                job_id=row["id"],
+                error="CostCalculationError: unable to calculate analysis cost",
+                token_usage=usage,
+                cost_breakdown=costs,
+            )
+            if not updated:
+                logger.warning("Analysis job %s left running state before failure update", row["id"])
+            return
         updated = analysis_jobs.mark_succeeded(
             job_id=row["id"],
             final_state=to_jsonable(result.final_state),
@@ -135,11 +148,7 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             logger.warning("Analysis job %s left running state before success update", row["id"])
     except Exception as exc:
         usage = tracker.summary()
-        apply_pricing_model_fallback(usage, config)
-        costs = calculate_cost(
-            usage,
-            llm_prices.get_model_prices(provider=str(config.get("llm_provider") or "openai")),
-        )
+        costs = _calculate_cost_safely(usage, config, row["id"])
         updated = analysis_jobs.mark_failed(
             job_id=row["id"],
             error=f"{type(exc).__name__}: {exc}",
@@ -177,6 +186,23 @@ def apply_pricing_model_fallback(token_usage: dict[str, Any], config: dict[str, 
     fallback_model = config.get("deep_think_llm") or config.get("quick_think_llm")
     if fallback_model:
         token_usage["model"] = str(fallback_model)
+
+
+def _calculate_cost_safely(
+    usage: dict[str, Any], config: dict[str, Any], job_id: UUID | str
+) -> dict[str, Any]:
+    apply_pricing_model_fallback(usage, config)
+    provider = str(config.get("llm_provider") or "openai")
+    try:
+        return calculate_cost(usage, llm_prices.get_model_prices(provider=provider))
+    except Exception:
+        logger.warning(
+            "Unable to calculate cost for analysis job=%s provider=%s",
+            job_id,
+            provider,
+            exc_info=True,
+        )
+        return _UNPRICED_COST_BREAKDOWN
 
 
 def build_config(overrides: dict[str, Any]) -> dict[str, Any]:

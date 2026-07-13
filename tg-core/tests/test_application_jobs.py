@@ -165,6 +165,87 @@ def test_run_claimed_job_marks_graph_failure(monkeypatch, tmp_path):
     assert failed["cost_breakdown"] == {"total_cost_usd": 0}
 
 
+def test_run_claimed_job_marks_failed_when_pricing_lookup_also_fails(monkeypatch, tmp_path):
+    failed = []
+    row = _job_row(tmp_path)
+
+    class Tracker:
+        def summary(self):
+            return {"total_tokens": 0}
+
+    monkeypatch.setattr(jobs, "TokenUsageCallback", Tracker)
+    monkeypatch.setattr(
+        jobs,
+        "run_analysis",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("analysis failed")),
+    )
+    monkeypatch.setattr(
+        jobs.llm_prices,
+        "get_model_prices",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("pricing database unavailable")),
+    )
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "mark_failed",
+        lambda **kwargs: failed.append(kwargs) or True,
+    )
+
+    jobs._run_claimed_job(row)
+
+    assert len(failed) == 1
+    assert failed[0]["error"] == "RuntimeError: analysis failed"
+    assert failed[0]["cost_breakdown"] == {
+        "currency": "USD",
+        "total_cost": 0.0,
+        "total_cost_usd": 0.0,
+        "items": [],
+    }
+
+
+def test_run_claimed_job_marks_failed_when_successful_analysis_cannot_be_priced(
+    monkeypatch, tmp_path
+):
+    failed = []
+    row = _job_row(tmp_path)
+
+    class Tracker:
+        def summary(self):
+            return {"total_tokens": 10}
+
+    monkeypatch.setattr(jobs, "TokenUsageCallback", Tracker)
+    monkeypatch.setattr(
+        jobs,
+        "run_analysis",
+        lambda *_args, **_kwargs: SimpleNamespace(final_state={}, decision="Hold"),
+    )
+    monkeypatch.setattr(jobs, "save_api_report", lambda _final_state, **_kwargs: None)
+    monkeypatch.setattr(
+        jobs.llm_prices,
+        "get_model_prices",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("pricing database unavailable")),
+    )
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "mark_succeeded",
+        lambda **_kwargs: pytest.fail("unpriced analysis must not be marked succeeded"),
+    )
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "mark_failed",
+        lambda **kwargs: failed.append(kwargs) or True,
+    )
+
+    jobs._run_claimed_job(row)
+
+    assert len(failed) == 1
+    assert failed[0]["cost_breakdown"] == {
+        "currency": "USD",
+        "total_cost": 0.0,
+        "total_cost_usd": 0.0,
+        "items": [],
+    }
+
+
 def test_save_api_report_logs_os_error_and_leaves_analysis_successful(monkeypatch, caplog, tmp_path):
     monkeypatch.setattr(
         jobs,
