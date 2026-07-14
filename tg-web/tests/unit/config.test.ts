@@ -53,6 +53,22 @@ describe('parseWorkerConfig', () => {
     ).toThrow(/ASSETS/);
   });
 
+  it.each(['HYPERDRIVE', 'CACHE_KV', 'ASSETS'] as const)(
+    'rejects a null %s binding',
+    (binding) => {
+      const env = {
+        CORE_API_URL: 'https://core.example.test',
+        CORE_API_KEY: 'secret',
+        HYPERDRIVE: {},
+        CACHE_KV: {},
+        ASSETS: {},
+        [binding]: null,
+      };
+
+      expect(() => parseWorkerConfig(env)).toThrow(new RegExp(binding));
+    },
+  );
+
   it('returns validated server settings and bindings', () => {
     const env = {
       CORE_API_URL: 'https://core.example.test',

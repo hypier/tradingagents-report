@@ -18,6 +18,13 @@ const redactedKeys = new Set([
 
 const redactedValue = '[REDACTED]';
 
+function normalizeMetadataKey(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase();
+}
+
 function isCredentialUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -48,7 +55,7 @@ function redact(value: unknown, visited: WeakSet<object>): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
       key,
-      redactedKeys.has(key.toLowerCase())
+      redactedKeys.has(normalizeMetadataKey(key))
         ? redactedValue
         : redact(item, visited),
     ]),

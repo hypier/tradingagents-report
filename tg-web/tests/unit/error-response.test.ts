@@ -66,6 +66,27 @@ describe('Logger', () => {
       },
     ]);
   });
+
+  it('redacts camelCase configuration keys recursively', () => {
+    const entries: LogEntry[] = [];
+    const logger = new Logger((entry) => entries.push(entry));
+    const databaseUrl = 'postgresql://database.example.test/tg';
+    const redisUrl = 'redis://cache.example.test:6379';
+
+    logger.info('Loaded runtime configuration', {
+      coreApiKey: 'core-secret',
+      nested: { databaseUrl, redisUrl },
+    });
+
+    const serializedEntries = JSON.stringify(entries);
+    expect(serializedEntries).not.toContain('core-secret');
+    expect(serializedEntries).not.toContain(databaseUrl);
+    expect(serializedEntries).not.toContain(redisUrl);
+    expect(entries[0]?.metadata).toEqual({
+      coreApiKey: '[REDACTED]',
+      nested: { databaseUrl: '[REDACTED]', redisUrl: '[REDACTED]' },
+    });
+  });
 });
 
 describe('createRequestIdMiddleware', () => {

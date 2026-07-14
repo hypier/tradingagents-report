@@ -8,9 +8,10 @@ export type WorkerConfig = ServerConfig & {
   assets: unknown;
 };
 
-const requiredBinding = z.custom<unknown>((value) => value !== undefined, {
-  message: 'Required',
-});
+const requiredBinding = z.custom<unknown>(
+  (value) => value !== undefined && value !== null,
+  { message: 'Required' },
+);
 
 const workerConfigSchema = z
   .object({
