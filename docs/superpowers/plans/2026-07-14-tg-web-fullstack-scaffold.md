@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Create `tg-web/` as a standalone pnpm package adjacent to `tg-core/`; do not convert the repository root into a JavaScript workspace.
-- Require Node.js 20 or newer for Docker and local Node development.
+- Require Node.js 20.19.0 or newer for Docker and local Node development.
 - Keep the frontend and BFF in one package and one production deployment unit; do not create a separately deployed API service.
 - React calls only same-origin `/api`; never expose PostgreSQL, Redis, KV, Hyperdrive bindings, `CORE_API_KEY`, or Core URLs to the client bundle.
 - Cloudflare uses Workers Static Assets, KV, Hyperdrive, and `nodejs_compat`; Docker uses one Node/Hono application container, Redis, and `pg.Pool`.
@@ -122,7 +122,7 @@ Expected: FAIL because `package.json`, the test runner, and `src/shared/contract
 
 - [ ] **Step 3: Add the package manifest and TypeScript/tooling configuration**
 
-Use a single `package.json` with Node `>=20`, `type: "module"`, and scripts equivalent to:
+Use a single `package.json` with Node `>=20.19.0`, `type: "module"`, and scripts equivalent to:
 
 ```json
 {
@@ -648,7 +648,7 @@ Construct `ioredis` with `lazyConnect: true`; do not call `connect`, `ping`, Cor
 
 - [ ] **Step 4: Implement container and compose files**
 
-Use a multi-stage Node 20 Alpine Dockerfile. Build the Node and Vite artifacts in the builder stage, install production dependencies in the runtime stage, copy only required output, create an unprivileged `appuser`, expose one port, and run `node dist/backend/node.js`.
+Use a multi-stage Node 20.19.0 Alpine Dockerfile. Build the Node and Vite artifacts in the builder stage, install production dependencies in the runtime stage, copy only required output, create an unprivileged `appuser`, expose one port, and run `node dist/backend/node.js`.
 
 `compose.yaml` must define exactly two services: `tg-web` and `redis`. `tg-web` receives `DATABASE_URL`, `CORE_API_URL`, `CORE_API_KEY`, `REDIS_URL=redis://redis:6379`, and `PORT`; it must not define PostgreSQL or Core services. Include a Docker healthcheck for `/api/health`. Document that `DATABASE_URL` and `CORE_API_URL` must be routable from the container through the existing Core network or platform network.
 
