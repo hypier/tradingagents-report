@@ -27,6 +27,15 @@ def _sample_ohlcv() -> pd.DataFrame:
 
 @pytest.mark.unit
 class TestVerifiedSnapshot:
+    def test_displays_quote_currency_from_ohlcv_metadata(self, monkeypatch):
+        data = _sample_ohlcv()
+        data.attrs["quote_currency"] = "HKD"
+        monkeypatch.setattr(validator, "get_ohlcv", lambda *args: data)
+
+        snap = validator.build_verified_market_snapshot("0700.HK", "2026-05-13")
+
+        assert "Quote currency: HKD" in snap
+
     def test_excludes_future_rows(self, monkeypatch):
         data = pd.concat([
             _sample_ohlcv(),
@@ -95,6 +104,7 @@ class TestStructuredDataFacade:
             provider="tradingview",
             requested=parse_instrument("COF"),
             resolved_symbol="NYSE:COF",
+            quote_currency="USD",
         )
         route = Mock(return_value=routed)
         monkeypatch.setattr(structured_data, "route_structured", route)
@@ -104,6 +114,7 @@ class TestStructuredDataFacade:
         route.assert_called_once_with("get_ohlcv", "COF", "2026-04-01", "2026-05-20")
         assert result.equals(frame)
         assert result is not frame
+        assert result.attrs["quote_currency"] == "USD"
 
     @pytest.mark.parametrize(
         "routed",

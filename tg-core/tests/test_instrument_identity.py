@@ -33,6 +33,8 @@ class ResolveInstrumentIdentityTests(unittest.TestCase):
                 "industry": "Building Products & Equipment",
                 "exchange": "PNK",
                 "quote_type": "EQUITY",
+                "quote_currency": "JPY",
+                "fundamental_currency": "JPY",
             }
         )
         with patch.object(agent_utils, "get_instrument_identity", fetch):
@@ -42,6 +44,8 @@ class ResolveInstrumentIdentityTests(unittest.TestCase):
         self.assertEqual(identity["sector"], "Industrials")
         self.assertEqual(identity["industry"], "Building Products & Equipment")
         self.assertEqual(identity["exchange"], "PNK")
+        self.assertEqual(identity["quote_currency"], "JPY")
+        self.assertEqual(identity["fundamental_currency"], "JPY")
 
     def test_uses_provider_company_name(self):
         with patch.object(
@@ -205,11 +209,15 @@ class BuildInstrumentContextTests(unittest.TestCase):
                 "sector": "Industrials",
                 "industry": "Building Products & Equipment",
                 "exchange": "PNK",
+                "quote_currency": "HKD",
+                "fundamental_currency": "CNY",
             },
         )
         self.assertIn("Company: TOTO LTD.", context)
         self.assertIn("Industrials / Building Products & Equipment", context)
         self.assertIn("Exchange: PNK", context)
+        self.assertIn("Quote currency: HKD", context)
+        self.assertIn("Fundamental reporting currency: CNY", context)
         self.assertIn("Do not substitute a different company", context)
 
     def test_crypto_uses_name_label_and_keeps_hint(self):

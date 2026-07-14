@@ -30,6 +30,8 @@ def test_fundamentals_uses_existing_labels_and_exact_endpoint():
             "description": "Apple Inc.",
             "sector": "Technology",
             "industry": "Hardware",
+            "currency_code": "HKD",
+            "fundamental_currency_code": "CNY",
         },
         "indicators": {
             "market_cap_basic": 1000,
@@ -60,6 +62,8 @@ def test_fundamentals_uses_existing_labels_and_exact_endpoint():
     output = get_tradingview_fundamentals("NASDAQ:AAPL", "2026-07-11", client=client)
 
     assert "# Company Fundamentals for NASDAQ:AAPL" in output
+    assert "# Quote currency: HKD" in output
+    assert "# Fundamental reporting currency: CNY" in output
     assert "Name: Apple Inc." in output
     assert "Sector: Technology" in output
     assert "Market Cap: 1000" in output

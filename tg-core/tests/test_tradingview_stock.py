@@ -19,7 +19,7 @@ def _price_payload(history):
     return {
         "symbol": "NASDAQ:AAPL",
         "history": history,
-        "info": {"timezone": "America/New_York"},
+        "info": {"timezone": "America/New_York", "currency_code": "USD"},
     }
 
 
@@ -70,6 +70,7 @@ def test_ohlcv_explicitly_requests_japanese_candles():
     assert result.data["Date"].dt.tz is None
     assert result.resolved_symbol == "NASDAQ:AAPL"
     assert result.adjustment_mode == "Japanese"
+    assert result.quote_currency == "USD"
 
 
 def test_qualified_symbol_does_not_invoke_market_search():
@@ -337,6 +338,8 @@ def test_identity_maps_company_fields():
             "sector": "Technology",
             "industry": "Hardware",
             "listed_exchange": "NASDAQ",
+            "currency_code": "USD",
+            "fundamental_currency_code": "USD",
         },
     }
 
@@ -346,6 +349,8 @@ def test_identity_maps_company_fields():
         "industry": "Hardware",
         "exchange": "NASDAQ",
         "quote_type": "stock",
+        "quote_currency": "USD",
+        "fundamental_currency": "USD",
     }
     client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL/company")
 
@@ -378,6 +383,8 @@ def test_get_tradingview_stock_preserves_header_and_csv_format(monkeypatch):
     monkeypatch.setattr(tv, "fetch_tradingview_ohlcv", lambda *args: result)
 
     output = tv.get_tradingview_stock("XAUUSD", "2026-07-10", "2026-07-10")
+
+    assert "# Quote currency: USD" in output
 
     assert output.startswith(
         "# Stock data for COMEX:GC1! (from XAUUSD) from 2026-07-10 to 2026-07-10\n"
