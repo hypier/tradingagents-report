@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 
-type RequestIdEnvironment = {
+export type RequestIdEnvironment = {
   Variables: {
     requestId: string;
   };
