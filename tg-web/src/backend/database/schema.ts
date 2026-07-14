@@ -1,5 +1,6 @@
 import { desc, sql } from 'drizzle-orm';
 import {
+  check,
   date,
   index,
   integer,
@@ -62,6 +63,10 @@ export const analysisJobs = pgTable(
     finishedAt: timestamp('finished_at', { withTimezone: true }),
   },
   (table) => [
+    check(
+      'analysis_jobs_status_check',
+      sql`${table.status} in ('queued', 'running', 'succeeded', 'failed')`,
+    ),
     uniqueIndex('analysis_jobs_request_id_key')
       .on(table.requestId)
       .where(sql`${table.requestId} is not null`),
