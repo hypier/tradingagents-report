@@ -198,6 +198,26 @@ TradingAgents 通过已配置的市场数据供应商解析证券代码。Tradin
 - 中国 A 股：上交所 `.SS`、深交所 `.SZ`（例如贵州茅台使用 `600519.SS`）
 - 加密货币：`BTC-USD`、`ETH-USD`
 
+#### 本系统 API 的股票编号约定
+
+分析 API 接收统一的 `ticker`，或接收已经由前端确认上市地的 `instrument`。调用方应传递面向用户展示的市场后缀代码，而不是直接拼接某个数据供应商的代码；系统会在供应商适配层转换为 TradingView、Yahoo Finance 等实际请求格式。
+
+| 上市地 | `ticker` 标准格式 | 显式 `instrument` | 规范化结果 |
+| --- | --- | --- | --- |
+| 美国交易所 | `AAPL` | `{"exchange": "NASDAQ", "symbol": "AAPL"}` | `AAPL` |
+| 香港交易所 | `0700.HK` | `{"exchange": "HKEX", "symbol": "700"}` | `0700.HK` |
+| 上海证券交易所 | `600519.SS` | `{"exchange": "SSE", "symbol": "600519"}` | `600519.SS` |
+| 深圳证券交易所 | `000001.SZ` | `{"exchange": "SZSE", "symbol": "000001"}` | `000001.SZ` |
+| 东京证券交易所 | `7203.T` | `{"exchange": "TSE", "symbol": "7203"}` | `7203.T` |
+| 台湾证券交易所 | `2330.TW` | `{"exchange": "TWSE", "symbol": "2330"}` | `2330.TW` |
+| 证券柜台买卖中心 | `XXXX.TWO` | `{"exchange": "TPEX", "symbol": "XXXX"}` | `XXXX.TWO` |
+
+- `ticker` 和 `instrument` 同时提供时，二者必须解析为同一上市地；否则 API 拒绝请求。
+- 代码和交易所会转为大写。港股的 `symbol` 可以传 `5` 或 `0005`，系统会保存并展示为四位补零的 `0005.HK`；TradingView 请求则转换为 `HKEX:5`。A 股的六位代码必须保留前导零，例如 `000001.SZ`。
+- TradingView 使用 `交易所:代码`，例如 `SSE:600519` 和 `HKEX:700`；Yahoo Finance 使用市场后缀代码，例如 `600519.SS` 和 `0700.HK`。调用 API 时不要把这两种供应商格式作为统一输入格式混用。
+- 对未带交易所的裸代码（例如 `AAPL`），TradingView 会通过市场搜索解析。存在跨市场同名代码时，应使用市场后缀或 `instrument` 明确上市地。
+- 当前显式 `instrument.exchange` 支持 `NASDAQ`、`NYSE`、`AMEX`、`HKEX`、`SSE`、`SZSE`、`TSE`、`TWSE` 和 `TPEX`。其他市场请使用可验证的 `ticker`，并先确认已配置供应商是否覆盖。
+
 ### 市场数据供应商路由
 
 `data_vendors` 选择按类别排列的有序供应商链，`tool_vendors` 可覆盖单个方法的链路。显式配置是明确边界：`"tradingview,yfinance"` 只会按此顺序尝试这两个供应商，绝不会额外加入未列出的供应商。使用 `"default"` 选择不可变的方法级策略。
