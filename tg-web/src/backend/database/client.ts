@@ -17,7 +17,11 @@ export type DatabaseHealth = {
   pricingSources: PricingSourcesRepository;
 };
 
-function createDatabase(connectionString: string): DatabaseHealth {
+export type NodeDatabase = DatabaseHealth & {
+  close(): Promise<void>;
+};
+
+function createDatabase(connectionString: string): NodeDatabase {
   const pool = new Pool({ connectionString });
   const database = drizzle({ client: pool, schema });
   const repositories = createRepositories(database);
@@ -26,11 +30,14 @@ function createDatabase(connectionString: string): DatabaseHealth {
     async healthcheck() {
       await database.execute(sql`SELECT 1`);
     },
+    close() {
+      return pool.end();
+    },
     ...repositories,
   };
 }
 
-export function createNodeDatabase(databaseUrl: string | URL): DatabaseHealth {
+export function createNodeDatabase(databaseUrl: string | URL): NodeDatabase {
   return createDatabase(databaseUrl.toString());
 }
 

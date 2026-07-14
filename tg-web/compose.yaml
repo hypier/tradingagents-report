@@ -1,0 +1,31 @@
+services:
+  # DATABASE_URL and CORE_API_URL must target services reachable through the
+  # existing Core or platform network; this compose file does not create them.
+  tg-web:
+    build: .
+    ports:
+      - '8787:8787'
+    environment:
+      PORT: '8787'
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must point to the existing PostgreSQL service reachable from this container}
+      CORE_API_URL: ${CORE_API_URL:?CORE_API_URL must point to the existing Core service reachable from this container}
+      CORE_API_KEY: ${CORE_API_KEY:?CORE_API_KEY is required}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8787/api/health >/dev/null']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
