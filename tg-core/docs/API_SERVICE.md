@@ -37,13 +37,19 @@ printf 'TRADINGAGENTS_API_KEY=%s\nTRADINGAGENTS_POSTGRES_PASSWORD=%s\n' \
 再启动 PostgreSQL 和 API：
 
 ```bash
-docker compose up --build postgres tradingagents-api
+docker compose up --build -d postgres tradingagents-api frontend
 ```
 
 API 默认监听：
 
 ```text
 http://localhost:8000
+```
+
+Frontend URL:
+
+```text
+http://localhost:3000
 ```
 
 Swagger 文档：
