@@ -105,6 +105,8 @@ def resolve_instrument_identity(ticker: str) -> dict:
         ("industry", "industry"),
         ("exchange", "exchange"),
         ("quote_type", "quote_type"),
+        ("quote_currency", "quote_currency"),
+        ("fundamental_currency", "fundamental_currency"),
     ):
         value = _clean_identity_value(info.get(source_key))
         if value:
@@ -146,6 +148,12 @@ def build_instrument_context(
             details.append(f"Industry: {industry}")
         if identity.get("exchange"):
             details.append(f"Exchange: {identity['exchange']}")
+        if identity.get("quote_currency"):
+            details.append(f"Quote currency: {identity['quote_currency']}")
+        if identity.get("fundamental_currency"):
+            details.append(
+                f"Fundamental reporting currency: {identity['fundamental_currency']}"
+            )
 
     if details:
         context += (
@@ -205,5 +213,4 @@ def create_msg_delete():
         return {"messages": removal_operations + [placeholder]}
 
     return delete_messages
-
 

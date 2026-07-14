@@ -38,6 +38,8 @@ class ProviderResult(Generic[T]):
     delay: str | None = None
     adjustment_mode: str | None = None
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    quote_currency: str | None = None
+    fundamental_currency: str | None = None
 
 
 _FOREX_CURRENCIES = frozenset(

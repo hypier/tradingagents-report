@@ -379,6 +379,7 @@ def test_get_tradingview_stock_preserves_header_and_csv_format(monkeypatch):
         provider="tradingview",
         requested=parse_instrument("XAUUSD"),
         resolved_symbol="COMEX:GC1!",
+        quote_currency="USD",
     )
     monkeypatch.setattr(tv, "fetch_tradingview_ohlcv", lambda *args: result)
 

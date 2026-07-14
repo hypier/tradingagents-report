@@ -128,6 +128,7 @@ def fetch_tradingview_ohlcv(
         resolved_symbol=resolved.symbol,
         as_of=frame["Date"].max().to_pydatetime().replace(tzinfo=timezone.utc),
         adjustment_mode="Japanese",
+        quote_currency=_currency_field(payload.get("info"), "currency_code"),
         provenance={"endpoint": f"/api/price/{resolved.symbol}"},
     )
 
@@ -140,7 +141,10 @@ def get_tradingview_stock(symbol: str, start_date: str, end_date: str) -> str:
         label = f"{result.resolved_symbol} (from {result.requested.raw_symbol})"
     header = f"# Stock data for {label} from {start_date} to {end_date}\n"
     header += f"# Total records: {len(result.data)}\n"
-    header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    if result.quote_currency:
+        header += f"# Quote currency: {result.quote_currency}\n"
+    header += "\n"
     return header + result.data.to_csv(index=False)
 
 
@@ -182,13 +186,29 @@ def get_tradingview_identity(
         "sector": _identity_field(company.get("sector")),
         "industry": _identity_field(company.get("industry")),
         "exchange": _identity_field(company.get("listed_exchange")),
+        "quote_currency": _currency_field(company, "currency_code", "currency"),
+        "fundamental_currency": _currency_field(
+            company,
+            "fundamental_currency_code",
+            "currency_fund",
+        ),
     }
     if not any(identity.values()):
         raise NoMarketDataError(ticker, resolved.symbol, "TradingView returned no company identity")
-    return {**identity, "quote_type": "stock"}
+    return {**{key: value for key, value in identity.items() if value}, "quote_type": "stock"}
 
 
 def _identity_field(value: Any) -> str:
     """Normalize TradingView company fields and discard placeholder values."""
     text = value.strip() if isinstance(value, str) else str(value or "").strip()
     return "" if text.lower() in {"", "-", "n/a", "na", "none", "null", "unknown"} else text
+
+
+def _currency_field(source: Any, *keys: str) -> str | None:
+    if not isinstance(source, dict):
+        return None
+    for key in keys:
+        value = _identity_field(source.get(key))
+        if value:
+            return value.upper()
+    return None

@@ -98,6 +98,11 @@ def build_verified_market_snapshot(
         f"- Requested analysis date: {curr_date}",
         f"- Latest trading row used: {latest_date}",
         "- Rows after the requested analysis date are excluded before verification.",
+    ]
+    quote_currency = df.attrs.get("quote_currency")
+    if isinstance(quote_currency, str) and quote_currency.strip():
+        lines.append(f"- Quote currency: {quote_currency.strip()}")
+    lines += [
         "",
         "### Latest verified OHLCV row",
         "",

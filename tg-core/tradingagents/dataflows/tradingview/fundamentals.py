@@ -223,11 +223,39 @@ def _get_market_data(
         return symbol, payload
 
 
-def _header(title: str, symbol: str, freq: str | None = None) -> str:
+def _header(
+    title: str,
+    symbol: str,
+    freq: str | None = None,
+    *,
+    quote_currency: str | None = None,
+    fundamental_currency: str | None = None,
+) -> str:
     suffix = f" ({freq})" if freq is not None else ""
     header = f"# {title} for {symbol}{suffix}\n"
-    header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    if quote_currency:
+        header += f"# Quote currency: {quote_currency}\n"
+    if fundamental_currency:
+        header += f"# Fundamental reporting currency: {fundamental_currency}\n"
+    header += "\n"
     return header
+
+
+def _currencies(payload: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    company = payload.get("company")
+    if not isinstance(company, Mapping):
+        return None, None
+    quote = company.get("currency_code") or company.get("currency")
+    fundamental = company.get("fundamental_currency_code") or company.get("currency_fund")
+    return _currency(quote), _currency(fundamental)
+
+
+def _currency(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    currency = value.strip().upper()
+    return currency or None
 
 
 def get_tradingview_fundamentals(
@@ -239,6 +267,7 @@ def get_tradingview_fundamentals(
     """Return a TradingView fundamentals overview in the existing text format."""
     del curr_date
     symbol, payload = _get_market_data(ticker, client)
+    quote_currency, fundamental_currency = _currencies(payload)
 
     lines = []
     for section_name, field, label in _FUNDAMENTAL_FIELDS:
@@ -249,7 +278,12 @@ def get_tradingview_fundamentals(
 
     if not lines:
         raise NoMarketDataError(ticker, symbol, "no fundamental fields returned")
-    return _header("Company Fundamentals", symbol) + "\n".join(lines)
+    return _header(
+        "Company Fundamentals",
+        symbol,
+        quote_currency=quote_currency,
+        fundamental_currency=fundamental_currency,
+    ) + "\n".join(lines)
 
 
 def _fiscal_end(value: Any) -> date | None:
@@ -365,6 +399,7 @@ def _get_statement(
 ) -> str:
     frequency = "quarterly" if freq.lower() == "quarterly" else "annual"
     symbol, payload = _get_market_data(ticker, client)
+    quote_currency, fundamental_currency = _currencies(payload)
     current_key = f"financials_{frequency}"
     history_key = f"history_{frequency}"
     current = payload.get(current_key)
@@ -378,7 +413,13 @@ def _get_statement(
     )
     if frame.empty:
         raise NoMarketDataError(ticker, symbol, f"no {detail} data")
-    return _header(title, symbol, freq) + frame.to_csv()
+    return _header(
+        title,
+        symbol,
+        freq,
+        quote_currency=quote_currency,
+        fundamental_currency=fundamental_currency,
+    ) + frame.to_csv()
 
 
 def get_tradingview_balance_sheet(

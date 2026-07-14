@@ -20,7 +20,10 @@ def get_ohlcv(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         raise TypeError("Structured OHLCV route returned an unexpected data type")
     if data.empty:
         raise ValueError(f"No OHLCV data available for {symbol}.")
-    return data.copy()
+    result_data = data.copy()
+    if result.quote_currency:
+        result_data.attrs["quote_currency"] = result.quote_currency
+    return result_data
 
 
 def get_instrument_identity(ticker: str) -> dict[str, str]:
