@@ -8,6 +8,21 @@ import type { AppDependencies } from '../../src/backend/app';
 import { Logger } from '../../src/backend/logging/logger';
 import { startNodeRuntime } from '../../src/runtimes/node';
 
+vi.mock('../../src/backend/app', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/backend/app')>();
+
+  return {
+    ...actual,
+    createApp(dependencies: AppDependencies) {
+      const app = actual.createApp(dependencies);
+      app.post('/api/echo', async (context) =>
+        context.json({ data: await context.req.json() }),
+      );
+      return app;
+    },
+  };
+});
+
 const temporaryDirectories: string[] = [];
 
 function fakeDependencies(): AppDependencies {
@@ -58,6 +73,28 @@ describe('Node runtime', () => {
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toMatchObject({
         error: { code: 'NOT_FOUND' },
+      });
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it('forwards JSON request bodies to the BFF', async () => {
+    const server = await startNodeRuntime(fakeDependencies(), {
+      port: 0,
+      assetsDirectory: await createAssetsDirectory(),
+    });
+
+    try {
+      const response = await fetch(`${server.url}/api/echo`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ticker: 'AAPL' }),
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        data: { ticker: 'AAPL' },
       });
     } finally {
       await server.stop();

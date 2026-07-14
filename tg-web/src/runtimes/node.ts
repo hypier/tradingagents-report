@@ -5,6 +5,7 @@ import {
 } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, relative, resolve } from 'node:path';
+import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 
 import Redis from 'ioredis';
@@ -100,10 +101,18 @@ function toFetchRequest(request: IncomingMessage, url: URL): Request {
     }
   }
 
-  return new Request(url, {
+  const init: RequestInit = {
     method: request.method,
     headers,
-  });
+  };
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    Object.assign(init, {
+      body: Readable.toWeb(request),
+      duplex: 'half',
+    });
+  }
+
+  return new Request(url, init);
 }
 
 async function sendFetchResponse(
