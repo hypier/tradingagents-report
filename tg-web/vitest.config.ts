@@ -17,6 +17,7 @@ export default defineConfig({
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
           environment: 'node',
+          hookTimeout: 120_000,
         },
       },
       defineWorkersProject({

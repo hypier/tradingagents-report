@@ -40,6 +40,12 @@ pnpm exec wrangler dev --local
 Additional checks are `pnpm lint`, `pnpm format:check`, `pnpm typecheck`,
 `pnpm test:integration`, and `pnpm test:e2e`.
 
+When using OrbStack, Testcontainers needs its socket explicitly:
+
+```bash
+DOCKER_HOST=unix://$HOME/.orbstack/run/docker.sock pnpm test:integration
+```
+
 `pnpm test:e2e` builds the frontend and Node runtime, then starts the Node
 bundle with test-only unreachable PostgreSQL, Redis, and Core URLs. It checks
 the SPA shell, a client deep link, and JSON API 404s in Chromium at desktop

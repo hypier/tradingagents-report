@@ -9,6 +9,23 @@ const container = 'tg-web-smoke';
 const port = process.env.DOCKER_SMOKE_PORT ?? '18877';
 const dockerSmoke = process.env.DOCKER_SMOKE === '1' ? describe : describe.skip;
 
+async function waitForHealth(url: string): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // The detached container may still be starting.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Docker container did not become healthy: ${url}`);
+}
+
 dockerSmoke('Docker image', () => {
   beforeAll(async () => {
     await execFileAsync('docker', ['build', '--tag', image, '.']);
@@ -32,6 +49,7 @@ dockerSmoke('Docker image', () => {
       'REDIS_URL=redis://host.docker.internal:6379',
       image,
     ]);
+    await waitForHealth(`http://127.0.0.1:${port}/api/health`);
   });
 
   afterAll(async () => {

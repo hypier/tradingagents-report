@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createNodeDatabase,
-  type DatabaseHealth,
+  type NodeDatabase,
 } from '../../src/backend/database/client';
 
 const fixtureSql = `
@@ -70,7 +70,7 @@ const fixtureSql = `
 
 describe('Node database', () => {
   let container: StartedTestContainer | undefined;
-  let database: DatabaseHealth;
+  let database!: NodeDatabase;
   let connection: Client | undefined;
 
   beforeAll(async () => {
@@ -109,6 +109,7 @@ describe('Node database', () => {
   });
 
   afterAll(async () => {
+    await database?.close();
     await connection?.end();
     await container?.stop();
   });
