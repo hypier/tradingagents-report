@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@/components': fileURLToPath(new URL('./src/frontend/components', import.meta.url)),
+      '@/hooks': fileURLToPath(new URL('./src/frontend/hooks', import.meta.url)),
+      '@/lib': fileURLToPath(new URL('./src/frontend/lib', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },

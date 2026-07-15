@@ -6,6 +6,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
+      '@/components': fileURLToPath(new URL('./src/frontend/components', import.meta.url)),
+      '@/hooks': fileURLToPath(new URL('./src/frontend/hooks', import.meta.url)),
+      '@/lib': fileURLToPath(new URL('./src/frontend/lib', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
@@ -13,6 +16,14 @@ export default defineConfig({
     passWithNoTests: true,
     projects: [
       {
+        resolve: {
+          alias: {
+            '@/components': fileURLToPath(new URL('./src/frontend/components', import.meta.url)),
+            '@/hooks': fileURLToPath(new URL('./src/frontend/hooks', import.meta.url)),
+            '@/lib': fileURLToPath(new URL('./src/frontend/lib', import.meta.url)),
+            '@': fileURLToPath(new URL('./src', import.meta.url)),
+          },
+        },
         test: {
           name: 'unit',
           include: ['tests/unit/**/*.test.{ts,tsx}'],

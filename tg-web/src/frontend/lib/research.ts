@@ -4,6 +4,45 @@ export type ResearchInput = {
   analysts: string[];
 };
 
+export type AnalysisStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
+
+export type AnalysisJob = {
+  id: string;
+  ticker: string;
+  status: AnalysisStatus;
+  current_step?: string | null;
+  progress_percent?: number | null;
+  decision?: string | null;
+  cost_usd?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  analysts?: string[] | null;
+};
+
+export type AnalysisEvent = {
+  id?: string;
+  event_type?: string;
+  message?: string;
+  created_at?: string;
+  stage?: string;
+};
+
+export type AnalysisDetail = AnalysisJob & {
+  reports?: Record<string, unknown> | null;
+  usage?: Record<string, unknown> | null;
+  result?: Record<string, unknown> | null;
+};
+
+export type MarketSnapshot = {
+  ticker: string;
+  display_name?: string;
+  last_price?: number;
+  currency?: string;
+  change_percent?: number;
+  as_of?: string;
+  source?: string;
+};
+
 type FetchImplementation = typeof fetch;
 
 export async function createResearch(
@@ -26,13 +65,13 @@ async function read<T>(path: string, fetchImplementation: FetchImplementation = 
 }
 
 export const listResearch = (fetchImplementation?: FetchImplementation) =>
-  read<Array<Record<string, unknown>>>('/api/analyses', fetchImplementation);
+  read<AnalysisJob[]>('/api/analyses', fetchImplementation);
 
 export const getResearch = (id: string, fetchImplementation?: FetchImplementation) =>
-  read<Record<string, unknown>>(`/api/analyses/${encodeURIComponent(id)}`, fetchImplementation);
+  read<AnalysisDetail>(`/api/analyses/${encodeURIComponent(id)}`, fetchImplementation);
 
 export const getResearchEvents = (id: string, fetchImplementation?: FetchImplementation) =>
-  read<Array<Record<string, unknown>>>(`/api/analyses/${encodeURIComponent(id)}/events`, fetchImplementation);
+  read<AnalysisEvent[]>(`/api/analyses/${encodeURIComponent(id)}/events`, fetchImplementation);
 
 export const getMarketSnapshot = (ticker: string, fetchImplementation?: FetchImplementation) =>
-  read<Record<string, unknown>>(`/api/market-snapshot?ticker=${encodeURIComponent(ticker)}`, fetchImplementation);
+  read<MarketSnapshot>(`/api/market-snapshot?ticker=${encodeURIComponent(ticker)}`, fetchImplementation);

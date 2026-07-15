@@ -7,14 +7,31 @@ import { expect, it } from 'vitest';
 
 import { App } from '../../src/frontend/app/app';
 
-it('renders the scaffold home page', () => {
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }),
+});
+
+it('renders the research command dashboard', () => {
   render(
     <MemoryRouter initialEntries={['/']}>
       <App />
     </MemoryRouter>,
   );
 
-  expect(screen.getByRole('main')).toHaveTextContent('TradingAgents');
+  expect(screen.getByRole('main')).toHaveTextContent('Research command');
+  expect(screen.getByRole('heading', { name: 'Sequential agent activity' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Recent research reports' })).toBeInTheDocument();
+});
+
+it('renders the standard dashboard navigation shell', () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(screen.getAllByRole('button', { name: 'Toggle Sidebar' })).not.toHaveLength(0);
 });
 
 it('renders a 404 page for an unknown route', () => {

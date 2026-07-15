@@ -1,26 +1,265 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, FileText, Search, Settings, Sparkles } from 'lucide-react';
+import { Play } from 'lucide-react';
+import { toast } from 'sonner';
 
+import { AppSidebar } from '../components/app-sidebar';
+import { PipelinePanel } from '../components/dashboard/pipeline-panel';
+import { RecentReports } from '../components/dashboard/recent-reports';
+import { ReportDialog } from '../components/dashboard/report-dialog';
+import { SiteHeader } from '../components/site-header';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card';
+import { Field, FieldGroup, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
-import { Progress } from '../components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { SidebarInset, SidebarProvider } from '../components/ui/sidebar';
+import { Skeleton } from '../components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
-import { createResearch, getMarketSnapshot, listResearch } from '../lib/research';
+import {
+  createResearch,
+  getMarketSnapshot,
+  getResearchEvents,
+  listResearch,
+} from '../lib/research';
 
-type Job = Record<string, unknown>;
+const analystOptions = ['market', 'fundamentals', 'news', 'social'];
 
 export function HomePage() {
   const [ticker, setTicker] = useState('');
+  const [market, setMarket] = useState('US');
+  const [depth, setDepth] = useState('standard');
+  const [analysts, setAnalysts] = useState<string[]>(analystOptions);
+  const [reportId, setReportId] = useState<string>();
   const queryClient = useQueryClient();
-  const jobs = useQuery({ queryKey: ['analyses'], queryFn: () => listResearch(), refetchInterval: (query) => query.state.data?.data.some((job) => job.status === 'queued' || job.status === 'running') ? 5_000 : false });
-  const snapshot = useQuery({ queryKey: ['snapshot', ticker], queryFn: () => getMarketSnapshot(ticker), enabled: Boolean(ticker) });
-  const create = useMutation({ mutationFn: (input: Parameters<typeof createResearch>[0]) => createResearch(input), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['analyses'] }) });
-  const active = jobs.data?.data.find((job) => job.status === 'queued' || job.status === 'running');
-  const rows = jobs.data?.data ?? [];
+  const jobs = useQuery({
+    queryKey: ['analyses'],
+    queryFn: () => listResearch(),
+    refetchInterval: (query) =>
+      query.state.data?.data.some(
+        (job) => job.status === 'queued' || job.status === 'running',
+      )
+        ? 5_000
+        : false,
+  });
+  const active = jobs.data?.data.find(
+    (job) => job.status === 'queued' || job.status === 'running',
+  );
+  const events = useQuery({
+    queryKey: ['analysis-events', active?.id],
+    queryFn: () => getResearchEvents(active!.id),
+    enabled: Boolean(active),
+    refetchInterval: active ? 5_000 : false,
+  });
+  const snapshot = useQuery({
+    queryKey: ['snapshot', ticker],
+    queryFn: () => getMarketSnapshot(ticker),
+    enabled: Boolean(ticker),
+  });
+  const create = useMutation({
+    mutationFn: (input: Parameters<typeof createResearch>[0]) =>
+      createResearch(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['analyses'] });
+      toast.success('Research run submitted.');
+    },
+  });
   const quote = snapshot.data?.data;
 
-  return <main className="min-h-screen bg-background text-foreground"><aside className="fixed inset-y-0 hidden w-60 border-r bg-card p-5 lg:block"><div className="flex items-center gap-2 font-semibold"><Sparkles /> TradingAgents</div><nav className="mt-10 flex flex-col gap-1"><Button variant="secondary" className="justify-start"><Activity data-icon="inline-start" />Research</Button><Button variant="ghost" className="justify-start"><FileText data-icon="inline-start" />Reports</Button><Button variant="ghost" className="justify-start"><Settings data-icon="inline-start" />Settings</Button></nav></aside><section className="mx-auto max-w-7xl p-5 lg:ml-60 lg:p-8"><header className="mb-8 flex justify-between"><div><p className="text-sm text-muted-foreground">TradingAgents workspace</p><h1 className="text-2xl font-semibold">Research command</h1></div><Button variant="outline" size="icon" aria-label="Search"><Search /></Button></header><Card><CardHeader><CardTitle>Start a new research run</CardTitle><CardDescription>Configure a focused, multi-agent research process.</CardDescription></CardHeader><CardContent className="flex flex-col gap-4 md:flex-row"><Input aria-label="Ticker" value={ticker} onChange={(event) => setTicker(event.target.value.toUpperCase())} placeholder="AAPL"/><ToggleGroup type="multiple" defaultValue={['market','fundamentals','news','social']}><ToggleGroupItem value="market">Market</ToggleGroupItem><ToggleGroupItem value="fundamentals">Fundamentals</ToggleGroupItem><ToggleGroupItem value="news">News</ToggleGroupItem><ToggleGroupItem value="social">Sentiment</ToggleGroupItem></ToggleGroup><Button disabled={!ticker || create.isPending} onClick={() => create.mutate({ ticker, tradeDate: new Date().toISOString().slice(0, 10), analysts: ['market', 'fundamentals', 'news', 'social'] })}><Activity data-icon="inline-start" />Run research</Button></CardContent></Card><div className="mt-6 grid gap-6 xl:grid-cols-[1fr_320px]"><Card><CardHeader><CardTitle>Sequential research pipeline</CardTitle><CardDescription>{active ? String(active.current_step ?? 'Queued') : 'No active research run.'}</CardDescription></CardHeader><CardContent>{active ? <><Progress value={Number(active.progress_percent ?? 0)} /><p className="mt-4 text-sm text-muted-foreground">{String(active.ticker)} is {String(active.status)}.</p></> : null}</CardContent></Card><Card><CardHeader><CardTitle>Live market snapshot</CardTitle><CardDescription>Data source: {quote ? String(quote.source) : 'TradingView'}</CardDescription></CardHeader><CardContent>{snapshot.isLoading ? 'Loading market snapshot...' : quote ? <><div className="text-3xl font-semibold">{String(quote.ticker)} {String(quote.last_price)}</div><Badge className="mt-2" variant="secondary">{Number(quote.change_percent).toFixed(2)}%</Badge></> : <p className="text-sm text-muted-foreground">Enter a ticker to load the latest verified snapshot.</p>}</CardContent></Card></div><Card className="mt-6"><CardHeader><CardTitle>Recent research</CardTitle></CardHeader><CardContent>{jobs.isLoading ? 'Loading research history...' : jobs.isError ? 'Research history is unavailable.' : <table className="w-full text-left text-sm"><thead><tr><th>Ticker</th><th>Status</th><th>Conclusion</th><th>Cost</th></tr></thead><tbody>{rows.map((job: Job) => <tr key={String(job.id)} className="border-t"><td className="py-3">{String(job.ticker)}</td><td><Badge variant="outline">{String(job.status)}</Badge></td><td>{String(job.decision ?? '—')}</td><td>{String(job.cost_usd ?? '—')}</td></tr>)}</tbody></table>}</CardContent></Card></section></main>;
+  function submit() {
+    if (ticker && analysts.length) {
+      create.mutate({
+        ticker,
+        tradeDate: new Date().toISOString().slice(0, 10),
+        analysts,
+      });
+    }
+  }
+
+  return (
+    <SidebarProvider
+      style={
+        {
+          '--sidebar-width': 'calc(var(--spacing) * 64)',
+          '--header-height': 'calc(var(--spacing) * 14)',
+        } as CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              <div className="px-4 lg:px-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Launch research</CardTitle>
+                    <CardDescription>
+                      Configure a sequential multi-agent research run.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-6">
+                    <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(180px,1.25fr)_minmax(150px,.75fr)_minmax(150px,.75fr)_auto]">
+                      <Field>
+                        <FieldLabel htmlFor="ticker">Ticker</FieldLabel>
+                        <Input
+                          id="ticker"
+                          value={ticker}
+                          onChange={(event) =>
+                            setTicker(event.target.value.toUpperCase())
+                          }
+                          placeholder="AAPL"
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel>Market</FieldLabel>
+                        <Select value={market} onValueChange={setMarket}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectItem value="US">United States</SelectItem>
+                              <SelectItem value="HK">Hong Kong</SelectItem>
+                              <SelectItem value="CN">China</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel>Research depth</FieldLabel>
+                        <Select value={depth} onValueChange={setDepth}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectItem value="focused">Focused</SelectItem>
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="extended">Extended</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field className="justify-end">
+                        <Button
+                          disabled={
+                            !ticker || !analysts.length || create.isPending
+                          }
+                          onClick={submit}
+                        >
+                          <Play data-icon="inline-start" />
+                          {create.isPending ? 'Submitting...' : 'Run analysis'}
+                        </Button>
+                      </Field>
+                    </FieldGroup>
+                    <Field>
+                      <FieldLabel>Analyst team</FieldLabel>
+                      <ToggleGroup
+                        type="multiple"
+                        variant="outline"
+                        size="sm"
+                        className="flex-wrap justify-start"
+                        value={analysts}
+                        onValueChange={setAnalysts}
+                      >
+                        {analystOptions.map((analyst) => (
+                          <ToggleGroupItem key={analyst} value={analyst}>
+                            {analyst === 'social' ? 'Sentiment' : analyst}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    </Field>
+                    {create.isError && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Unable to submit this run</AlertTitle>
+                        <AlertDescription>
+                          Check the service connection and retry.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 px-4 @5xl/main:grid-cols-[minmax(0,1fr)_320px] lg:px-6">
+                <PipelinePanel
+                  job={active}
+                  events={events.data?.data}
+                  loading={events.isLoading}
+                />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Market snapshot</CardTitle>
+                    <CardDescription>Read-only quote</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {snapshot.isLoading ? (
+                      <Skeleton className="h-24 w-full" />
+                    ) : quote ? (
+                      <div className="flex flex-col gap-3">
+                        <p className="font-mono font-semibold">
+                          {quote.ticker}
+                        </p>
+                        <p className="text-3xl font-semibold tabular-nums">
+                          {quote.currency ?? ''}{' '}
+                          {quote.last_price?.toLocaleString()}
+                        </p>
+                        <Badge variant="secondary">
+                          {quote.change_percent === undefined
+                            ? 'Change unavailable'
+                            : `${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%`}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground">
+                          {quote.source ?? 'TradingView'}{' '}
+                          {quote.as_of
+                            ? `as of ${new Date(quote.as_of).toLocaleString()}`
+                            : ''}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Enter a ticker to retrieve the latest available
+                        snapshot.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="px-4 lg:px-6">
+                <RecentReports
+                  jobs={jobs.data?.data ?? []}
+                  loading={jobs.isLoading}
+                  error={jobs.isError}
+                  onOpenReport={setReportId}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </SidebarInset>
+      <ReportDialog
+        id={reportId}
+        open={Boolean(reportId)}
+        onOpenChange={(open) => !open && setReportId(undefined)}
+      />
+    </SidebarProvider>
+  );
 }
