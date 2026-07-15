@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url';
 import Redis from 'ioredis';
 
 import { createApp, type AppDependencies } from '../backend/app';
+import { FailOpenCache } from '../backend/cache/fail-open-cache';
 import { RedisCache } from '../backend/cache/redis-cache';
 import { parseNodeConfig } from '../backend/config/node-config';
 import { CoreClient } from '../backend/core/client';
@@ -159,7 +160,7 @@ async function run(): Promise<void> {
   const redis = new Redis(config.redisUrl.toString(), { lazyConnect: true });
   const dependencies: AppDependencies = {
     database,
-    cache: new RedisCache(redis, logger),
+    cache: new FailOpenCache(new RedisCache(redis, logger), logger),
     core: new CoreClient(config.coreApiUrl, config.coreApiKey),
     logger,
   };

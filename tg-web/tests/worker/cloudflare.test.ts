@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import worker, { type WorkerEnv } from '../../src/runtimes/cloudflare';
+import {
+  createWorkerHandler,
+  default as worker,
+  type WorkerEnv,
+} from '../../src/runtimes/cloudflare';
+import type { AppDependencies } from '../../src/backend/app';
+import { Logger } from '../../src/backend/logging/logger';
 
 function workerEnv(): WorkerEnv {
   return {
@@ -48,5 +54,41 @@ describe('Cloudflare Worker runtime', () => {
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toContain('<div id="root">');
+  });
+
+  it('reuses one dependency graph for repeated API requests with the same environment', async () => {
+    const createDependencies = vi.fn((): AppDependencies => ({
+      database: { healthcheck: async () => undefined },
+      cache: {
+        get: async () => null,
+        set: async () => undefined,
+        delete: async () => undefined,
+        healthcheck: async () => undefined,
+      },
+      core: {
+        healthcheck: async () => undefined,
+        submitAnalysis: vi.fn(),
+        listAnalyses: vi.fn(),
+        getAnalysis: vi.fn(),
+        getAnalysisEvents: vi.fn(),
+      },
+      logger: new Logger(),
+    }));
+    const handler = createWorkerHandler(createDependencies);
+    const env = workerEnv();
+
+    await handler.fetch(
+      new Request('https://example.test/api/unknown') as never,
+      env,
+      {} as ExecutionContext,
+    );
+    await handler.fetch(
+      new Request('https://example.test/api/unknown') as never,
+      env,
+      {} as ExecutionContext,
+    );
+
+    expect(createDependencies).toHaveBeenCalledTimes(1);
+    expect(createDependencies).toHaveBeenCalledWith(env);
   });
 });

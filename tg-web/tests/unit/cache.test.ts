@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { exerciseCacheContract } from '../../src/backend/cache/contract';
+import { FailOpenCache } from '../../src/backend/cache/fail-open-cache';
 import { KvCache, type KvNamespace } from '../../src/backend/cache/kv-cache';
 import { Logger, type LogEntry } from '../../src/backend/logging/logger';
 
@@ -81,5 +82,53 @@ describe('cache adapters', () => {
       },
     ]);
     expect(JSON.stringify(entries)).not.toContain(cachedValue);
+  });
+
+  it('fails open for ordinary cache operations while retaining healthcheck failures', async () => {
+    const entries: LogEntry[] = [];
+    const failure = new Error('cache provider unavailable');
+    const cache = new FailOpenCache(
+      {
+        get: async () => {
+          throw failure;
+        },
+        set: async () => {
+          throw failure;
+        },
+        delete: async () => {
+          throw failure;
+        },
+        healthcheck: async () => {
+          throw failure;
+        },
+      },
+      new Logger((entry) => entries.push(entry)),
+    );
+
+    await expect(cache.get('ticker:NVDA')).resolves.toBeNull();
+    await expect(
+      cache.set('ticker:NVDA', 'sensitive-value', 60),
+    ).resolves.toBeUndefined();
+    await expect(cache.delete('ticker:NVDA')).resolves.toBeUndefined();
+    await expect(cache.healthcheck()).rejects.toBe(failure);
+
+    expect(entries).toEqual([
+      {
+        level: 'warn',
+        message: 'Cache get failed; continuing without cache',
+        metadata: { key: 'ticker:NVDA' },
+      },
+      {
+        level: 'warn',
+        message: 'Cache set failed; continuing without cache',
+        metadata: { key: 'ticker:NVDA' },
+      },
+      {
+        level: 'warn',
+        message: 'Cache delete failed; continuing without cache',
+        metadata: { key: 'ticker:NVDA' },
+      },
+    ]);
+    expect(JSON.stringify(entries)).not.toContain('sensitive-value');
   });
 });
