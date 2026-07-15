@@ -1,0 +1,26 @@
+FROM node:20.19.0-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile
+
+COPY . .
+RUN pnpm build && pnpm build:node
+
+FROM node:20.19.0-alpine AS runtime
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/dist ./dist
+
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+
+USER appuser
+
+EXPOSE 8787
+
+CMD ["node", "dist/backend/node.js"]
