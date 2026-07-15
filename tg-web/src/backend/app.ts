@@ -12,6 +12,7 @@ import {
 } from './logging/request-id';
 import { healthRoutes } from './routes/health';
 import { readyRoutes } from './routes/ready';
+import { analysisRoutes } from './routes/analyses';
 
 export type AppDependencies = {
   database: { healthcheck(): Promise<void> };
@@ -26,6 +27,7 @@ export function createApp(dependencies: AppDependencies) {
   app.use('/api/*', createRequestIdMiddleware());
   app.route('/api', healthRoutes());
   app.route('/api', readyRoutes(dependencies));
+  app.route('/api', analysisRoutes(dependencies));
   app.notFound((context) => {
     const requestId = context.get('requestId');
     const error = new AppError('NOT_FOUND', 404, 'Not found');

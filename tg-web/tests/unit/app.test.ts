@@ -20,6 +20,7 @@ function fakeDependencies(
       listAnalyses: vi.fn(),
       getAnalysis: vi.fn(),
       getAnalysisEvents: vi.fn(),
+      getMarketSnapshot: vi.fn(),
     },
     logger: new Logger(),
     ...overrides,
@@ -27,6 +28,39 @@ function fakeDependencies(
 }
 
 describe('createApp', () => {
+  it('forwards a validated analysis request to Core', async () => {
+    const dependencies = fakeDependencies({
+      core: {
+        healthcheck: vi.fn(),
+        submitAnalysis: vi.fn().mockResolvedValue({ id: 'job-1', ticker: 'AAPL' }),
+        listAnalyses: vi.fn(),
+        getAnalysis: vi.fn(),
+        getAnalysisEvents: vi.fn(),
+        getMarketSnapshot: vi.fn(),
+      },
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: 'AAPL',
+        tradeDate: '2026-07-15',
+        analysts: ['market'],
+      }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toMatchObject({ data: { ticker: 'AAPL' } });
+    expect(dependencies.core.submitAnalysis).toHaveBeenCalledWith({
+      ticker: 'AAPL',
+      trade_date: '2026-07-15',
+      analysts: ['market'],
+      config_overrides: {},
+    });
+  });
+
   it('returns JSON for an unknown API path instead of the SPA document', async () => {
     const app = createApp(fakeDependencies());
 

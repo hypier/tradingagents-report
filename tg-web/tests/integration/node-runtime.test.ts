@@ -40,6 +40,7 @@ function fakeDependencies(): AppDependencies {
       listAnalyses: vi.fn(),
       getAnalysis: vi.fn(),
       getAnalysisEvents: vi.fn(),
+      getMarketSnapshot: vi.fn(),
     },
     logger: new Logger(),
   };

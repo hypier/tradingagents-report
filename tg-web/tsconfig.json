@@ -17,9 +17,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/frontend/*": ["src/frontend/*"],
-      "@/backend/*": ["src/backend/*"],
-      "@/shared/*": ["src/shared/*"]
+      "@/*": ["src/*"]
     },
     "types": ["vite/client"]
   },

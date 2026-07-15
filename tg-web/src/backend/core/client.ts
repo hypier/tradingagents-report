@@ -8,6 +8,7 @@ export interface CoreClientContract {
   listAnalyses(input: URLSearchParams): Promise<unknown>;
   getAnalysis(id: string): Promise<unknown>;
   getAnalysisEvents(id: string): Promise<unknown>;
+  getMarketSnapshot(ticker: string): Promise<unknown>;
 }
 
 type FetchImplementation = (
@@ -54,6 +55,14 @@ export class CoreClient implements CoreClientContract {
   getAnalysisEvents(id: string): Promise<unknown> {
     return this.request(
       `/api/v1/analyses/${encodeURIComponent(id)}/events`,
+      {},
+      true,
+    );
+  }
+
+  getMarketSnapshot(ticker: string): Promise<unknown> {
+    return this.request(
+      `/api/v1/market-snapshot?ticker=${encodeURIComponent(ticker)}`,
       {},
       true,
     );
