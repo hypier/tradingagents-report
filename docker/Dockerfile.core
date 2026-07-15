@@ -9,7 +9,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /build
-COPY . .
+COPY tg-core/ .
 RUN pip install --no-cache-dir .
 
 FROM ${PYTHON_IMAGE}

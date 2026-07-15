@@ -33,7 +33,7 @@ cp .env.example .env
 pnpm dev
 pnpm build
 pnpm test
-docker compose up --build
+docker compose --env-file ../tg-core/.env --profile web -f ../docker/docker-compose.yml up --build
 pnpm exec wrangler dev --local
 ```
 
@@ -56,17 +56,11 @@ dependencies.
 ## Docker deployment
 
 ```bash
-cd tg-web
-DATABASE_URL=postgresql://postgres@core-postgres:5432/tradingagents \
-CORE_API_URL=http://core-api:8000 \
-CORE_API_KEY=replace-with-a-core-api-key \
-docker compose up --build
+docker compose --env-file tg-core/.env --profile web -f docker/docker-compose.yml up --build
 ```
 
-Compose starts exactly one `tg-web` application container and one Redis
-container. PostgreSQL and Core are external services: their URLs must be
-reachable from the `tg-web` container through the existing Core or platform
-network. Compose never creates, migrates, or administers PostgreSQL or Core.
+Compose starts `tg-web`, Redis, the Core API, and PostgreSQL on one internal
+network. `tg-web` connects to the Core services by their Compose service names.
 
 ## Data and cache boundaries
 

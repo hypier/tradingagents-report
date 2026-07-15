@@ -1,24 +1,14 @@
-services:
-  tradingagents:
-    build:
-      context: .
-      args:
-        PYTHON_IMAGE: ${TRADINGAGENTS_PYTHON_IMAGE:-python:3.12-slim}
-    env_file:
-      - path: .env
-        required: false
-    volumes:
-      - tradingagents_data:/home/appuser/.tradingagents
-    tty: true
-    stdin_open: true
+name: tradingagents-report
 
+services:
   tradingagents-api:
     build:
-      context: .
+      context: ..
+      dockerfile: docker/Dockerfile.core
       args:
         PYTHON_IMAGE: ${TRADINGAGENTS_PYTHON_IMAGE:-python:3.12-slim}
     env_file:
-      - path: .env
+      - path: ../tg-core/.env
         required: false
     environment:
       - TRADINGAGENTS_API_KEY=${TRADINGAGENTS_API_KEY:?set TRADINGAGENTS_API_KEY in .env}
@@ -33,23 +23,12 @@ services:
       - "8000"
     ports:
       - "127.0.0.1:8000:8000"
+    restart: unless-stopped
     volumes:
       - tradingagents_data:/home/appuser/.tradingagents
     depends_on:
       postgres:
         condition: service_healthy
-
-  frontend:
-    build:
-      context: ../frontend
-    environment:
-      - TRADINGAGENTS_API_KEY=${TRADINGAGENTS_API_KEY:?set TRADINGAGENTS_API_KEY in .env}
-      - NGINX_ENVSUBST_FILTER=TRADINGAGENTS_API_KEY
-    ports:
-      - "127.0.0.1:3000:80"
-    depends_on:
-      tradingagents-api:
-        condition: service_started
 
   postgres:
     image: postgres:16
@@ -67,34 +46,44 @@ services:
       timeout: 5s
       retries: 10
 
-  ollama:
-    image: ollama/ollama:latest
-    volumes:
-      - ollama_data:/root/.ollama
-    profiles:
-      - ollama
-
-  tradingagents-ollama:
+  tradingagents-web:
     build:
-      context: .
-      args:
-        PYTHON_IMAGE: ${TRADINGAGENTS_PYTHON_IMAGE:-python:3.12-slim}
-    env_file:
-      - path: .env
-        required: false
+      context: ..
+      dockerfile: docker/Dockerfile.web
     environment:
-      - TRADINGAGENTS_LLM_PROVIDER=ollama
-      - OLLAMA_BASE_URL=http://ollama:11434/v1
-    volumes:
-      - tradingagents_data:/home/appuser/.tradingagents
+      PORT: "8787"
+      DATABASE_URL: postgresql://tradingagents:${TRADINGAGENTS_POSTGRES_PASSWORD:?set TRADINGAGENTS_POSTGRES_PASSWORD in tg-core/.env}@postgres:5432/tradingagents
+      CORE_API_URL: http://tradingagents-api:8000
+      CORE_API_KEY: ${TRADINGAGENTS_API_KEY:?set TRADINGAGENTS_API_KEY in tg-core/.env}
+      REDIS_URL: redis://redis:6379
     depends_on:
-      - ollama
-    tty: true
-    stdin_open: true
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      tradingagents-api:
+        condition: service_started
+    ports:
+      - "8787:8787"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8787/api/health >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     profiles:
-      - ollama
+      - web
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    profiles:
+      - web
 
 volumes:
   tradingagents_data:
   postgres_data:
-  ollama_data:

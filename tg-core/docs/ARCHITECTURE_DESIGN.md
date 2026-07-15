@@ -63,8 +63,10 @@ tg-core/
 ├── tests/                        # pytest 测试
 ├── scripts/                      # 冒烟脚本
 ├── pyproject.toml                # 包、依赖、CLI 脚本、pytest、ruff 配置
-├── Dockerfile
-└── docker-compose.yml
+└── ../docker/
+    ├── Dockerfile.core
+    ├── Dockerfile.web
+    └── docker-compose.yml
 ```
 
 ## 4. 总体架构
@@ -481,17 +483,11 @@ tradingagents
 ### 13.2 Docker
 
 ```bash
-cp .env.example .env
-docker compose run --rm tradingagents
+cp tg-core/.env.example tg-core/.env
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build postgres tradingagents-api
 ```
 
-### 13.3 Docker + Ollama
-
-```bash
-docker compose --profile ollama run --rm tradingagents-ollama
-```
-
-Docker 镜像使用 Python 3.12 slim，多阶段构建，运行阶段使用非 root 用户 `appuser`，默认入口是 `tradingagents`。
+Docker 镜像使用 Python 3.12 slim，多阶段构建，运行阶段使用非 root 用户 `appuser`。Compose 以 `uvicorn api.app:app` 启动 HTTP API。
 
 ## 14. 配置优先级
 
@@ -618,8 +614,8 @@ Docker 镜像使用 Python 3.12 slim，多阶段构建，运行阶段使用非 r
 | 决策记忆 | [`tradingagents/agents/utils/memory.py`](../tradingagents/agents/utils/memory.py) |
 | SQLite checkpoint | [`tradingagents/graph/checkpointer.py`](../tradingagents/graph/checkpointer.py) |
 | 报告输出 | [`tradingagents/reporting.py`](../tradingagents/reporting.py) |
-| Docker 入口 | [`Dockerfile`](../Dockerfile) |
-| Compose 服务 | [`docker-compose.yml`](../docker-compose.yml) |
+| Docker 入口 | [`docker/Dockerfile.core`](../../docker/Dockerfile.core) |
+| Compose 服务 | [`docker/docker-compose.yml`](../../docker/docker-compose.yml) |
 
 ## 20. 总结
 

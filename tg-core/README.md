@@ -127,13 +127,8 @@ python -m pip install .
 
 也可以通过 Docker 运行：
 ```bash
-cp .env.example .env  # 填入 API Key
-docker compose run --rm tradingagents
-```
-
-使用 Ollama 本地模型：
-```bash
-docker compose --profile ollama run --rm tradingagents-ollama
+cp tg-core/.env.example tg-core/.env  # 填入 API Key
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build postgres tradingagents-api
 ```
 
 ### 所需 API
@@ -254,14 +249,14 @@ openssl rand -hex 32  # TRADINGAGENTS_POSTGRES_PASSWORD
 
 使用 Docker 部署时，同时启动 PostgreSQL 和 API：
 ```bash
-docker compose up --build postgres tradingagents-api
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build postgres tradingagents-api
 ```
 
 API 监听 `http://localhost:8000`；交互式 OpenAPI 文档位于 `http://localhost:8000/docs`。
 
 本地开发时，先启动 PostgreSQL，确认 `TRADINGAGENTS_DATABASE_URL` 指向该数据库（`.env.example` 默认指向 `localhost:5432`），然后从已激活的虚拟环境运行 Uvicorn：
 ```bash
-docker compose up -d postgres
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up -d postgres
 source .venv/bin/activate
 uvicorn api.app:app --host 127.0.0.1 --port 8000
 ```

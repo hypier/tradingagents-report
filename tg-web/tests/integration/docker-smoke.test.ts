@@ -28,7 +28,14 @@ async function waitForHealth(url: string): Promise<void> {
 
 dockerSmoke('Docker image', () => {
   beforeAll(async () => {
-    await execFileAsync('docker', ['build', '--tag', image, '.']);
+    await execFileAsync('docker', [
+      'build',
+      '--file',
+      '../docker/Dockerfile.web',
+      '--tag',
+      image,
+      '..',
+    ]);
     await execFileAsync('docker', [
       'run',
       '--detach',

@@ -2,17 +2,17 @@ FROM node:20.19.0-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+COPY tg-web/package.json tg-web/pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
 
-COPY . .
+COPY tg-web/ .
 RUN pnpm build && pnpm build:node
 
 FROM node:20.19.0-alpine AS runtime
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+COPY tg-web/package.json tg-web/pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile --prod
 
 COPY --from=builder /app/dist ./dist
