@@ -1,0 +1,8 @@
+Use case: ui-mockup
+Asset type: desktop SaaS dashboard visual concept for an English-language AI equity research product
+Target dimensions: 1440 x 1024
+Primary request: Create a realistic, production-quality dashboard named TradingAgents. Concept name: Research Inbox. The product helps individual global investors research securities with collaborating AI analysts. This is research-only, not a brokerage or trading execution product.
+Layout: desktop app with a slim left navigation for Home, Research, Reports, Watchlist, and Settings; a calm top bar; a large search-and-start-research panel at the top; a primary center column with recent research reports as a dense, readable grouped list; a narrow right column showing one currently running multi-agent analysis and a small market brief. Emphasize the next research action and report recency. Use clear row separators rather than cards inside cards.
+Style/medium: quiet, confident, premium research software; light base surface, charcoal typography, deep ink-blue as the restrained accent, muted green and amber only for status, subtle data-grid details, excellent typography, spacious but operationally dense.
+Text: use readable English labels such as TradingAgents, Start research, Recent reports, Multi-agent analysis, AAPL, NVDA, MSFT, In progress, Completed. Do not use lorem ipsum.
+Constraints: no gradients, no purple palette, no crypto imagery, no price-ticker clutter, no browser or device frame, no marketing hero, no stock photos, no rounded card excess, no trade execution controls, no payment, no charts that overwhelm the research workflow, no watermark.

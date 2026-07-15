@@ -1,0 +1,8 @@
+Use case: ui-mockup
+Asset type: desktop SaaS dashboard visual concept for an English-language AI equity research product
+Target dimensions: 1440 x 1024
+Primary request: Create a realistic, production-quality dashboard named TradingAgents. Concept name: Agent Command Center. The product helps individual global investors run and follow AI analyst research on securities. It is for research, not brokerage execution.
+Layout: desktop app with a compact dark side rail, then a broad command surface. Top section is a prominent research composer with ticker, market selector, research depth, and analyst team chips. The main body prioritizes a live active analysis: a precise staged timeline for Market, Fundamentals, News, and Risk agents, current evidence snippets, and a decision status area. A secondary bottom section shows a concise list of recent completed reports. Make active work feel transparent and deliberate.
+Style/medium: contemporary financial research terminal, dark ink and white surfaces with a crisp emerald accent, strong grid alignment, high contrast readable typography, modest borders and minimal shadows. The product should feel sophisticated and focused rather than gamer-like or cinematic.
+Text: use readable English labels such as Research command, Run analysis, Agent activity, Market analyst, Risk analyst, Evidence collected, Recent reports, AAPL, TSLA, Completed. Do not use lorem ipsum.
+Constraints: no gradients, no neon, no purple, no giant charts, no candlestick wallpaper, no trading or order controls, no payment, no admin console, no browser or device frame, no stock-photo imagery, no watermark.

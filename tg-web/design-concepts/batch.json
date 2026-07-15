@@ -1,0 +1,32 @@
+{
+  "jobs": 3,
+  "tasks": [
+    {
+      "id": "research-inbox",
+      "promptFiles": ["research-inbox.md"],
+      "image": "research-inbox.png",
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "size": "1440x1024",
+      "quality": "2k"
+    },
+    {
+      "id": "agent-command-center",
+      "promptFiles": ["agent-command-center.md"],
+      "image": "agent-command-center.png",
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "size": "1440x1024",
+      "quality": "2k"
+    },
+    {
+      "id": "portfolio-monitor",
+      "promptFiles": ["portfolio-monitor.md"],
+      "image": "portfolio-monitor.png",
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "size": "1440x1024",
+      "quality": "2k"
+    }
+  ]
+}

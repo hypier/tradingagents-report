@@ -1,0 +1,8 @@
+Use case: ui-mockup
+Asset type: desktop SaaS dashboard visual concept for an English-language AI equity research product
+Target dimensions: 1440 x 1024
+Primary request: Create a realistic, production-quality dashboard named TradingAgents. Concept name: Portfolio Monitor. The product helps individual global investors keep a research watchlist and revisit AI-authored investment research. It does not execute trades or claim to provide financial advice.
+Layout: desktop app with an unframed left navigation and light top bar. The headline area is a watchlist summary with 6 tracked instruments displayed as a restrained table, each row showing research freshness, latest thesis label, risk state, and next review date. Alongside it, place a focused research-brief panel for the selected company. Below, show a chronological research library with filters and report status. The information model is asset-centric rather than task-centric.
+Style/medium: editorial financial journal meets serious SaaS tool; warm off-white page, graphite text, forest green and restrained coral as a balanced secondary palette, serif accents only for report titles and a clean sans-serif interface. Calm, credible, data literate.
+Text: use readable English labels such as Watchlist, Research freshness, Latest thesis, Review date, Research library, Apple Inc., NVIDIA, Hold, High risk, Updated today. Do not use lorem ipsum.
+Constraints: no beige-dominant palette, no gradients, no purple, no portfolio performance claims, no transaction buttons, no bank or crypto visual language, no device frame, no stock photography, no excessive cards, no watermark.
