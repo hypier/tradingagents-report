@@ -46,6 +46,19 @@ function displayStage(value?: string | null) {
     : 'Awaiting a research run';
 }
 
+function stageFromProgressMessage(value?: string | null) {
+  const message = value?.toLowerCase() ?? '';
+  if (message.includes('market analyst')) return 'market';
+  if (message.includes('fundamentals analyst')) return 'fundamentals';
+  if (message.includes('news analyst')) return 'news';
+  if (message.includes('sentiment analyst')) return 'social';
+  if (message.includes('research debate')) return 'research_debate';
+  if (message.includes('trader')) return 'trader';
+  if (message.includes('risk debate')) return 'risk_review';
+  if (message.includes('portfolio manager')) return 'final_synthesis';
+  return undefined;
+}
+
 export function PipelinePanel({
   job,
   events,
@@ -56,7 +69,8 @@ export function PipelinePanel({
   loading?: boolean;
 }) {
   const stages = [...(job?.analysts ?? analystStages), ...finalStages];
-  const activeIndex = job?.current_step ? stages.indexOf(job.current_step) : -1;
+  const activeStage = stageFromProgressMessage(job?.current_step);
+  const activeIndex = activeStage ? stages.indexOf(activeStage) : -1;
 
   return (
     <Card aria-labelledby="pipeline-title">
@@ -87,7 +101,7 @@ export function PipelinePanel({
               const current =
                 index === activeIndex && job?.status === 'running';
               const complete =
-                activeIndex > index || job?.status === 'completed';
+                activeIndex > index || job?.status === 'succeeded';
               return (
                 <div key={stage}>
                   {index > 0 && <Separator />}
@@ -120,11 +134,8 @@ export function PipelinePanel({
           ) : events?.length ? (
             <ScrollArea className="mt-4 h-56">
               <ol className="flex flex-col gap-3 pr-4 text-xs leading-5 text-muted-foreground">
-                {events.slice(0, 6).map((event, index) => (
-                  <li key={event.id ?? `${event.created_at}-${index}`}>
-                    <span className="mr-2 font-medium text-foreground">
-                      {displayStage(event.stage ?? event.event_type)}
-                    </span>
+                {events.slice(-6).reverse().map((event, index) => (
+                  <li key={`${event.time ?? 'event'}-${index}`}>
                     {event.message ?? 'Stage update received.'}
                   </li>
                 ))}

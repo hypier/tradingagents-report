@@ -103,7 +103,7 @@ export function RecentReports({
                   <TableCell>
                     <Badge
                       variant={
-                        job.status === 'completed' ? 'secondary' : 'outline'
+                        job.status === 'succeeded' ? 'secondary' : 'outline'
                       }
                       className="capitalize"
                     >

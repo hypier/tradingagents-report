@@ -5,7 +5,7 @@ export type ResearchInput = {
 };
 
 export type AnalysisStatus =
-  'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
+  'queued' | 'running' | 'succeeded' | 'failed';
 
 export type AnalysisJob = {
   id: string;
@@ -21,11 +21,10 @@ export type AnalysisJob = {
 };
 
 export type AnalysisEvent = {
-  id?: string;
-  event_type?: string;
+  kind?: 'stage' | 'tool_call';
+  progress_percent?: number;
   message?: string;
-  created_at?: string;
-  stage?: string;
+  time?: string;
 };
 
 export type AnalysisDetail = AnalysisJob & {

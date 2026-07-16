@@ -30,7 +30,7 @@ test('opens a completed Core report from the research library', async ({
           {
             id: 'job-1',
             ticker: 'AAPL',
-            status: 'completed',
+            status: 'succeeded',
             analysts: ['market'],
             updated_at: '2026-07-15T10:00:00Z',
           },
@@ -45,7 +45,7 @@ test('opens a completed Core report from the research library', async ({
         data: {
           id: 'job-1',
           ticker: 'AAPL',
-          status: 'completed',
+          status: 'succeeded',
           reports: { market_report: 'Core-generated market report.' },
         },
         requestId: 'request-2',
