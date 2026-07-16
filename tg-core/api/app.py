@@ -9,7 +9,6 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 
 from api.formatters import analysis_result_from_row
 from api.job_worker import job_worker
-from api.market_snapshot import read_snapshot
 from api.schemas import (
     AnalysisDetail,
     AnalysisEventLog,
@@ -71,17 +70,6 @@ def health(response: Response) -> HealthResponse:
     except Exception as exc:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthResponse(status="error", database="error", detail=str(exc))
-
-
-@app.get(
-    "/api/v1/market-snapshot",
-    dependencies=[Depends(require_api_key)],
-)
-def get_market_snapshot(ticker: str = Query(min_length=1, max_length=32)) -> dict:
-    try:
-        return read_snapshot(ticker)
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
 @app.post(

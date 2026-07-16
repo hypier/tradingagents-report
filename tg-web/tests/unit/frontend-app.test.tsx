@@ -97,4 +97,5 @@ it('renders a report detail page inside the dashboard shell', () => {
   expect(
     within(container).getByRole('heading', { name: 'Research report' }),
   ).toBeInTheDocument();
+  expect(container.querySelector('.max-w-5xl')).toBeNull();
 });

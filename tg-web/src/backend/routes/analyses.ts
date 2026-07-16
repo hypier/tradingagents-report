@@ -59,7 +59,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
     }
     return context.json(
       apiSuccess(
-        await dependencies.core.getMarketSnapshot(ticker),
+        await dependencies.marketAssets.getSnapshot(ticker),
         context.get('requestId'),
       ),
     );

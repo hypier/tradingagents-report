@@ -79,7 +79,9 @@ export class TradingViewMarketClient implements MarketAssetClient {
       last_price: lastPrice,
       currency: stringValue(quote?.currency_code).toUpperCase() || 'USD',
       change_percent: changePercent,
-      ...(quoteTime ? { as_of: new Date(quoteTime * 1_000).toISOString() } : {}),
+      ...(quoteTime
+        ? { as_of: new Date(quoteTime * 1_000).toISOString() }
+        : {}),
       source: 'tradingview',
     };
   }
@@ -111,13 +113,17 @@ export class TradingViewMarketClient implements MarketAssetClient {
       const response = await this.request(
         `/api/search/market/${encodeURIComponent(ticker)}?filter=stock`,
       );
-      return response.ok ? selectMarket(await response.json(), ticker) : undefined;
+      return response.ok
+        ? selectMarket(await response.json(), ticker)
+        : undefined;
     } catch {
       return undefined;
     }
   }
 
   private request(path: string) {
+    if (!this.apiKey)
+      throw new Error('TradingView market data is not configured');
     return this.fetchImplementation(`${API_BASE_URL}${path}`, {
       headers: {
         'x-rapidapi-host': API_HOST,
@@ -153,7 +159,11 @@ function readMarkets(payload: unknown): MarketRecord[] {
 }
 
 function readQuote(payload: unknown): Record<string, unknown> | undefined {
-  if (!isRecord(payload) || !isRecord(payload.data) || !isRecord(payload.data.data)) {
+  if (
+    !isRecord(payload) ||
+    !isRecord(payload.data) ||
+    !isRecord(payload.data.data)
+  ) {
     return undefined;
   }
   return payload.data.data;
@@ -176,7 +186,9 @@ function stringValue(value: unknown) {
 }
 
 function numberValue(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

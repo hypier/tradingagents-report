@@ -20,9 +20,8 @@ function fakeDependencies(
       listAnalyses: vi.fn(),
       getAnalysis: vi.fn(),
       getAnalysisEvents: vi.fn(),
-      getMarketSnapshot: vi.fn(),
     },
-    marketAssets: { getIdentities: vi.fn() },
+    marketAssets: { getIdentities: vi.fn(), getSnapshot: vi.fn() },
     logger: new Logger(),
     ...overrides,
   };
@@ -39,9 +38,8 @@ describe('createApp', () => {
         listAnalyses: vi.fn(),
         getAnalysis: vi.fn(),
         getAnalysisEvents: vi.fn(),
-        getMarketSnapshot: vi.fn(),
       },
-      marketAssets: { getIdentities: vi.fn() },
+      marketAssets: { getIdentities: vi.fn(), getSnapshot: vi.fn() },
     });
     const app = createApp(dependencies);
 
@@ -74,6 +72,7 @@ describe('createApp', () => {
           logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
         },
       ]),
+      getSnapshot: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -84,6 +83,29 @@ describe('createApp', () => {
       data: [{ ticker: '700', display_name: 'Tencent Holdings Ltd.' }],
     });
     expect(marketAssets.getIdentities).toHaveBeenCalledWith(['700']);
+  });
+
+  it('returns a server-side TradingView market snapshot', async () => {
+    const marketAssets = {
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn().mockResolvedValue({
+        ticker: '700',
+        display_name: 'Tencent Holdings Ltd.',
+        last_price: 481.8,
+        currency: 'HKD',
+        change_percent: 1.65,
+        source: 'tradingview',
+      }),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request('/api/market-snapshot?ticker=700');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { ticker: '700', last_price: 481.8 },
+    });
+    expect(marketAssets.getSnapshot).toHaveBeenCalledWith('700');
   });
 
   it('returns JSON for an unknown API path instead of the SPA document', async () => {

@@ -10,7 +10,7 @@ function renderValue(value: unknown) {
 export function MarkdownReport({ value }: { value: unknown }) {
   if (typeof value !== 'string') {
     return (
-      <pre className="overflow-x-auto rounded-md bg-muted p-4 font-mono text-xs leading-6">
+      <pre className="overflow-hidden whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-xs leading-6">
         {renderValue(value)}
       </pre>
     );
@@ -63,20 +63,24 @@ export function MarkdownReport({ value }: { value: unknown }) {
           </code>
         ),
         pre: ({ children }) => (
-          <pre className="my-4 overflow-x-auto rounded-md bg-muted p-4 text-xs leading-6">
+          <pre className="my-4 overflow-hidden whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-xs leading-6">
             {children}
           </pre>
         ),
         table: ({ children }) => (
-          <table className="my-4 w-full text-left text-sm">{children}</table>
+          <table className="my-4 w-full table-fixed text-left text-sm break-words">
+            {children}
+          </table>
         ),
         th: ({ children }) => (
-          <th className="border-b bg-muted px-3 py-2 font-medium">
+          <th className="border-b bg-muted px-3 py-2 align-top font-medium break-words">
             {children}
           </th>
         ),
         td: ({ children }) => (
-          <td className="border-b px-3 py-2">{children}</td>
+          <td className="border-b px-3 py-2 align-top break-words">
+            {children}
+          </td>
         ),
       }}
     >

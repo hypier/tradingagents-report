@@ -13,7 +13,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '../components/ui/empty';
-import { ScrollArea, ScrollBar } from '../components/ui/scroll-area';
 import { Skeleton } from '../components/ui/skeleton';
 import {
   Tabs,
@@ -36,7 +35,7 @@ export function ReportPage() {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col px-4 py-6 lg:px-6">
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
+        <div className="flex w-full flex-1 flex-col">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
             <div className="flex items-start gap-3">
               <Button
@@ -80,19 +79,19 @@ export function ReportPage() {
             </Alert>
           ) : entries.length ? (
             <Tabs defaultValue={entries[0][0]} className="min-h-0 flex-1 pt-6">
-              <ScrollArea className="w-full">
-                <TabsList variant="line">
-                  {entries.map(([key]) => (
-                    <TabsTrigger key={key} value={key} className="capitalize">
-                      {key.replaceAll('_', ' ')}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
+              <TabsList
+                variant="line"
+                className="h-auto w-full flex-wrap justify-start"
+              >
+                {entries.map(([key]) => (
+                  <TabsTrigger key={key} value={key} className="capitalize">
+                    {key.replaceAll('_', ' ')}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
               {entries.map(([key, value]) => (
                 <TabsContent key={key} value={key} className="mt-6">
-                  <article className="min-h-[60dvh] overflow-x-auto pb-12 text-sm">
+                  <article className="min-h-[60dvh] min-w-0 overflow-hidden pb-12 text-sm">
                     <MarkdownReport value={value} />
                   </article>
                 </TabsContent>
