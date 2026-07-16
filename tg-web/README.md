@@ -27,6 +27,10 @@ that are reachable from the development machine:
 
 The sample values are placeholders only. Do not commit a populated `.env`.
 
+## Product documentation
+
+- [TG-web product functions](docs/PRODUCT_FUNCTIONS.md)
+
 ## Commands
 
 ```bash
