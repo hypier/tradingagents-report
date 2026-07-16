@@ -59,6 +59,18 @@ function stageFromProgressMessage(value?: string | null) {
   return undefined;
 }
 
+function jobStatusVariant(status?: AnalysisJob['status']) {
+  if (status === 'failed') return 'destructive';
+  if (
+    status === 'running' ||
+    status === 'queued' ||
+    status === 'succeeded'
+  ) {
+    return 'default';
+  }
+  return 'secondary';
+}
+
 export function PipelinePanel({
   job,
   events,
@@ -80,7 +92,7 @@ export function PipelinePanel({
           <h2 id="pipeline-title">Sequential agent activity</h2>
         </CardTitle>
         <CardAction>
-          <Badge variant={job ? 'outline' : 'secondary'} className="capitalize">
+          <Badge variant={jobStatusVariant(job?.status)} className="capitalize">
             {job?.status ?? 'Idle'}
           </Badge>
         </CardAction>
@@ -107,7 +119,11 @@ export function PipelinePanel({
                   {index > 0 && <Separator />}
                   <div className="flex items-center gap-3 px-4 py-3 text-sm">
                     <span className="flex-1">{displayStage(stage)}</span>
-                    <Badge variant={complete ? 'secondary' : 'outline'}>
+                    <Badge
+                      variant={
+                        current ? 'default' : complete ? 'default' : 'outline'
+                      }
+                    >
                       {complete
                         ? 'Complete'
                         : current
@@ -134,11 +150,14 @@ export function PipelinePanel({
           ) : events?.length ? (
             <ScrollArea className="mt-4 h-56">
               <ol className="flex flex-col gap-3 pr-4 text-xs leading-5 text-muted-foreground">
-                {events.slice(-6).reverse().map((event, index) => (
-                  <li key={`${event.time ?? 'event'}-${index}`}>
-                    {event.message ?? 'Stage update received.'}
-                  </li>
-                ))}
+                {events
+                  .slice(-6)
+                  .reverse()
+                  .map((event, index) => (
+                    <li key={`${event.time ?? 'event'}-${index}`}>
+                      {event.message ?? 'Stage update received.'}
+                    </li>
+                  ))}
               </ol>
             </ScrollArea>
           ) : (

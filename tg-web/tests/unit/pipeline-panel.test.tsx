@@ -23,15 +23,24 @@ it('marks the Core sentiment step as in progress', () => {
   );
 
   expect(within(container).getAllByText('Complete')).toHaveLength(3);
-  expect(within(container).getByText('In progress')).toBeInTheDocument();
+  expect(within(container).getByText('In progress')).toHaveAttribute(
+    'data-variant',
+    'default',
+  );
 });
 
 it('shows the most recent Core evidence event', () => {
   const { container } = render(
     <PipelinePanel
       events={[
-        { kind: 'tool_call', message: 'Market Analyst: calling get_stock_data' },
-        { kind: 'tool_call', message: 'Market Analyst: calling get_indicators' },
+        {
+          kind: 'tool_call',
+          message: 'Market Analyst: calling get_stock_data',
+        },
+        {
+          kind: 'tool_call',
+          message: 'Market Analyst: calling get_indicators',
+        },
         { kind: 'stage', message: 'Running Fundamentals Analyst' },
         { kind: 'stage', message: 'Running News Analyst' },
         { kind: 'stage', message: 'Running Sentiment Analyst' },
@@ -61,5 +70,9 @@ it('marks every stage complete when Core reports success', () => {
     />,
   );
 
-  expect(within(container).getAllByText('Complete')).toHaveLength(8);
+  const completeStages = within(container).getAllByText('Complete');
+  expect(completeStages).toHaveLength(8);
+  completeStages.forEach((stage) =>
+    expect(stage).toHaveAttribute('data-variant', 'default'),
+  );
 });

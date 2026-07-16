@@ -1,4 +1,4 @@
-import { MoreHorizontal } from 'lucide-react';
+import { FileText } from 'lucide-react';
 
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -10,13 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from '../ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
 import { Skeleton } from '../ui/skeleton';
 import {
   Table,
@@ -26,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import type { AnalysisJob } from '../../lib/research';
 
 function formatDate(value?: string | null) {
@@ -35,6 +29,18 @@ function formatDate(value?: string | null) {
         timeStyle: 'short',
       }).format(new Date(value))
     : 'Not available';
+}
+
+function statusVariant(status: AnalysisJob['status']) {
+  if (status === 'failed') return 'destructive';
+  if (
+    status === 'running' ||
+    status === 'queued' ||
+    status === 'succeeded'
+  ) {
+    return 'default';
+  }
+  return 'secondary';
 }
 
 export function RecentReports({
@@ -102,9 +108,7 @@ export function RecentReports({
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={
-                        job.status === 'succeeded' ? 'secondary' : 'outline'
-                      }
+                      variant={statusVariant(job.status)}
                       className="capitalize"
                     >
                       {job.status}
@@ -114,26 +118,21 @@ export function RecentReports({
                     {formatDate(job.updated_at ?? job.created_at)}
                   </TableCell>
                   <TableCell className="pr-6 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label={`Actions for ${job.ticker}`}
+                          aria-label={`View report for ${job.ticker}`}
+                          onClick={() => onOpenReport(job.id)}
                         >
-                          <MoreHorizontal />
+                          <FileText />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem
-                            onSelect={() => onOpenReport(job.id)}
-                          >
-                            View report
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={6}>
+                        View report
+                      </TooltipContent>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))

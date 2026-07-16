@@ -2,10 +2,10 @@ export type ResearchInput = {
   ticker: string;
   tradeDate: string;
   analysts: string[];
+  outputLanguage?: string;
 };
 
-export type AnalysisStatus =
-  'queued' | 'running' | 'succeeded' | 'failed';
+export type AnalysisStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 export type AnalysisJob = {
   id: string;
@@ -46,13 +46,16 @@ export type MarketSnapshot = {
 type FetchImplementation = typeof fetch;
 
 export async function createResearch(
-  input: ResearchInput,
+  { outputLanguage, ...input }: ResearchInput,
   fetchImplementation: FetchImplementation = fetch,
 ) {
   const response = await fetchImplementation('/api/analyses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      ...input,
+      configOverrides: { output_language: outputLanguage ?? 'English' },
+    }),
   });
   if (!response.ok) throw new Error('Unable to create research');
   return response.json() as Promise<{

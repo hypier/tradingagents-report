@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { expect, it } from 'vitest';
 
@@ -82,4 +82,19 @@ it('renders a 404 page for an unknown route', () => {
   const heading = screen.getByRole('heading', { name: 'Page not found' });
   expect(heading).toBeInTheDocument();
   expect(heading).toHaveClass('text-foreground');
+});
+
+it('renders a report detail page inside the dashboard shell', () => {
+  const { container } = render(
+    <MemoryRouter initialEntries={['/reports/job-1']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(
+    within(container).getAllByRole('button', { name: 'Toggle Sidebar' }),
+  ).not.toHaveLength(0);
+  expect(
+    within(container).getByRole('heading', { name: 'Research report' }),
+  ).toBeInTheDocument();
 });

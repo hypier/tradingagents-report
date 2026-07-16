@@ -1,18 +1,18 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { AppSidebar } from '../components/app-sidebar';
+import { AppShell } from '../components/app-shell';
 import { PipelinePanel } from '../components/dashboard/pipeline-panel';
 import { RecentReports } from '../components/dashboard/recent-reports';
-import { ReportDialog } from '../components/dashboard/report-dialog';
-import { SiteHeader } from '../components/site-header';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -25,7 +25,13 @@ import {
   FieldTitle,
 } from '../components/ui/field';
 import { Input } from '../components/ui/input';
-import { SidebarInset, SidebarProvider } from '../components/ui/sidebar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -37,11 +43,31 @@ import {
 } from '../lib/research';
 
 const analystOptions = ['market', 'fundamentals', 'news', 'social'];
+const outputLanguageOptions = [
+  ['English', 'English (default)'],
+  ['Chinese', 'Chinese (中文)'],
+  ['Japanese', 'Japanese (日本語)'],
+  ['Korean', 'Korean (한국어)'],
+  ['Hindi', 'Hindi (हिन्दी)'],
+  ['Spanish', 'Spanish (Español)'],
+  ['Portuguese', 'Portuguese (Português)'],
+  ['French', 'French (Français)'],
+  ['German', 'German (Deutsch)'],
+  ['Arabic', 'Arabic (العربية)'],
+  ['Russian', 'Russian (Русский)'],
+] as const;
+
+function marketMoveVariant(changePercent?: number) {
+  if (changePercent === undefined || changePercent === 0) return 'outline';
+  return changePercent > 0 ? 'default' : 'destructive';
+}
 
 export function HomePage() {
   const [ticker, setTicker] = useState('');
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
-  const [reportId, setReportId] = useState<string>();
+  const [outputLanguage, setOutputLanguage] = useState('English');
+  const [customLanguage, setCustomLanguage] = useState('');
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const jobs = useQuery({
     queryKey: ['analyses'],
@@ -76,173 +102,211 @@ export function HomePage() {
     },
   });
   const quote = snapshot.data?.data;
+  const selectedOutputLanguage =
+    outputLanguage === 'custom' ? customLanguage.trim() : outputLanguage;
 
   function submit() {
-    if (ticker && analysts.length) {
+    if (ticker && analysts.length && selectedOutputLanguage) {
       create.mutate({
         ticker,
         tradeDate: new Date().toISOString().slice(0, 10),
         analysts,
+        outputLanguage: selectedOutputLanguage,
       });
     }
   }
 
   return (
-    <SidebarProvider
-      style={
-        {
-          '--sidebar-width': 'calc(var(--spacing) * 64)',
-          '--header-height': 'calc(var(--spacing) * 14)',
-        } as CSSProperties
-      }
-    >
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <div className="px-4 lg:px-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Launch research</CardTitle>
-                    <CardDescription>
-                      Configure a sequential multi-agent research run.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-6">
-                    <form
-                      className="flex flex-col gap-6"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        submit();
-                      }}
-                    >
-                      <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(180px,1fr)_auto]">
-                        <Field>
-                          <FieldLabel htmlFor="ticker">Ticker</FieldLabel>
-                          <Input
-                            id="ticker"
-                            value={ticker}
-                            onChange={(event) =>
-                              setTicker(event.target.value.toUpperCase())
-                            }
-                            placeholder="AAPL"
-                          />
-                        </Field>
-                        <Field className="justify-end">
-                          <Button
-                            type="submit"
-                            disabled={
-                              !ticker || !analysts.length || create.isPending
-                            }
-                          >
-                            {create.isPending ? (
-                              <Spinner data-icon="inline-start" />
-                            ) : (
-                              <Play data-icon="inline-start" />
-                            )}
-                            {create.isPending
-                              ? 'Submitting...'
-                              : 'Run analysis'}
-                          </Button>
-                        </Field>
-                      </FieldGroup>
+    <AppShell>
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="px-4 lg:px-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Launch research</CardTitle>
+                  <CardDescription>
+                    Configure a sequential multi-agent research run.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-6">
+                  <form
+                    className="flex flex-col gap-6"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submit();
+                    }}
+                  >
+                    <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(180px,1fr)_minmax(180px,0.6fr)_auto]">
                       <Field>
-                        <FieldTitle id="analyst-team-label">
-                          Analyst team
-                        </FieldTitle>
-                        <ToggleGroup
-                          type="multiple"
-                          variant="outline"
-                          size="sm"
-                          className="flex-wrap justify-start"
-                          aria-labelledby="analyst-team-label"
-                          value={analysts}
-                          onValueChange={setAnalysts}
-                        >
-                          {analystOptions.map((analyst) => (
-                            <ToggleGroupItem key={analyst} value={analyst}>
-                              {analyst === 'social' ? 'Sentiment' : analyst}
-                            </ToggleGroupItem>
-                          ))}
-                        </ToggleGroup>
+                        <FieldLabel htmlFor="ticker">Ticker</FieldLabel>
+                        <Input
+                          id="ticker"
+                          value={ticker}
+                          onChange={(event) =>
+                            setTicker(event.target.value.toUpperCase())
+                          }
+                          placeholder="AAPL"
+                        />
                       </Field>
-                      {create.isError && (
-                        <Alert variant="destructive">
-                          <AlertTitle>Unable to submit this run</AlertTitle>
-                          <AlertDescription>
-                            Check the service connection and retry.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </form>
-                  </CardContent>
-                </Card>
-              </div>
+                      <Field>
+                        <FieldLabel htmlFor="output-language">
+                          Report language
+                        </FieldLabel>
+                        <Select
+                          value={outputLanguage}
+                          onValueChange={setOutputLanguage}
+                        >
+                          <SelectTrigger
+                            id="output-language"
+                            aria-label="Report language"
+                            className="w-full"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {outputLanguageOptions.map(([value, label]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="custom">
+                              Custom language
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field className="justify-end">
+                        <Button
+                          type="submit"
+                          disabled={
+                            !ticker ||
+                            !analysts.length ||
+                            !selectedOutputLanguage ||
+                            create.isPending
+                          }
+                        >
+                          {create.isPending ? (
+                            <Spinner data-icon="inline-start" />
+                          ) : (
+                            <Play data-icon="inline-start" />
+                          )}
+                          {create.isPending ? 'Submitting...' : 'Run analysis'}
+                        </Button>
+                      </Field>
+                    </FieldGroup>
+                    {outputLanguage === 'custom' && (
+                      <Field>
+                        <FieldLabel htmlFor="custom-language">
+                          Custom language
+                        </FieldLabel>
+                        <Input
+                          id="custom-language"
+                          value={customLanguage}
+                          onChange={(event) =>
+                            setCustomLanguage(event.target.value)
+                          }
+                          placeholder="Turkish"
+                          required
+                        />
+                      </Field>
+                    )}
+                    <Field>
+                      <FieldTitle id="analyst-team-label">
+                        Analyst team
+                      </FieldTitle>
+                      <ToggleGroup
+                        type="multiple"
+                        variant="outline"
+                        size="sm"
+                        className="flex-wrap justify-start"
+                        aria-labelledby="analyst-team-label"
+                        value={analysts}
+                        onValueChange={setAnalysts}
+                      >
+                        {analystOptions.map((analyst) => (
+                          <ToggleGroupItem key={analyst} value={analyst}>
+                            {analyst === 'social' ? 'Sentiment' : analyst}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    </Field>
+                    {create.isError && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Unable to submit this run</AlertTitle>
+                        <AlertDescription>
+                          Check the service connection and retry.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
 
-              <div className="grid gap-4 px-4 @5xl/main:grid-cols-[minmax(0,1fr)_320px] lg:px-6">
-                <PipelinePanel
-                  job={active}
-                  events={events.data?.data}
-                  loading={events.isLoading}
-                />
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Market snapshot</CardTitle>
-                    <CardDescription>Read-only quote</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {snapshot.isLoading ? (
-                      <Skeleton className="h-24 w-full" />
-                    ) : quote ? (
-                      <div className="flex flex-col gap-3">
-                        <p className="font-mono font-semibold">
+            <div className="grid gap-4 px-4 @5xl/main:grid-cols-[minmax(0,1fr)_320px] lg:px-6">
+              <PipelinePanel
+                job={active}
+                events={events.data?.data}
+                loading={events.isLoading}
+              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Market snapshot</CardTitle>
+                  <CardDescription>Read-only quote</CardDescription>
+                  <CardAction>
+                    <Badge>Latest quote</Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent>
+                  {snapshot.isLoading ? (
+                    <Skeleton className="h-24 w-full" />
+                  ) : quote ? (
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <p className="font-semibold">
+                          {quote.display_name ?? quote.ticker}
+                        </p>
+                        <p className="font-mono text-xs text-muted-foreground">
                           {quote.ticker}
                         </p>
-                        <p className="text-3xl font-semibold tabular-nums">
-                          {quote.currency ?? ''}{' '}
-                          {quote.last_price?.toLocaleString()}
-                        </p>
-                        <Badge variant="secondary">
-                          {quote.change_percent === undefined
-                            ? 'Change unavailable'
-                            : `${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%`}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground">
-                          {quote.source ?? 'TradingView'}{' '}
-                          {quote.as_of
-                            ? `as of ${new Date(quote.as_of).toLocaleString()}`
-                            : ''}
-                        </p>
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Enter a ticker to retrieve the latest available
-                        snapshot.
+                      <p className="text-3xl font-semibold tabular-nums">
+                        {quote.currency ?? ''}{' '}
+                        {quote.last_price?.toLocaleString()}
                       </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+                      <Badge variant={marketMoveVariant(quote.change_percent)}>
+                        {quote.change_percent === undefined
+                          ? 'Change unavailable'
+                          : `${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%`}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground">
+                        {quote.source ?? 'TradingView'}{' '}
+                        {quote.as_of
+                          ? `as of ${new Date(quote.as_of).toLocaleString()}`
+                          : ''}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Enter a ticker to retrieve the latest available snapshot.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-              <div className="px-4 lg:px-6">
-                <RecentReports
-                  jobs={jobs.data?.data ?? []}
-                  loading={jobs.isLoading}
-                  error={jobs.isError}
-                  onOpenReport={setReportId}
-                />
-              </div>
+            <div className="px-4 lg:px-6">
+              <RecentReports
+                jobs={jobs.data?.data ?? []}
+                loading={jobs.isLoading}
+                error={jobs.isError}
+                onOpenReport={(id) => navigate(`/reports/${id}`)}
+              />
             </div>
           </div>
         </div>
-      </SidebarInset>
-      <ReportDialog
-        id={reportId}
-        open={Boolean(reportId)}
-        onOpenChange={(open) => !open && setReportId(undefined)}
-      />
-    </SidebarProvider>
+      </div>
+    </AppShell>
   );
 }
