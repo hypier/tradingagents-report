@@ -18,18 +18,16 @@ import {
   CardHeader,
   CardTitle,
 } from '../components/ui/card';
-import { Field, FieldGroup, FieldLabel } from '../components/ui/field';
-import { Input } from '../components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '../components/ui/field';
+import { Input } from '../components/ui/input';
 import { SidebarInset, SidebarProvider } from '../components/ui/sidebar';
 import { Skeleton } from '../components/ui/skeleton';
+import { Spinner } from '../components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import {
   createResearch,
@@ -42,8 +40,6 @@ const analystOptions = ['market', 'fundamentals', 'news', 'social'];
 
 export function HomePage() {
   const [ticker, setTicker] = useState('');
-  const [market, setMarket] = useState('US');
-  const [depth, setDepth] = useState('standard');
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [reportId, setReportId] = useState<string>();
   const queryClient = useQueryClient();
@@ -115,85 +111,72 @@ export function HomePage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-6">
-                    <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(180px,1.25fr)_minmax(150px,.75fr)_minmax(150px,.75fr)_auto]">
+                    <form
+                      className="flex flex-col gap-6"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        submit();
+                      }}
+                    >
+                      <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(180px,1fr)_auto]">
+                        <Field>
+                          <FieldLabel htmlFor="ticker">Ticker</FieldLabel>
+                          <Input
+                            id="ticker"
+                            value={ticker}
+                            onChange={(event) =>
+                              setTicker(event.target.value.toUpperCase())
+                            }
+                            placeholder="AAPL"
+                          />
+                        </Field>
+                        <Field className="justify-end">
+                          <Button
+                            type="submit"
+                            disabled={
+                              !ticker || !analysts.length || create.isPending
+                            }
+                          >
+                            {create.isPending ? (
+                              <Spinner data-icon="inline-start" />
+                            ) : (
+                              <Play data-icon="inline-start" />
+                            )}
+                            {create.isPending
+                              ? 'Submitting...'
+                              : 'Run analysis'}
+                          </Button>
+                        </Field>
+                      </FieldGroup>
                       <Field>
-                        <FieldLabel htmlFor="ticker">Ticker</FieldLabel>
-                        <Input
-                          id="ticker"
-                          value={ticker}
-                          onChange={(event) =>
-                            setTicker(event.target.value.toUpperCase())
-                          }
-                          placeholder="AAPL"
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel>Market</FieldLabel>
-                        <Select value={market} onValueChange={setMarket}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectItem value="US">United States</SelectItem>
-                              <SelectItem value="HK">Hong Kong</SelectItem>
-                              <SelectItem value="CN">China</SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Research depth</FieldLabel>
-                        <Select value={depth} onValueChange={setDepth}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              <SelectItem value="focused">Focused</SelectItem>
-                              <SelectItem value="standard">Standard</SelectItem>
-                              <SelectItem value="extended">Extended</SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <Field className="justify-end">
-                        <Button
-                          disabled={
-                            !ticker || !analysts.length || create.isPending
-                          }
-                          onClick={submit}
+                        <FieldTitle id="analyst-team-label">
+                          Analyst team
+                        </FieldTitle>
+                        <ToggleGroup
+                          type="multiple"
+                          variant="outline"
+                          size="sm"
+                          className="flex-wrap justify-start"
+                          aria-labelledby="analyst-team-label"
+                          value={analysts}
+                          onValueChange={setAnalysts}
                         >
-                          <Play data-icon="inline-start" />
-                          {create.isPending ? 'Submitting...' : 'Run analysis'}
-                        </Button>
+                          {analystOptions.map((analyst) => (
+                            <ToggleGroupItem key={analyst} value={analyst}>
+                              {analyst === 'social' ? 'Sentiment' : analyst}
+                            </ToggleGroupItem>
+                          ))}
+                        </ToggleGroup>
                       </Field>
-                    </FieldGroup>
-                    <Field>
-                      <FieldLabel>Analyst team</FieldLabel>
-                      <ToggleGroup
-                        type="multiple"
-                        variant="outline"
-                        size="sm"
-                        className="flex-wrap justify-start"
-                        value={analysts}
-                        onValueChange={setAnalysts}
-                      >
-                        {analystOptions.map((analyst) => (
-                          <ToggleGroupItem key={analyst} value={analyst}>
-                            {analyst === 'social' ? 'Sentiment' : analyst}
-                          </ToggleGroupItem>
-                        ))}
-                      </ToggleGroup>
-                    </Field>
-                    {create.isError && (
-                      <Alert variant="destructive">
-                        <AlertTitle>Unable to submit this run</AlertTitle>
-                        <AlertDescription>
-                          Check the service connection and retry.
-                        </AlertDescription>
-                      </Alert>
-                    )}
+                      {create.isError && (
+                        <Alert variant="destructive">
+                          <AlertTitle>Unable to submit this run</AlertTitle>
+                          <AlertDescription>
+                            Check the service connection and retry.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </form>
                   </CardContent>
                 </Card>
               </div>

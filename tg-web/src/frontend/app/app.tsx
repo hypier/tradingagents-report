@@ -8,7 +8,10 @@ import { Toaster } from '../components/ui/sonner';
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider><AppRouter /><Toaster /></TooltipProvider>
+      <TooltipProvider>
+        <AppRouter />
+        <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

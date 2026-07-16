@@ -4,7 +4,8 @@ export type ResearchInput = {
   analysts: string[];
 };
 
-export type AnalysisStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
+export type AnalysisStatus =
+  'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
 
 export type AnalysisJob = {
   id: string;
@@ -55,10 +56,16 @@ export async function createResearch(
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error('Unable to create research');
-  return response.json() as Promise<{ data: { id: string }; requestId: string }>;
+  return response.json() as Promise<{
+    data: { id: string };
+    requestId: string;
+  }>;
 }
 
-async function read<T>(path: string, fetchImplementation: FetchImplementation = fetch) {
+async function read<T>(
+  path: string,
+  fetchImplementation: FetchImplementation = fetch,
+) {
   const response = await fetchImplementation(path);
   if (!response.ok) throw new Error('Unable to load research data');
   return response.json() as Promise<{ data: T; requestId: string }>;
@@ -67,11 +74,29 @@ async function read<T>(path: string, fetchImplementation: FetchImplementation = 
 export const listResearch = (fetchImplementation?: FetchImplementation) =>
   read<AnalysisJob[]>('/api/analyses', fetchImplementation);
 
-export const getResearch = (id: string, fetchImplementation?: FetchImplementation) =>
-  read<AnalysisDetail>(`/api/analyses/${encodeURIComponent(id)}`, fetchImplementation);
+export const getResearch = (
+  id: string,
+  fetchImplementation?: FetchImplementation,
+) =>
+  read<AnalysisDetail>(
+    `/api/analyses/${encodeURIComponent(id)}`,
+    fetchImplementation,
+  );
 
-export const getResearchEvents = (id: string, fetchImplementation?: FetchImplementation) =>
-  read<AnalysisEvent[]>(`/api/analyses/${encodeURIComponent(id)}/events`, fetchImplementation);
+export const getResearchEvents = (
+  id: string,
+  fetchImplementation?: FetchImplementation,
+) =>
+  read<AnalysisEvent[]>(
+    `/api/analyses/${encodeURIComponent(id)}/events`,
+    fetchImplementation,
+  );
 
-export const getMarketSnapshot = (ticker: string, fetchImplementation?: FetchImplementation) =>
-  read<MarketSnapshot>(`/api/market-snapshot?ticker=${encodeURIComponent(ticker)}`, fetchImplementation);
+export const getMarketSnapshot = (
+  ticker: string,
+  fetchImplementation?: FetchImplementation,
+) =>
+  read<MarketSnapshot>(
+    `/api/market-snapshot?ticker=${encodeURIComponent(ticker)}`,
+    fetchImplementation,
+  );

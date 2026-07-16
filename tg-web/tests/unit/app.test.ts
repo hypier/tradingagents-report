@@ -32,7 +32,9 @@ describe('createApp', () => {
     const dependencies = fakeDependencies({
       core: {
         healthcheck: vi.fn(),
-        submitAnalysis: vi.fn().mockResolvedValue({ id: 'job-1', ticker: 'AAPL' }),
+        submitAnalysis: vi
+          .fn()
+          .mockResolvedValue({ id: 'job-1', ticker: 'AAPL' }),
         listAnalyses: vi.fn(),
         getAnalysis: vi.fn(),
         getAnalysisEvents: vi.fn(),

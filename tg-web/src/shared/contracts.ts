@@ -16,6 +16,8 @@ import { z } from 'zod';
 export const createAnalysisSchema = z.object({
   ticker: z.string().trim().min(1).max(32),
   tradeDate: z.string().date(),
-  analysts: z.array(z.enum(['market', 'social', 'news', 'fundamentals'])).min(1),
+  analysts: z
+    .array(z.enum(['market', 'social', 'news', 'fundamentals']))
+    .min(1),
   configOverrides: z.record(z.string(), z.unknown()).default({}),
 });

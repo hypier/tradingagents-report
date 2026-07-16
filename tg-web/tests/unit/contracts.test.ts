@@ -17,9 +17,13 @@ describe('shared API contracts', () => {
   });
 
   it('posts browser research input to the same-origin analyses endpoint', async () => {
-    const fetchImplementation = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: { id: 'job-1' }, requestId: 'request-1' })),
-    );
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { id: 'job-1' }, requestId: 'request-1' }),
+        ),
+      );
     await createResearch(
       { ticker: 'AAPL', tradeDate: '2026-07-15', analysts: ['market'] },
       fetchImplementation,

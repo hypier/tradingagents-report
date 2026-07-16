@@ -9,12 +9,12 @@ service's analysis lifecycle.
 ```bash
 cd tg-web
 pnpm install
-cp .env.example .env
 pnpm dev
 ```
 
-`pnpm dev` starts Vite and the Node BFF. Configure the following values in
-`.env` for services that are reachable from the development machine:
+`pnpm dev` creates `.env` from `.env.example` when it is missing, then starts
+Vite and the Node BFF. Configure the following values in `.env` for services
+that are reachable from the development machine:
 
 - `DATABASE_URL`: PostgreSQL owned and migrated by Core.
 - `REDIS_URL`: Redis used by the Node runtime cache.
@@ -29,7 +29,6 @@ The sample values are placeholders only. Do not commit a populated `.env`.
 ```bash
 cd tg-web
 pnpm install
-cp .env.example .env
 pnpm dev
 pnpm build
 pnpm test

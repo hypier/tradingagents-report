@@ -46,9 +46,23 @@ export function analysisRoutes(dependencies: AppDependencies) {
   app.get('/market-snapshot', async (context) => {
     const ticker = context.req.query('ticker') ?? '';
     if (!ticker.trim()) {
-      return context.json({ error: { code: 'VALIDATION_ERROR', message: 'ticker is required', requestId: context.get('requestId') } }, 400);
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'ticker is required',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
     }
-    return context.json(apiSuccess(await dependencies.core.getMarketSnapshot(ticker), context.get('requestId')));
+    return context.json(
+      apiSuccess(
+        await dependencies.core.getMarketSnapshot(ticker),
+        context.get('requestId'),
+      ),
+    );
   });
 
   return app;

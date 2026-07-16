@@ -9,7 +9,11 @@ import { App } from '../../src/frontend/app/app';
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }),
+  value: () => ({
+    matches: false,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }),
 });
 
 it('renders the research command dashboard', () => {
@@ -20,8 +24,12 @@ it('renders the research command dashboard', () => {
   );
 
   expect(screen.getByRole('main')).toHaveTextContent('Research command');
-  expect(screen.getByRole('heading', { name: 'Sequential agent activity' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Recent research reports' })).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: 'Sequential agent activity' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: 'Recent research reports' }),
+  ).toBeInTheDocument();
 });
 
 it('renders the standard dashboard navigation shell', () => {
@@ -31,7 +39,37 @@ it('renders the standard dashboard navigation shell', () => {
     </MemoryRouter>,
   );
 
-  expect(screen.getAllByRole('button', { name: 'Toggle Sidebar' })).not.toHaveLength(0);
+  expect(
+    screen.getAllByRole('button', { name: 'Toggle Sidebar' }),
+  ).not.toHaveLength(0);
+  expect(
+    screen.queryByRole('button', { name: 'Reports' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Settings' }),
+  ).not.toBeInTheDocument();
+  const researchLinks = screen.getAllByRole('link', { name: 'Research' });
+  expect(researchLinks).not.toHaveLength(0);
+  expect(researchLinks.every((link) => link.getAttribute('href') === '/')).toBe(
+    true,
+  );
+  const submitButtons = screen.getAllByRole('button', { name: 'Run analysis' });
+  expect(
+    submitButtons.every((button) => button.getAttribute('type') === 'submit'),
+  ).toBe(true);
+});
+
+it('does not expose unsupported research configuration controls', () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(screen.queryByText('Market', { exact: true })).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('Research depth', { exact: true }),
+  ).not.toBeInTheDocument();
 });
 
 it('renders a 404 page for an unknown route', () => {
@@ -41,7 +79,7 @@ it('renders a 404 page for an unknown route', () => {
     </MemoryRouter>,
   );
 
-  expect(
-    screen.getByRole('heading', { name: 'Page not found' }),
-  ).toBeInTheDocument();
+  const heading = screen.getByRole('heading', { name: 'Page not found' });
+  expect(heading).toBeInTheDocument();
+  expect(heading).toHaveClass('text-foreground');
 });
