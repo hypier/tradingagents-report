@@ -6,6 +6,7 @@ import type { CoreClientContract } from './core/client';
 import { AppError } from './errors/app-error';
 import { toErrorResponse } from './errors/error-response';
 import { Logger } from './logging/logger';
+import type { MarketAssetClient } from './market-assets/tradingview-market-client';
 import {
   createRequestIdMiddleware,
   type RequestIdEnvironment,
@@ -18,6 +19,7 @@ export type AppDependencies = {
   database: { healthcheck(): Promise<void> };
   cache: Cache;
   core: CoreClientContract;
+  marketAssets: MarketAssetClient;
   logger: Logger;
 };
 

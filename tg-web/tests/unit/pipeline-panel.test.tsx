@@ -25,7 +25,7 @@ it('marks the Core sentiment step as in progress', () => {
   expect(within(container).getAllByText('Complete')).toHaveLength(3);
   expect(within(container).getByText('In progress')).toHaveAttribute(
     'data-variant',
-    'default',
+    'info',
   );
 });
 

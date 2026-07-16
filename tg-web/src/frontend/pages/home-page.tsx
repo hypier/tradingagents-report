@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { AppShell } from '../components/app-shell';
 import { PipelinePanel } from '../components/dashboard/pipeline-panel';
 import { RecentReports } from '../components/dashboard/recent-reports';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -37,6 +38,7 @@ import { Spinner } from '../components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import {
   createResearch,
+  getMarketIdentities,
   getMarketSnapshot,
   getResearchEvents,
   listResearch,
@@ -88,6 +90,17 @@ export function HomePage() {
     enabled: Boolean(active),
     refetchInterval: active ? 5_000 : false,
   });
+  const assetTickers = [
+    ...new Set([
+      ...(jobs.data?.data ?? []).map((job) => job.ticker),
+      ...(ticker.trim() ? [ticker.trim()] : []),
+    ]),
+  ];
+  const identities = useQuery({
+    queryKey: ['market-identities', assetTickers],
+    queryFn: () => getMarketIdentities(assetTickers),
+    enabled: assetTickers.length > 0,
+  });
   const snapshot = useQuery({
     queryKey: ['snapshot', ticker],
     queryFn: () => getMarketSnapshot(ticker),
@@ -102,6 +115,12 @@ export function HomePage() {
     },
   });
   const quote = snapshot.data?.data;
+  const identitiesByTicker = Object.fromEntries(
+    (identities.data?.data ?? []).map((identity) => [
+      identity.ticker,
+      identity,
+    ]),
+  );
   const selectedOutputLanguage =
     outputLanguage === 'custom' ? customLanguage.trim() : outputLanguage;
 
@@ -263,13 +282,32 @@ export function HomePage() {
                     <Skeleton className="h-24 w-full" />
                   ) : quote ? (
                     <div className="flex flex-col gap-3">
-                      <div>
-                        <p className="font-semibold">
-                          {quote.display_name ?? quote.ticker}
-                        </p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          {quote.ticker}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          data-logo-url={
+                            quote.logo_url ??
+                            identitiesByTicker[quote.ticker]?.logo_url
+                          }
+                        >
+                          <AvatarImage
+                            src={
+                              quote.logo_url ??
+                              identitiesByTicker[quote.ticker]?.logo_url
+                            }
+                            alt={`${quote.display_name ?? quote.ticker} logo`}
+                          />
+                          <AvatarFallback>
+                            {quote.ticker.slice(0, 1)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold">
+                            {quote.display_name ?? quote.ticker}
+                          </p>
+                          <p className="font-mono text-xs text-muted-foreground">
+                            {quote.ticker}
+                          </p>
+                        </div>
                       </div>
                       <p className="text-3xl font-semibold tabular-nums">
                         {quote.currency ?? ''}{' '}
@@ -301,6 +339,7 @@ export function HomePage() {
                 jobs={jobs.data?.data ?? []}
                 loading={jobs.isLoading}
                 error={jobs.isError}
+                identities={identitiesByTicker}
                 onOpenReport={(id) => navigate(`/reports/${id}`)}
               />
             </div>

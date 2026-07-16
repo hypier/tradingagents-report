@@ -4,15 +4,15 @@
 
 **Goal:** Display TradingView asset logos before stock identity on the market snapshot and recent research reports, with company names leading the snapshot card.
 
-**Architecture:** Add a narrow TradingView branding adapter that selects the resolved market record and derives the public SVG URL from its `logo.logoid`. Expose that data through a lightweight Core batch endpoint and its BFF proxy. The existing market-snapshot response reuses the identity lookup; React uses the installed shadcn Avatar components and keeps ticker-based fallback content.
+**Architecture:** Add a narrow TG-web server-side TradingView client that selects the primary market record and derives the public SVG URL from its `logo.logoid`. Expose it through a BFF batch endpoint. Core market data remains unchanged; React uses the installed shadcn Avatar components and keeps ticker-based fallback content.
 
 **Tech Stack:** Python 3.10+, FastAPI, existing TradingView RapidAPI client, TypeScript, Hono, React 19, TanStack Query, shadcn Avatar, Vitest, pytest.
 
 ## Global Constraints
 
 - Use `https://tv-logo.tradingviewapi.com/logo/{logoid}.svg` directly in `AvatarImage`; do not proxy, cache, convert, or locally map logo images.
-- Reuse the configured server-side `TRADINGVIEW_RAPIDAPI_KEY` or `RAPIDAPI_KEY`; do not expose credentials to the browser or add a new environment variable.
-- Preserve current public market-snapshot fields and add only optional `logo_url`.
+- Reuse TG-web's server-side `TRADINGVIEW_RAPIDAPI_KEY`; do not expose credentials to the browser.
+- Preserve current Core market-snapshot fields.
 - A missing logo or unavailable image must retain a ticker-character fallback and must not suppress an otherwise available quote or report row.
 - Do not modify analysis jobs, create a commit, or create a branch.
 
@@ -20,11 +20,9 @@
 
 ## File Structure
 
-- `tg-core/tradingagents/dataflows/tradingview/stock.py`: resolves a preferred TradingView market result into optional public branding data.
-- `tg-core/api/market_identity.py`: normalizes branding data for API consumers and handles logo lookup failure as optional enrichment.
-- `tg-core/api/market_snapshot.py`: merges identity metadata into the existing quote response.
-- `tg-core/api/app.py`: exposes the authenticated batch asset-identity endpoint.
-- `tg-web/src/backend/core/client.ts`: adds the Core contract and query encoding for asset identities.
+- `tg-web/src/backend/market-assets/tradingview-market-client.ts`: resolves a preferred TradingView market result into optional public branding data.
+- `tg-web/src/backend/routes/analyses.ts`: exposes the BFF batch asset-identity endpoint.
+- `tg-web/src/backend/config/node-config.ts` and `tg-web/src/backend/config/worker-config.ts`: read the optional server-only TradingView key.
 - `tg-web/src/backend/routes/analyses.ts`: proxies the identity batch endpoint under the existing analyses route group.
 - `tg-web/src/frontend/lib/research.ts`: declares identity and optional snapshot logo fields and reads the BFF endpoint.
 - `tg-web/src/frontend/pages/home-page.tsx`: renders the snapshot identity and obtains report-row identities.

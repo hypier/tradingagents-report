@@ -65,5 +65,33 @@ export function analysisRoutes(dependencies: AppDependencies) {
     );
   });
 
+  app.get('/market-identities', async (context) => {
+    const tickers = [
+      ...new Set(
+        (context.req.queries('ticker') ?? [])
+          .map((ticker) => ticker.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ];
+    if (!tickers.length) {
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'ticker is required',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
+    }
+    return context.json(
+      apiSuccess(
+        await dependencies.marketAssets.getIdentities(tickers),
+        context.get('requestId'),
+      ),
+    );
+  });
+
   return app;
 }

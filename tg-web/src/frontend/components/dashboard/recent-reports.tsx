@@ -1,6 +1,7 @@
 import { FileText } from 'lucide-react';
 
 import { Badge } from '../ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import {
   Card,
@@ -20,7 +21,7 @@ import {
   TableRow,
 } from '../ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import type { AnalysisJob } from '../../lib/research';
+import type { AnalysisJob, AssetIdentity } from '../../lib/research';
 
 function formatDate(value?: string | null) {
   return value
@@ -33,13 +34,8 @@ function formatDate(value?: string | null) {
 
 function statusVariant(status: AnalysisJob['status']) {
   if (status === 'failed') return 'destructive';
-  if (
-    status === 'running' ||
-    status === 'queued' ||
-    status === 'succeeded'
-  ) {
-    return 'default';
-  }
+  if (status === 'running' || status === 'queued') return 'info';
+  if (status === 'succeeded') return 'default';
   return 'secondary';
 }
 
@@ -47,11 +43,13 @@ export function RecentReports({
   jobs,
   loading,
   error,
+  identities = {},
   onOpenReport,
 }: {
   jobs: AnalysisJob[];
   loading: boolean;
   error: boolean;
+  identities?: Record<string, AssetIdentity>;
   onOpenReport: (id: string) => void;
 }) {
   return (
@@ -98,9 +96,25 @@ export function RecentReports({
               jobs.map((job) => (
                 <TableRow key={job.id}>
                   <TableCell className="pl-6">
-                    <div className="font-medium">{job.ticker}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {job.decision ?? 'No conclusion yet'}
+                    <div className="flex items-center gap-2">
+                      <Avatar
+                        size="sm"
+                        data-logo-url={identities[job.ticker]?.logo_url}
+                      >
+                        <AvatarImage
+                          src={identities[job.ticker]?.logo_url}
+                          alt={`${job.ticker} logo`}
+                        />
+                        <AvatarFallback>
+                          {job.ticker.slice(0, 1)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{job.ticker}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {job.decision ?? 'No conclusion yet'}
+                        </div>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="max-w-48 truncate text-xs text-muted-foreground">

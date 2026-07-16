@@ -42,6 +42,7 @@ function fakeDependencies(): AppDependencies {
       getAnalysisEvents: vi.fn(),
       getMarketSnapshot: vi.fn(),
     },
+    marketAssets: { getIdentities: vi.fn() },
     logger: new Logger(),
   };
 }

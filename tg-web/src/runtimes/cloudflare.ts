@@ -7,6 +7,7 @@ import { parseWorkerConfig } from '../backend/config/worker-config';
 import { CoreClient } from '../backend/core/client';
 import { createWorkerDatabase } from '../backend/database/client';
 import { Logger } from '../backend/logging/logger';
+import { TradingViewMarketClient } from '../backend/market-assets/tradingview-market-client';
 
 export interface WorkerEnv {
   ASSETS: Fetcher;
@@ -14,6 +15,7 @@ export interface WorkerEnv {
   HYPERDRIVE: Hyperdrive;
   CORE_API_URL: string;
   CORE_API_KEY: string;
+  TRADINGVIEW_RAPIDAPI_KEY?: string;
   LOG_LEVEL?: string;
 }
 
@@ -30,6 +32,7 @@ function createDependencies(env: WorkerEnv): AppDependencies {
     database: createWorkerDatabase(env.HYPERDRIVE.connectionString),
     cache: new FailOpenCache(new KvCache(env.CACHE_KV, logger), logger),
     core: new CoreClient(config.coreApiUrl, config.coreApiKey),
+    marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
     logger,
   };
 }

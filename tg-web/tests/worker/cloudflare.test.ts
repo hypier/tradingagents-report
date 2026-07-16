@@ -73,6 +73,7 @@ describe('Cloudflare Worker runtime', () => {
         getAnalysisEvents: vi.fn(),
         getMarketSnapshot: vi.fn(),
       },
+      marketAssets: { getIdentities: vi.fn() },
       logger: new Logger(),
     }));
     const handler = createWorkerHandler(createDependencies);

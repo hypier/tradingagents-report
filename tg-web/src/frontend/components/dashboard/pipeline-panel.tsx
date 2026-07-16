@@ -61,13 +61,8 @@ function stageFromProgressMessage(value?: string | null) {
 
 function jobStatusVariant(status?: AnalysisJob['status']) {
   if (status === 'failed') return 'destructive';
-  if (
-    status === 'running' ||
-    status === 'queued' ||
-    status === 'succeeded'
-  ) {
-    return 'default';
-  }
+  if (status === 'running' || status === 'queued') return 'info';
+  if (status === 'succeeded') return 'default';
   return 'secondary';
 }
 
@@ -121,7 +116,7 @@ export function PipelinePanel({
                     <span className="flex-1">{displayStage(stage)}</span>
                     <Badge
                       variant={
-                        current ? 'default' : complete ? 'default' : 'outline'
+                        current ? 'info' : complete ? 'default' : 'outline'
                       }
                     >
                       {complete

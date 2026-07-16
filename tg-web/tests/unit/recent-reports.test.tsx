@@ -64,3 +64,43 @@ it('uses the primary green badge variant for succeeded research', () => {
     'default',
   );
 });
+
+it('uses the blue info badge variant for running research', () => {
+  render(
+    <TooltipProvider>
+      <RecentReports
+        jobs={[{ id: 'job-1', ticker: 'AAPL', status: 'running' }]}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(screen.getByText('running')).toHaveAttribute('data-variant', 'info');
+});
+
+it('shows a TradingView asset logo before the ticker when available', () => {
+  const { container } = render(
+    <TooltipProvider>
+      <RecentReports
+        jobs={[{ id: 'job-1', ticker: 'AAPL', status: 'succeeded' }]}
+        identities={{
+          AAPL: {
+            ticker: 'AAPL',
+            display_name: 'Apple Inc.',
+            logo_url: 'https://tv-logo.tradingviewapi.com/logo/apple.svg',
+          },
+        }}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(container.querySelector('[data-logo-url]')).toHaveAttribute(
+    'data-logo-url',
+    'https://tv-logo.tradingviewapi.com/logo/apple.svg',
+  );
+});

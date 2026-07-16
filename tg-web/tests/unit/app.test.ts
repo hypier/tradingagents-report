@@ -22,6 +22,7 @@ function fakeDependencies(
       getAnalysisEvents: vi.fn(),
       getMarketSnapshot: vi.fn(),
     },
+    marketAssets: { getIdentities: vi.fn() },
     logger: new Logger(),
     ...overrides,
   };
@@ -40,6 +41,7 @@ describe('createApp', () => {
         getAnalysisEvents: vi.fn(),
         getMarketSnapshot: vi.fn(),
       },
+      marketAssets: { getIdentities: vi.fn() },
     });
     const app = createApp(dependencies);
 
@@ -61,6 +63,27 @@ describe('createApp', () => {
       analysts: ['market'],
       config_overrides: {},
     });
+  });
+
+  it('returns server-side TradingView asset identities', async () => {
+    const marketAssets = {
+      getIdentities: vi.fn().mockResolvedValue([
+        {
+          ticker: '700',
+          display_name: 'Tencent Holdings Ltd.',
+          logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
+        },
+      ]),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request('/api/market-identities?ticker=700');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: [{ ticker: '700', display_name: 'Tencent Holdings Ltd.' }],
+    });
+    expect(marketAssets.getIdentities).toHaveBeenCalledWith(['700']);
   });
 
   it('returns JSON for an unknown API path instead of the SPA document', async () => {

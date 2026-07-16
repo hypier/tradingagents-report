@@ -30,6 +30,16 @@ vi.mock('../../src/frontend/lib/research', () => ({
     },
     requestId: 'request-1',
   }),
+  getMarketIdentities: vi.fn().mockResolvedValue({
+    data: [
+      {
+        ticker: 'AAPL',
+        display_name: 'Apple Inc.',
+        logo_url: 'https://tv-logo.tradingviewapi.com/logo/apple.svg',
+      },
+    ],
+    requestId: 'request-1',
+  }),
   getResearchEvents: vi.fn(),
   listResearch: vi.fn().mockResolvedValue({ data: [], requestId: 'request-1' }),
 }));
@@ -39,7 +49,7 @@ it('uses the primary badge variant for a positive market move', async () => {
     defaultOptions: { queries: { retry: false } },
   });
 
-  render(
+  const { container } = render(
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
@@ -55,6 +65,10 @@ it('uses the primary badge variant for a positive market move', async () => {
 
   expect(await screen.findByText('Apple Inc.')).toBeInTheDocument();
   expect(screen.getByText('AAPL')).toBeInTheDocument();
+  expect(container.querySelector('[data-logo-url]')).toHaveAttribute(
+    'data-logo-url',
+    'https://tv-logo.tradingviewapi.com/logo/apple.svg',
+  );
   expect(await screen.findByText('+1.20%')).toHaveAttribute(
     'data-variant',
     'default',

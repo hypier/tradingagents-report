@@ -17,6 +17,7 @@ import { parseNodeConfig } from '../backend/config/node-config';
 import { CoreClient } from '../backend/core/client';
 import { createNodeDatabase } from '../backend/database/client';
 import { Logger } from '../backend/logging/logger';
+import { TradingViewMarketClient } from '../backend/market-assets/tradingview-market-client';
 
 type RuntimeOptions = {
   port?: number;
@@ -162,6 +163,7 @@ async function run(): Promise<void> {
     database,
     cache: new FailOpenCache(new RedisCache(redis, logger), logger),
     core: new CoreClient(config.coreApiUrl, config.coreApiKey),
+    marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
     logger,
   };
   const runtime = await startNodeRuntime(dependencies, {

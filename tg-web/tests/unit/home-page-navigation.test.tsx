@@ -18,6 +18,10 @@ Object.defineProperty(window, 'matchMedia', {
 
 vi.mock('../../src/frontend/lib/research', () => ({
   createResearch: vi.fn(),
+  getMarketIdentities: vi.fn().mockResolvedValue({
+    data: [],
+    requestId: 'request-1',
+  }),
   getMarketSnapshot: vi.fn(),
   getResearch: vi.fn().mockResolvedValue({
     data: { ticker: 'AAPL', status: 'succeeded', reports: {} },

@@ -3,6 +3,7 @@ import { z } from 'zod';
 export type ServerConfig = {
   coreApiUrl: URL;
   coreApiKey: string;
+  tradingViewRapidApiKey?: string;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 };
 
@@ -22,6 +23,7 @@ const nodeConfigSchema = z
   .object({
     CORE_API_URL: z.string().url(),
     CORE_API_KEY: z.string().min(1),
+    TRADINGVIEW_RAPIDAPI_KEY: z.string().min(1).optional(),
     DATABASE_URL: z.string().url(),
     REDIS_URL: z.string().url(),
     PORT: z.coerce.number().int().min(1).max(65535),
@@ -31,6 +33,7 @@ const nodeConfigSchema = z
     ({
       CORE_API_URL,
       CORE_API_KEY,
+      TRADINGVIEW_RAPIDAPI_KEY,
       DATABASE_URL,
       REDIS_URL,
       PORT,
@@ -38,6 +41,7 @@ const nodeConfigSchema = z
     }): NodeConfig => ({
       coreApiUrl: new URL(CORE_API_URL),
       coreApiKey: CORE_API_KEY,
+      tradingViewRapidApiKey: TRADINGVIEW_RAPIDAPI_KEY,
       databaseUrl: new URL(DATABASE_URL),
       redisUrl: new URL(REDIS_URL),
       port: PORT,

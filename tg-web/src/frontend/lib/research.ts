@@ -36,11 +36,18 @@ export type AnalysisDetail = AnalysisJob & {
 export type MarketSnapshot = {
   ticker: string;
   display_name?: string;
+  logo_url?: string;
   last_price?: number;
   currency?: string;
   change_percent?: number;
   as_of?: string;
   source?: string;
+};
+
+export type AssetIdentity = {
+  ticker: string;
+  display_name: string;
+  logo_url?: string;
 };
 
 type FetchImplementation = typeof fetch;
@@ -101,4 +108,11 @@ export const getMarketSnapshot = (
   read<MarketSnapshot>(
     `/api/market-snapshot?ticker=${encodeURIComponent(ticker)}`,
     fetchImplementation,
+  );
+
+export const getMarketIdentities = (tickers: string[]) =>
+  read<AssetIdentity[]>(
+    `/api/market-identities?${new URLSearchParams(
+      tickers.map((ticker) => ['ticker', ticker]),
+    ).toString()}`,
   );
