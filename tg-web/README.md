@@ -18,7 +18,10 @@ that are reachable from the development machine:
 
 - `DATABASE_URL`: PostgreSQL owned and migrated by Core.
 - `REDIS_URL`: Redis used by the Node runtime cache.
-- `CORE_API_URL` and `CORE_API_KEY`: the external Core HTTP API.
+- `CORE_API_URL` and `CORE_API_KEY`: the external Core HTTP API. For local
+  development, leave `CORE_API_KEY` empty and `pnpm dev` will use
+  `TRADINGAGENTS_API_KEY` from `../tg-core/.env`; set `CORE_API_KEY` only when
+  Core uses a different token.
 - `PORT`: Node BFF port; Vite proxies `/api` to it.
 - `VITE_API_BASE_URL`: browser-visible same-origin API base path.
 

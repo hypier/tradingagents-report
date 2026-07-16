@@ -16,6 +16,8 @@ const logLevelSchema = z
   .enum(['debug', 'info', 'warn', 'error'])
   .default('info');
 
+const CORE_API_KEY_PLACEHOLDER = 'replace-with-a-core-api-key';
+
 const nodeConfigSchema = z
   .object({
     CORE_API_URL: z.string().url(),
@@ -44,5 +46,12 @@ const nodeConfigSchema = z
   );
 
 export function parseNodeConfig(env: Record<string, unknown>): NodeConfig {
-  return nodeConfigSchema.parse(env);
+  const configuredCoreApiKey = env.CORE_API_KEY;
+  const coreApiKey =
+    configuredCoreApiKey === CORE_API_KEY_PLACEHOLDER ||
+    configuredCoreApiKey === ''
+      ? env.TRADINGAGENTS_API_KEY
+      : configuredCoreApiKey;
+
+  return nodeConfigSchema.parse({ ...env, CORE_API_KEY: coreApiKey });
 }

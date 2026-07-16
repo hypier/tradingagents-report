@@ -34,6 +34,16 @@ describe('parseNodeConfig', () => {
     });
   });
 
+  it('uses the Core token when the local API key is still a template placeholder', () => {
+    expect(
+      parseNodeConfig({
+        ...nodeEnv,
+        CORE_API_KEY: 'replace-with-a-core-api-key',
+        TRADINGAGENTS_API_KEY: 'core-secret',
+      }).coreApiKey,
+    ).toBe('core-secret');
+  });
+
   it('rejects ports outside the valid TCP range', () => {
     expect(() => parseNodeConfig({ ...nodeEnv, PORT: '65536' })).toThrow(
       /PORT/,

@@ -12,7 +12,7 @@
     "predev": "pnpm ensure:env",
     "predev:api": "pnpm ensure:env",
     "dev": "concurrently \"pnpm dev:api\" \"pnpm dev:web\"",
-    "dev:api": "tsx watch --env-file=.env src/runtimes/node.ts",
+    "dev:api": "tsx watch --env-file=../tg-core/.env --env-file=.env src/runtimes/node.ts",
     "dev:web": "vite",
     "build": "vite build",
     "build:node": "tsup src/runtimes/node.ts --format esm --out-dir dist/backend",

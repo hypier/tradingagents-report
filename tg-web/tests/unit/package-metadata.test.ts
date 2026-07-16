@@ -22,6 +22,6 @@ it('initializes and loads the local environment before starting the Node API', a
   expect(packageJson.scripts.predev).toBe('pnpm ensure:env');
   expect(packageJson.scripts['predev:api']).toBe('pnpm ensure:env');
   expect(packageJson.scripts['dev:api']).toBe(
-    'tsx watch --env-file=.env src/runtimes/node.ts',
+    'tsx watch --env-file=../tg-core/.env --env-file=.env src/runtimes/node.ts',
   );
 });
