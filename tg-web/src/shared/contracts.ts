@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export type ApiSuccess<T> = { data: T; requestId: string };
 
 export type ApiFailure = {
@@ -11,7 +13,6 @@ export function apiSuccess<T>(data: T, requestId: string): ApiSuccess<T> {
 export function isApiFailure(value: unknown): value is ApiFailure {
   return typeof value === 'object' && value !== null && 'error' in value;
 }
-import { z } from 'zod';
 
 export const createAnalysisSchema = z.object({
   ticker: z.string().trim().min(1).max(32),
@@ -20,4 +21,18 @@ export const createAnalysisSchema = z.object({
     .array(z.enum(['market', 'social', 'news', 'fundamentals']))
     .min(1),
   configOverrides: z.record(z.string(), z.unknown()).default({}),
+  instrument: z
+    .object({
+      exchange: z.string().trim().min(2).max(16),
+      symbol: z.string().trim().min(1).max(32),
+      display_ticker: z.string().trim().min(1).max(32).optional(),
+    })
+    .optional(),
+  display: z
+    .object({
+      display_name: z.string().trim().min(1).max(256).optional(),
+      logo_url: z.string().trim().url().optional(),
+      country: z.string().trim().min(2).max(8).optional(),
+    })
+    .optional(),
 });

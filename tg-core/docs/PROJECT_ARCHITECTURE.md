@@ -600,7 +600,7 @@ tradingagents --clear-checkpoints
 uvicorn api.app:app --host 0.0.0.0 --port 8000
 ```
 
-`api/app.py` 处理 HTTP 生命周期、路由、鉴权、响应和任务查询。服务启动时，它初始化数据库、写入 fallback 模型价格、恢复中断 job、启动 `api/job_worker.py` 并回灌已排队 job；任务列表/详情和健康检查直接调用基础设施。该队列只调用 `application.jobs.run_job()`，不承载 job 业务逻辑。PostgreSQL schema、job 记录和模型价格缓存由 `infrastructure/` 直接实现。
+`api/app.py` 处理 HTTP 生命周期、路由、鉴权、响应和任务查询。服务启动时，它校验共享表已由 `tg-web` 迁移创建、写入 fallback 模型价格、恢复中断 job、启动 `api/job_worker.py` 并回灌已排队 job；任务列表/详情和健康检查直接调用基础设施。该队列只调用 `application.jobs.run_job()`，不承载 job 业务逻辑。PostgreSQL schema 由 `tg-web` Drizzle 维护；job 记录和模型价格缓存的读写由 Core `infrastructure/` 直接实现。
 
 ### 11.3 程序化图入口
 
@@ -881,7 +881,8 @@ OHLCV、财报和新闻代码做了日期边界保护，但 StockTwits、Reddit 
 | API 进程内 job 唤醒 | [`api/job_worker.py`](../api/job_worker.py) |
 | 共享分析用例 | [`application/analysis.py`](../application/analysis.py) |
 | 持久化 job 用例 | [`application/jobs.py`](../application/jobs.py) |
-| PostgreSQL 实现 | [`infrastructure/database.py`](../infrastructure/database.py)、[`infrastructure/analysis_jobs.py`](../infrastructure/analysis_jobs.py)、[`infrastructure/llm_prices.py`](../infrastructure/llm_prices.py) |
+| PostgreSQL 读写 | [`infrastructure/database.py`](../infrastructure/database.py)、[`infrastructure/analysis_jobs.py`](../infrastructure/analysis_jobs.py)、[`infrastructure/llm_prices.py`](../infrastructure/llm_prices.py) |
+| PostgreSQL schema / 迁移 | [`tg-web/src/backend/database/schema.ts`](../../tg-web/src/backend/database/schema.ts)、[`tg-web/drizzle/`](../../tg-web/drizzle/) |
 | 定价协调 | [`application/pricing.py`](../application/pricing.py) |
 | Token callback 与定价逻辑 | [`tradingagents/llm_clients/token_usage.py`](../tradingagents/llm_clients/token_usage.py)、[`tradingagents/llm_clients/pricing.py`](../tradingagents/llm_clients/pricing.py) |
 | 图节点和边 | [`tradingagents/graph/setup.py`](../tradingagents/graph/setup.py) |

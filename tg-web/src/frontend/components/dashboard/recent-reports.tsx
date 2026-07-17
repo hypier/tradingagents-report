@@ -33,6 +33,20 @@ function instrumentTicker(
   );
 }
 
+function instrumentName(
+  job: AnalysisJob,
+  identities: Record<string, AssetIdentity>,
+) {
+  return job.display?.display_name ?? identities[job.ticker]?.display_name;
+}
+
+function instrumentLogo(
+  job: AnalysisJob,
+  identities: Record<string, AssetIdentity>,
+) {
+  return job.display?.logo_url ?? identities[job.ticker]?.logo_url;
+}
+
 function formatDate(value?: string | null) {
   return value
     ? new Intl.DateTimeFormat(undefined, {
@@ -124,10 +138,10 @@ export function ReportsTable({
                     <div className="flex items-center gap-2.5">
                       <Avatar
                         size="sm"
-                        data-logo-url={identities[job.ticker]?.logo_url}
+                        data-logo-url={instrumentLogo(job, identities)}
                       >
                         <AvatarImage
-                          src={identities[job.ticker]?.logo_url}
+                          src={instrumentLogo(job, identities)}
                           alt={`${job.ticker} logo`}
                         />
                         <AvatarFallback>
@@ -139,7 +153,9 @@ export function ReportsTable({
                           {instrumentTicker(job, identities)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {job.decision ?? 'No conclusion yet'}
+                          {instrumentName(job, identities) ??
+                            job.decision ??
+                            'No conclusion yet'}
                         </div>
                       </div>
                     </div>

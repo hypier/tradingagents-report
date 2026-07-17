@@ -1,6 +1,10 @@
 import pytest
 
-from tradingagents.dataflows.listings import listing_from_parts, resolve_listing
+from tradingagents.dataflows.listings import (
+    country_for_exchange,
+    listing_from_parts,
+    resolve_listing,
+)
 
 
 @pytest.mark.parametrize(
@@ -52,3 +56,23 @@ def test_listing_from_parts_validates_display_ticker_matches_listing():
 def test_resolve_listing_rejects_unsafe_ticker(ticker):
     with pytest.raises(ValueError):
         resolve_listing(ticker)
+
+
+@pytest.mark.parametrize(
+    ("exchange", "country"),
+    [
+        ("HKEX", "HK"),
+        ("SSE", "CN"),
+        ("SZSE", "CN"),
+        ("TSE", "JP"),
+        ("TWSE", "TW"),
+        ("TPEX", "TW"),
+        ("NASDAQ", "US"),
+        ("NYSE", "US"),
+        ("AMEX", "US"),
+        ("SHE", "CN"),
+        (None, None),
+    ],
+)
+def test_country_for_exchange(exchange, country):
+    assert country_for_exchange(exchange) == country

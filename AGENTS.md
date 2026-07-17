@@ -44,7 +44,7 @@
 - 数据访问应通过 `dataflows.interface.route_to_vendor()` 和稳定工具接口进入供应商实现。
 - LLM Provider 差异应收敛在 `llm_clients/`，不要在 Agent 业务逻辑中散落 Provider 判断。
 - `api/` 和 `cli/` 是并列适配层；共享分析流程、job 用例、进度和定价协调放在 `application/`，不要在路由或 CLI 中重复实现。
-- `infrastructure/` 直接负责 PostgreSQL 读写；当前项目不使用 ORM、Repository、依赖注入容器或 Alembic，除非任务明确要求引入并覆盖迁移、部署和测试方案。
+- `infrastructure/` 直接负责 PostgreSQL 读写；当前项目不使用 ORM、Repository、依赖注入容器或 Alembic。共享表结构由 `tg-web` 的 Drizzle schema/migrations 维护（手动执行 `pnpm db:migrate`）；Core 启动时只校验表存在，不执行 DDL，也不在启动流程中自动迁移。
 - API job 的完整请求、配置快照、状态、进度、事件、结果和成本由 `analysis_jobs` 保存。变更 job 状态或事件时必须使用既有 `analysis_jobs` 接口，保持条件状态迁移和审计字段一致。
 - 当前全局 advisory lock 是单节点串行执行的设计前提。修改 worker、队列、暂停/恢复或并发处理时，必须同时设计原子 claim、租约/恢复、幂等性和重试语义；不得仅移除锁就宣称支持多节点。
 - SQLite checkpoint 属于 LangGraph 的可选恢复能力；涉及 checkpoint 时必须保持 ticker、日期和运行签名隔离，避免不同分析配置互相恢复。

@@ -23,27 +23,34 @@ def insert_job(
     request: dict,
     config: dict,
     request_id: UUID | None = None,
+    exchange: str | None = None,
+    display: dict | None = None,
 ) -> dict:
     with database.connect() as conn:
         row = conn.execute(
             """
             INSERT INTO analysis_jobs (
-                id, ticker, trade_date, asset_type, analysts, status, request, config,
-                progress_percent, current_step, events, tokens_used, token_usage, cost_usd, cost_breakdown,
-                request_id
+                id, ticker, exchange, trade_date, asset_type, analysts, status, request, config,
+                display, progress_percent, current_step, events, tokens_used, token_usage, cost_usd,
+                cost_breakdown, request_id
             )
-            VALUES (%s, %s, %s, %s, %s, 'queued', %s, %s, 0, 'Queued', '[]'::jsonb, 0, '{}'::jsonb, 0, '{}'::jsonb, %s)
+            VALUES (
+                %s, %s, %s, %s, %s, %s, 'queued', %s, %s, %s, 0, 'Queued', '[]'::jsonb, 0,
+                '{}'::jsonb, 0, '{}'::jsonb, %s
+            )
             ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING
             RETURNING *
             """,
             (
                 job_id,
                 ticker,
+                exchange,
                 trade_date,
                 asset_type,
                 Jsonb(analysts),
                 Jsonb(request),
                 Jsonb(config),
+                Jsonb(display or {}),
                 request_id,
             ),
         ).fetchone()
@@ -248,4 +255,12 @@ def row_to_public(row: dict) -> dict:
     public["tokens_used"] = int(public.get("tokens_used") or 0)
     public["cost_usd"] = float(public.get("cost_usd") or 0)
     public["cost_breakdown"] = dict(public.get("cost_breakdown") or {})
+    public["display"] = dict(public.get("display") or {})
+    request = public.get("request") or {}
+    config = public.get("config") or {}
+    public["output_language"] = (
+        request.get("output_language")
+        if isinstance(request, dict)
+        else None
+    ) or (config.get("output_language") if isinstance(config, dict) else None)
     return public

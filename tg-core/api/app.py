@@ -43,7 +43,7 @@ def _refresh_pricing_safely() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    database.init_database()
+    database.require_schema()
     llm_prices.seed_fallback_model_prices()
     analysis_jobs.recover_interrupted_jobs()
     job_worker.start()
@@ -111,6 +111,11 @@ def submit_analysis(request: AnalysisRequest) -> dict:
                 instrument=(
                     request.instrument.model_dump(exclude_none=True)
                     if request.instrument is not None
+                    else None
+                ),
+                display=(
+                    request.display.model_dump(exclude_none=True)
+                    if request.display is not None
                     else None
                 ),
                 trade_date=request.trade_date,

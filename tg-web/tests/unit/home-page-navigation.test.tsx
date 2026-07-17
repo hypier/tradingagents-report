@@ -55,6 +55,7 @@ it('opens a report action on the report detail page', async () => {
   );
 
   expect(
-    await within(container).findByRole('heading', { name: 'Research report' }),
+    await within(container).findByRole('heading', { name: 'AAPL' }),
   ).toBeInTheDocument();
+  expect(within(container).getByText('Research report')).toBeInTheDocument();
 });

@@ -8,7 +8,12 @@ from uuid import UUID, uuid4
 
 from application.analysis import AnalysisCommand, run_analysis
 from infrastructure import analysis_jobs, database, llm_prices
-from tradingagents.dataflows.listings import ListingRef, listing_from_parts, resolve_listing
+from tradingagents.dataflows.listings import (
+    ListingRef,
+    country_for_exchange,
+    listing_from_parts,
+    resolve_listing,
+)
 from tradingagents.dataflows.symbol_utils import crypto_base
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.pricing import calculate_cost
@@ -52,6 +57,7 @@ class CreateAnalysisJob:
     config_overrides: dict[str, Any]
     request_id: UUID | None = None
     instrument: dict[str, str] | None = None
+    display: dict[str, Any] | None = None
     output_language: str | None = None
 
 
@@ -68,6 +74,7 @@ def create_job(request: CreateAnalysisJob) -> dict:
     if request.output_language:
         overrides["output_language"] = request.output_language
     config = build_config(overrides)
+    display = build_job_display(listing, request.display)
     payload = {
         "ticker": normalized_ticker,
         "instrument": listing.as_dict(),
@@ -76,17 +83,38 @@ def create_job(request: CreateAnalysisJob) -> dict:
         "analysts": analysts,
         "config_overrides": overrides,
         "output_language": config.get("output_language"),
+        "display": display,
     }
     return analysis_jobs.insert_job(
         job_id=uuid4(),
         request_id=request.request_id,
         ticker=normalized_ticker,
+        exchange=listing.exchange,
         trade_date=request.trade_date.isoformat(),
         asset_type=asset_type,
         analysts=analysts,
         request=payload,
         config=public_config(config),
+        display=display,
     )
+
+
+def build_job_display(
+    listing: ListingRef,
+    display: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Persist display-only instrument metadata captured at submit time."""
+    result: dict[str, Any] = {}
+    raw = display or {}
+    for key in ("display_name", "logo_url", "country"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            result[key] = value.strip()
+    if "country" not in result:
+        country = country_for_exchange(listing.exchange)
+        if country:
+            result["country"] = country
+    return result
 
 
 def resolve_job_listing(

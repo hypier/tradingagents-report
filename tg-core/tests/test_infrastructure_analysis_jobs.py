@@ -42,10 +42,11 @@ def test_insert_job_persists_queued_defaults_and_returns_row(monkeypatch):
     assert "'queued'" in sql
     assert "'Queued'" in sql
     assert "RETURNING *" in sql
-    assert params[:4] == (job_id, "AAPL", "2026-07-13", "stock")
-    assert params[4].obj == ["fundamentals"]
-    assert params[5].obj == {"research_depth": 1}
-    assert params[6].obj == {"llm_provider": "openai"}
+    assert params[:5] == (job_id, "AAPL", None, "2026-07-13", "stock")
+    assert params[5].obj == ["fundamentals"]
+    assert params[6].obj == {"research_depth": 1}
+    assert params[7].obj == {"llm_provider": "openai"}
+    assert params[8].obj == {}
 
 
 def test_insert_job_returns_existing_job_for_matching_request_id(monkeypatch):
@@ -212,6 +213,8 @@ def test_row_to_public_converts_database_json_and_number_values():
         "tokens_used": 10,
         "cost_usd": 0.25,
         "cost_breakdown": {"total_cost_usd": 0.25},
+        "display": {},
+        "output_language": None,
     }
     assert row["analysts"] == ("fundamentals",)
 
@@ -225,6 +228,8 @@ def test_rows_to_public_converts_each_row():
             "tokens_used": 0,
             "cost_usd": 0.0,
             "cost_breakdown": {},
+            "display": {},
+            "output_language": None,
         }
     ]
 

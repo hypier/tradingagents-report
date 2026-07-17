@@ -13,6 +13,7 @@ import {
 } from '../components/report/report-reading-toolbar';
 import { ReportTabsNav } from '../components/report/report-tabs-nav';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -29,8 +30,9 @@ import {
   loadReportReadingPreferences,
   saveReportReadingPreferences,
 } from '../lib/report-reading-preferences';
-import { getResearch } from '../lib/research';
+import { getResearch, type AnalysisDetail } from '../lib/research';
 import { cn } from '../lib/utils';
+import { formatDisplayTicker } from '@/shared/listing';
 
 const reportFontSteps = [0.92, 1.0, 1.08, 1.18, 1.3] as const;
 const defaultFontStep = 1;
@@ -119,6 +121,16 @@ function formatDecision(decision: unknown): string | null {
   return null;
 }
 
+function reportIdentity(job: AnalysisDetail | undefined) {
+  const ticker = job?.ticker ? formatDisplayTicker(job.ticker) : null;
+  const displayName = job?.display?.display_name?.trim() || null;
+  const logoUrl = job?.display?.logo_url?.trim() || null;
+  const exchange = job?.exchange?.trim() || null;
+  const country = job?.display?.country?.trim() || null;
+  const language = job?.output_language?.trim() || null;
+  return { ticker, displayName, logoUrl, exchange, country, language };
+}
+
 function getReportScrollParent() {
   return document.querySelector<HTMLElement>('[data-slot="sidebar-inset"]');
 }
@@ -160,11 +172,13 @@ export function ReportPage() {
     reportDeskThemes.find((theme) => theme.id === deskTheme)?.className ??
     reportDeskThemes[0].className;
   const decisionLabel = formatDecision(job?.decision);
-  const subtitle = job?.ticker
-    ? decisionLabel
-      ? `${job.ticker} · ${decisionLabel}`
-      : `Analysis for ${job.ticker}`
-    : 'Report content returned by the Core analysis job.';
+  const identity = reportIdentity(job);
+  const title = identity.displayName ?? identity.ticker ?? 'Report';
+  const subtitle = decisionLabel
+    ? `Final decision · ${decisionLabel}`
+    : identity.ticker
+      ? `Analysis for ${identity.ticker}`
+      : 'Report content returned by the Core analysis job.';
 
   useEffect(() => {
     const preferences = loadReportReadingPreferences({
@@ -260,16 +274,27 @@ export function ReportPage() {
           >
             <ArrowLeft />
           </Button>
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-            <FileText className="size-5" />
-          </span>
+          <Avatar
+            size="lg"
+            className="size-11 rounded-xl after:rounded-xl"
+            data-logo-url={identity.logoUrl ?? undefined}
+          >
+            <AvatarImage
+              src={identity.logoUrl ?? undefined}
+              alt={`${identity.displayName ?? identity.ticker ?? 'Instrument'} logo`}
+              className="rounded-xl"
+            />
+            <AvatarFallback className="rounded-xl bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
+              {(identity.ticker ?? 'R').slice(0, 1)}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
               Research report
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                {job?.ticker ?? 'Report'}
+                {title}
               </h1>
               {decisionLabel ? (
                 <Badge variant="default" className="capitalize">
@@ -280,6 +305,22 @@ export function ReportPage() {
                 <Badge variant="outline" className="capitalize">
                   {job.status}
                 </Badge>
+              ) : null}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {identity.ticker && identity.displayName ? (
+                <Badge variant="secondary" className="font-mono tracking-wide">
+                  {identity.ticker}
+                </Badge>
+              ) : null}
+              {identity.exchange ? (
+                <Badge variant="outline">{identity.exchange}</Badge>
+              ) : null}
+              {identity.country ? (
+                <Badge variant="outline">{identity.country}</Badge>
+              ) : null}
+              {identity.language ? (
+                <Badge variant="outline">{identity.language}</Badge>
               ) : null}
             </div>
             <p className="mt-0.5 truncate text-sm text-muted-foreground">

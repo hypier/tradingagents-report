@@ -36,6 +36,58 @@ it('sends the selected report language as a Core config override', async () => {
   });
 });
 
+it('sends confirmed instrument display metadata with the research request', async () => {
+  let body = '';
+  const fetchImplementation = async (
+    _input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    body = String(init?.body);
+    return new Response(
+      JSON.stringify({ data: { id: 'job-1' }, requestId: 'request-1' }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+        status: 202,
+      },
+    );
+  };
+
+  await createResearch(
+    {
+      analysts: ['market'],
+      outputLanguage: 'Chinese',
+      ticker: '0700.HK',
+      tradeDate: '2026-07-16',
+      instrument: {
+        exchange: 'HKEX',
+        symbol: '700',
+        display_ticker: '0700.HK',
+      },
+      display: {
+        display_name: 'Tencent Holdings Ltd.',
+        logo_url: 'https://example.test/tencent.svg',
+      },
+    },
+    fetchImplementation,
+  );
+
+  expect(JSON.parse(body)).toEqual({
+    analysts: ['market'],
+    configOverrides: { output_language: 'Chinese' },
+    ticker: '0700.HK',
+    tradeDate: '2026-07-16',
+    instrument: {
+      exchange: 'HKEX',
+      symbol: '700',
+      display_ticker: '0700.HK',
+    },
+    display: {
+      display_name: 'Tencent Holdings Ltd.',
+      logo_url: 'https://example.test/tencent.svg',
+    },
+  });
+});
+
 it('passes the report status filter to the analysis list endpoint', async () => {
   let path = '';
   const fetchImplementation = async (input: RequestInfo | URL) => {

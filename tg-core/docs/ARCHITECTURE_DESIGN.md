@@ -136,7 +136,7 @@ application
 | 共享分析 | CLI/API 的 `AnalysisCommand`、进度事件与图执行 | `application/analysis.py` |
 | Job 用例 | job 创建、领取、执行、报告、成本和状态更新 | `application/jobs.py` |
 | 定价协调 | 刷新价格并回填已有 job 成本 | `application/pricing.py` |
-| PostgreSQL | 直接 schema、job 和价格缓存读写 | `infrastructure/` |
+| PostgreSQL | job 和价格缓存读写（schema 由 tg-web Drizzle 迁移维护） | `infrastructure/` |
 | CLI 入口 | 交互式收集参数、实时展示进度、保存报告 | `cli/main.py` |
 | 图总控 | 创建 LLM、工具节点、状态图、记忆、checkpoint、执行 propagate | `tradingagents/graph/trading_graph.py` |
 | 图构建 | 注册节点和边，按用户选择构建分析师链路 | `tradingagents/graph/setup.py` |
@@ -596,7 +596,8 @@ Docker 镜像使用 Python 3.12 slim，多阶段构建，运行阶段使用非 r
 | API 进程内 job 唤醒 | [`api/job_worker.py`](../api/job_worker.py) |
 | 共享分析用例 | [`application/analysis.py`](../application/analysis.py) |
 | 持久化 job 用例 | [`application/jobs.py`](../application/jobs.py) |
-| PostgreSQL 实现 | [`infrastructure/database.py`](../infrastructure/database.py)、[`infrastructure/analysis_jobs.py`](../infrastructure/analysis_jobs.py)、[`infrastructure/llm_prices.py`](../infrastructure/llm_prices.py) |
+| PostgreSQL 读写 | [`infrastructure/database.py`](../infrastructure/database.py)、[`infrastructure/analysis_jobs.py`](../infrastructure/analysis_jobs.py)、[`infrastructure/llm_prices.py`](../infrastructure/llm_prices.py) |
+| PostgreSQL schema / 迁移 | [`tg-web/src/backend/database/schema.ts`](../../tg-web/src/backend/database/schema.ts)、[`tg-web/drizzle/`](../../tg-web/drizzle/) |
 | 定价协调 | [`application/pricing.py`](../application/pricing.py) |
 | Token callback 与定价逻辑 | [`tradingagents/llm_clients/token_usage.py`](../tradingagents/llm_clients/token_usage.py)、[`tradingagents/llm_clients/pricing.py`](../tradingagents/llm_clients/pricing.py) |
 | 总编排类 | [`tradingagents/graph/trading_graph.py`](../tradingagents/graph/trading_graph.py) |

@@ -5,6 +5,8 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from tradingagents.dataflows.listings import country_for_exchange
+
 REPORT_KEYS = {
     "market_report": "market_report",
     "sentiment_report": "sentiment_report",
@@ -63,11 +65,26 @@ def analysis_result_from_row(row: dict[str, Any]) -> dict[str, Any]:
     tokens_used = int(row.get("tokens_used") or token_usage.get("total_tokens") or 0)
     cost_usd = float(row.get("cost_usd") or 0)
     cost_breakdown = dict(row.get("cost_breakdown") or {})
+    raw_exchange = row.get("exchange")
+    exchange = raw_exchange.strip() or None if isinstance(raw_exchange, str) else None
+    display = dict(row.get("display") or {})
+    if exchange and not display.get("country"):
+        country = country_for_exchange(exchange)
+        if country:
+            display["country"] = country
+    request = row.get("request") or {}
+    config = row.get("config") or {}
+    output_language = (
+        row.get("output_language")
+        or (request.get("output_language") if isinstance(request, dict) else None)
+        or (config.get("output_language") if isinstance(config, dict) else None)
+    )
 
     return {
         "id": row.get("id"),
         "request_id": row.get("request_id"),
         "ticker": ticker,
+        "exchange": exchange,
         "trade_date": trade_date,
         "asset_type": str(row.get("asset_type") or "stock"),
         "analysts": list(row.get("analysts") or []),
@@ -87,6 +104,8 @@ def analysis_result_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "reports": reports,
         "usage": {"tokens": tokens_used, "token_usage": token_usage},
         "cost": {"usd": cost_usd, "breakdown": cost_breakdown},
+        "display": display,
+        "output_language": output_language,
         "error": row.get("error"),
         "created_at": created_at,
         "updated_at": updated_at,

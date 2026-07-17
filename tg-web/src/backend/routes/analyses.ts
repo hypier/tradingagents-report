@@ -14,6 +14,34 @@ export function analysisRoutes(dependencies: AppDependencies) {
       trade_date: input.tradeDate,
       analysts: input.analysts,
       config_overrides: input.configOverrides,
+      ...(input.instrument
+        ? {
+            instrument: {
+              exchange: input.instrument.exchange.toUpperCase(),
+              symbol: input.instrument.symbol.toUpperCase(),
+              ...(input.instrument.display_ticker
+                ? {
+                    display_ticker: input.instrument.display_ticker.toUpperCase(),
+                  }
+                : {}),
+            },
+          }
+        : {}),
+      ...(input.display
+        ? {
+            display: {
+              ...(input.display.display_name
+                ? { display_name: input.display.display_name }
+                : {}),
+              ...(input.display.logo_url
+                ? { logo_url: input.display.logo_url }
+                : {}),
+              ...(input.display.country
+                ? { country: input.display.country.toUpperCase() }
+                : {}),
+            },
+          }
+        : {}),
     });
     return context.json(apiSuccess(data, context.get('requestId')), 202);
   });

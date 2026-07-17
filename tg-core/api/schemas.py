@@ -19,9 +19,24 @@ class InstrumentInput(BaseModel):
     display_ticker: str | None = Field(default=None, min_length=1, max_length=32)
 
 
+class InstrumentDisplayInput(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=256)
+    logo_url: str | None = Field(default=None, min_length=1, max_length=1024)
+    country: str | None = Field(default=None, min_length=2, max_length=8)
+
+    @field_validator("display_name", "logo_url", "country")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+
 class AnalysisRequest(BaseModel):
     ticker: str | None = Field(default=None, min_length=1, max_length=32, examples=["NVDA", "0005.HK", "HKEX:5"])
     instrument: InstrumentInput | None = None
+    display: InstrumentDisplayInput | None = None
     request_id: UUID | None = None
     trade_date: date
     asset_type: AssetType | None = None
@@ -80,6 +95,7 @@ class AnalysisJob(BaseModel):
     id: UUID
     request_id: UUID | None = None
     ticker: str
+    exchange: str | None = None
     trade_date: date
     asset_type: AssetType
     analysts: list[AnalystKey]
@@ -91,6 +107,8 @@ class AnalysisJob(BaseModel):
     token_usage: dict[str, Any] = Field(default_factory=dict)
     cost_usd: float = 0
     cost_breakdown: dict[str, Any] = Field(default_factory=dict)
+    display: dict[str, Any] = Field(default_factory=dict)
+    output_language: str | None = None
     decision: str | None = None
     error: str | None = None
     report_path: str | None = None
@@ -133,6 +151,7 @@ class AnalysisDetail(BaseModel):
     id: UUID
     request_id: UUID | None = None
     ticker: str
+    exchange: str | None = None
     trade_date: date | None = None
     asset_type: AssetType
     analysts: list[AnalystKey]
@@ -142,6 +161,8 @@ class AnalysisDetail(BaseModel):
     reports: dict[str, Any] = Field(default_factory=dict)
     usage: AnalysisUsage
     cost: AnalysisCost
+    display: dict[str, Any] = Field(default_factory=dict)
+    output_language: str | None = None
     error: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

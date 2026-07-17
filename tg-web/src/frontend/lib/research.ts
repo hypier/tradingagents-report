@@ -1,15 +1,37 @@
+export type ResearchInstrumentInput = {
+  exchange: string;
+  symbol: string;
+  display_ticker?: string;
+};
+
+export type ResearchDisplayInput = {
+  display_name?: string;
+  logo_url?: string;
+  country?: string;
+};
+
 export type ResearchInput = {
   ticker: string;
   tradeDate: string;
   analysts: string[];
   outputLanguage?: string;
+  instrument?: ResearchInstrumentInput;
+  display?: ResearchDisplayInput;
 };
 
 export type AnalysisStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
+export type InstrumentDisplay = {
+  display_name?: string;
+  logo_url?: string;
+  country?: string;
+  symbol?: string;
+};
+
 export type AnalysisJob = {
   id: string;
   ticker: string;
+  exchange?: string | null;
   status: AnalysisStatus;
   current_step?: string | null;
   progress_percent?: number | null;
@@ -18,6 +40,8 @@ export type AnalysisJob = {
   created_at?: string | null;
   updated_at?: string | null;
   analysts?: string[] | null;
+  display?: InstrumentDisplay | null;
+  output_language?: string | null;
 };
 
 export type AnalysisEvent = {
@@ -75,7 +99,7 @@ export type SelectedInstrument = {
 type FetchImplementation = typeof fetch;
 
 export async function createResearch(
-  { outputLanguage, ...input }: ResearchInput,
+  { outputLanguage, instrument, display, ...input }: ResearchInput,
   fetchImplementation: FetchImplementation = fetch,
 ) {
   const response = await fetchImplementation('/api/analyses', {
@@ -83,6 +107,8 @@ export async function createResearch(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...input,
+      ...(instrument ? { instrument } : {}),
+      ...(display ? { display } : {}),
       configOverrides: { output_language: outputLanguage ?? 'English' },
     }),
   });

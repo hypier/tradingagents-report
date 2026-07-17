@@ -16,7 +16,7 @@ pnpm dev
 Vite and the Node BFF. Configure the following values in `.env` for services
 that are reachable from the development machine:
 
-- `DATABASE_URL`: PostgreSQL owned and migrated by Core.
+- `DATABASE_URL`: PostgreSQL connection string in `tg-web/.env`（需含用户名和密码；`pnpm db:migrate` 只读这个值）。
 - `REDIS_URL`: Redis used by the Node runtime cache.
 - `CORE_API_URL` and `CORE_API_KEY`: the external Core HTTP API. For local
   development, leave `CORE_API_KEY` empty and `pnpm dev` will use
@@ -71,9 +71,11 @@ network. `tg-web` connects to the Core services by their Compose service names.
 ## Data and cache boundaries
 
 The mapped `analysis_jobs`, `llm_model_prices`, and `llm_pricing_sources`
-tables are Core-owned. `tg-web` does not run migrations for these tables. Its
-direct database access is limited to the mapped query boundary; analysis job
-creation and other job mutations belong to the Core API, not to `tg-web`.
+tables are owned by `tg-web` Drizzle migrations. Configure the shared database
+in `tg-web/.env` as `DATABASE_URL`, then run `pnpm db:migrate` manually.
+Migrations do not run on Compose, `./start.sh`, or Web process startup. Core
+connects with `TRADINGAGENTS_DATABASE_URL` and uses the same tables through SQL;
+it does not create or alter them.
 
 Redis is the Node runtime cache. Cloudflare Workers use KV for their cache
 instead. These are separate backends with different consistency and eviction
@@ -97,4 +99,5 @@ provide secrets through Wrangler or the deployment platform; do not place
 production values in `wrangler.jsonc`. Local Hyperdrive use also requires
 `WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`. Cloudflare deploys
 the Worker, static assets, KV, and Hyperdrive configuration only; Core remains
-the owner of its API, schema migrations, and job state.
+the owner of its API and job execution, while `tg-web` owns PostgreSQL schema
+migrations for the shared tables.

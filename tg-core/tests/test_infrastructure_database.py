@@ -11,6 +11,10 @@ class _Connection:
 
     def execute(self, sql, params=()):
         self.executed.append((sql, params))
+        return self
+
+    def fetchone(self):
+        return {"n": 3}
 
 
 def test_database_url_uses_environment_override(monkeypatch):
@@ -46,7 +50,7 @@ def test_connect_uses_configured_url_dict_rows_and_autocommit(monkeypatch):
     ]
 
 
-def test_init_database_creates_idempotent_schema_without_price_refresh_or_backfill(monkeypatch):
+def test_require_schema_accepts_existing_tables(monkeypatch):
     connection = _Connection()
 
     @contextmanager
@@ -55,14 +59,32 @@ def test_init_database_creates_idempotent_schema_without_price_refresh_or_backfi
 
     monkeypatch.setattr(database, "connect", connect)
 
-    database.init_database()
+    database.require_schema()
 
-    statements = "\n".join(sql for sql, _params in connection.executed)
-    assert "CREATE TABLE IF NOT EXISTS analysis_jobs" in statements
-    assert "CREATE TABLE IF NOT EXISTS llm_model_prices" in statements
-    assert "CREATE TABLE IF NOT EXISTS llm_pricing_sources" in statements
-    assert "CREATE INDEX IF NOT EXISTS analysis_jobs_ticker_created_idx" in statements
-    assert "http" not in statements.lower()
+    sql, params = connection.executed[0]
+    assert "information_schema.tables" in sql
+    assert params == ([
+        "analysis_jobs",
+        "llm_model_prices",
+        "llm_pricing_sources",
+    ],)
+
+
+def test_require_schema_fails_when_tables_are_missing(monkeypatch):
+    class MissingConnection(_Connection):
+        def fetchone(self):
+            return {"n": 1}
+
+    connection = MissingConnection()
+
+    @contextmanager
+    def connect():
+        yield connection
+
+    monkeypatch.setattr(database, "connect", connect)
+
+    with pytest.raises(RuntimeError, match="pnpm db:migrate"):
+        database.require_schema()
 
 
 def test_healthcheck_executes_select_one(monkeypatch):

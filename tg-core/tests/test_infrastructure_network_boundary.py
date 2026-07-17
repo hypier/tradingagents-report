@@ -24,6 +24,8 @@ def test_infrastructure_imports_and_sql_calls_do_not_use_http_clients(monkeypatc
             self.sql = sql
 
         def fetchone(self):
+            if "information_schema.tables" in self.sql:
+                return {"n": 3}
             return {"id": "job-id"}
 
         def fetchall(self):
@@ -41,13 +43,13 @@ def test_infrastructure_imports_and_sql_calls_do_not_use_http_clients(monkeypatc
 
     monkeypatch.setattr(database, "connect", connect)
 
-    database.init_database()
+    database.require_schema()
     assert analysis_jobs.get_job("job-id") == {"id": "job-id"}
     assert llm_prices.get_model_prices(provider="openai") == [
         {"provider": "openai", "model": "test-model"}
     ]
 
     assert http_calls == []
-    assert any("CREATE TABLE IF NOT EXISTS analysis_jobs" in sql for sql, _ in executed)
+    assert any("information_schema.tables" in sql for sql, _ in executed)
     assert ("SELECT * FROM analysis_jobs WHERE id = %s", ("job-id",)) in executed
     assert any("SELECT *" in sql and "FROM llm_model_prices" in sql for sql, _ in executed)

@@ -12,7 +12,7 @@
 - HTTP 请求快速返回 `job_id`，后台执行完整 LangGraph 分析流程并持续记录进度。
 - PostgreSQL 保存请求参数、任务状态、最终决策、完整状态 JSON、报告路径和错误信息。
 - Docker Compose 启动 API 服务和 PostgreSQL。
-- API 每次启动时会幂等创建或补齐 `analysis_jobs`、模型价格及定价来源表，无需手动执行数据库初始化脚本。
+- API 启动时会检查共享表是否已由 `tg-web` Drizzle 迁移创建；不会在 Core 内执行 DDL。
 
 当前 API 不提供真实交易、下单、账户或券商能力，只暴露投研分析任务。
 
@@ -79,18 +79,26 @@ TRADINGAGENTS_DATABASE_URL=postgresql://user:password@host:5432/db
 
 ## 3. 数据库表
 
-API 启动时自动创建 `analysis_jobs` 表：
+共享 PostgreSQL schema 由 `tg-web` 维护：
+
+- 源定义：`tg-web/src/backend/database/schema.ts`
+- 迁移：`tg-web/drizzle/`，需手动执行 `cd tg-web && pnpm db:migrate`（启动流程不会自动迁移）
+- Core 只读写这些表，不负责 `CREATE` / `ALTER`
+
+`analysis_jobs` 表字段：
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `id` | UUID | 任务 ID |
-| `ticker` | TEXT | 标准化后的 Yahoo ticker |
+| `ticker` | TEXT | 标准化后的展示代码（`display_ticker`） |
+| `exchange` | TEXT | 交易所代码（如 `HKEX`、`NASDAQ`）；未确认时可为空 |
 | `trade_date` | DATE | 分析日期 |
 | `asset_type` | TEXT | `stock` 或 `crypto` |
 | `analysts` | JSONB | 已选择分析师列表 |
 | `status` | TEXT | `queued`、`running`、`succeeded`、`failed` |
 | `request` | JSONB | 原始请求和规范化请求 |
 | `config` | JSONB | 本次任务的公开运行配置 |
+| `display` | JSONB | 仅用于展示的标的元数据快照（如 `display_name`、`logo_url`、`country`） |
 | `final_state` | JSONB | 成功后的完整图状态，已转成 JSON 可序列化对象 |
 | `decision` | TEXT | 最终评级或交易信号 |
 | `error` | TEXT | 失败原因 |
@@ -182,6 +190,7 @@ Authorization: Bearer <TRADINGAGENTS_API_KEY>
 - 必须提供 `ticker` 或 `instrument`。API 不搜索或猜测标的；调用方应先在前端完成搜索和上市地确认。
 - `ticker` 可使用本地市场代码（如 `0005.HK`）或显式交易所代码（如 `HKEX:5`）。两者都会解析为同一确定性上市地。
 - `instrument` 是显式形式，适合前端已确认的标的：`{"exchange":"HKEX","symbol":"5","display_ticker":"0005.HK"}`。`display_ticker` 可省略；提供时必须与交易所和代码一致。
+- `display` 可选，写入任务的展示快照，例如 `{"display_name":"HSBC Holdings plc","logo_url":"https://..."}`。未提供 `country` 时，服务会按 `exchange` 推导（如 `HKEX`→`HK`）。
 - 同时提供 `ticker` 和 `instrument` 时，两者必须表示同一上市地，否则请求返回 `422`。
 - 已支持的本地市场后缀包括 `.HK`、`.SS`、`.SZ`、`.T`、`.TW` 和 `.TWO`；数据供应商在其各自适配层将该上市地转换为所需代码。
 - `request_id` 可选，为客户端生成的 UUID。重试同一请求时复用它；服务会返回既有 job，不会创建重复分析。复用同一 `request_id` 但修改请求内容会返回 `409`。

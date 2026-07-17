@@ -31,6 +31,17 @@ _EXCHANGE_ALIASES = {
     "ROCO": "TPEX",
 }
 _US_EXCHANGES = frozenset({"NASDAQ", "NYSE", "AMEX"})
+_EXCHANGE_TO_COUNTRY = {
+    "HKEX": "HK",
+    "SSE": "CN",
+    "SZSE": "CN",
+    "TSE": "JP",
+    "TWSE": "TW",
+    "TPEX": "TW",
+    "NASDAQ": "US",
+    "NYSE": "US",
+    "AMEX": "US",
+}
 
 
 @dataclass(frozen=True)
@@ -119,3 +130,14 @@ def listing_from_parts(
         symbol=normalized_symbol,
         display_ticker=expected_display_ticker,
     )
+
+
+def country_for_exchange(exchange: str | None) -> str | None:
+    """Map a supported exchange code to an ISO-style country/region code."""
+    if exchange is None:
+        return None
+    normalized = str(exchange).strip().upper()
+    if not normalized:
+        return None
+    normalized = _EXCHANGE_ALIASES.get(normalized, normalized)
+    return _EXCHANGE_TO_COUNTRY.get(normalized)

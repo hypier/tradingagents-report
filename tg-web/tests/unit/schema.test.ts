@@ -26,4 +26,14 @@ describe('Core table mappings', () => {
       params: [],
     });
   });
+
+  it('mirrors Core instrument display columns', () => {
+    const columns = getTableConfig(analysisJobs).columns.map(
+      (column) => column.name,
+    );
+
+    expect(columns).toEqual(
+      expect.arrayContaining(['exchange', 'display']),
+    );
+  });
 });

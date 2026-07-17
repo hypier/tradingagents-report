@@ -93,6 +93,8 @@ def test_create_job_normalizes_request_and_persists_public_config(monkeypatch):
 
     assert result["job_id"] == job_id
     assert persisted["ticker"] == "BTC-USD"
+    assert persisted["exchange"] is None
+    assert persisted["display"] == {}
     assert persisted["asset_type"] == "crypto"
     assert persisted["analysts"] == ["market"]
     assert persisted["request"] == {
@@ -103,6 +105,7 @@ def test_create_job_normalizes_request_and_persists_public_config(monkeypatch):
         "analysts": ["market"],
         "config_overrides": {"max_debate_rounds": 2, "output_language": "Chinese"},
         "output_language": "Chinese",
+        "display": {},
     }
     assert "results_dir" not in persisted["config"]
 
@@ -136,10 +139,45 @@ def test_create_job_normalizes_equivalent_listing_inputs(monkeypatch, ticker, in
     )
 
     assert persisted["ticker"] == "0005.HK"
+    assert persisted["exchange"] == "HKEX"
+    assert persisted["display"] == {"country": "HK"}
     assert persisted["request"]["instrument"] == {
         "exchange": "HKEX",
         "symbol": "5",
         "display_ticker": "0005.HK",
+    }
+    assert persisted["request"]["display"] == {"country": "HK"}
+
+
+def test_create_job_persists_submitted_display_metadata(monkeypatch):
+    persisted = {}
+    monkeypatch.setattr(jobs, "uuid4", lambda: UUID("00000000-0000-0000-0000-000000000003"))
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "insert_job",
+        lambda **kwargs: persisted.update(kwargs) or kwargs,
+    )
+
+    jobs.create_job(
+        jobs.CreateAnalysisJob(
+            ticker="0700.HK",
+            instrument={"exchange": "HKEX", "symbol": "700", "display_ticker": "0700.HK"},
+            display={
+                "display_name": "Tencent Holdings Ltd.",
+                "logo_url": "https://example.test/tencent.svg",
+            },
+            trade_date=date(2026, 1, 15),
+            asset_type="stock",
+            analysts=("market",),
+            config_overrides={},
+        )
+    )
+
+    assert persisted["exchange"] == "HKEX"
+    assert persisted["display"] == {
+        "display_name": "Tencent Holdings Ltd.",
+        "logo_url": "https://example.test/tencent.svg",
+        "country": "HK",
     }
 
 

@@ -20,6 +20,7 @@ export const analysisJobs = pgTable(
     id: uuid('id').primaryKey(),
     requestId: uuid('request_id'),
     ticker: text('ticker').notNull(),
+    exchange: text('exchange'),
     tradeDate: date('trade_date').notNull(),
     assetType: text('asset_type').notNull(),
     analysts: jsonb('analysts').$type<string[]>().notNull(),
@@ -28,6 +29,10 @@ export const analysisJobs = pgTable(
       .notNull(),
     request: jsonb('request').$type<Record<string, unknown>>().notNull(),
     config: jsonb('config')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    display: jsonb('display')
       .$type<Record<string, unknown>>()
       .notNull()
       .default({}),

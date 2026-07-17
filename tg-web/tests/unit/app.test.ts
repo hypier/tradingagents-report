@@ -73,6 +73,63 @@ describe('createApp', () => {
     });
   });
 
+  it('forwards instrument and display metadata to Core', async () => {
+    const dependencies = fakeDependencies({
+      core: {
+        healthcheck: vi.fn(),
+        resolveListing: vi.fn(),
+        submitAnalysis: vi
+          .fn()
+          .mockResolvedValue({ id: 'job-1', ticker: '0700.HK' }),
+        listAnalyses: vi.fn(),
+        getAnalysisEvents: vi.fn(),
+        getAnalysis: vi.fn(),
+      },
+      marketAssets: {
+        searchMarkets: vi.fn(),
+        getIdentities: vi.fn(),
+        getSnapshot: vi.fn(),
+      },
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: '0700.HK',
+        tradeDate: '2026-07-15',
+        analysts: ['market'],
+        instrument: {
+          exchange: 'HKEX',
+          symbol: '700',
+          display_ticker: '0700.HK',
+        },
+        display: {
+          display_name: 'Tencent Holdings Ltd.',
+          logo_url: 'https://example.test/tencent.svg',
+        },
+      }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(dependencies.core.submitAnalysis).toHaveBeenCalledWith({
+      ticker: '0700.HK',
+      trade_date: '2026-07-15',
+      analysts: ['market'],
+      config_overrides: {},
+      instrument: {
+        exchange: 'HKEX',
+        symbol: '700',
+        display_ticker: '0700.HK',
+      },
+      display: {
+        display_name: 'Tencent Holdings Ltd.',
+        logo_url: 'https://example.test/tencent.svg',
+      },
+    });
+  });
+
   it('returns server-side TradingView asset identities', async () => {
     const marketAssets = {
       searchMarkets: vi.fn(),

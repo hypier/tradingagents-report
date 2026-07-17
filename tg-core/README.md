@@ -247,19 +247,24 @@ openssl rand -hex 32  # TRADINGAGENTS_POSTGRES_PASSWORD
 ```
 将两条输出分别填入 `.env` 中对应的配置项。
 
-使用 Docker 部署时，同时启动 PostgreSQL 和 API：
+使用 Docker 部署时，先手动迁移数据库，再启动 PostgreSQL 和 API：
 ```bash
-docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build postgres tradingagents-api
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up -d postgres
+cd tg-web && pnpm db:migrate
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build tradingagents-api
 ```
 
 API 监听 `http://localhost:8000`；交互式 OpenAPI 文档位于 `http://localhost:8000/docs`。
 
-本地开发时，先启动 PostgreSQL，确认 `TRADINGAGENTS_DATABASE_URL` 指向该数据库（`.env.example` 默认指向 `localhost:5432`），然后从已激活的虚拟环境运行 Uvicorn：
+本地开发时，先启动 PostgreSQL，确认 `TRADINGAGENTS_DATABASE_URL` 指向该数据库（`.env.example` 默认指向 `localhost:5432`），**手动**应用 `tg-web` 迁移后再启动 API：
+
 ```bash
 docker compose --env-file tg-core/.env -f docker/docker-compose.yml up -d postgres
-source .venv/bin/activate
-uvicorn api.app:app --host 127.0.0.1 --port 8000
+cd tg-web && pnpm db:migrate
+cd ../tg-core && ./start.sh
 ```
+
+数据库迁移不会在 Compose、`./start.sh` 或 Web 启动时自动执行，需要显式运行 `cd tg-web && pnpm db:migrate`。
 
 `GET /health` 为公开接口。所有 `/api/v1` 接口均需要 `TRADINGAGENTS_API_KEY` 对应的 Bearer Token：
 

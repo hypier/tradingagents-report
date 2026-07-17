@@ -19,7 +19,7 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
         def stop(self):
             events.append("stop")
 
-    monkeypatch.setattr(api_app.database, "init_database", lambda: events.append("init"))
+    monkeypatch.setattr(api_app.database, "require_schema", lambda: events.append("schema"))
     monkeypatch.setattr(
         api_app.llm_prices,
         "seed_fallback_model_prices",
@@ -52,7 +52,7 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
     asyncio.run(run_lifespan())
 
     assert events == [
-        "init",
+        "schema",
         "seed",
         "recover",
         "start",

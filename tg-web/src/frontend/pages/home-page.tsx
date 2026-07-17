@@ -144,6 +144,15 @@ export function HomePage() {
         tradeDate: new Date().toISOString().slice(0, 10),
         analysts,
         outputLanguage: selectedOutputLanguage,
+        instrument: {
+          exchange: instrument.exchange,
+          symbol: instrument.symbol,
+          display_ticker: instrument.display_ticker,
+        },
+        display: {
+          display_name: instrument.display_name,
+          ...(instrument.logo_url ? { logo_url: instrument.logo_url } : {}),
+        },
       });
     }
   }
