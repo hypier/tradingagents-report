@@ -324,35 +324,42 @@ export function ReportPage() {
               />
             </div>
             {entries.map(([key, value]) => (
-              <TabsContent key={key} value={key} className="mt-0 flex-1 pt-5">
-                <div className={cn('rounded-2xl px-3 py-5 sm:px-5 md:px-6 md:py-8 lg:px-8', deskClassName)}>
-                  <article
-                    className={cn(
-                      'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-sm text-foreground',
-                      paperClassName,
-                      'shadow-[0_1px_1px_rgba(15,23,42,0.04),0_10px_28px_rgba(15,23,42,0.08)]',
-                      'ring-1 ring-black/5',
-                    )}
-                    style={
-                      {
-                        '--report-font-size': formatFontSize(fontStep),
-                        '--report-highlight': paperThemeConfig.highlight,
-                        '--report-highlight-soft': paperThemeConfig.highlightSoft,
-                      } as CSSProperties
-                    }
-                  >
-                    <div className="border-b border-black/5 px-6 py-4 md:px-10 lg:px-12">
-                      <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                        {reportTabLabel(key)}
-                      </p>
+              <TabsContent
+                key={key}
+                value={key}
+                className={cn(
+                  'mt-0 flex-1 pt-5',
+                  '-mx-4 px-4 pb-6 md:-mx-6 md:px-6 md:pb-8 lg:px-6',
+                  deskClassName,
+                )}
+              >
+                <article
+                  className={cn(
+                    'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-xl text-foreground',
+                    paperClassName,
+                    'shadow-[0_1px_1px_rgba(15,23,42,0.04),0_10px_28px_rgba(15,23,42,0.08)]',
+                    'ring-1 ring-black/5',
+                  )}
+                  style={
+                    {
+                      '--report-font-size': formatFontSize(fontStep),
+                      '--report-highlight': paperThemeConfig.highlight,
+                      '--report-highlight-soft':
+                        paperThemeConfig.highlightSoft,
+                    } as CSSProperties
+                  }
+                >
+                  <div className="border-b border-black/5 px-6 py-4 md:px-10 lg:px-12">
+                    <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                      {reportTabLabel(key)}
+                    </p>
+                  </div>
+                  <div className="px-6 py-10 md:px-10 md:py-12 lg:px-12">
+                    <div className="mx-auto max-w-[52rem]">
+                      <MarkdownReport value={value} />
                     </div>
-                    <div className="px-6 py-10 md:px-10 md:py-12 lg:px-12">
-                      <div className="mx-auto max-w-[52rem]">
-                        <MarkdownReport value={value} />
-                      </div>
-                    </div>
-                  </article>
-                </div>
+                  </div>
+                </article>
               </TabsContent>
             ))}
           </Tabs>
