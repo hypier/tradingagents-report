@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { createApp, type AppDependencies, type AppType } from '../backend/app';
+import { createClerkAuthService } from '../backend/auth/clerk-auth';
 import { FailOpenCache } from '../backend/cache/fail-open-cache';
 import { KvCache } from '../backend/cache/kv-cache';
 import { parseWorkerConfig } from '../backend/config/worker-config';
@@ -15,6 +16,9 @@ export interface WorkerEnv {
   HYPERDRIVE: Hyperdrive;
   CORE_API_URL: string;
   CORE_API_KEY: string;
+  CLERK_SECRET_KEY: string;
+  VITE_CLERK_PUBLISHABLE_KEY: string;
+  CLERK_AUTHORIZED_PARTIES: string;
   TRADINGVIEW_RAPIDAPI_KEY?: string;
   LOG_LEVEL?: string;
 }
@@ -29,6 +33,7 @@ function createDependencies(env: WorkerEnv): AppDependencies {
   const logger = new Logger();
 
   return {
+    auth: createClerkAuthService(config.clerkAuth),
     database: createWorkerDatabase(env.HYPERDRIVE.connectionString),
     cache: new FailOpenCache(new KvCache(env.CACHE_KV, logger), logger),
     core: new CoreClient(config.coreApiUrl, config.coreApiKey),

@@ -50,11 +50,16 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.web
+      args:
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:?set VITE_CLERK_PUBLISHABLE_KEY in tg-core/.env}
     environment:
       PORT: "8787"
       DATABASE_URL: postgresql://tradingagents:${TRADINGAGENTS_POSTGRES_PASSWORD:?set TRADINGAGENTS_POSTGRES_PASSWORD in tg-core/.env}@postgres:5432/tradingagents
       CORE_API_URL: http://tradingagents-api:8000
       CORE_API_KEY: ${TRADINGAGENTS_API_KEY:?set TRADINGAGENTS_API_KEY in tg-core/.env}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:?set CLERK_SECRET_KEY in tg-core/.env}
+      VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:?set VITE_CLERK_PUBLISHABLE_KEY in tg-core/.env}
+      CLERK_AUTHORIZED_PARTIES: ${CLERK_AUTHORIZED_PARTIES:?set CLERK_AUTHORIZED_PARTIES in tg-core/.env}
       REDIS_URL: redis://redis:6379
     depends_on:
       redis:
@@ -66,7 +71,8 @@ services:
     ports:
       - "8787:8787"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8787/api/health >/dev/null"]
+      test:
+        ["CMD-SHELL", "wget -qO- http://127.0.0.1:8787/api/health >/dev/null"]
       interval: 10s
       timeout: 3s
       retries: 3

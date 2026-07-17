@@ -23,6 +23,9 @@ function workerEnv(): WorkerEnv {
       },
     } as unknown as Fetcher,
     CACHE_KV: {} as KVNamespace,
+    CLERK_SECRET_KEY: 'sk_test_secret',
+    VITE_CLERK_PUBLISHABLE_KEY: 'pk_test_public',
+    CLERK_AUTHORIZED_PARTIES: 'https://example.test',
     CORE_API_KEY: 'test-key',
     CORE_API_URL: 'https://core.example.test',
     HYPERDRIVE: {
@@ -58,6 +61,10 @@ describe('Cloudflare Worker runtime', () => {
 
   it('reuses one dependency graph for repeated API requests with the same environment', async () => {
     const createDependencies = vi.fn((): AppDependencies => ({
+      auth: {
+        authenticate: vi.fn().mockResolvedValue(null),
+        getUser: vi.fn(),
+      },
       database: { healthcheck: async () => undefined },
       cache: {
         get: async () => null,

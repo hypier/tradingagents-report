@@ -6,6 +6,8 @@ COPY tg-web/package.json tg-web/pnpm-lock.yaml ./
 RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY tg-web/ .
+ARG VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
 RUN pnpm build && pnpm build:node
 
 FROM node:20.19.0-alpine AS runtime

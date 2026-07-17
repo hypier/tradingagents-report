@@ -27,6 +27,10 @@ const temporaryDirectories: string[] = [];
 
 function fakeDependencies(): AppDependencies {
   return {
+    auth: {
+      authenticate: vi.fn().mockResolvedValue(null),
+      getUser: vi.fn(),
+    },
     database: { healthcheck: vi.fn().mockResolvedValue(undefined) },
     cache: {
       get: vi.fn(),

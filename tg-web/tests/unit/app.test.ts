@@ -7,6 +7,18 @@ function fakeDependencies(
   overrides: Partial<AppDependencies> = {},
 ): AppDependencies {
   return {
+    auth: {
+      authenticate: vi
+        .fn()
+        .mockResolvedValue({ userId: 'user-1', sessionId: 'session-1' }),
+      getUser: vi.fn().mockResolvedValue({
+        id: 'user-1',
+        displayName: 'Test User',
+        email: 'test@example.test',
+        imageUrl: 'https://img.example.test/user-1.png',
+        role: 'user',
+      }),
+    },
     database: { healthcheck: vi.fn().mockResolvedValue(undefined) },
     cache: {
       get: vi.fn(),
@@ -28,6 +40,46 @@ function fakeDependencies(
 }
 
 describe('createApp', () => {
+  it('rejects protected API requests without a Clerk session', async () => {
+    const dependencies = fakeDependencies({
+      auth: {
+        authenticate: vi.fn().mockResolvedValue(null),
+        getUser: vi.fn(),
+      },
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses');
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'UNAUTHENTICATED' },
+    });
+    expect(dependencies.core.listAnalyses).not.toHaveBeenCalled();
+  });
+
+  it('returns the authenticated Clerk session and normalized user', async () => {
+    const dependencies = fakeDependencies();
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/auth/session');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        authenticated: true,
+        session: { id: 'session-1' },
+        user: {
+          id: 'user-1',
+          displayName: 'Test User',
+          email: 'test@example.test',
+          role: 'user',
+        },
+      },
+    });
+    expect(dependencies.auth.getUser).toHaveBeenCalledWith('user-1');
+  });
+
   it('forwards a validated analysis request to Core', async () => {
     const dependencies = fakeDependencies({
       core: {
@@ -130,6 +182,7 @@ describe('createApp', () => {
     expect(dependencies.database.healthcheck).not.toHaveBeenCalled();
     expect(dependencies.cache.healthcheck).not.toHaveBeenCalled();
     expect(dependencies.core.healthcheck).not.toHaveBeenCalled();
+    expect(dependencies.auth.authenticate).not.toHaveBeenCalled();
   });
 
   it('returns degraded readiness when only cache health fails', async () => {

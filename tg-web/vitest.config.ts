@@ -62,6 +62,9 @@ export default defineConfig({
                   directory: './tests/worker/fixtures',
                 },
                 bindings: {
+                  CLERK_SECRET_KEY: 'sk_test_secret',
+                  VITE_CLERK_PUBLISHABLE_KEY: 'pk_test_public',
+                  CLERK_AUTHORIZED_PARTIES: 'https://example.test',
                   CORE_API_KEY: 'test-key',
                   CORE_API_URL: 'https://core.example.test',
                 },

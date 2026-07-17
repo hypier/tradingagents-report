@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
+import type { AuthService, AuthSession } from './auth/contract';
+import { requireAuth } from './auth/middleware';
 import type { Cache } from './cache/contract';
 import type { CoreClientContract } from './core/client';
 import { AppError } from './errors/app-error';
@@ -14,8 +16,16 @@ import {
 import { healthRoutes } from './routes/health';
 import { readyRoutes } from './routes/ready';
 import { analysisRoutes } from './routes/analyses';
+import { authRoutes } from './routes/auth';
+
+export type AppEnvironment = {
+  Variables: RequestIdEnvironment['Variables'] & {
+    auth: AuthSession;
+  };
+};
 
 export type AppDependencies = {
+  auth: AuthService;
   database: { healthcheck(): Promise<void> };
   cache: Cache;
   core: CoreClientContract;
@@ -24,11 +34,17 @@ export type AppDependencies = {
 };
 
 export function createApp(dependencies: AppDependencies) {
-  const app = new Hono<RequestIdEnvironment>();
+  const app = new Hono<AppEnvironment>();
 
   app.use('/api/*', createRequestIdMiddleware());
   app.route('/api', healthRoutes());
   app.route('/api', readyRoutes(dependencies));
+  app.use('/api/auth/*', requireAuth(dependencies));
+  app.use('/api/analyses', requireAuth(dependencies));
+  app.use('/api/analyses/*', requireAuth(dependencies));
+  app.use('/api/market-snapshot', requireAuth(dependencies));
+  app.use('/api/market-identities', requireAuth(dependencies));
+  app.route('/api', authRoutes(dependencies));
   app.route('/api', analysisRoutes(dependencies));
   app.notFound((context) => {
     const requestId = context.get('requestId');

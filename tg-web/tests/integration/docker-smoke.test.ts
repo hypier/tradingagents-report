@@ -7,6 +7,7 @@ const execFileAsync = promisify(execFile);
 const image = 'tg-web:smoke';
 const container = 'tg-web-smoke';
 const port = process.env.DOCKER_SMOKE_PORT ?? '18877';
+const clerkPublishableKey = 'pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk';
 const dockerSmoke = process.env.DOCKER_SMOKE === '1' ? describe : describe.skip;
 
 async function waitForHealth(url: string): Promise<void> {
@@ -32,6 +33,8 @@ dockerSmoke('Docker image', () => {
       'build',
       '--file',
       '../docker/Dockerfile.web',
+      '--build-arg',
+      `VITE_CLERK_PUBLISHABLE_KEY=${clerkPublishableKey}`,
       '--tag',
       image,
       '..',
@@ -54,6 +57,12 @@ dockerSmoke('Docker image', () => {
       'CORE_API_KEY=test-key',
       '--env',
       'REDIS_URL=redis://host.docker.internal:6379',
+      '--env',
+      'CLERK_SECRET_KEY=sk_test_docker_smoke',
+      '--env',
+      `VITE_CLERK_PUBLISHABLE_KEY=${clerkPublishableKey}`,
+      '--env',
+      `CLERK_AUTHORIZED_PARTIES=http://127.0.0.1:${port}`,
       image,
     ]);
     await waitForHealth(`http://127.0.0.1:${port}/api/health`);
@@ -78,5 +87,14 @@ dockerSmoke('Docker image', () => {
     await expect(
       fetch(`http://127.0.0.1:${port}/`).then((response) => response.text()),
     ).resolves.toContain('<div id="root">');
+  });
+
+  it('rejects protected API requests without a Clerk session', async () => {
+    const response = await fetch(`http://127.0.0.1:${port}/api/analyses`);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'UNAUTHENTICATED' },
+    });
   });
 });

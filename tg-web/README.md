@@ -24,8 +24,21 @@ that are reachable from the development machine:
   Core uses a different token.
 - `PORT`: Node BFF port; Vite proxies `/api` to it.
 - `VITE_API_BASE_URL`: browser-visible same-origin API base path.
+- `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`: the Clerk
+  application keys used by the browser and BFF respectively.
+- `CLERK_AUTHORIZED_PARTIES`: comma-separated browser origins allowed in
+  Clerk session tokens. Local Vite development normally uses
+  `http://localhost:5173` and `http://127.0.0.1:5173`.
 
 The sample values are placeholders only. Do not commit a populated `.env`.
+
+The signed-out homepage shows `Sign in` and `Sign up` actions. The browser
+exposes Clerk's path-routed authentication flows at `/sign-in` and `/sign-up`.
+Enable the desired email, password, verification, and social providers in the
+Clerk Dashboard. Successful registration and login return to the requested
+internal route (or `/`), while signing out returns to `/sign-in`. When the
+publishable key is missing or Clerk cannot initialize, the page shows an
+explicit configuration error instead of rendering a blank screen.
 
 ## Product documentation
 
@@ -91,10 +104,12 @@ pnpm exec wrangler dev --local
 ```
 
 The Worker requires a KV namespace, a Hyperdrive binding for the external Core
-PostgreSQL database, and `CORE_API_URL` plus `CORE_API_KEY` as deployment
-configuration. Configure binding IDs in the named Wrangler environment and
-provide secrets through Wrangler or the deployment platform; do not place
-production values in `wrangler.jsonc`. Local Hyperdrive use also requires
+PostgreSQL database, `CORE_API_URL` plus `CORE_API_KEY`, and the three
+Clerk settings described above as deployment configuration. Configure binding
+IDs in the named Wrangler environment and provide secrets through Wrangler or
+the deployment platform; do not place production values in `wrangler.jsonc`.
+Build the frontend with `VITE_CLERK_PUBLISHABLE_KEY` set. Local Hyperdrive
+use also requires
 `WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`. Cloudflare deploys
 the Worker, static assets, KV, and Hyperdrive configuration only; Core remains
 the owner of its API, schema migrations, and job state.

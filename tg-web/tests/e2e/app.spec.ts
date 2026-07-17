@@ -54,9 +54,12 @@ test('opens a completed Core report from the research library', async ({
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Actions for AAPL' }).click();
-  await page.getByRole('menuitem', { name: 'View report' }).click();
-  await expect(page.getByRole('dialog')).toContainText(
+  await page.getByRole('button', { name: 'View report for AAPL' }).click();
+  await expect(page).toHaveURL(/\/reports\/job-1$/);
+  await expect(
+    page.getByRole('heading', { name: 'Research report' }),
+  ).toBeVisible();
+  await expect(page.getByRole('main')).toContainText(
     'Core-generated market report.',
   );
 });

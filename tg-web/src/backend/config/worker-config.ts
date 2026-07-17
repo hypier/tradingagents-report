@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { clerkAuthOptionsFromEnv } from '../auth/clerk-auth';
 import type { ServerConfig } from './node-config';
 
 export type WorkerConfig = ServerConfig & {
@@ -17,6 +18,9 @@ const workerConfigSchema = z
   .object({
     CORE_API_URL: z.string().url(),
     CORE_API_KEY: z.string().min(1),
+    CLERK_SECRET_KEY: z.string().min(1),
+    VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
+    CLERK_AUTHORIZED_PARTIES: z.string().min(1),
     TRADINGVIEW_RAPIDAPI_KEY: z.string().min(1).optional(),
     HYPERDRIVE: requiredBinding,
     CACHE_KV: requiredBinding,
@@ -27,12 +31,20 @@ const workerConfigSchema = z
     ({
       CORE_API_URL,
       CORE_API_KEY,
+      CLERK_SECRET_KEY,
+      VITE_CLERK_PUBLISHABLE_KEY,
+      CLERK_AUTHORIZED_PARTIES,
       TRADINGVIEW_RAPIDAPI_KEY,
       HYPERDRIVE,
       CACHE_KV,
       ASSETS,
       LOG_LEVEL,
     }): WorkerConfig => ({
+      clerkAuth: clerkAuthOptionsFromEnv({
+        CLERK_SECRET_KEY,
+        VITE_CLERK_PUBLISHABLE_KEY,
+        CLERK_AUTHORIZED_PARTIES,
+      }),
       coreApiUrl: new URL(CORE_API_URL),
       coreApiKey: CORE_API_KEY,
       tradingViewRapidApiKey: TRADINGVIEW_RAPIDAPI_KEY,
