@@ -36,12 +36,17 @@ function fakeDependencies(): AppDependencies {
     },
     core: {
       healthcheck: vi.fn().mockResolvedValue(undefined),
+      resolveListing: vi.fn(),
       submitAnalysis: vi.fn(),
       listAnalyses: vi.fn(),
       getAnalysis: vi.fn(),
       getAnalysisEvents: vi.fn(),
     },
-    marketAssets: { getIdentities: vi.fn(), getSnapshot: vi.fn() },
+    marketAssets: {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+    },
     logger: new Logger(),
   };
 }

@@ -16,12 +16,17 @@ function fakeDependencies(
     },
     core: {
       healthcheck: vi.fn().mockResolvedValue(undefined),
+      resolveListing: vi.fn(),
       submitAnalysis: vi.fn(),
       listAnalyses: vi.fn(),
       getAnalysis: vi.fn(),
       getAnalysisEvents: vi.fn(),
     },
-    marketAssets: { getIdentities: vi.fn(), getSnapshot: vi.fn() },
+    marketAssets: {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+    },
     logger: new Logger(),
     ...overrides,
   };
@@ -32,6 +37,7 @@ describe('createApp', () => {
     const dependencies = fakeDependencies({
       core: {
         healthcheck: vi.fn(),
+        resolveListing: vi.fn(),
         submitAnalysis: vi
           .fn()
           .mockResolvedValue({ id: 'job-1', ticker: 'AAPL' }),
@@ -39,7 +45,11 @@ describe('createApp', () => {
         getAnalysis: vi.fn(),
         getAnalysisEvents: vi.fn(),
       },
-      marketAssets: { getIdentities: vi.fn(), getSnapshot: vi.fn() },
+      marketAssets: {
+        searchMarkets: vi.fn(),
+        getIdentities: vi.fn(),
+        getSnapshot: vi.fn(),
+      },
     });
     const app = createApp(dependencies);
 
@@ -65,6 +75,7 @@ describe('createApp', () => {
 
   it('returns server-side TradingView asset identities', async () => {
     const marketAssets = {
+      searchMarkets: vi.fn(),
       getIdentities: vi.fn().mockResolvedValue([
         {
           ticker: '700',
@@ -85,11 +96,38 @@ describe('createApp', () => {
     expect(marketAssets.getIdentities).toHaveBeenCalledWith(['700']);
   });
 
+  it('returns TradingView market search hits', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn().mockResolvedValue([
+        {
+          ticker: '0700.HK',
+          exchange: 'HKEX',
+          symbol: '700',
+          display_ticker: '0700.HK',
+          provider_symbol: 'HKEX:700',
+          display_name: 'Tencent Holdings Ltd.',
+        },
+      ]),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request('/api/market-search?q=tencent');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: [{ display_ticker: '0700.HK', provider_symbol: 'HKEX:700' }],
+    });
+    expect(marketAssets.searchMarkets).toHaveBeenCalledWith('tencent');
+  });
+
   it('returns a server-side TradingView market snapshot', async () => {
     const marketAssets = {
+      searchMarkets: vi.fn(),
       getIdentities: vi.fn(),
       getSnapshot: vi.fn().mockResolvedValue({
-        ticker: '700',
+        ticker: '0700.HK',
         display_name: 'Tencent Holdings Ltd.',
         last_price: 481.8,
         currency: 'HKD',
@@ -99,13 +137,15 @@ describe('createApp', () => {
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
-    const response = await app.request('/api/market-snapshot?ticker=700');
+    const response = await app.request(
+      '/api/market-snapshot?symbol=HKEX%3A700',
+    );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      data: { ticker: '700', last_price: 481.8 },
+      data: { ticker: '0700.HK', last_price: 481.8 },
     });
-    expect(marketAssets.getSnapshot).toHaveBeenCalledWith('700');
+    expect(marketAssets.getSnapshot).toHaveBeenCalledWith('HKEX:700');
   });
 
   it('returns JSON for an unknown API path instead of the SPA document', async () => {

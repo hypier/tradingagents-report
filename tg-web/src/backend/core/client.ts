@@ -1,8 +1,9 @@
 import { AppError } from '../errors/app-error';
+import type { ListingResolver, ResolvedListing } from '../../shared/listing';
 
 const CORE_TIMEOUT_MS = 5_000;
 
-export interface CoreClientContract {
+export interface CoreClientContract extends ListingResolver {
   healthcheck(): Promise<void>;
   submitAnalysis(input: unknown): Promise<unknown>;
   listAnalyses(input: URLSearchParams): Promise<unknown>;
@@ -24,6 +25,16 @@ export class CoreClient implements CoreClientContract {
 
   async healthcheck(): Promise<void> {
     await this.request('/health');
+  }
+
+  async resolveListing(ticker: string): Promise<ResolvedListing> {
+    const normalized = ticker.trim().toUpperCase();
+    const payload = await this.request(
+      `/api/v1/listings/resolve?ticker=${encodeURIComponent(normalized)}`,
+      {},
+      true,
+    );
+    return readResolvedListing(payload, normalized);
   }
 
   submitAnalysis(input: unknown): Promise<unknown> {
@@ -96,6 +107,37 @@ export class CoreClient implements CoreClientContract {
       throw coreUnavailable(error);
     }
   }
+}
+
+function readResolvedListing(
+  payload: unknown,
+  fallbackTicker: string,
+): ResolvedListing {
+  if (!isRecord(payload)) {
+    throw coreUnavailable();
+  }
+
+  const symbol = stringValue(payload.symbol) || fallbackTicker;
+  const displayTicker =
+    stringValue(payload.display_ticker) || fallbackTicker;
+  const exchange = stringValue(payload.exchange) || null;
+  const providerSymbol = stringValue(payload.provider_symbol) || null;
+
+  return {
+    ticker: stringValue(payload.ticker) || fallbackTicker,
+    exchange,
+    symbol,
+    display_ticker: displayTicker,
+    provider_symbol: providerSymbol,
+  };
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function coreUnavailable(cause?: unknown): AppError {

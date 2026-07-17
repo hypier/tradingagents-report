@@ -19,6 +19,7 @@ import {
   Languages,
   Workflow,
 } from '../components/icons/research-icons';
+import { TickerSearch } from '../components/ticker-search';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
@@ -26,6 +27,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import {
   Field,
+  FieldDescription,
   FieldGroup,
   FieldLabel,
   FieldTitle,
@@ -42,13 +44,14 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import { cn } from '../lib/utils';
-import { formatDisplayTicker } from '@/shared/display-ticker';
+import { formatDisplayTicker } from '@/shared/listing';
 import {
   createResearch,
   getMarketIdentities,
   getMarketSnapshot,
   getResearchEvents,
   listResearch,
+  type SelectedInstrument,
 } from '../lib/research';
 
 const analystOptions = ['market', 'fundamentals', 'news', 'social'];
@@ -72,7 +75,7 @@ function marketMoveVariant(changePercent?: number) {
 }
 
 export function HomePage() {
-  const [ticker, setTicker] = useState('');
+  const [instrument, setInstrument] = useState<SelectedInstrument | null>(null);
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [outputLanguage, setOutputLanguage] = useState('English');
   const [customLanguage, setCustomLanguage] = useState('');
@@ -100,7 +103,7 @@ export function HomePage() {
   const assetTickers = [
     ...new Set([
       ...(jobs.data?.data ?? []).map((job) => job.ticker),
-      ...(ticker.trim() ? [ticker.trim()] : []),
+      ...(instrument ? [instrument.display_ticker] : []),
     ]),
   ];
   const identities = useQuery({
@@ -109,9 +112,9 @@ export function HomePage() {
     enabled: assetTickers.length > 0,
   });
   const snapshot = useQuery({
-    queryKey: ['snapshot', ticker],
-    queryFn: () => getMarketSnapshot(ticker),
-    enabled: Boolean(ticker),
+    queryKey: ['snapshot', instrument?.provider_symbol],
+    queryFn: () => getMarketSnapshot(instrument!.provider_symbol),
+    enabled: Boolean(instrument?.provider_symbol),
   });
   const create = useMutation({
     mutationFn: (input: Parameters<typeof createResearch>[0]) =>
@@ -135,9 +138,9 @@ export function HomePage() {
   const isDown = changePercent !== undefined && changePercent < 0;
 
   function submit() {
-    if (ticker && analysts.length && selectedOutputLanguage) {
+    if (instrument && analysts.length && selectedOutputLanguage) {
       create.mutate({
-        ticker,
+        ticker: instrument.display_ticker,
         tradeDate: new Date().toISOString().slice(0, 10),
         analysts,
         outputLanguage: selectedOutputLanguage,
@@ -172,31 +175,33 @@ export function HomePage() {
               <Card className="overflow-hidden border-primary/10 bg-card/90 shadow-sm ring-1 ring-primary/10">
                 <CardContent className="grid gap-0 p-0 @3xl/main:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.8fr)]">
                   <form
-                    className="flex flex-col gap-5 p-5 md:p-6"
+                    className="flex flex-col gap-6 p-5 md:p-6"
                     onSubmit={(event) => {
                       event.preventDefault();
                       submit();
                     }}
                   >
-                    <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(160px,1fr)_minmax(160px,0.85fr)_auto]">
-                      <Field>
-                        <FieldLabel
-                          htmlFor="ticker"
-                          className="inline-flex items-center gap-1.5"
-                        >
-                          <Search className="size-3.5 text-muted-foreground" />
-                          Ticker
-                        </FieldLabel>
-                        <Input
-                          id="ticker"
-                          value={ticker}
-                          onChange={(event) =>
-                            setTicker(event.target.value.toUpperCase())
-                          }
-                          placeholder="AAPL"
-                          className="font-mono text-base tracking-wide uppercase"
-                        />
-                      </Field>
+                    <Field>
+                      <FieldLabel
+                        htmlFor="ticker"
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        <Search className="size-3.5 text-muted-foreground" />
+                        Instrument
+                      </FieldLabel>
+                      <TickerSearch
+                        id="ticker"
+                        value={instrument}
+                        onChange={setInstrument}
+                      />
+                      {!instrument ? (
+                        <FieldDescription>
+                          Search and select a listing to confirm the instrument.
+                        </FieldDescription>
+                      ) : null}
+                    </Field>
+
+                    <FieldGroup className="grid gap-5 sm:grid-cols-[minmax(180px,0.9fr)_minmax(0,1.4fr)]">
                       <Field>
                         <FieldLabel
                           htmlFor="output-language"
@@ -228,25 +233,37 @@ export function HomePage() {
                           </SelectContent>
                         </Select>
                       </Field>
-                      <Field className="justify-end">
-                        <Button
-                          type="submit"
-                          size="lg"
-                          className="w-full @3xl/main:w-auto"
-                          disabled={
-                            !ticker ||
-                            !analysts.length ||
-                            !selectedOutputLanguage ||
-                            create.isPending
-                          }
+
+                      <Field>
+                        <FieldTitle
+                          id="analyst-team-label"
+                          className="inline-flex items-center gap-1.5"
                         >
-                          {create.isPending ? (
-                            <Spinner data-icon="inline-start" />
-                          ) : (
-                            <Play data-icon="inline-start" />
-                          )}
-                          {create.isPending ? 'Submitting...' : 'Run analysis'}
-                        </Button>
+                          Analyst team
+                        </FieldTitle>
+                        <ToggleGroup
+                          type="multiple"
+                          variant="outline"
+                          size="sm"
+                          className="flex-wrap justify-start"
+                          aria-labelledby="analyst-team-label"
+                          value={analysts}
+                          onValueChange={setAnalysts}
+                        >
+                          {analystOptions.map((analyst) => {
+                            const Icon = getAnalystIcon(analyst);
+                            return (
+                              <ToggleGroupItem
+                                key={analyst}
+                                value={analyst}
+                                className="gap-1.5 capitalize"
+                              >
+                                <Icon className="size-3.5" />
+                                {analystLabels[analyst] ?? analyst}
+                              </ToggleGroupItem>
+                            );
+                          })}
+                        </ToggleGroup>
                       </Field>
                     </FieldGroup>
 
@@ -267,38 +284,6 @@ export function HomePage() {
                       </Field>
                     )}
 
-                    <Field>
-                      <FieldTitle
-                        id="analyst-team-label"
-                        className="inline-flex items-center gap-1.5"
-                      >
-                        Analyst team
-                      </FieldTitle>
-                      <ToggleGroup
-                        type="multiple"
-                        variant="outline"
-                        size="sm"
-                        className="flex-wrap justify-start"
-                        aria-labelledby="analyst-team-label"
-                        value={analysts}
-                        onValueChange={setAnalysts}
-                      >
-                        {analystOptions.map((analyst) => {
-                          const Icon = getAnalystIcon(analyst);
-                          return (
-                            <ToggleGroupItem
-                              key={analyst}
-                              value={analyst}
-                              className="gap-1.5 capitalize"
-                            >
-                              <Icon className="size-3.5" />
-                              {analystLabels[analyst] ?? analyst}
-                            </ToggleGroupItem>
-                          );
-                        })}
-                      </ToggleGroup>
-                    </Field>
-
                     {create.isError && (
                       <Alert variant="destructive">
                         <AlertTitle>Unable to submit this run</AlertTitle>
@@ -307,6 +292,27 @@ export function HomePage() {
                         </AlertDescription>
                       </Alert>
                     )}
+
+                    <div className="flex justify-end border-t border-border/60 pt-4">
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full sm:w-auto"
+                        disabled={
+                          !instrument ||
+                          !analysts.length ||
+                          !selectedOutputLanguage ||
+                          create.isPending
+                        }
+                      >
+                        {create.isPending ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : (
+                          <Play data-icon="inline-start" />
+                        )}
+                        {create.isPending ? 'Submitting...' : 'Run analysis'}
+                      </Button>
+                    </div>
                   </form>
 
                   <aside className="flex flex-col border-t bg-muted/20 p-4 md:p-5 @3xl/main:border-t-0 @3xl/main:border-l">
@@ -437,8 +443,8 @@ export function HomePage() {
                         </span>
                         <p className="text-sm font-medium">No quote loaded</p>
                         <p className="text-xs text-muted-foreground">
-                          Enter a ticker to preview the latest snapshot before
-                          running analysis.
+                          Search and select a stock to preview the latest
+                          snapshot before running analysis.
                         </p>
                       </div>
                     )}

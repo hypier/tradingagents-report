@@ -54,7 +54,8 @@ def resolve_tradingview_symbol(
     except ValueError:
         listing = None
     if listing is not None and listing.exchange is not None:
-        return _provider_symbol(f"{listing.exchange}:{listing.symbol}")
+        return _provider_symbol(listing.provider_symbol or f"{listing.exchange}:{listing.symbol}")
+
 
     if ref.exchange_hint:
         return _provider_symbol(f"{ref.exchange_hint}:{ref.canonical_symbol}")

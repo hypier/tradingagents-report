@@ -160,3 +160,11 @@ class HealthResponse(BaseModel):
     status: Literal["ok", "error"]
     database: Literal["ok", "error"]
     detail: str | None = None
+
+
+class ListingResolveResponse(BaseModel):
+    ticker: str
+    exchange: str | None = None
+    symbol: str
+    display_ticker: str
+    provider_symbol: str | None = None

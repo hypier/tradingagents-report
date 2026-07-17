@@ -52,6 +52,26 @@ export type AssetIdentity = {
   logo_url?: string;
 };
 
+export type MarketSearchHit = {
+  ticker: string;
+  exchange: string | null;
+  symbol: string;
+  display_ticker: string;
+  provider_symbol: string | null;
+  display_name: string;
+  logo_url?: string;
+  is_primary_listing?: boolean;
+};
+
+export type SelectedInstrument = {
+  display_ticker: string;
+  provider_symbol: string;
+  display_name: string;
+  logo_url?: string;
+  exchange: string;
+  symbol: string;
+};
+
 type FetchImplementation = typeof fetch;
 
 export async function createResearch(
@@ -82,8 +102,19 @@ async function read<T>(
   return response.json() as Promise<{ data: T; requestId: string }>;
 }
 
-export const listResearch = (fetchImplementation?: FetchImplementation) =>
-  read<AnalysisJob[]>('/api/analyses', fetchImplementation);
+export const listResearch = (
+  params: { limit?: number; offset?: number } = {},
+  fetchImplementation?: FetchImplementation,
+) => {
+  const search = new URLSearchParams();
+  if (params.limit !== undefined) search.set('limit', String(params.limit));
+  if (params.offset !== undefined) search.set('offset', String(params.offset));
+
+  return read<AnalysisJob[]>(
+    `/api/analyses${search.size ? `?${search}` : ''}`,
+    fetchImplementation,
+  );
+};
 
 export const getResearch = (
   id: string,
@@ -104,11 +135,20 @@ export const getResearchEvents = (
   );
 
 export const getMarketSnapshot = (
-  ticker: string,
+  providerSymbol: string,
   fetchImplementation?: FetchImplementation,
 ) =>
   read<MarketSnapshot>(
-    `/api/market-snapshot?ticker=${encodeURIComponent(ticker)}`,
+    `/api/market-snapshot?symbol=${encodeURIComponent(providerSymbol)}`,
+    fetchImplementation,
+  );
+
+export const searchMarkets = (
+  query: string,
+  fetchImplementation?: FetchImplementation,
+) =>
+  read<MarketSearchHit[]>(
+    `/api/market-search?q=${encodeURIComponent(query)}`,
     fetchImplementation,
   );
 

@@ -18,7 +18,7 @@ import {
 
 const navigation = [
   { title: 'Desk', icon: LayoutDashboard, href: '/' },
-  { title: 'Reports', icon: FileText, href: '/#reports' },
+  { title: 'Reports', icon: FileText, href: '/reports' },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -58,9 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={
-                      item.title === 'Desk' && location.pathname === '/'
-                    }
+                    isActive={location.pathname === item.href}
                     tooltip={item.title}
                   >
                     <Link to={item.href}>

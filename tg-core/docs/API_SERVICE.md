@@ -123,7 +123,34 @@ GET /health
 }
 ```
 
-### 4.2 提交分析任务
+### 4.2 解析上市代码
+
+```http
+GET /api/v1/listings/resolve?ticker=300750.SZ
+Authorization: Bearer <TRADINGAGENTS_API_KEY>
+```
+
+将 Yahoo 风格代码或 `EXCHANGE:SYMBOL` 解析为确定性上市身份，供前端展示与供应商路由使用。不做市场搜索。
+
+响应示例：
+
+```json
+{
+  "ticker": "300750.SZ",
+  "exchange": "SZSE",
+  "symbol": "300750",
+  "display_ticker": "300750.SZ",
+  "provider_symbol": "SZSE:300750"
+}
+```
+
+说明：
+
+- `display_ticker` 为 Yahoo 风格展示代码（美股为裸代码，如 `AAPL`）。
+- `provider_symbol` 在已知交易所时为 `EXCHANGE:SYMBOL`（如 TradingView）；美股裸代码且未指定交易所时为 `null`。
+- 无效代码返回 `400`。
+
+### 4.3 提交分析任务
 
 ```http
 POST /api/v1/analyses
@@ -186,7 +213,7 @@ Authorization: Bearer <TRADINGAGENTS_API_KEY>
 }
 ```
 
-### 4.3 查询任务列表
+### 4.4 查询任务列表
 
 ```http
 GET /api/v1/analyses?status=succeeded&ticker=NVDA&limit=50&offset=0
@@ -201,7 +228,7 @@ GET /api/v1/analyses?status=succeeded&ticker=NVDA&limit=50&offset=0
 | `limit` | 默认 50，最大 200 |
 | `offset` | 默认 0 |
 
-### 4.4 查询任务详情与结果
+### 4.5 查询任务详情与结果
 
 ```http
 GET /api/v1/analyses/{job_id}
@@ -223,7 +250,7 @@ GET /api/v1/analyses/{job_id}
 }
 ```
 
-### 4.5 查询运行事件
+### 4.6 查询运行事件
 
 ```http
 GET /api/v1/analyses/{job_id}/events

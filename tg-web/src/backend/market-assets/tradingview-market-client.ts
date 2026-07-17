@@ -1,7 +1,11 @@
 import {
   formatDisplayTicker,
-  parseListingTicker,
-} from '../../shared/display-ticker';
+  isSupportedExchange,
+  listingFromProviderSymbol,
+  resolveListingTicker,
+  type MarketSearchHit,
+  type ResolvedListing,
+} from '../../shared/listing';
 
 const API_HOST = 'tradingview-data1.p.rapidapi.com';
 const API_BASE_URL = `https://${API_HOST}`;
@@ -23,8 +27,9 @@ export type MarketSnapshot = MarketAssetIdentity & {
 };
 
 export interface MarketAssetClient {
+  searchMarkets(query: string): Promise<MarketSearchHit[]>;
   getIdentities(tickers: string[]): Promise<MarketAssetIdentity[]>;
-  getSnapshot(ticker: string): Promise<MarketSnapshot>;
+  getSnapshot(providerSymbol: string): Promise<MarketSnapshot>;
 }
 
 type FetchImplementation = (
@@ -37,6 +42,8 @@ type MarketRecord = {
   full_name?: unknown;
   description?: unknown;
   is_primary_listing?: unknown;
+  source_id?: unknown;
+  exchange?: unknown;
   logo?: { logoid?: unknown };
 };
 
@@ -46,18 +53,52 @@ export class TradingViewMarketClient implements MarketAssetClient {
     private readonly fetchImplementation: FetchImplementation = fetch,
   ) {}
 
+  async searchMarkets(query: string): Promise<MarketSearchHit[]> {
+    const normalizedQuery = query.trim();
+    if (!this.apiKey || !normalizedQuery) return [];
+
+    const response = await this.request(
+      `/api/search/market/${encodeURIComponent(normalizedQuery)}?filter=stock`,
+    );
+    if (!response.ok) return [];
+
+    const hits: MarketSearchHit[] = [];
+    for (const market of readMarkets(await response.json())) {
+      const hit = toSearchHit(market);
+      if (hit) hits.push(hit);
+    }
+
+    return hits
+      .sort(
+        (left, right) =>
+          Number(Boolean(right.is_primary_listing)) -
+          Number(Boolean(left.is_primary_listing)),
+      )
+      .slice(0, 12);
+  }
+
   async getIdentities(tickers: string[]): Promise<MarketAssetIdentity[]> {
     return Promise.all(tickers.map((ticker) => this.getIdentity(ticker)));
   }
 
-  async getSnapshot(ticker: string): Promise<MarketSnapshot> {
-    const normalizedTicker = ticker.trim().toUpperCase();
-    if (!this.apiKey || !normalizedTicker) {
+  async getSnapshot(providerSymbol: string): Promise<MarketSnapshot> {
+    const normalized = providerSymbol.trim().toUpperCase();
+    if (!this.apiKey || !normalized) {
       throw new Error('TradingView market data is not configured');
     }
 
-    const market = await this.findMarket(normalizedTicker);
-    const symbol = stringValue(market?.full_name);
+    let listing: ResolvedListing;
+    try {
+      listing = normalized.includes(':')
+        ? listingFromProviderSymbol(normalized)
+        : resolveListingTicker(normalized);
+    } catch {
+      throw new Error('TradingView could not resolve this ticker');
+    }
+
+    const market = await this.findMarket(listing);
+    const symbol =
+      stringValue(market?.full_name) || listing.provider_symbol || '';
     if (!market || !symbol) {
       throw new Error('TradingView could not resolve this ticker');
     }
@@ -76,11 +117,10 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const description = stringValue(market.description);
     const logoid = stringValue(market.logo?.logoid);
     const quoteTime = numberValue(quote?.lp_time);
-    const displayTicker = formatDisplayTicker(normalizedTicker, symbol);
     return {
-      ticker: normalizedTicker,
-      display_ticker: displayTicker,
-      display_name: description || displayTicker,
+      ticker: listing.display_ticker,
+      display_ticker: listing.display_ticker,
+      display_name: description || listing.display_ticker,
       ...(logoid
         ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
         : {}),
@@ -96,53 +136,56 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
   private async getIdentity(ticker: string): Promise<MarketAssetIdentity> {
     const normalizedTicker = ticker.trim().toUpperCase();
-    const displayTicker = formatDisplayTicker(normalizedTicker);
+    let listing: ResolvedListing;
+    try {
+      listing = resolveListingTicker(normalizedTicker);
+    } catch {
+      return {
+        ticker: normalizedTicker,
+        display_ticker: formatDisplayTicker(normalizedTicker),
+        display_name: formatDisplayTicker(normalizedTicker),
+      };
+    }
+
     const fallback = {
       ticker: normalizedTicker,
-      display_ticker: displayTicker,
-      display_name: displayTicker,
+      display_ticker: listing.display_ticker,
+      display_name: listing.display_ticker,
     };
     if (!this.apiKey || !normalizedTicker) return fallback;
 
-    const market = await this.findMarket(normalizedTicker);
+    const market = await this.findMarket(listing);
     if (!market) return fallback;
 
     const description = stringValue(market.description);
     const logoid = stringValue(market.logo?.logoid);
-    const resolvedDisplay = formatDisplayTicker(
-      normalizedTicker,
-      stringValue(market.full_name),
-    );
     return {
       ticker: normalizedTicker,
-      display_ticker: resolvedDisplay,
-      display_name: description || resolvedDisplay,
+      display_ticker: listing.display_ticker,
+      display_name: description || listing.display_ticker,
       ...(logoid
         ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
         : {}),
     };
   }
 
-  private async findMarket(ticker: string): Promise<MarketRecord | undefined> {
-    const listing = parseListingTicker(ticker);
-    if (!listing.searchQuery) return undefined;
+  private async findMarket(
+    listing: ResolvedListing,
+  ): Promise<MarketRecord | undefined> {
+    const query = listing.symbol;
+    if (!query) return undefined;
 
     try {
-      // Search with bare symbol (300750), not Yahoo suffix (300750.SZ).
       const response = await this.request(
-        `/api/search/market/${encodeURIComponent(listing.searchQuery)}?filter=stock`,
+        `/api/search/market/${encodeURIComponent(query)}?filter=stock`,
       );
       if (!response.ok) return undefined;
       const selected = selectMarket(await response.json(), listing);
       if (selected) return selected;
 
-      // Fallback: some providers resolve better with EXCHANGE:SYMBOL.
-      if (
-        listing.tradingViewSymbol &&
-        listing.tradingViewSymbol !== listing.searchQuery
-      ) {
+      if (listing.provider_symbol && listing.provider_symbol !== query) {
         const tvResponse = await this.request(
-          `/api/search/market/${encodeURIComponent(listing.tradingViewSymbol)}?filter=stock`,
+          `/api/search/market/${encodeURIComponent(listing.provider_symbol)}?filter=stock`,
         );
         if (!tvResponse.ok) return undefined;
         return selectMarket(await tvResponse.json(), listing);
@@ -166,9 +209,32 @@ export class TradingViewMarketClient implements MarketAssetClient {
   }
 }
 
+function toSearchHit(market: MarketRecord): MarketSearchHit | undefined {
+  const fullName = stringValue(market.full_name);
+  if (!fullName.includes(':')) return undefined;
+
+  try {
+    const listing = listingFromProviderSymbol(fullName);
+    if (!listing.exchange || !isSupportedExchange(listing.exchange)) {
+      return undefined;
+    }
+    const logoid = stringValue(market.logo?.logoid);
+    return {
+      ...listing,
+      display_name: stringValue(market.description) || listing.display_ticker,
+      ...(logoid
+        ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
+        : {}),
+      is_primary_listing: Boolean(market.is_primary_listing),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function selectMarket(
   payload: unknown,
-  listing: ReturnType<typeof parseListingTicker>,
+  listing: ResolvedListing,
 ): MarketRecord | undefined {
   const markets = readMarkets(payload);
   const symbols = tickerSymbols(listing.symbol);
@@ -177,8 +243,8 @@ function selectMarket(
     const fullName = stringValue(market.full_name).toUpperCase();
     const symbolMatch =
       symbols.has(marketSymbol) ||
-      (listing.tradingViewSymbol !== null &&
-        fullName === listing.tradingViewSymbol);
+      (listing.provider_symbol !== null &&
+        fullName === listing.provider_symbol);
     if (!symbolMatch) return false;
     if (!listing.exchange) return true;
     const marketExchange = fullName.includes(':')
@@ -195,7 +261,6 @@ function selectMarket(
     )[0];
   }
 
-  // If exchange filter emptied the set, fall back to symbol-only primary match.
   const symbolOnly = markets.filter((market) =>
     symbols.has(stringValue(market.symbol).toUpperCase()),
   );

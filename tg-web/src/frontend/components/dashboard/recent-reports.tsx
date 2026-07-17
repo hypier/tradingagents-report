@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '../ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import { formatDisplayTicker } from '@/shared/display-ticker';
+import { formatDisplayTicker } from '@/shared/listing';
 import type { AnalysisJob, AssetIdentity } from '../../lib/research';
 
 function instrumentTicker(
@@ -49,29 +49,35 @@ function statusVariant(status: AnalysisJob['status']) {
   return 'secondary';
 }
 
-export function RecentReports({
-  jobs,
-  loading,
-  error,
-  identities = {},
-  onOpenReport,
-}: {
+type ReportsTableProps = {
   jobs: AnalysisJob[];
   loading: boolean;
   error: boolean;
   identities?: Record<string, AssetIdentity>;
   onOpenReport: (id: string) => void;
-}) {
+  title: string;
+  description: string;
+  titleId: string;
+};
+
+export function ReportsTable({
+  jobs,
+  loading,
+  error,
+  identities = {},
+  onOpenReport,
+  title,
+  description,
+  titleId,
+}: ReportsTableProps) {
   return (
-    <Card aria-labelledby="reports-title">
+    <Card aria-labelledby={titleId}>
       <CardHeader className="border-b">
         <CardTitle className="inline-flex items-center gap-2">
           <ClipboardList className="size-4 text-primary" />
-          <h2 id="reports-title">Recent reports</h2>
+          <h2 id={titleId}>{title}</h2>
         </CardTitle>
-        <CardDescription>
-          Completed and in-progress research runs.
-        </CardDescription>
+        <CardDescription>{description}</CardDescription>
         <CardAction>
           <Badge variant="outline" className="font-mono tabular-nums">
             {jobs.length} runs
@@ -188,5 +194,18 @@ export function RecentReports({
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+export function RecentReports(
+  props: Omit<ReportsTableProps, 'title' | 'description' | 'titleId'>,
+) {
+  return (
+    <ReportsTable
+      {...props}
+      title="Recent reports"
+      description="Completed and in-progress research runs."
+      titleId="reports-title"
+    />
   );
 }

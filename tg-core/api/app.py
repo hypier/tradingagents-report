@@ -15,11 +15,13 @@ from api.schemas import (
     AnalysisJob,
     AnalysisRequest,
     HealthResponse,
+    ListingResolveResponse,
 )
 from api.security import require_api_key
 from application.jobs import CreateAnalysisJob, create_job
 from application.pricing import refresh_and_backfill_model_prices
 from infrastructure import analysis_jobs, database, llm_prices
+from tradingagents.dataflows.listings import resolve_listing
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,28 @@ def health(response: Response) -> HealthResponse:
     except Exception as exc:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthResponse(status="error", database="error", detail=str(exc))
+
+
+@app.get(
+    "/api/v1/listings/resolve",
+    response_model=ListingResolveResponse,
+    dependencies=[Depends(require_api_key)],
+)
+def resolve_listing_endpoint(
+    ticker: str = Query(min_length=1, max_length=32),
+) -> ListingResolveResponse:
+    try:
+        listing = resolve_listing(ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return ListingResolveResponse(
+        ticker=ticker.strip().upper(),
+        exchange=listing.exchange,
+        symbol=listing.symbol,
+        display_ticker=listing.display_ticker,
+        provider_symbol=listing.provider_symbol,
+    )
 
 
 @app.post(

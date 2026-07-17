@@ -27,11 +27,12 @@ export type WorkerHandler = {
 function createDependencies(env: WorkerEnv): AppDependencies {
   const config = parseWorkerConfig(env as unknown as Record<string, unknown>);
   const logger = new Logger();
+  const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
 
   return {
     database: createWorkerDatabase(env.HYPERDRIVE.connectionString),
     cache: new FailOpenCache(new KvCache(env.CACHE_KV, logger), logger),
-    core: new CoreClient(config.coreApiUrl, config.coreApiKey),
+    core,
     marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
     logger,
   };

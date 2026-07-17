@@ -98,3 +98,27 @@ it('renders a report detail page inside the dashboard shell', () => {
   ).toBeInTheDocument();
   expect(container.querySelector('.max-w-5xl')).toBeNull();
 });
+
+it('renders the complete report library inside the dashboard shell', () => {
+  const { container } = render(
+    <MemoryRouter initialEntries={['/reports']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(
+    within(container).getAllByRole('button', { name: 'Toggle Sidebar' }),
+  ).not.toHaveLength(0);
+  expect(
+    within(container).getByRole('heading', { name: 'All reports' }),
+  ).toBeInTheDocument();
+  expect(
+    within(container).getByRole('heading', { name: 'Report library' }),
+  ).toBeInTheDocument();
+  const reportLinks = within(container).getAllByRole('link', {
+    name: 'Reports',
+  });
+  expect(
+    reportLinks.every((link) => link.getAttribute('href') === '/reports'),
+  ).toBe(true);
+});

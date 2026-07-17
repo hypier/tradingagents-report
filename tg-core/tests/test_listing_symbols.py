@@ -31,6 +31,16 @@ def test_resolve_listing_accepts_explicit_exchange_symbol():
     assert listing.exchange == "HKEX"
     assert listing.symbol == "5"
     assert listing.display_ticker == "0005.HK"
+    assert listing.provider_symbol == "HKEX:5"
+
+
+def test_resolve_listing_normalizes_exchange_aliases():
+    listing = resolve_listing("SHE:300750")
+
+    assert listing.exchange == "SZSE"
+    assert listing.symbol == "300750"
+    assert listing.display_ticker == "300750.SZ"
+    assert listing.provider_symbol == "SZSE:300750"
 
 
 def test_listing_from_parts_validates_display_ticker_matches_listing():

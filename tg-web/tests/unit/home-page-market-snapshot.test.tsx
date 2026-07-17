@@ -20,13 +20,30 @@ Object.defineProperty(window, 'matchMedia', {
 
 vi.mock('../../src/frontend/lib/research', () => ({
   createResearch: vi.fn(),
+  searchMarkets: vi.fn().mockResolvedValue({
+    data: [
+      {
+        ticker: 'AAPL',
+        exchange: 'NASDAQ',
+        symbol: 'AAPL',
+        display_ticker: 'AAPL',
+        provider_symbol: 'NASDAQ:AAPL',
+        display_name: 'Apple Inc.',
+        logo_url: 'https://tv-logo.tradingviewapi.com/logo/apple.svg',
+        is_primary_listing: true,
+      },
+    ],
+    requestId: 'request-1',
+  }),
   getMarketSnapshot: vi.fn().mockResolvedValue({
     data: {
       change_percent: 1.2,
       currency: 'USD',
       display_name: 'Apple Inc.',
+      display_ticker: 'AAPL',
       last_price: 210,
       ticker: 'AAPL',
+      logo_url: 'https://tv-logo.tradingviewapi.com/logo/apple.svg',
     },
     requestId: 'request-1',
   }),
@@ -59,18 +76,17 @@ it('uses the up badge variant for a positive market move', async () => {
     </MemoryRouter>,
   );
 
-  fireEvent.change(screen.getByRole('textbox', { name: 'Ticker' }), {
+  fireEvent.change(screen.getByRole('combobox', { name: 'Instrument' }), {
     target: { value: 'AAPL' },
   });
+  fireEvent.click(await screen.findByRole('option', { name: /Apple Inc\./i }));
 
-  expect(await screen.findByText('Apple Inc.')).toBeInTheDocument();
-  expect(screen.getByText('AAPL')).toBeInTheDocument();
-  expect(container.querySelector('[data-logo-url]')).toHaveAttribute(
-    'data-logo-url',
-    'https://tv-logo.tradingviewapi.com/logo/apple.svg',
-  );
   expect(await screen.findByText('+1.20%')).toHaveAttribute(
     'data-variant',
     'up',
+  );
+  expect(container.querySelector('[data-logo-url]')).toHaveAttribute(
+    'data-logo-url',
+    'https://tv-logo.tradingviewapi.com/logo/apple.svg',
   );
 });

@@ -1,30 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { TradingViewMarketClient } from '../../src/backend/market-assets/tradingview-market-client';
-import {
-  parseListingTicker,
-  toTradingViewSymbol,
-} from '../../src/shared/display-ticker';
-
-describe('parseListingTicker / toTradingViewSymbol', () => {
-  it('maps Yahoo suffixes to TradingView EXCHANGE:SYMBOL', () => {
-    expect(toTradingViewSymbol('300750.SZ')).toBe('SZSE:300750');
-    expect(toTradingViewSymbol('600519.SS')).toBe('SSE:600519');
-    expect(toTradingViewSymbol('0700.HK')).toBe('HKEX:700');
-    expect(toTradingViewSymbol('700.HK')).toBe('HKEX:700');
-    expect(toTradingViewSymbol('7203.T')).toBe('TSE:7203');
-    expect(toTradingViewSymbol('AAPL')).toBeNull();
-    expect(toTradingViewSymbol('SZSE:300750')).toBe('SZSE:300750');
-  });
-
-  it('builds search queries without Yahoo suffixes', () => {
-    expect(parseListingTicker('300750.SZ').searchQuery).toBe('300750');
-    expect(parseListingTicker('0700.HK').searchQuery).toBe('700');
-  });
-});
 
 describe('TradingViewMarketClient', () => {
-  it('builds a market snapshot from the resolved TradingView listing', async () => {
+  it('builds a market snapshot from a provider symbol', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -63,8 +42,8 @@ describe('TradingViewMarketClient', () => {
       );
     const client = new TradingViewMarketClient('server-secret', fetchMock);
 
-    await expect(client.getSnapshot('700')).resolves.toEqual({
-      ticker: '700',
+    await expect(client.getSnapshot('HKEX:700')).resolves.toEqual({
+      ticker: '0700.HK',
       display_ticker: '0700.HK',
       display_name: 'Tencent Holdings Ltd.',
       logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
@@ -85,7 +64,7 @@ describe('TradingViewMarketClient', () => {
     );
   });
 
-  it('resolves Yahoo-suffixed tickers via bare-symbol search and exchange filter', async () => {
+  it('resolves Yahoo-suffixed tickers locally without Core', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -149,6 +128,62 @@ describe('TradingViewMarketClient', () => {
     );
   });
 
+  it('maps TradingView search hits into selectable listings', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            markets: [
+              {
+                symbol: '700',
+                full_name: 'HKEX:700',
+                description: 'Tencent Holdings Ltd.',
+                is_primary_listing: true,
+                logo: { style: 'single', logoid: 'tencent' },
+              },
+              {
+                symbol: 'BTCUSD',
+                full_name: 'PYTH:BTCUSD',
+                description: 'Unsupported market',
+                is_primary_listing: true,
+              },
+              {
+                symbol: 'AAPL',
+                full_name: 'NASDAQ:AAPL',
+                description: 'Apple Inc',
+                is_primary_listing: false,
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.searchMarkets('ten')).resolves.toEqual([
+      {
+        ticker: '0700.HK',
+        exchange: 'HKEX',
+        symbol: '700',
+        display_ticker: '0700.HK',
+        provider_symbol: 'HKEX:700',
+        display_name: 'Tencent Holdings Ltd.',
+        logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
+        is_primary_listing: true,
+      },
+      {
+        ticker: 'AAPL',
+        exchange: 'NASDAQ',
+        symbol: 'AAPL',
+        display_ticker: 'AAPL',
+        provider_symbol: 'NASDAQ:AAPL',
+        display_name: 'Apple Inc',
+        is_primary_listing: false,
+      },
+    ]);
+  });
+
   it('returns a direct public logo URL from a market search result', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -170,9 +205,9 @@ describe('TradingViewMarketClient', () => {
     );
     const client = new TradingViewMarketClient('server-secret', fetchMock);
 
-    await expect(client.getIdentities(['700'])).resolves.toEqual([
+    await expect(client.getIdentities(['0700.HK'])).resolves.toEqual([
       {
-        ticker: '700',
+        ticker: '0700.HK',
         display_ticker: '0700.HK',
         display_name: 'Tencent Holdings Ltd.',
         logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',

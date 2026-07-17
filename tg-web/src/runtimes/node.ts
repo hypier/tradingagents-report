@@ -159,10 +159,11 @@ async function run(): Promise<void> {
   const logger = new Logger();
   const database = createNodeDatabase(config.databaseUrl);
   const redis = new Redis(config.redisUrl.toString(), { lazyConnect: true });
+  const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
   const dependencies: AppDependencies = {
     database,
     cache: new FailOpenCache(new RedisCache(redis, logger), logger),
-    core: new CoreClient(config.coreApiUrl, config.coreApiKey),
+    core,
     marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
     logger,
   };

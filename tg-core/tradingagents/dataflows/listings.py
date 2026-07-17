@@ -23,6 +23,13 @@ _SUFFIX_TO_EXCHANGE = {
     ".TWO": "TPEX",
 }
 _EXCHANGE_TO_SUFFIX = {exchange: suffix for suffix, exchange in _SUFFIX_TO_EXCHANGE.items()}
+_EXCHANGE_ALIASES = {
+    "SHE": "SZSE",
+    "SHA": "SSE",
+    "TYO": "TSE",
+    "JPX": "TSE",
+    "ROCO": "TPEX",
+}
 _US_EXCHANGES = frozenset({"NASDAQ", "NYSE", "AMEX"})
 
 
@@ -39,6 +46,13 @@ class ListingRef:
         if self.exchange is not None:
             result["exchange"] = self.exchange
         return result
+
+    @property
+    def provider_symbol(self) -> str | None:
+        """Exchange-qualified symbol used by providers such as TradingView."""
+        if self.exchange is None:
+            return None
+        return f"{self.exchange}:{self.symbol}"
 
 
 def resolve_listing(ticker: str) -> ListingRef:
@@ -77,6 +91,8 @@ def listing_from_parts(
         raise ValueError(f"invalid exchange: {exchange!r}")
     if not _SYMBOL_RE.fullmatch(normalized_symbol) or set(normalized_symbol) == {"."}:
         raise ValueError(f"invalid listing symbol: {symbol!r}")
+
+    normalized_exchange = _EXCHANGE_ALIASES.get(normalized_exchange, normalized_exchange)
 
     if normalized_exchange == "HKEX":
         if not normalized_symbol.isdigit():

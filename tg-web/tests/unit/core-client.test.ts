@@ -72,4 +72,39 @@ describe('CoreClient', () => {
       ),
     );
   });
+
+  it('resolves listings through the Core listings API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ticker: '300750.SZ',
+          exchange: 'SZSE',
+          symbol: '300750',
+          display_ticker: '300750.SZ',
+          provider_symbol: 'SZSE:300750',
+        }),
+      ),
+    );
+    const client = new CoreClient(
+      new URL('https://core.example.test'),
+      'server-secret',
+      fetchMock,
+    );
+
+    await expect(client.resolveListing('300750.SZ')).resolves.toEqual({
+      ticker: '300750.SZ',
+      exchange: 'SZSE',
+      symbol: '300750',
+      display_ticker: '300750.SZ',
+      provider_symbol: 'SZSE:300750',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://core.example.test/api/v1/listings/resolve?ticker=300750.SZ',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer server-secret',
+        }),
+      }),
+    );
+  });
 });
