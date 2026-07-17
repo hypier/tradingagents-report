@@ -35,6 +35,7 @@ export type AnalysisDetail = AnalysisJob & {
 
 export type MarketSnapshot = {
   ticker: string;
+  display_ticker?: string;
   display_name?: string;
   logo_url?: string;
   last_price?: number;
@@ -46,6 +47,7 @@ export type MarketSnapshot = {
 
 export type AssetIdentity = {
   ticker: string;
+  display_ticker?: string;
   display_name: string;
   logo_url?: string;
 };

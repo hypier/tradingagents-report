@@ -22,11 +22,12 @@ it('marks the Core sentiment step as in progress', () => {
     />,
   );
 
-  expect(within(container).getAllByText('Complete')).toHaveLength(3);
-  expect(within(container).getByText('In progress')).toHaveAttribute(
-    'data-variant',
-    'info',
-  );
+  expect(
+    within(container).getAllByLabelText(/: Complete$/),
+  ).toHaveLength(3);
+  expect(
+    within(container).getByLabelText('Sentiment: In progress'),
+  ).toHaveAttribute('data-stage-status', 'In progress');
 });
 
 it('shows the most recent Core evidence event', () => {
@@ -70,9 +71,9 @@ it('marks every stage complete when Core reports success', () => {
     />,
   );
 
-  const completeStages = within(container).getAllByText('Complete');
+  const completeStages = within(container).getAllByLabelText(/: Complete$/);
   expect(completeStages).toHaveLength(8);
   completeStages.forEach((stage) =>
-    expect(stage).toHaveAttribute('data-variant', 'default'),
+    expect(stage).toHaveAttribute('data-stage-status', 'Complete'),
   );
 });

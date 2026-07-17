@@ -1,24 +1,29 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Play } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  LineChart,
+  Play,
+  Search,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
 import { PipelinePanel } from '../components/dashboard/pipeline-panel';
 import { RecentReports } from '../components/dashboard/recent-reports';
+import {
+  analystLabels,
+  getAnalystIcon,
+  Languages,
+  Workflow,
+} from '../components/icons/research-icons';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import {
   Field,
   FieldGroup,
@@ -36,6 +41,8 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
+import { cn } from '../lib/utils';
+import { formatDisplayTicker } from '@/shared/display-ticker';
 import {
   createResearch,
   getMarketIdentities,
@@ -61,7 +68,7 @@ const outputLanguageOptions = [
 
 function marketMoveVariant(changePercent?: number) {
   if (changePercent === undefined || changePercent === 0) return 'outline';
-  return changePercent > 0 ? 'default' : 'destructive';
+  return changePercent > 0 ? 'up' : 'down';
 }
 
 export function HomePage() {
@@ -123,6 +130,9 @@ export function HomePage() {
   );
   const selectedOutputLanguage =
     outputLanguage === 'custom' ? customLanguage.trim() : outputLanguage;
+  const changePercent = quote?.change_percent;
+  const isUp = changePercent !== undefined && changePercent > 0;
+  const isDown = changePercent !== undefined && changePercent < 0;
 
   function submit() {
     if (ticker && analysts.length && selectedOutputLanguage) {
@@ -139,26 +149,44 @@ export function HomePage() {
     <AppShell>
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-            <div className="px-4 lg:px-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Launch research</CardTitle>
-                  <CardDescription>
-                    Configure a sequential multi-agent research run.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-6">
+          <div className="flex flex-col gap-5 py-4 md:gap-6 md:py-6">
+            <section className="px-4 lg:px-6">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+                  <Workflow className="size-5" />
+                </span>
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs font-medium tracking-[0.16em] text-primary uppercase">
+                    Research desk
+                  </p>
+                  <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                    Run multi-agent analysis
+                  </h2>
+                  <p className="max-w-2xl text-sm text-muted-foreground">
+                    Pick a ticker, choose the analyst team, and follow the
+                    sequential research pipeline through to a report.
+                  </p>
+                </div>
+              </div>
+
+              <Card className="overflow-hidden border-primary/10 bg-card/90 shadow-sm ring-1 ring-primary/10">
+                <CardContent className="grid gap-0 p-0 @3xl/main:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.8fr)]">
                   <form
-                    className="flex flex-col gap-6"
+                    className="flex flex-col gap-5 p-5 md:p-6"
                     onSubmit={(event) => {
                       event.preventDefault();
                       submit();
                     }}
                   >
-                    <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(180px,1fr)_minmax(180px,0.6fr)_auto]">
+                    <FieldGroup className="grid gap-4 @3xl/main:grid-cols-[minmax(160px,1fr)_minmax(160px,0.85fr)_auto]">
                       <Field>
-                        <FieldLabel htmlFor="ticker">Ticker</FieldLabel>
+                        <FieldLabel
+                          htmlFor="ticker"
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <Search className="size-3.5 text-muted-foreground" />
+                          Ticker
+                        </FieldLabel>
                         <Input
                           id="ticker"
                           value={ticker}
@@ -166,10 +194,15 @@ export function HomePage() {
                             setTicker(event.target.value.toUpperCase())
                           }
                           placeholder="AAPL"
+                          className="font-mono text-base tracking-wide uppercase"
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="output-language">
+                        <FieldLabel
+                          htmlFor="output-language"
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <Languages className="size-3.5 text-muted-foreground" />
                           Report language
                         </FieldLabel>
                         <Select
@@ -198,6 +231,8 @@ export function HomePage() {
                       <Field className="justify-end">
                         <Button
                           type="submit"
+                          size="lg"
+                          className="w-full @3xl/main:w-auto"
                           disabled={
                             !ticker ||
                             !analysts.length ||
@@ -214,6 +249,7 @@ export function HomePage() {
                         </Button>
                       </Field>
                     </FieldGroup>
+
                     {outputLanguage === 'custom' && (
                       <Field>
                         <FieldLabel htmlFor="custom-language">
@@ -230,8 +266,12 @@ export function HomePage() {
                         />
                       </Field>
                     )}
+
                     <Field>
-                      <FieldTitle id="analyst-team-label">
+                      <FieldTitle
+                        id="analyst-team-label"
+                        className="inline-flex items-center gap-1.5"
+                      >
                         Analyst team
                       </FieldTitle>
                       <ToggleGroup
@@ -243,13 +283,22 @@ export function HomePage() {
                         value={analysts}
                         onValueChange={setAnalysts}
                       >
-                        {analystOptions.map((analyst) => (
-                          <ToggleGroupItem key={analyst} value={analyst}>
-                            {analyst === 'social' ? 'Sentiment' : analyst}
-                          </ToggleGroupItem>
-                        ))}
+                        {analystOptions.map((analyst) => {
+                          const Icon = getAnalystIcon(analyst);
+                          return (
+                            <ToggleGroupItem
+                              key={analyst}
+                              value={analyst}
+                              className="gap-1.5 capitalize"
+                            >
+                              <Icon className="size-3.5" />
+                              {analystLabels[analyst] ?? analyst}
+                            </ToggleGroupItem>
+                          );
+                        })}
                       </ToggleGroup>
                     </Field>
+
                     {create.isError && (
                       <Alert variant="destructive">
                         <AlertTitle>Unable to submit this run</AlertTitle>
@@ -259,82 +308,154 @@ export function HomePage() {
                       </Alert>
                     )}
                   </form>
+
+                  <aside className="flex flex-col border-t bg-muted/20 p-4 md:p-5 @3xl/main:border-t-0 @3xl/main:border-l">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <p className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                        <LineChart className="size-3.5 text-primary" />
+                        Market snapshot
+                      </p>
+                      <Badge variant="outline" className="gap-1.5 text-[10px]">
+                        <span
+                          className={cn(
+                            'size-1.5 rounded-full',
+                            quote
+                              ? isDown
+                                ? 'bg-market-down'
+                                : 'bg-market-up'
+                              : 'bg-muted-foreground/50',
+                          )}
+                        />
+                        Live
+                      </Badge>
+                    </div>
+
+                    {snapshot.isLoading ? (
+                      <Skeleton className="min-h-44 w-full flex-1 rounded-xl" />
+                    ) : quote ? (
+                      <div
+                        className={cn(
+                          'flex flex-1 flex-col justify-between gap-5 rounded-xl border bg-card p-4 shadow-sm ring-1',
+                          isUp &&
+                            'border-market-up/25 ring-market-up/10 bg-linear-to-b from-market-up-bg/80 to-card',
+                          isDown &&
+                            'border-market-down/25 ring-market-down/10 bg-linear-to-b from-market-down-bg/80 to-card',
+                          !isUp &&
+                            !isDown &&
+                            'border-border/80 ring-foreground/5',
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Avatar
+                            size="lg"
+                            className="size-12 rounded-xl after:rounded-xl"
+                            data-logo-url={
+                              quote.logo_url ??
+                              identitiesByTicker[quote.ticker]?.logo_url
+                            }
+                          >
+                            <AvatarImage
+                              className="rounded-xl"
+                              src={
+                                quote.logo_url ??
+                                identitiesByTicker[quote.ticker]?.logo_url
+                              }
+                              alt={`${quote.display_name ?? quote.ticker} logo`}
+                            />
+                            <AvatarFallback className="rounded-xl text-base font-semibold">
+                              {quote.ticker.slice(0, 1)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <p className="truncate text-base font-semibold tracking-tight">
+                              {quote.display_name ?? quote.ticker}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <Badge
+                                variant="secondary"
+                                className="rounded-md px-1.5 font-mono text-[11px] tracking-wider"
+                              >
+                                {quote.display_ticker ??
+                                  identitiesByTicker[quote.ticker]
+                                    ?.display_ticker ??
+                                  formatDisplayTicker(quote.ticker)}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                              Last price
+                            </p>
+                            <p
+                              className={cn(
+                                'mt-1 flex items-baseline gap-1.5 font-mono leading-none font-semibold tracking-tight tabular-nums',
+                                isUp && 'text-market-up',
+                                isDown && 'text-market-down',
+                              )}
+                            >
+                              <span className="text-4xl">
+                                {quote.last_price?.toLocaleString()}
+                              </span>
+                              {quote.currency ? (
+                                <span className="text-sm font-medium text-muted-foreground">
+                                  {quote.currency}
+                                </span>
+                              ) : null}
+                            </p>
+                          </div>
+
+                          <Badge
+                            variant={marketMoveVariant(changePercent)}
+                            className="h-8 gap-1 rounded-lg px-2.5 text-sm font-semibold tabular-nums"
+                          >
+                            {isUp ? (
+                              <ArrowUpRight className="size-4" />
+                            ) : null}
+                            {isDown ? (
+                              <ArrowDownRight className="size-4" />
+                            ) : null}
+                            {changePercent === undefined
+                              ? 'Change unavailable'
+                              : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`}
+                          </Badge>
+                        </div>
+
+                        <p className="border-t border-border/60 pt-3 text-[11px] leading-relaxed text-muted-foreground">
+                          {quote.source ?? 'TradingView'}
+                          {quote.as_of
+                            ? ` · ${new Date(quote.as_of).toLocaleString()}`
+                            : ''}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex min-h-44 flex-1 flex-col items-start justify-center gap-2 rounded-xl border border-dashed bg-card/60 px-4 py-6">
+                        <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                          <Search className="size-4" />
+                        </span>
+                        <p className="text-sm font-medium">No quote loaded</p>
+                        <p className="text-xs text-muted-foreground">
+                          Enter a ticker to preview the latest snapshot before
+                          running analysis.
+                        </p>
+                      </div>
+                    )}
+                  </aside>
                 </CardContent>
               </Card>
-            </div>
+            </section>
 
-            <div className="grid gap-4 px-4 @5xl/main:grid-cols-[minmax(0,1fr)_320px] lg:px-6">
+            <section className="px-4 lg:px-6">
               <PipelinePanel
                 job={active}
                 events={events.data?.data}
                 loading={events.isLoading}
               />
-              <Card>
-                <CardHeader>
-                  <CardTitle>Market snapshot</CardTitle>
-                  <CardDescription>Read-only quote</CardDescription>
-                  <CardAction>
-                    <Badge>Latest quote</Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent>
-                  {snapshot.isLoading ? (
-                    <Skeleton className="h-24 w-full" />
-                  ) : quote ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          data-logo-url={
-                            quote.logo_url ??
-                            identitiesByTicker[quote.ticker]?.logo_url
-                          }
-                        >
-                          <AvatarImage
-                            src={
-                              quote.logo_url ??
-                              identitiesByTicker[quote.ticker]?.logo_url
-                            }
-                            alt={`${quote.display_name ?? quote.ticker} logo`}
-                          />
-                          <AvatarFallback>
-                            {quote.ticker.slice(0, 1)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-semibold">
-                            {quote.display_name ?? quote.ticker}
-                          </p>
-                          <p className="font-mono text-xs text-muted-foreground">
-                            {quote.ticker}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-3xl font-semibold tabular-nums">
-                        {quote.currency ?? ''}{' '}
-                        {quote.last_price?.toLocaleString()}
-                      </p>
-                      <Badge variant={marketMoveVariant(quote.change_percent)}>
-                        {quote.change_percent === undefined
-                          ? 'Change unavailable'
-                          : `${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%`}
-                      </Badge>
-                      <p className="text-xs text-muted-foreground">
-                        {quote.source ?? 'TradingView'}{' '}
-                        {quote.as_of
-                          ? `as of ${new Date(quote.as_of).toLocaleString()}`
-                          : ''}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Enter a ticker to retrieve the latest available snapshot.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+            </section>
 
-            <div className="px-4 lg:px-6">
+            <section id="reports" className="scroll-mt-6 px-4 lg:px-6">
               <RecentReports
                 jobs={jobs.data?.data ?? []}
                 loading={jobs.isLoading}
@@ -342,7 +463,7 @@ export function HomePage() {
                 identities={identitiesByTicker}
                 onOpenReport={(id) => navigate(`/reports/${id}`)}
               />
-            </div>
+            </section>
           </div>
         </div>
       </div>

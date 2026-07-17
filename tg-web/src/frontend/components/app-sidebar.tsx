@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Activity, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { FileText, LayoutDashboard, Shield } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
+import { BrandMark } from '@/frontend/components/icons/research-icons';
 import {
   Sidebar,
   SidebarContent,
@@ -16,10 +17,13 @@ import {
 } from '@/frontend/components/ui/sidebar';
 
 const navigation = [
-  { title: 'Research', icon: Activity, active: true, href: '/' },
+  { title: 'Desk', icon: LayoutDashboard, href: '/' },
+  { title: 'Reports', icon: FileText, href: '/#reports' },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const location = useLocation();
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -31,8 +35,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <Link to="/">
-                <Sparkles />
-                <span className="text-base font-semibold">TradingAgents</span>
+                <BrandMark className="size-8 text-primary" />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold tracking-tight">
+                    TradingAgents
+                  </span>
+                  <span className="text-[11px] font-normal text-muted-foreground">
+                    Multi-agent research
+                  </span>
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -47,7 +58,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={item.active}
+                    isActive={
+                      item.title === 'Desk' && location.pathname === '/'
+                    }
                     tooltip={item.title}
                   >
                     <Link to={item.href}>
@@ -62,9 +75,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <p className="px-2 text-xs leading-relaxed text-sidebar-foreground/70">
-          Research workflows are informational and do not place trades.
-        </p>
+        <div className="rounded-lg border bg-sidebar-accent/40 px-3 py-2.5">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-sidebar-foreground/90">
+            <Shield className="size-3.5 text-primary" />
+            Research only
+          </div>
+          <p className="text-[11px] leading-relaxed text-sidebar-foreground/75">
+            Outputs are informational and do not place trades.
+          </p>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

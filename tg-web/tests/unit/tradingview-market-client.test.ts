@@ -1,6 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { TradingViewMarketClient } from '../../src/backend/market-assets/tradingview-market-client';
+import {
+  parseListingTicker,
+  toTradingViewSymbol,
+} from '../../src/shared/display-ticker';
+
+describe('parseListingTicker / toTradingViewSymbol', () => {
+  it('maps Yahoo suffixes to TradingView EXCHANGE:SYMBOL', () => {
+    expect(toTradingViewSymbol('300750.SZ')).toBe('SZSE:300750');
+    expect(toTradingViewSymbol('600519.SS')).toBe('SSE:600519');
+    expect(toTradingViewSymbol('0700.HK')).toBe('HKEX:700');
+    expect(toTradingViewSymbol('700.HK')).toBe('HKEX:700');
+    expect(toTradingViewSymbol('7203.T')).toBe('TSE:7203');
+    expect(toTradingViewSymbol('AAPL')).toBeNull();
+    expect(toTradingViewSymbol('SZSE:300750')).toBe('SZSE:300750');
+  });
+
+  it('builds search queries without Yahoo suffixes', () => {
+    expect(parseListingTicker('300750.SZ').searchQuery).toBe('300750');
+    expect(parseListingTicker('0700.HK').searchQuery).toBe('700');
+  });
+});
 
 describe('TradingViewMarketClient', () => {
   it('builds a market snapshot from the resolved TradingView listing', async () => {
@@ -44,6 +65,7 @@ describe('TradingViewMarketClient', () => {
 
     await expect(client.getSnapshot('700')).resolves.toEqual({
       ticker: '700',
+      display_ticker: '0700.HK',
       display_name: 'Tencent Holdings Ltd.',
       logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
       last_price: 481.8,
@@ -52,8 +74,77 @@ describe('TradingViewMarketClient', () => {
       as_of: '2026-07-16T01:30:00.000Z',
       source: 'tradingview',
     });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://tradingview-data1.p.rapidapi.com/api/search/market/700?filter=stock',
+      expect.anything(),
+    );
     expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://tradingview-data1.p.rapidapi.com/api/quote/HKEX:700?session=regular&fields=all',
+      'https://tradingview-data1.p.rapidapi.com/api/quote/HKEX%3A700?session=regular&fields=all',
+      expect.anything(),
+    );
+  });
+
+  it('resolves Yahoo-suffixed tickers via bare-symbol search and exchange filter', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              markets: [
+                {
+                  symbol: '300750',
+                  full_name: 'SZSE:300750',
+                  description: 'Contemporary Amperex Technology Co Ltd',
+                  is_primary_listing: true,
+                  logo: { style: 'single', logoid: 'catl' },
+                },
+                {
+                  symbol: '300750',
+                  full_name: 'SSE:300750',
+                  description: 'Wrong exchange decoy',
+                  is_primary_listing: false,
+                },
+              ],
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              symbol: 'SZSE:300750',
+              data: {
+                lp: 180.2,
+                chp: -1.2,
+                currency_code: 'CNY',
+                lp_time: 1784165400,
+              },
+            },
+          }),
+        ),
+      );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.getSnapshot('300750.SZ')).resolves.toMatchObject({
+      ticker: '300750.SZ',
+      display_ticker: '300750.SZ',
+      display_name: 'Contemporary Amperex Technology Co Ltd',
+      last_price: 180.2,
+      currency: 'CNY',
+      source: 'tradingview',
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://tradingview-data1.p.rapidapi.com/api/search/market/300750?filter=stock',
+      expect.anything(),
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://tradingview-data1.p.rapidapi.com/api/quote/SZSE%3A300750?session=regular&fields=all',
       expect.anything(),
     );
   });
@@ -82,6 +173,7 @@ describe('TradingViewMarketClient', () => {
     await expect(client.getIdentities(['700'])).resolves.toEqual([
       {
         ticker: '700',
+        display_ticker: '0700.HK',
         display_name: 'Tencent Holdings Ltd.',
         logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
       },
@@ -102,7 +194,7 @@ describe('TradingViewMarketClient', () => {
     const client = new TradingViewMarketClient(undefined, fetchMock);
 
     await expect(client.getIdentities(['AAPL'])).resolves.toEqual([
-      { ticker: 'AAPL', display_name: 'AAPL' },
+      { ticker: 'AAPL', display_ticker: 'AAPL', display_name: 'AAPL' },
     ]);
     expect(fetchMock).not.toHaveBeenCalled();
   });

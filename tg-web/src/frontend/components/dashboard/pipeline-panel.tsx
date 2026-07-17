@@ -1,4 +1,9 @@
-import { Clock3 } from 'lucide-react';
+import {
+  Check,
+  CircleDashed,
+  LoaderCircle,
+  ScrollText,
+} from 'lucide-react';
 
 import { Badge } from '../ui/badge';
 import {
@@ -18,19 +23,20 @@ import {
 } from '../ui/empty';
 import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
-import { Separator } from '../ui/separator';
 import { Skeleton } from '../ui/skeleton';
+import { getStageIcon, Workflow } from '../icons/research-icons';
+import { cn } from '@/frontend/lib/utils';
 import type { AnalysisEvent, AnalysisJob } from '../../lib/research';
 
 const stageLabels: Record<string, string> = {
-  market: 'Market analyst',
-  fundamentals: 'Fundamentals analyst',
-  news: 'News analyst',
-  social: 'Sentiment analyst',
-  research_debate: 'Research debate',
-  trader: 'Trader assessment',
-  risk_review: 'Risk review',
-  final_synthesis: 'Final synthesis',
+  market: 'Market',
+  fundamentals: 'Fundamentals',
+  news: 'News',
+  social: 'Sentiment',
+  research_debate: 'Debate',
+  trader: 'Trader',
+  risk_review: 'Risk',
+  final_synthesis: 'Synthesis',
 };
 const analystStages = ['market', 'fundamentals', 'news', 'social'];
 const finalStages = [
@@ -43,7 +49,7 @@ const finalStages = [
 function displayStage(value?: string | null) {
   return value
     ? (stageLabels[value] ?? value.replaceAll('_', ' '))
-    : 'Awaiting a research run';
+    : 'Waiting for a run';
 }
 
 function stageFromProgressMessage(value?: string | null) {
@@ -78,13 +84,17 @@ export function PipelinePanel({
   const stages = [...(job?.analysts ?? analystStages), ...finalStages];
   const activeStage = stageFromProgressMessage(job?.current_step);
   const activeIndex = activeStage ? stages.indexOf(activeStage) : -1;
+  const CurrentStageIcon = getStageIcon(activeStage ?? 'market');
 
   return (
-    <Card aria-labelledby="pipeline-title">
-      <CardHeader>
-        <CardDescription>Live research</CardDescription>
+    <Card aria-labelledby="pipeline-title" className="@container/card">
+      <CardHeader className="border-b">
+        <CardDescription className="inline-flex items-center gap-1.5">
+          <Workflow className="size-3.5" />
+          Live pipeline
+        </CardDescription>
         <CardTitle>
-          <h2 id="pipeline-title">Sequential agent activity</h2>
+          <h2 id="pipeline-title">Agent activity</h2>
         </CardTitle>
         <CardAction>
           <Badge variant={jobStatusVariant(job?.status)} className="capitalize">
@@ -92,49 +102,105 @@ export function PipelinePanel({
           </Badge>
         </CardAction>
       </CardHeader>
-      <CardContent className="grid gap-6 @4xl/card:grid-cols-[minmax(0,1fr)_minmax(220px,.75fr)]">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">
-              {displayStage(job?.current_step)}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">
+      <CardContent className="grid gap-6 pt-1 @4xl/card:grid-cols-[minmax(0,1.2fr)_minmax(220px,.8fr)]">
+        <div className="flex flex-col gap-5">
+          <div className="flex items-end justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <CurrentStageIcon className="size-4" />
+              </span>
+              <div>
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Current stage
+                </p>
+                <p className="mt-1 text-base font-medium">
+                  {displayStage(activeStage ?? job?.current_step)}
+                </p>
+              </div>
+            </div>
+            <span className="font-mono text-sm tabular-nums text-muted-foreground">
               {job?.progress_percent ?? 0}%
             </span>
           </div>
-          <Progress value={job?.progress_percent ?? 0} />
-          <div className="rounded-lg border">
+          <Progress value={job?.progress_percent ?? 0} className="h-1.5" />
+
+          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {stages.map((stage, index) => {
               const current =
                 index === activeIndex && job?.status === 'running';
               const complete =
                 activeIndex > index || job?.status === 'succeeded';
+              const statusLabel = complete
+                ? 'Complete'
+                : current
+                  ? 'In progress'
+                  : 'Pending';
+              const StageIcon = getStageIcon(stage);
               return (
-                <div key={stage}>
-                  {index > 0 && <Separator />}
-                  <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                    <span className="flex-1">{displayStage(stage)}</span>
-                    <Badge
-                      variant={
-                        current ? 'info' : complete ? 'default' : 'outline'
-                      }
+                <li
+                  key={stage}
+                  aria-label={`${displayStage(stage)}: ${statusLabel}`}
+                  data-stage-status={statusLabel}
+                  className={cn(
+                    'relative flex min-h-20 flex-col justify-between rounded-lg border px-3 py-2.5 transition-colors',
+                    complete && 'border-primary/30 bg-primary/5',
+                    current &&
+                      'border-primary bg-primary/10 shadow-[0_0_0_1px] shadow-primary/20',
+                    !complete && !current && 'bg-muted/20',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={cn(
+                        'flex size-6 items-center justify-center rounded-md',
+                        complete || current
+                          ? 'bg-primary/15 text-primary'
+                          : 'bg-muted text-muted-foreground',
+                      )}
                     >
-                      {complete
-                        ? 'Complete'
-                        : current
-                          ? 'In progress'
-                          : 'Pending'}
-                    </Badge>
+                      <StageIcon className="size-3.5" aria-hidden="true" />
+                    </span>
+                    {complete ? (
+                      <Check
+                        className="size-3.5 text-primary"
+                        aria-hidden="true"
+                      />
+                    ) : current ? (
+                      <LoaderCircle
+                        className="size-3.5 animate-spin text-primary"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <CircleDashed
+                        className="size-3.5 text-muted-foreground/60"
+                        aria-hidden="true"
+                      />
+                    )}
                   </div>
-                </div>
+                  <div className="flex items-end justify-between gap-2">
+                    <span className="text-xs font-medium leading-snug">
+                      {displayStage(stage)}
+                    </span>
+                    <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <span className="sr-only">{statusLabel}</span>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </div>
-        <div className="rounded-lg border bg-muted/30 p-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Clock3 />
-            Latest evidence
+
+        <div className="rounded-xl border bg-muted/25 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="inline-flex items-center gap-1.5 text-sm font-medium">
+              <ScrollText className="size-3.5 text-muted-foreground" />
+              Event log
+            </p>
+            <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+              Latest
+            </span>
           </div>
           {loading ? (
             <div className="mt-4 flex flex-col gap-3">
@@ -144,12 +210,16 @@ export function PipelinePanel({
             </div>
           ) : events?.length ? (
             <ScrollArea className="mt-4 h-56">
-              <ol className="flex flex-col gap-3 pr-4 text-xs leading-5 text-muted-foreground">
+              <ol className="flex flex-col gap-3 border-l border-border/80 pl-3 pr-3">
                 {events
                   .slice(-6)
                   .reverse()
                   .map((event, index) => (
-                    <li key={`${event.time ?? 'event'}-${index}`}>
+                    <li
+                      key={`${event.time ?? 'event'}-${index}`}
+                      className="relative text-xs leading-5 text-muted-foreground"
+                    >
+                      <span className="absolute top-1.5 -left-[17px] size-1.5 rounded-full bg-primary/70" />
                       {event.message ?? 'Stage update received.'}
                     </li>
                   ))}
@@ -159,11 +229,11 @@ export function PipelinePanel({
             <Empty className="min-h-48 p-4">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <Clock3 />
+                  <ScrollText />
                 </EmptyMedia>
-                <EmptyTitle>No evidence yet</EmptyTitle>
+                <EmptyTitle>No events yet</EmptyTitle>
                 <EmptyDescription>
-                  Stage evidence will appear here while Core processes the run.
+                  Stage updates appear here while the run is processing.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

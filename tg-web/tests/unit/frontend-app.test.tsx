@@ -23,12 +23,12 @@ it('renders the research command dashboard', () => {
     </MemoryRouter>,
   );
 
-  expect(screen.getByRole('main')).toHaveTextContent('Research command');
+  expect(screen.getByRole('main')).toHaveTextContent('Research desk');
   expect(
-    screen.getByRole('heading', { name: 'Sequential agent activity' }),
+    screen.getByRole('heading', { name: 'Agent activity' }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole('heading', { name: 'Recent research reports' }),
+    screen.getByRole('heading', { name: 'Recent reports' }),
   ).toBeInTheDocument();
 });
 
@@ -43,14 +43,11 @@ it('renders the standard dashboard navigation shell', () => {
     screen.getAllByRole('button', { name: 'Toggle Sidebar' }),
   ).not.toHaveLength(0);
   expect(
-    screen.queryByRole('button', { name: 'Reports' }),
-  ).not.toBeInTheDocument();
-  expect(
     screen.queryByRole('button', { name: 'Settings' }),
   ).not.toBeInTheDocument();
-  const researchLinks = screen.getAllByRole('link', { name: 'Research' });
-  expect(researchLinks).not.toHaveLength(0);
-  expect(researchLinks.every((link) => link.getAttribute('href') === '/')).toBe(
+  const deskLinks = screen.getAllByRole('link', { name: 'Desk' });
+  expect(deskLinks).not.toHaveLength(0);
+  expect(deskLinks.every((link) => link.getAttribute('href') === '/')).toBe(
     true,
   );
   const submitButtons = screen.getAllByRole('button', { name: 'Run analysis' });
@@ -66,9 +63,11 @@ it('does not expose unsupported research configuration controls', () => {
     </MemoryRouter>,
   );
 
-  expect(screen.queryByText('Market', { exact: true })).not.toBeInTheDocument();
   expect(
     screen.queryByText('Research depth', { exact: true }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByLabelText('Market', { exact: true }),
   ).not.toBeInTheDocument();
 });
 

@@ -20,7 +20,15 @@ import {
   TabsList,
   TabsTrigger,
 } from '../components/ui/tabs';
+import { getAnalystIcon, getStageIcon } from '../components/icons/research-icons';
 import { getResearch } from '../lib/research';
+
+function reportTabIcon(key: string) {
+  if (key in { market: 1, fundamentals: 1, news: 1, social: 1 }) {
+    return getAnalystIcon(key);
+  }
+  return getStageIcon(key);
+}
 
 export function ReportPage() {
   const { id } = useParams();
@@ -30,36 +38,53 @@ export function ReportPage() {
     queryFn: () => getResearch(id!),
     enabled: Boolean(id),
   });
-  const entries = Object.entries(detail.data?.data.reports ?? {});
+  const job = detail.data?.data;
+  const entries = Object.entries(job?.reports ?? {});
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col px-4 py-6 lg:px-6">
         <div className="flex w-full flex-1 flex-col">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5">
-            <div className="flex items-start gap-3">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Back to research dashboard"
-                onClick={() => navigate('/')}
-              >
-                <ArrowLeft />
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">Research report</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {detail.data?.data.ticker
-                    ? `Analysis for ${detail.data.data.ticker}`
-                    : 'Report content returned by the Core analysis job.'}
-                </p>
+          <div className="rounded-xl border bg-card/90 p-5 shadow-sm ring-1 ring-foreground/5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Back to research dashboard"
+                    onClick={() => navigate('/')}
+                  >
+                    <ArrowLeft />
+                  </Button>
+                  <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <FileText className="size-4" />
+                  </span>
+                  <div>
+                    <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
+                      Research report
+                    </h1>
+                    <p className="mt-1 font-mono text-sm font-medium tracking-wide text-foreground/90">
+                      {job?.ticker
+                        ? job.decision
+                          ? `${job.ticker} · ${job.decision}`
+                          : `Analysis for ${job.ticker}`
+                        : 'Report content returned by the Core analysis job.'}
+                    </p>
+                  </div>
+                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {job?.status ? (
+                  <Badge variant="outline" className="capitalize">
+                    {job.status}
+                  </Badge>
+                ) : null}
+                {job?.cost_usd != null ? (
+                  <Badge variant="secondary" className="font-mono tabular-nums">
+                    ${job.cost_usd.toFixed(4)}
+                  </Badge>
+                ) : null}
               </div>
             </div>
-            {detail.data?.data.status && (
-              <Badge variant="outline" className="capitalize">
-                {detail.data.data.status}
-              </Badge>
-            )}
           </div>
 
           {!id ? (
@@ -83,16 +108,26 @@ export function ReportPage() {
                 variant="line"
                 className="h-auto w-full flex-wrap justify-start"
               >
-                {entries.map(([key]) => (
-                  <TabsTrigger key={key} value={key} className="capitalize">
-                    {key.replaceAll('_', ' ')}
-                  </TabsTrigger>
-                ))}
+                {entries.map(([key]) => {
+                  const Icon = reportTabIcon(key);
+                  return (
+                    <TabsTrigger
+                      key={key}
+                      value={key}
+                      className="gap-1.5 capitalize"
+                    >
+                      <Icon className="size-3.5" />
+                      {key.replaceAll('_', ' ')}
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
               {entries.map(([key, value]) => (
                 <TabsContent key={key} value={key} className="mt-6">
-                  <article className="min-h-[60dvh] min-w-0 overflow-hidden pb-12 text-sm">
-                    <MarkdownReport value={value} />
+                  <article className="min-h-[60dvh] min-w-0 overflow-hidden rounded-xl border bg-card/80 px-5 py-6 md:px-8 md:py-8">
+                    <div className="mx-auto max-w-3xl text-[15px]">
+                      <MarkdownReport value={value} />
+                    </div>
                   </article>
                 </TabsContent>
               ))}

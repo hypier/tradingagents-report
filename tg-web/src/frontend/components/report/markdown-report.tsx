@@ -21,19 +21,23 @@ export function MarkdownReport({ value }: { value: unknown }) {
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
-          <h1 className="mt-8 mb-4 text-2xl font-semibold first:mt-0">
+          <h1 className="mt-8 mb-4 text-2xl font-semibold tracking-tight first:mt-0">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="mt-8 mb-3 text-xl font-semibold first:mt-0">
+          <h2 className="mt-8 mb-3 text-xl font-semibold tracking-tight first:mt-0">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="mt-6 mb-2 text-lg font-semibold">{children}</h3>
+          <h3 className="mt-6 mb-2 text-lg font-semibold tracking-tight">
+            {children}
+          </h3>
         ),
-        p: ({ children }) => <p className="my-4 leading-7">{children}</p>,
+        p: ({ children }) => (
+          <p className="my-4 leading-7 text-foreground/90">{children}</p>
+        ),
         a: ({ children, href }) => (
           <a
             className="text-primary underline underline-offset-4"

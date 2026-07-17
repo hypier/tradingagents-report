@@ -44,7 +44,7 @@ vi.mock('../../src/frontend/lib/research', () => ({
   listResearch: vi.fn().mockResolvedValue({ data: [], requestId: 'request-1' }),
 }));
 
-it('uses the primary badge variant for a positive market move', async () => {
+it('uses the up badge variant for a positive market move', async () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -71,6 +71,6 @@ it('uses the primary badge variant for a positive market move', async () => {
   );
   expect(await screen.findByText('+1.20%')).toHaveAttribute(
     'data-variant',
-    'default',
+    'up',
   );
 });

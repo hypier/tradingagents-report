@@ -104,3 +104,29 @@ it('shows a TradingView asset logo before the ticker when available', () => {
     'https://tv-logo.tradingviewapi.com/logo/apple.svg',
   );
 });
+
+it('renders Yahoo-style display tickers for multi-market instruments', () => {
+  render(
+    <TooltipProvider>
+      <RecentReports
+        jobs={[
+          { id: 'job-hk', ticker: '700', status: 'succeeded' },
+          { id: 'job-sz', ticker: '300750.SZ', status: 'succeeded' },
+        ]}
+        identities={{
+          '700': {
+            ticker: '700',
+            display_ticker: '0700.HK',
+            display_name: 'Tencent Holdings Ltd',
+          },
+        }}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(screen.getByText('0700.HK')).toBeInTheDocument();
+  expect(screen.getByText('300750.SZ')).toBeInTheDocument();
+});

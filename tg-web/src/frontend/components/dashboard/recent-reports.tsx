@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { ClipboardList, FileText } from 'lucide-react';
 
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -21,7 +21,17 @@ import {
   TableRow,
 } from '../ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { formatDisplayTicker } from '@/shared/display-ticker';
 import type { AnalysisJob, AssetIdentity } from '../../lib/research';
+
+function instrumentTicker(
+  job: AnalysisJob,
+  identities: Record<string, AssetIdentity>,
+) {
+  return (
+    identities[job.ticker]?.display_ticker ?? formatDisplayTicker(job.ticker)
+  );
+}
 
 function formatDate(value?: string | null) {
   return value
@@ -54,19 +64,24 @@ export function RecentReports({
 }) {
   return (
     <Card aria-labelledby="reports-title">
-      <CardHeader>
-        <CardTitle>
-          <h2 id="reports-title">Recent research reports</h2>
+      <CardHeader className="border-b">
+        <CardTitle className="inline-flex items-center gap-2">
+          <ClipboardList className="size-4 text-primary" />
+          <h2 id="reports-title">Recent reports</h2>
         </CardTitle>
-        <CardDescription>Completed and active research runs.</CardDescription>
+        <CardDescription>
+          Completed and in-progress research runs.
+        </CardDescription>
         <CardAction>
-          <Badge variant="outline">{jobs.length} runs</Badge>
+          <Badge variant="outline" className="font-mono tabular-nums">
+            {jobs.length} runs
+          </Badge>
         </CardAction>
       </CardHeader>
       <CardContent className="px-0">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               <TableHead className="pl-6">Instrument</TableHead>
               <TableHead>Team</TableHead>
               <TableHead>Status</TableHead>
@@ -94,9 +109,13 @@ export function RecentReports({
               </TableRow>
             ) : jobs.length ? (
               jobs.map((job) => (
-                <TableRow key={job.id}>
+                <TableRow
+                  key={job.id}
+                  className="cursor-pointer"
+                  onClick={() => onOpenReport(job.id)}
+                >
                   <TableCell className="pl-6">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <Avatar
                         size="sm"
                         data-logo-url={identities[job.ticker]?.logo_url}
@@ -110,14 +129,16 @@ export function RecentReports({
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{job.ticker}</div>
+                        <div className="font-mono text-sm font-medium tracking-wide">
+                          {instrumentTicker(job, identities)}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           {job.decision ?? 'No conclusion yet'}
                         </div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-48 truncate text-xs text-muted-foreground">
+                  <TableCell className="max-w-48 truncate text-xs text-muted-foreground capitalize">
                     {job.analysts?.join(', ') || 'Configured team'}
                   </TableCell>
                   <TableCell>
@@ -128,7 +149,7 @@ export function RecentReports({
                       {job.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
                     {formatDate(job.updated_at ?? job.created_at)}
                   </TableCell>
                   <TableCell className="pr-6 text-right">
@@ -138,7 +159,10 @@ export function RecentReports({
                           variant="ghost"
                           size="icon-sm"
                           aria-label={`View report for ${job.ticker}`}
-                          onClick={() => onOpenReport(job.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenReport(job.id);
+                          }}
                         >
                           <FileText />
                         </Button>
@@ -154,7 +178,7 @@ export function RecentReports({
               <TableRow>
                 <TableCell
                   colSpan={5}
-                  className="h-24 text-center text-muted-foreground"
+                  className="h-28 text-center text-muted-foreground"
                 >
                   Start a research run to build your report library.
                 </TableCell>

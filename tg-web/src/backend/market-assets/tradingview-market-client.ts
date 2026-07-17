@@ -1,9 +1,15 @@
+import {
+  formatDisplayTicker,
+  parseListingTicker,
+} from '../../shared/display-ticker';
+
 const API_HOST = 'tradingview-data1.p.rapidapi.com';
 const API_BASE_URL = `https://${API_HOST}`;
 const LOGO_BASE_URL = 'https://tv-logo.tradingviewapi.com/logo';
 
 export type MarketAssetIdentity = {
   ticker: string;
+  display_ticker: string;
   display_name: string;
   logo_url?: string;
 };
@@ -57,7 +63,7 @@ export class TradingViewMarketClient implements MarketAssetClient {
     }
 
     const response = await this.request(
-      `/api/quote/${symbol}?session=regular&fields=all`,
+      `/api/quote/${encodeURIComponent(symbol)}?session=regular&fields=all`,
     );
     if (!response.ok) throw new Error('TradingView quote request failed');
     const quote = readQuote(await response.json());
@@ -70,9 +76,11 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const description = stringValue(market.description);
     const logoid = stringValue(market.logo?.logoid);
     const quoteTime = numberValue(quote?.lp_time);
+    const displayTicker = formatDisplayTicker(normalizedTicker, symbol);
     return {
       ticker: normalizedTicker,
-      display_name: description || normalizedTicker,
+      display_ticker: displayTicker,
+      display_name: description || displayTicker,
       ...(logoid
         ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
         : {}),
@@ -88,9 +96,11 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
   private async getIdentity(ticker: string): Promise<MarketAssetIdentity> {
     const normalizedTicker = ticker.trim().toUpperCase();
+    const displayTicker = formatDisplayTicker(normalizedTicker);
     const fallback = {
       ticker: normalizedTicker,
-      display_name: normalizedTicker,
+      display_ticker: displayTicker,
+      display_name: displayTicker,
     };
     if (!this.apiKey || !normalizedTicker) return fallback;
 
@@ -99,9 +109,14 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
     const description = stringValue(market.description);
     const logoid = stringValue(market.logo?.logoid);
+    const resolvedDisplay = formatDisplayTicker(
+      normalizedTicker,
+      stringValue(market.full_name),
+    );
     return {
       ticker: normalizedTicker,
-      display_name: description || normalizedTicker,
+      display_ticker: resolvedDisplay,
+      display_name: description || resolvedDisplay,
       ...(logoid
         ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
         : {}),
@@ -109,13 +124,30 @@ export class TradingViewMarketClient implements MarketAssetClient {
   }
 
   private async findMarket(ticker: string): Promise<MarketRecord | undefined> {
+    const listing = parseListingTicker(ticker);
+    if (!listing.searchQuery) return undefined;
+
     try {
+      // Search with bare symbol (300750), not Yahoo suffix (300750.SZ).
       const response = await this.request(
-        `/api/search/market/${encodeURIComponent(ticker)}?filter=stock`,
+        `/api/search/market/${encodeURIComponent(listing.searchQuery)}?filter=stock`,
       );
-      return response.ok
-        ? selectMarket(await response.json(), ticker)
-        : undefined;
+      if (!response.ok) return undefined;
+      const selected = selectMarket(await response.json(), listing);
+      if (selected) return selected;
+
+      // Fallback: some providers resolve better with EXCHANGE:SYMBOL.
+      if (
+        listing.tradingViewSymbol &&
+        listing.tradingViewSymbol !== listing.searchQuery
+      ) {
+        const tvResponse = await this.request(
+          `/api/search/market/${encodeURIComponent(listing.tradingViewSymbol)}?filter=stock`,
+        );
+        if (!tvResponse.ok) return undefined;
+        return selectMarket(await tvResponse.json(), listing);
+      }
+      return undefined;
     } catch {
       return undefined;
     }
@@ -136,14 +168,38 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
 function selectMarket(
   payload: unknown,
-  ticker: string,
+  listing: ReturnType<typeof parseListingTicker>,
 ): MarketRecord | undefined {
   const markets = readMarkets(payload);
-  const symbols = tickerSymbols(ticker);
-  const matches = markets.filter((market) =>
+  const symbols = tickerSymbols(listing.symbol);
+  const matches = markets.filter((market) => {
+    const marketSymbol = stringValue(market.symbol).toUpperCase();
+    const fullName = stringValue(market.full_name).toUpperCase();
+    const symbolMatch =
+      symbols.has(marketSymbol) ||
+      (listing.tradingViewSymbol !== null &&
+        fullName === listing.tradingViewSymbol);
+    if (!symbolMatch) return false;
+    if (!listing.exchange) return true;
+    const marketExchange = fullName.includes(':')
+      ? fullName.split(':', 2)[0]
+      : '';
+    return marketExchange === listing.exchange;
+  });
+
+  if (matches.length) {
+    return matches.sort(
+      (left, right) =>
+        Number(Boolean(right.is_primary_listing)) -
+        Number(Boolean(left.is_primary_listing)),
+    )[0];
+  }
+
+  // If exchange filter emptied the set, fall back to symbol-only primary match.
+  const symbolOnly = markets.filter((market) =>
     symbols.has(stringValue(market.symbol).toUpperCase()),
   );
-  return matches.sort(
+  return symbolOnly.sort(
     (left, right) =>
       Number(Boolean(right.is_primary_listing)) -
       Number(Boolean(left.is_primary_listing)),
@@ -169,11 +225,10 @@ function readQuote(payload: unknown): Record<string, unknown> | undefined {
   return payload.data.data;
 }
 
-function tickerSymbols(ticker: string): Set<string> {
-  const rawSymbol = ticker.includes(':') ? ticker.split(':', 2)[1] : ticker;
-  const symbol = rawSymbol.replace(/\.(HK|SS|SZ|T|TW|TWO)$/u, '');
-  const symbols = new Set([symbol]);
-  if (/^\d+$/u.test(symbol)) symbols.add(String(Number(symbol)));
+function tickerSymbols(symbol: string): Set<string> {
+  const normalized = symbol.trim().toUpperCase();
+  const symbols = new Set([normalized]);
+  if (/^\d+$/u.test(normalized)) symbols.add(String(Number(normalized)));
   return symbols;
 }
 
