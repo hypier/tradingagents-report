@@ -154,20 +154,20 @@ export function HomePage() {
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-5 py-4 md:gap-6 md:py-6">
             <section className="px-4 lg:px-6">
-              <div className="mb-4 flex items-start gap-3">
-                <span className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
                   <Workflow className="size-5" />
                 </span>
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs font-medium tracking-[0.16em] text-primary uppercase">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
                     Research desk
                   </p>
-                  <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
                     Run multi-agent analysis
                   </h2>
-                  <p className="max-w-2xl text-sm text-muted-foreground">
-                    Pick a ticker, choose the analyst team, and follow the
-                    sequential research pipeline through to a report.
+                  <p className="max-w-xl text-sm text-muted-foreground">
+                    Pick a ticker, choose the team, and follow the research
+                    pipeline to a report.
                   </p>
                 </div>
               </div>

@@ -142,49 +142,47 @@ export function PipelinePanel({
                   aria-label={`${displayStage(stage)}: ${statusLabel}`}
                   data-stage-status={statusLabel}
                   className={cn(
-                    'relative flex min-h-20 flex-col justify-between rounded-lg border px-3 py-2.5 transition-colors',
+                    'relative flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors',
                     complete && 'border-primary/30 bg-primary/5',
                     current &&
                       'border-primary bg-primary/10 shadow-[0_0_0_1px] shadow-primary/20',
                     !complete && !current && 'bg-muted/20',
                   )}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={cn(
-                        'flex size-6 items-center justify-center rounded-md',
-                        complete || current
-                          ? 'bg-primary/15 text-primary'
-                          : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      <StageIcon className="size-3.5" aria-hidden="true" />
-                    </span>
-                    {complete ? (
-                      <Check
-                        className="size-3.5 text-primary"
-                        aria-hidden="true"
-                      />
-                    ) : current ? (
-                      <LoaderCircle
-                        className="size-3.5 animate-spin text-primary"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <CircleDashed
-                        className="size-3.5 text-muted-foreground/60"
-                        aria-hidden="true"
-                      />
+                  <span
+                    className={cn(
+                      'flex size-10 shrink-0 items-center justify-center rounded-lg',
+                      complete || current
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted text-muted-foreground',
                     )}
-                  </div>
-                  <div className="flex items-end justify-between gap-2">
-                    <span className="text-xs font-medium leading-snug">
+                  >
+                    <StageIcon className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-medium leading-snug text-foreground">
                       {displayStage(stage)}
-                    </span>
-                    <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                    </p>
+                    <p className="mt-0.5 font-mono text-xs tracking-wider text-muted-foreground uppercase">
                       {String(index + 1).padStart(2, '0')}
-                    </span>
+                    </p>
                   </div>
+                  {complete ? (
+                    <Check
+                      className="size-3.5 shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                  ) : current ? (
+                    <LoaderCircle
+                      className="size-3.5 shrink-0 animate-spin text-primary"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <CircleDashed
+                      className="size-3.5 shrink-0 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="sr-only">{statusLabel}</span>
                 </li>
               );

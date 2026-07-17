@@ -23,11 +23,11 @@ export function SiteHeader({
             <Activity className="size-3.5" />
           </span>
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold tracking-tight">
+            <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
               {title}
             </h1>
             {subtitle ? (
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-sm text-muted-foreground">
                 {subtitle}
               </p>
             ) : null}
