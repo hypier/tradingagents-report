@@ -103,12 +103,13 @@ async function read<T>(
 }
 
 export const listResearch = (
-  params: { limit?: number; offset?: number } = {},
+  params: { limit?: number; offset?: number; status?: AnalysisStatus } = {},
   fetchImplementation?: FetchImplementation,
 ) => {
   const search = new URLSearchParams();
   if (params.limit !== undefined) search.set('limit', String(params.limit));
   if (params.offset !== undefined) search.set('offset', String(params.offset));
+  if (params.status !== undefined) search.set('status', params.status);
 
   return read<AnalysisJob[]>(
     `/api/analyses${search.size ? `?${search}` : ''}`,

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 
-import { createResearch } from '../../src/frontend/lib/research';
+import { createResearch, listResearch } from '../../src/frontend/lib/research';
 
 it('sends the selected report language as a Core config override', async () => {
   let body = '';
@@ -34,4 +34,21 @@ it('sends the selected report language as a Core config override', async () => {
     ticker: 'AAPL',
     tradeDate: '2026-07-16',
   });
+});
+
+it('passes the report status filter to the analysis list endpoint', async () => {
+  let path = '';
+  const fetchImplementation = async (input: RequestInfo | URL) => {
+    path = String(input);
+    return new Response(JSON.stringify({ data: [], requestId: 'request-1' }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await listResearch(
+    { limit: 50, offset: 100, status: 'succeeded' },
+    fetchImplementation,
+  );
+
+  expect(path).toBe('/api/analyses?limit=50&offset=100&status=succeeded');
 });

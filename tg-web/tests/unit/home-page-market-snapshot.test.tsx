@@ -79,7 +79,11 @@ it('uses the up badge variant for a positive market move', async () => {
   fireEvent.change(screen.getByRole('combobox', { name: 'Instrument' }), {
     target: { value: 'AAPL' },
   });
-  fireEvent.click(await screen.findByRole('option', { name: /Apple Inc\./i }));
+  const option = await screen.findByRole('option', { name: /Apple Inc\./i });
+  fireEvent.mouseEnter(option);
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Instrument' }), {
+    key: 'Enter',
+  });
 
   expect(await screen.findByText('+1.20%')).toHaveAttribute(
     'data-variant',

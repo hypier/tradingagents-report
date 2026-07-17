@@ -115,6 +115,9 @@ it('renders the complete report library inside the dashboard shell', () => {
   expect(
     within(container).getByRole('heading', { name: 'Report library' }),
   ).toBeInTheDocument();
+  expect(
+    within(container).getByRole('combobox', { name: 'Status' }),
+  ).toHaveTextContent('All statuses');
   const reportLinks = within(container).getAllByRole('link', {
     name: 'Reports',
   });

@@ -1,21 +1,47 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { FileText, LoaderCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { ReportsTable } from '../components/dashboard/recent-reports';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Spinner } from '../components/ui/spinner';
-import { getMarketIdentities, listResearch } from '../lib/research';
+import {
+  getMarketIdentities,
+  listResearch,
+  type AnalysisStatus,
+} from '../lib/research';
 
 const pageSize = 50;
+const statusOptions: Array<{ label: string; value: AnalysisStatus | 'all' }> = [
+  { label: 'All statuses', value: 'all' },
+  { label: 'Queued', value: 'queued' },
+  { label: 'Running', value: 'running' },
+  { label: 'Succeeded', value: 'succeeded' },
+  { label: 'Failed', value: 'failed' },
+];
 
 export function ReportsPage() {
   const navigate = useNavigate();
+  const [status, setStatus] = useState<AnalysisStatus | 'all'>('all');
+  const statusFilter = status === 'all' ? undefined : status;
   const reports = useInfiniteQuery({
-    queryKey: ['report-library'],
+    queryKey: ['report-library', statusFilter],
     queryFn: ({ pageParam }) =>
-      listResearch({ limit: pageSize, offset: pageParam }),
+      listResearch({
+        limit: pageSize,
+        offset: pageParam,
+        status: statusFilter,
+      }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) =>
       lastPage.data.length === pageSize
@@ -56,6 +82,36 @@ export function ReportsPage() {
                   it is ready.
                 </p>
               </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span
+                id="report-status-filter-label"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Status
+              </span>
+              <Select
+                value={status}
+                onValueChange={(value) =>
+                  setStatus(value as AnalysisStatus | 'all')
+                }
+              >
+                <SelectTrigger
+                  aria-labelledby="report-status-filter-label"
+                  className="w-40"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {statusOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
           </section>
 
