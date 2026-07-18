@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
@@ -51,6 +52,7 @@ export function TickerSearch({
   onChange,
   className,
 }: TickerSearchProps) {
+  const { t } = useTranslation('search');
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputWrapRef = useRef<HTMLDivElement>(null);
@@ -190,11 +192,11 @@ export function TickerSearch({
             {search.isLoading ? (
               <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
                 <Spinner className="size-4" />
-                Searching…
+                {t('searching')}
               </div>
             ) : hits.length === 0 ? (
               <p className="px-3 py-3 text-sm text-muted-foreground">
-                No matching stocks
+                {t('noMatches')}
               </p>
             ) : (
               hits.map((hit, index) => {
@@ -268,7 +270,7 @@ export function TickerSearch({
             if (!value) setOpen(true);
           }}
           onKeyDown={onInputKeyDown}
-          placeholder="Search AAPL, 0700.HK, Tencent…"
+          placeholder={t('placeholder')}
           className="pr-9 pl-9 font-mono text-base tracking-wide"
           autoComplete="off"
         />
@@ -278,7 +280,7 @@ export function TickerSearch({
             variant="ghost"
             size="icon-sm"
             className="absolute top-1/2 right-1.5 size-7 -translate-y-1/2 text-muted-foreground"
-            aria-label="Clear ticker"
+            aria-label={t('clear')}
             onClick={clearSelection}
           >
             <X className="size-3.5" />

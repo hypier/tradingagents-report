@@ -7,6 +7,7 @@ import {
   Play,
   Search,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -14,7 +15,6 @@ import { AppShell } from '../components/app-shell';
 import { PipelinePanel } from '../components/dashboard/pipeline-panel';
 import { RecentReports } from '../components/dashboard/recent-reports';
 import {
-  analystLabels,
   getAnalystIcon,
   Languages,
   Workflow,
@@ -43,6 +43,10 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
+import {
+  formatLocaleDateTimeValue,
+  formatLocaleNumber,
+} from '../lib/format-locale';
 import { cn } from '../lib/utils';
 import { formatDisplayTicker } from '@/shared/listing';
 import {
@@ -75,6 +79,7 @@ function marketMoveVariant(changePercent?: number) {
 }
 
 export function HomePage() {
+  const { t } = useTranslation(['home', 'common']);
   const [instrument, setInstrument] = useState<SelectedInstrument | null>(null);
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [outputLanguage, setOutputLanguage] = useState('English');
@@ -121,7 +126,7 @@ export function HomePage() {
       createResearch(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['analyses'] });
-      toast.success('Research run submitted.');
+      toast.success(t('submit.toastSuccess'));
     },
   });
   const quote = snapshot.data?.data;
@@ -169,14 +174,13 @@ export function HomePage() {
                 </span>
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
-                    Research desk
+                    {t('eyebrow')}
                   </p>
                   <h2 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                    Run multi-agent analysis
+                    {t('title')}
                   </h2>
                   <p className="max-w-xl text-sm text-muted-foreground">
-                    Pick a ticker, choose the team, and follow the research
-                    pipeline to a report.
+                    {t('subtitle')}
                   </p>
                 </div>
               </div>
@@ -196,7 +200,7 @@ export function HomePage() {
                         className="inline-flex items-center gap-1.5"
                       >
                         <Search className="size-3.5 text-muted-foreground" />
-                        Instrument
+                        {t('instrument.label')}
                       </FieldLabel>
                       <TickerSearch
                         id="ticker"
@@ -205,7 +209,7 @@ export function HomePage() {
                       />
                       {!instrument ? (
                         <FieldDescription>
-                          Search and select a listing to confirm the instrument.
+                          {t('instrument.hint')}
                         </FieldDescription>
                       ) : null}
                     </Field>
@@ -217,7 +221,7 @@ export function HomePage() {
                           className="inline-flex items-center gap-1.5"
                         >
                           <Languages className="size-3.5 text-muted-foreground" />
-                          Report language
+                          {t('reportLanguage.label')}
                         </FieldLabel>
                         <Select
                           value={outputLanguage}
@@ -225,7 +229,7 @@ export function HomePage() {
                         >
                           <SelectTrigger
                             id="output-language"
-                            aria-label="Report language"
+                            aria-label={t('reportLanguage.label')}
                             className="w-full"
                           >
                             <SelectValue />
@@ -237,7 +241,7 @@ export function HomePage() {
                               </SelectItem>
                             ))}
                             <SelectItem value="custom">
-                              Custom language
+                              {t('reportLanguage.custom')}
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -248,7 +252,7 @@ export function HomePage() {
                           id="analyst-team-label"
                           className="inline-flex items-center gap-1.5"
                         >
-                          Analyst team
+                          {t('analystTeam')}
                         </FieldTitle>
                         <ToggleGroup
                           type="multiple"
@@ -265,10 +269,12 @@ export function HomePage() {
                               <ToggleGroupItem
                                 key={analyst}
                                 value={analyst}
-                                className="gap-1.5 capitalize"
+                                className="gap-1.5"
                               >
                                 <Icon className="size-3.5" />
-                                {analystLabels[analyst] ?? analyst}
+                                {t(`common:analysts.${analyst}`, {
+                                  defaultValue: analyst,
+                                })}
                               </ToggleGroupItem>
                             );
                           })}
@@ -279,7 +285,7 @@ export function HomePage() {
                     {outputLanguage === 'custom' && (
                       <Field>
                         <FieldLabel htmlFor="custom-language">
-                          Custom language
+                          {t('reportLanguage.custom')}
                         </FieldLabel>
                         <Input
                           id="custom-language"
@@ -287,7 +293,7 @@ export function HomePage() {
                           onChange={(event) =>
                             setCustomLanguage(event.target.value)
                           }
-                          placeholder="Turkish"
+                          placeholder={t('reportLanguage.customPlaceholder')}
                           required
                         />
                       </Field>
@@ -295,9 +301,9 @@ export function HomePage() {
 
                     {create.isError && (
                       <Alert variant="destructive">
-                        <AlertTitle>Unable to submit this run</AlertTitle>
+                        <AlertTitle>{t('submit.errorTitle')}</AlertTitle>
                         <AlertDescription>
-                          Check the service connection and retry.
+                          {t('submit.errorBody')}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -319,7 +325,9 @@ export function HomePage() {
                         ) : (
                           <Play data-icon="inline-start" />
                         )}
-                        {create.isPending ? 'Submitting...' : 'Run analysis'}
+                        {create.isPending
+                          ? t('submit.submitting')
+                          : t('submit.run')}
                       </Button>
                     </div>
                   </form>
@@ -328,7 +336,7 @@ export function HomePage() {
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <p className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
                         <LineChart className="size-3.5 text-primary" />
-                        Market snapshot
+                        {t('snapshot.title')}
                       </p>
                       <Badge variant="outline" className="gap-1.5 text-[10px]">
                         <span
@@ -341,7 +349,7 @@ export function HomePage() {
                               : 'bg-muted-foreground/50',
                           )}
                         />
-                        Live
+                        {t('snapshot.live')}
                       </Badge>
                     </div>
 
@@ -375,7 +383,9 @@ export function HomePage() {
                                 quote.logo_url ??
                                 identitiesByTicker[quote.ticker]?.logo_url
                               }
-                              alt={`${quote.display_name ?? quote.ticker} logo`}
+                              alt={t('snapshot.logoAlt', {
+                                name: quote.display_name ?? quote.ticker,
+                              })}
                             />
                             <AvatarFallback className="rounded-xl text-base font-semibold">
                               {quote.ticker.slice(0, 1)}
@@ -402,7 +412,7 @@ export function HomePage() {
                         <div className="space-y-3">
                           <div>
                             <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                              Last price
+                              {t('snapshot.lastPrice')}
                             </p>
                             <p
                               className={cn(
@@ -412,7 +422,9 @@ export function HomePage() {
                               )}
                             >
                               <span className="text-4xl">
-                                {quote.last_price?.toLocaleString()}
+                                {quote.last_price !== undefined
+                                  ? formatLocaleNumber(quote.last_price)
+                                  : null}
                               </span>
                               {quote.currency ? (
                                 <span className="text-sm font-medium text-muted-foreground">
@@ -433,7 +445,7 @@ export function HomePage() {
                               <ArrowDownRight className="size-4" />
                             ) : null}
                             {changePercent === undefined
-                              ? 'Change unavailable'
+                              ? t('snapshot.changeUnavailable')
                               : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`}
                           </Badge>
                         </div>
@@ -441,7 +453,7 @@ export function HomePage() {
                         <p className="border-t border-border/60 pt-3 text-[11px] leading-relaxed text-muted-foreground">
                           {quote.source ?? 'TradingView'}
                           {quote.as_of
-                            ? ` · ${new Date(quote.as_of).toLocaleString()}`
+                            ? ` · ${formatLocaleDateTimeValue(quote.as_of)}`
                             : ''}
                         </p>
                       </div>
@@ -450,10 +462,11 @@ export function HomePage() {
                         <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                           <Search className="size-4" />
                         </span>
-                        <p className="text-sm font-medium">No quote loaded</p>
+                        <p className="text-sm font-medium">
+                          {t('snapshot.emptyTitle')}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Search and select a stock to preview the latest
-                          snapshot before running analysis.
+                          {t('snapshot.emptyBody')}
                         </p>
                       </div>
                     )}

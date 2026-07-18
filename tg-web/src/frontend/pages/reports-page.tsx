@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FileText, LoaderCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { ReportsTable } from '../components/dashboard/recent-reports';
@@ -22,15 +23,16 @@ import {
 } from '../lib/research';
 
 const pageSize = 50;
-const statusOptions: Array<{ label: string; value: AnalysisStatus | 'all' }> = [
-  { label: 'All statuses', value: 'all' },
-  { label: 'Queued', value: 'queued' },
-  { label: 'Running', value: 'running' },
-  { label: 'Succeeded', value: 'succeeded' },
-  { label: 'Failed', value: 'failed' },
+const statusValues: Array<AnalysisStatus | 'all'> = [
+  'all',
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
 ];
 
 export function ReportsPage() {
+  const { t } = useTranslation(['reports', 'common']);
   const navigate = useNavigate();
   const [status, setStatus] = useState<AnalysisStatus | 'all'>('all');
   const statusFilter = status === 'all' ? undefined : status;
@@ -72,14 +74,13 @@ export function ReportsPage() {
               </span>
               <div className="flex flex-col gap-1">
                 <p className="text-xs font-medium tracking-[0.16em] text-primary uppercase">
-                  Research library
+                  {t('eyebrow')}
                 </p>
                 <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                  All reports
+                  {t('title')}
                 </h1>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                  Browse every submitted research run and open its report when
-                  it is ready.
+                  {t('subtitle')}
                 </p>
               </div>
             </div>
@@ -88,7 +89,7 @@ export function ReportsPage() {
                 id="report-status-filter-label"
                 className="text-xs font-medium text-muted-foreground"
               >
-                Status
+                {t('statusFilter')}
               </span>
               <Select
                 value={status}
@@ -104,9 +105,11 @@ export function ReportsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {statusOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                    {statusValues.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value === 'all'
+                          ? t('common:status.all')
+                          : t(`common:status.${value}`)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -121,18 +124,15 @@ export function ReportsPage() {
             error={reports.isError && jobs.length === 0}
             identities={identitiesByTicker}
             onOpenReport={(id) => navigate(`/reports/${id}`)}
-            title="Report library"
-            description="Your complete research history."
+            title={t('library.title')}
+            description={t('library.description')}
             titleId="report-library-title"
           />
 
           {reports.isError && jobs.length > 0 ? (
             <Alert variant="destructive">
-              <AlertTitle>More reports could not be loaded</AlertTitle>
-              <AlertDescription>
-                Your loaded reports are still available. Try again to continue
-                the history.
-              </AlertDescription>
+              <AlertTitle>{t('loadMoreErrorTitle')}</AlertTitle>
+              <AlertDescription>{t('loadMoreErrorBody')}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -149,8 +149,8 @@ export function ReportsPage() {
                   <LoaderCircle data-icon="inline-start" />
                 )}
                 {reports.isFetchingNextPage
-                  ? 'Loading reports...'
-                  : 'Load more reports'}
+                  ? t('loadingMore')
+                  : t('loadMore')}
               </Button>
             </div>
           ) : null}

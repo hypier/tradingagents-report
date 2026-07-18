@@ -1,4 +1,5 @@
 import { ClipboardList, FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -21,6 +22,7 @@ import {
   TableRow,
 } from '../ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { formatLocaleDateTime } from '@/frontend/lib/format-locale';
 import { formatDisplayTicker } from '@/shared/listing';
 import type { AnalysisJob, AssetIdentity } from '../../lib/research';
 
@@ -45,15 +47,6 @@ function instrumentLogo(
   identities: Record<string, AssetIdentity>,
 ) {
   return job.display?.logo_url ?? identities[job.ticker]?.logo_url;
-}
-
-function formatDate(value?: string | null) {
-  return value
-    ? new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(value))
-    : 'Not available';
 }
 
 function statusVariant(status: AnalysisJob['status']) {
@@ -84,6 +77,17 @@ export function ReportsTable({
   description,
   titleId,
 }: ReportsTableProps) {
+  const { t } = useTranslation(['reports', 'common']);
+
+  function formatAnalystTeam(analysts?: string[] | null) {
+    if (!analysts?.length) return t('table.configuredTeam');
+    return analysts
+      .map((analyst) =>
+        t(`common:analysts.${analyst}`, { defaultValue: analyst }),
+      )
+      .join(', ');
+  }
+
   return (
     <Card aria-labelledby={titleId}>
       <CardHeader className="border-b">
@@ -94,7 +98,7 @@ export function ReportsTable({
         <CardDescription>{description}</CardDescription>
         <CardAction>
           <Badge variant="outline" className="font-mono tabular-nums">
-            {jobs.length} runs
+            {t('table.runs', { count: jobs.length })}
           </Badge>
         </CardAction>
       </CardHeader>
@@ -102,11 +106,13 @@ export function ReportsTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="pl-6">Instrument</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead className="pr-6 text-right">Report</TableHead>
+              <TableHead className="pl-6">{t('table.instrument')}</TableHead>
+              <TableHead>{t('table.team')}</TableHead>
+              <TableHead>{t('table.status')}</TableHead>
+              <TableHead>{t('table.updated')}</TableHead>
+              <TableHead className="pr-6 text-right">
+                {t('table.report')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -124,7 +130,7 @@ export function ReportsTable({
                   colSpan={5}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Research history is temporarily unavailable.
+                  {t('table.unavailable')}
                 </TableCell>
               </TableRow>
             ) : jobs.length ? (
@@ -142,7 +148,7 @@ export function ReportsTable({
                       >
                         <AvatarImage
                           src={instrumentLogo(job, identities)}
-                          alt={`${job.ticker} logo`}
+                          alt={t('table.logoAlt', { ticker: job.ticker })}
                         />
                         <AvatarFallback>
                           {job.ticker.slice(0, 1)}
@@ -155,24 +161,26 @@ export function ReportsTable({
                         <div className="text-xs text-muted-foreground">
                           {instrumentName(job, identities) ??
                             job.decision ??
-                            'No conclusion yet'}
+                            t('table.noConclusion')}
                         </div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-48 truncate text-xs text-muted-foreground capitalize">
-                    {job.analysts?.join(', ') || 'Configured team'}
+                  <TableCell className="max-w-48 truncate text-xs text-muted-foreground">
+                    {formatAnalystTeam(job.analysts)}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={statusVariant(job.status)}
-                      className="capitalize"
-                    >
-                      {job.status}
+                    <Badge variant={statusVariant(job.status)}>
+                      {t(`common:status.${job.status}`, {
+                        defaultValue: job.status,
+                      })}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
-                    {formatDate(job.updated_at ?? job.created_at)}
+                    {formatLocaleDateTime(
+                      job.updated_at ?? job.created_at,
+                      t('table.notAvailable'),
+                    )}
                   </TableCell>
                   <TableCell className="pr-6 text-right">
                     <Tooltip>
@@ -180,7 +188,9 @@ export function ReportsTable({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label={`View report for ${job.ticker}`}
+                          aria-label={t('table.viewReportFor', {
+                            ticker: job.ticker,
+                          })}
                           onClick={(event) => {
                             event.stopPropagation();
                             onOpenReport(job.id);
@@ -190,7 +200,7 @@ export function ReportsTable({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="top" sideOffset={6}>
-                        View report
+                        {t('table.viewReport')}
                       </TooltipContent>
                     </Tooltip>
                   </TableCell>
@@ -202,7 +212,7 @@ export function ReportsTable({
                   colSpan={5}
                   className="h-28 text-center text-muted-foreground"
                 >
-                  Start a research run to build your report library.
+                  {t('table.empty')}
                 </TableCell>
               </TableRow>
             )}
@@ -216,11 +226,13 @@ export function ReportsTable({
 export function RecentReports(
   props: Omit<ReportsTableProps, 'title' | 'description' | 'titleId'>,
 ) {
+  const { t } = useTranslation('home');
+
   return (
     <ReportsTable
       {...props}
-      title="Recent reports"
-      description="Completed and in-progress research runs."
+      title={t('recent.title')}
+      description={t('recent.description')}
       titleId="reports-title"
     />
   );

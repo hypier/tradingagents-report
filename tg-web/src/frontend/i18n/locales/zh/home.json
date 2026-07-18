@@ -1,0 +1,69 @@
+{
+  "eyebrow": "研究台",
+  "title": "运行多智能体分析",
+  "subtitle": "选择标的与分析团队，跟踪研究流水线直至生成报告。",
+  "instrument": {
+    "label": "标的",
+    "hint": "搜索并选择上市标的以确认标的。"
+  },
+  "reportLanguage": {
+    "label": "报告语言",
+    "custom": "自定义语言",
+    "customPlaceholder": "Turkish"
+  },
+  "analystTeam": "分析师团队",
+  "submit": {
+    "run": "开始分析",
+    "submitting": "提交中...",
+    "errorTitle": "无法提交此次分析",
+    "errorBody": "请检查服务连接后重试。",
+    "toastSuccess": "分析任务已提交。"
+  },
+  "snapshot": {
+    "title": "市场快照",
+    "live": "实时",
+    "lastPrice": "最新价",
+    "changeUnavailable": "涨跌幅不可用",
+    "emptyTitle": "尚未加载行情",
+    "emptyBody": "搜索并选择股票，可在运行分析前预览最新快照。",
+    "logoAlt": "{{name}} 标志"
+  },
+  "pipeline": {
+    "eyebrow": "实时流水线",
+    "title": "智能体动态",
+    "currentStage": "当前阶段",
+    "eventLog": "事件日志",
+    "latest": "最新",
+    "stageUpdate": "已收到阶段更新。",
+    "noEventsTitle": "暂无事件",
+    "noEventsBody": "任务处理过程中，阶段更新会显示在这里。",
+    "complete": "已完成",
+    "inProgress": "进行中",
+    "pending": "待处理",
+    "stageStatus": "{{stage}}：{{status}}",
+    "events": {
+      "runningAnalystTeam": "正在运行分析师团队",
+      "runningActor": "正在运行{{actor}}",
+      "callingTool": "{{actor}}：正在调用 {{tool}}",
+      "actorCompleted": "{{actor}}已完成",
+      "runningResearchDebate": "正在进行研究辩论（{{count}}/{{max}}）",
+      "runningRiskDebate": "正在进行风险辩论（{{count}}/{{max}}）",
+      "starting": "开始分析",
+      "jobCompleted": "已完成",
+      "jobFailed": "失败",
+      "actors": {
+        "marketAnalyst": "市场分析师",
+        "sentimentAnalyst": "情绪分析师",
+        "newsAnalyst": "新闻分析师",
+        "fundamentalsAnalyst": "基本面分析师",
+        "trader": "交易员",
+        "portfolioManager": "组合经理",
+        "analystTeam": "分析师团队"
+      }
+    }
+  },
+  "recent": {
+    "title": "最近报告",
+    "description": "已完成与进行中的研究任务。"
+  }
+}

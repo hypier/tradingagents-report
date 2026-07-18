@@ -1,0 +1,69 @@
+{
+  "eyebrow": "Research desk",
+  "title": "Run multi-agent analysis",
+  "subtitle": "Pick a ticker, choose the team, and follow the research pipeline to a report.",
+  "instrument": {
+    "label": "Instrument",
+    "hint": "Search and select a listing to confirm the instrument."
+  },
+  "reportLanguage": {
+    "label": "Report language",
+    "custom": "Custom language",
+    "customPlaceholder": "Turkish"
+  },
+  "analystTeam": "Analyst team",
+  "submit": {
+    "run": "Run analysis",
+    "submitting": "Submitting...",
+    "errorTitle": "Unable to submit this run",
+    "errorBody": "Check the service connection and retry.",
+    "toastSuccess": "Research run submitted."
+  },
+  "snapshot": {
+    "title": "Market snapshot",
+    "live": "Live",
+    "lastPrice": "Last price",
+    "changeUnavailable": "Change unavailable",
+    "emptyTitle": "No quote loaded",
+    "emptyBody": "Search and select a stock to preview the latest snapshot before running analysis.",
+    "logoAlt": "{{name}} logo"
+  },
+  "pipeline": {
+    "eyebrow": "Live pipeline",
+    "title": "Agent activity",
+    "currentStage": "Current stage",
+    "eventLog": "Event log",
+    "latest": "Latest",
+    "stageUpdate": "Stage update received.",
+    "noEventsTitle": "No events yet",
+    "noEventsBody": "Stage updates appear here while the run is processing.",
+    "complete": "Complete",
+    "inProgress": "In progress",
+    "pending": "Pending",
+    "stageStatus": "{{stage}}: {{status}}",
+    "events": {
+      "runningAnalystTeam": "Running analyst team",
+      "runningActor": "Running {{actor}}",
+      "callingTool": "{{actor}}: calling {{tool}}",
+      "actorCompleted": "{{actor}} completed",
+      "runningResearchDebate": "Running research debate ({{count}}/{{max}})",
+      "runningRiskDebate": "Running risk debate ({{count}}/{{max}})",
+      "starting": "Starting analysis",
+      "jobCompleted": "Completed",
+      "jobFailed": "Failed",
+      "actors": {
+        "marketAnalyst": "Market Analyst",
+        "sentimentAnalyst": "Sentiment Analyst",
+        "newsAnalyst": "News Analyst",
+        "fundamentalsAnalyst": "Fundamentals Analyst",
+        "trader": "Trader",
+        "portfolioManager": "Portfolio Manager",
+        "analystTeam": "analyst team"
+      }
+    }
+  },
+  "recent": {
+    "title": "Recent reports",
+    "description": "Completed and in-progress research runs."
+  }
+}

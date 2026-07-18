@@ -1,0 +1,51 @@
+{
+  "eyebrow": "Research report",
+  "fallbackTitle": "Report",
+  "finalDecision": "Final decision · {{decision}}",
+  "analysisFor": "Analysis for {{ticker}}",
+  "fallbackSubtitle": "Report content returned by the Core analysis job.",
+  "backAria": "Back to research dashboard",
+  "logoAlt": "{{name}} logo",
+  "instrumentFallback": "Instrument",
+  "loadErrorTitle": "Unable to load report",
+  "missingId": "Report identifier is missing.",
+  "emptyTitle": "No completed report",
+  "emptyBody": "This job does not have report content yet.",
+  "tabs": {
+    "market_report": "Market",
+    "sentiment_report": "Sentiment",
+    "news_report": "News",
+    "fundamentals_report": "Fundamentals",
+    "research_team_decision": "Research Decision",
+    "trader_investment_plan": "Trader Plan",
+    "final_trade_decision": "Final Decision",
+    "bull_researcher": "Bull",
+    "bear_researcher": "Bear",
+    "risk_management_decision": "Risk Judge",
+    "risky_analyst": "Risky",
+    "safe_analyst": "Safe",
+    "neutral_analyst": "Neutral"
+  },
+  "reading": {
+    "openOptions": "Open reading options",
+    "closeOptions": "Close reading options",
+    "backToTop": "Back to top",
+    "fontSize": "Font size",
+    "decreaseFont": "Decrease report font size",
+    "increaseFont": "Increase report font size",
+    "paper": "Paper",
+    "background": "Background",
+    "paperColor": "Paper color {{label}}",
+    "backgroundColor": "Background color {{label}}",
+    "themes": {
+      "ivory": "Ivory",
+      "white": "White",
+      "linen": "Linen",
+      "mist": "Mist",
+      "slate": "Slate",
+      "stone": "Stone",
+      "sage": "Sage",
+      "sky": "Sky"
+    }
+  }
+}

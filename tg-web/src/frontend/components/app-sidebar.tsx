@@ -1,8 +1,10 @@
 import * as React from 'react';
 import { FileText, LayoutDashboard, Shield } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 
 import { BrandMark } from '@/frontend/components/icons/research-icons';
+import { LanguageSwitcher } from '@/frontend/components/language-switcher';
 import {
   Sidebar,
   SidebarContent,
@@ -17,12 +19,13 @@ import {
 } from '@/frontend/components/ui/sidebar';
 
 const navigation = [
-  { title: 'Desk', icon: LayoutDashboard, href: '/' },
-  { title: 'Reports', icon: FileText, href: '/reports' },
+  { titleKey: 'nav.desk' as const, icon: LayoutDashboard, href: '/' },
+  { titleKey: 'nav.reports' as const, icon: FileText, href: '/reports' },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
+  const { t } = useTranslation('common');
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -38,10 +41,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <BrandMark className="size-8 text-primary" />
                 <span className="flex flex-col gap-0.5">
                   <span className="text-sm font-semibold tracking-tight">
-                    TradingAgents
+                    {t('brand.name')}
                   </span>
                   <span className="text-[11px] font-normal text-muted-foreground">
-                    Multi-agent research
+                    {t('brand.tagline')}
                   </span>
                 </span>
               </Link>
@@ -51,35 +54,39 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupLabel>{t('nav.workspace')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.href}
-                    tooltip={item.title}
-                  >
-                    <Link to={item.href}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {navigation.map((item) => {
+                const title = t(item.titleKey);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.href}
+                      tooltip={title}
+                    >
+                      <Link to={item.href}>
+                        <item.icon />
+                        <span>{title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="gap-2">
+        <LanguageSwitcher className="px-1" />
         <div className="rounded-lg border bg-sidebar-accent/40 px-3 py-2.5">
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-sidebar-foreground/90">
             <Shield className="size-3.5 text-primary" />
-            Research only
+            {t('disclaimer.title')}
           </div>
           <p className="text-[11px] leading-relaxed text-sidebar-foreground/75">
-            Outputs are informational and do not place trades.
+            {t('disclaimer.body')}
           </p>
         </div>
       </SidebarFooter>

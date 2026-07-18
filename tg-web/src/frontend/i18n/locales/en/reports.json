@@ -1,0 +1,30 @@
+{
+  "eyebrow": "Research library",
+  "title": "All reports",
+  "subtitle": "Browse every submitted research run and open its report when it is ready.",
+  "statusFilter": "Status",
+  "library": {
+    "title": "Report library",
+    "description": "Your complete research history."
+  },
+  "loadMore": "Load more reports",
+  "loadingMore": "Loading reports...",
+  "loadMoreErrorTitle": "More reports could not be loaded",
+  "loadMoreErrorBody": "Your loaded reports are still available. Try again to continue the history.",
+  "table": {
+    "instrument": "Instrument",
+    "team": "Team",
+    "status": "Status",
+    "updated": "Updated",
+    "report": "Report",
+    "runs": "{{count}} runs",
+    "unavailable": "Research history is temporarily unavailable.",
+    "empty": "Start a research run to build your report library.",
+    "noConclusion": "No conclusion yet",
+    "configuredTeam": "Configured team",
+    "viewReport": "View report",
+    "viewReportFor": "View report for {{ticker}}",
+    "logoAlt": "{{ticker}} logo",
+    "notAvailable": "Not available"
+  }
+}

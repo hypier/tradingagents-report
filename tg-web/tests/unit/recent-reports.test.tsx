@@ -41,7 +41,7 @@ it('uses the destructive badge variant for failed research', () => {
     </TooltipProvider>,
   );
 
-  expect(screen.getByText('failed')).toHaveAttribute(
+  expect(screen.getByText('Failed')).toHaveAttribute(
     'data-variant',
     'destructive',
   );
@@ -59,7 +59,7 @@ it('uses the primary green badge variant for succeeded research', () => {
     </TooltipProvider>,
   );
 
-  expect(within(container).getByText('succeeded')).toHaveAttribute(
+  expect(within(container).getByText('Succeeded')).toHaveAttribute(
     'data-variant',
     'default',
   );
@@ -77,7 +77,7 @@ it('uses the blue info badge variant for running research', () => {
     </TooltipProvider>,
   );
 
-  expect(screen.getByText('running')).toHaveAttribute('data-variant', 'info');
+  expect(screen.getByText('Running')).toHaveAttribute('data-variant', 'info');
 });
 
 it('shows a TradingView asset logo before the ticker when available', () => {

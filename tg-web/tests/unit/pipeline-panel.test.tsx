@@ -30,31 +30,40 @@ it('marks the Core sentiment step as in progress', () => {
   ).toHaveAttribute('data-stage-status', 'In progress');
 });
 
-it('shows the most recent Core evidence event', () => {
+it('shows the full event history with timestamps in a scrollable log', () => {
   const { container } = render(
     <PipelinePanel
       events={[
         {
           kind: 'tool_call',
           message: 'Market Analyst: calling get_stock_data',
+          time: '2026-01-15T10:00:01+00:00',
         },
         {
           kind: 'tool_call',
           message: 'Market Analyst: calling get_indicators',
+          time: '2026-01-15T10:00:02+00:00',
         },
         { kind: 'stage', message: 'Running Fundamentals Analyst' },
         { kind: 'stage', message: 'Running News Analyst' },
         { kind: 'stage', message: 'Running Sentiment Analyst' },
         { kind: 'stage', message: 'Running research debate (0/2)' },
-        { kind: 'stage', message: 'Running Trader' },
+        {
+          kind: 'stage',
+          message: 'Running Trader',
+          time: '2026-01-15T10:05:00+00:00',
+        },
       ]}
     />,
   );
 
   expect(within(container).getByText('Running Trader')).toBeInTheDocument();
   expect(
-    within(container).queryByText('Market Analyst: calling get_stock_data'),
-  ).not.toBeInTheDocument();
+    within(container).getByText('Market Analyst: calling get_stock_data'),
+  ).toBeInTheDocument();
+  expect(
+    container.querySelector('time[datetime="2026-01-15T10:05:00+00:00"]'),
+  ).toBeInTheDocument();
 });
 
 it('marks every stage complete when Core reports success', () => {

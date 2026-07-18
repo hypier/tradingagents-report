@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { MarkdownReport } from '../components/report/markdown-report';
@@ -48,32 +49,6 @@ function formatFontSize(step: number) {
     Math.max(0, step),
   );
   return `${(1.05 * reportFontSteps[clamped]!).toFixed(2)}rem`;
-}
-
-const reportTabLabels: Record<string, string> = {
-  market_report: 'Market',
-  sentiment_report: 'Sentiment',
-  news_report: 'News',
-  fundamentals_report: 'Fundamentals',
-  research_team_decision: 'Research Decision',
-  trader_investment_plan: 'Trader Plan',
-  final_trade_decision: 'Final Decision',
-  bull_researcher: 'Bull',
-  bear_researcher: 'Bear',
-  risk_management_decision: 'Risk Judge',
-  risky_analyst: 'Risky',
-  safe_analyst: 'Safe',
-  neutral_analyst: 'Neutral',
-};
-
-function reportTabLabel(key: string) {
-  return (
-    reportTabLabels[key] ??
-    key
-      .replace(/_report$/u, '')
-      .replaceAll('_', ' ')
-      .replace(/\b\w/gu, (char) => char.toUpperCase())
-  );
 }
 
 function reportTabIcon(key: string) {
@@ -143,6 +118,7 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 export function ReportPage() {
+  const { t } = useTranslation(['report', 'common']);
   const { id } = useParams();
   const navigate = useNavigate();
   const detail = useQuery({
@@ -173,12 +149,22 @@ export function ReportPage() {
     reportDeskThemes[0].className;
   const decisionLabel = formatDecision(job?.decision);
   const identity = reportIdentity(job);
-  const title = identity.displayName ?? identity.ticker ?? 'Report';
+  const title =
+    identity.displayName ?? identity.ticker ?? t('fallbackTitle');
   const subtitle = decisionLabel
-    ? `Final decision · ${decisionLabel}`
+    ? t('finalDecision', { decision: decisionLabel })
     : identity.ticker
-      ? `Analysis for ${identity.ticker}`
-      : 'Report content returned by the Core analysis job.';
+      ? t('analysisFor', { ticker: identity.ticker })
+      : t('fallbackSubtitle');
+
+  function reportTabLabel(key: string) {
+    return t(`tabs.${key}`, {
+      defaultValue: key
+        .replace(/_report$/u, '')
+        .replaceAll('_', ' ')
+        .replace(/\b\w/gu, (char) => char.toUpperCase()),
+    });
+  }
 
   useEffect(() => {
     const preferences = loadReportReadingPreferences({
@@ -268,7 +254,7 @@ export function ReportPage() {
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Back to research dashboard"
+            aria-label={t('backAria')}
             className="shrink-0"
             onClick={() => navigate('/')}
           >
@@ -281,7 +267,12 @@ export function ReportPage() {
           >
             <AvatarImage
               src={identity.logoUrl ?? undefined}
-              alt={`${identity.displayName ?? identity.ticker ?? 'Instrument'} logo`}
+              alt={t('logoAlt', {
+                name:
+                  identity.displayName ??
+                  identity.ticker ??
+                  t('instrumentFallback'),
+              })}
               className="rounded-xl"
             />
             <AvatarFallback className="rounded-xl bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
@@ -290,7 +281,7 @@ export function ReportPage() {
           </Avatar>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
-              Research report
+              {t('eyebrow')}
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
@@ -302,8 +293,10 @@ export function ReportPage() {
                 </Badge>
               ) : null}
               {job?.status ? (
-                <Badge variant="outline" className="capitalize">
-                  {job.status}
+                <Badge variant="outline">
+                  {t(`common:status.${job.status}`, {
+                    defaultValue: job.status,
+                  })}
                 </Badge>
               ) : null}
             </div>
@@ -331,8 +324,8 @@ export function ReportPage() {
 
         {!id ? (
           <Alert variant="destructive">
-            <AlertTitle>Unable to load report</AlertTitle>
-            <AlertDescription>Report identifier is missing.</AlertDescription>
+            <AlertTitle>{t('loadErrorTitle')}</AlertTitle>
+            <AlertDescription>{t('missingId')}</AlertDescription>
           </Alert>
         ) : detail.isLoading ? (
           <div className="flex flex-col gap-4">
@@ -341,8 +334,8 @@ export function ReportPage() {
           </div>
         ) : detail.isError ? (
           <Alert variant="destructive">
-            <AlertTitle>Unable to load report</AlertTitle>
-            <AlertDescription>Please try again.</AlertDescription>
+            <AlertTitle>{t('loadErrorTitle')}</AlertTitle>
+            <AlertDescription>{t('common:errors.generic')}</AlertDescription>
           </Alert>
         ) : entries.length ? (
           <Tabs
@@ -410,10 +403,8 @@ export function ReportPage() {
               <EmptyMedia variant="icon">
                 <FileText />
               </EmptyMedia>
-              <EmptyTitle>No completed report</EmptyTitle>
-              <EmptyDescription>
-                This job does not have report content yet.
-              </EmptyDescription>
+              <EmptyTitle>{t('emptyTitle')}</EmptyTitle>
+              <EmptyDescription>{t('emptyBody')}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         )}

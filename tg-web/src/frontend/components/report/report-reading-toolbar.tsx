@@ -6,6 +6,7 @@ import {
   MoreVertical,
   Plus,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/frontend/components/ui/button';
 import { cn } from '@/frontend/lib/utils';
@@ -13,7 +14,6 @@ import { cn } from '@/frontend/lib/utils';
 export const reportPaperThemes = [
   {
     id: 'ivory',
-    label: 'Ivory',
     swatch: '#fcfbf8',
     className: 'bg-[#fcfbf8]',
     highlight: '#efece4',
@@ -21,7 +21,6 @@ export const reportPaperThemes = [
   },
   {
     id: 'white',
-    label: 'White',
     swatch: '#ffffff',
     className: 'bg-white',
     highlight: '#eef0f3',
@@ -29,7 +28,6 @@ export const reportPaperThemes = [
   },
   {
     id: 'linen',
-    label: 'Linen',
     swatch: '#f5f1e8',
     className: 'bg-[#f5f1e8]',
     highlight: '#ebe3d4',
@@ -37,7 +35,6 @@ export const reportPaperThemes = [
   },
   {
     id: 'mist',
-    label: 'Mist',
     swatch: '#f3f6f8',
     className: 'bg-[#f3f6f8]',
     highlight: '#e4eaef',
@@ -48,25 +45,21 @@ export const reportPaperThemes = [
 export const reportDeskThemes = [
   {
     id: 'slate',
-    label: 'Slate',
     swatch: '#e8ebef',
     className: 'bg-muted/45',
   },
   {
     id: 'stone',
-    label: 'Stone',
     swatch: '#ebe7e1',
     className: 'bg-[#ebe7e1]/70',
   },
   {
     id: 'sage',
-    label: 'Sage',
     swatch: '#e4ece6',
     className: 'bg-[#e4ece6]/80',
   },
   {
     id: 'sky',
-    label: 'Sky',
     swatch: '#e5eef5',
     className: 'bg-[#e5eef5]/80',
   },
@@ -98,6 +91,7 @@ export function ReportReadingToolbar({
   showBackToTop,
   onBackToTop,
 }: ReportReadingToolbarProps) {
+  const { t } = useTranslation('report');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -131,7 +125,9 @@ export function ReportReadingToolbar({
         type="button"
         size="icon"
         variant={open ? 'default' : 'outline'}
-        aria-label={open ? 'Close reading options' : 'Open reading options'}
+        aria-label={
+          open ? t('reading.closeOptions') : t('reading.openOptions')
+        }
         aria-expanded={open}
         className="size-11 rounded-full border bg-background/95 shadow-lg backdrop-blur-md"
         onClick={() => setOpen((value) => !value)}
@@ -142,7 +138,7 @@ export function ReportReadingToolbar({
       <Button
         type="button"
         size="icon"
-        aria-label="Back to top"
+        aria-label={t('reading.backToTop')}
         onClick={onBackToTop}
         className={cn(
           'size-11 rounded-full shadow-lg transition-all duration-200',
@@ -159,14 +155,14 @@ export function ReportReadingToolbar({
           <div className="space-y-3">
             <div>
               <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                Font size
+                {t('reading.fontSize')}
               </p>
               <div className="flex items-center justify-between gap-1 rounded-xl bg-muted/50 p-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Decrease report font size"
+                  aria-label={t('reading.decreaseFont')}
                   disabled={fontStep <= 0}
                   className="rounded-lg"
                   onClick={() => onFontStepChange(Math.max(0, fontStep - 1))}
@@ -180,7 +176,7 @@ export function ReportReadingToolbar({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Increase report font size"
+                  aria-label={t('reading.increaseFont')}
                   disabled={fontStep >= fontSteps.length - 1}
                   className="rounded-lg"
                   onClick={() =>
@@ -196,15 +192,17 @@ export function ReportReadingToolbar({
 
             <div>
               <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                Paper
+                {t('reading.paper')}
               </p>
               <div className="grid grid-cols-4 gap-1.5">
                 {reportPaperThemes.map((theme) => (
                   <button
                     key={theme.id}
                     type="button"
-                    title={theme.label}
-                    aria-label={`Paper color ${theme.label}`}
+                    title={t(`reading.themes.${theme.id}`)}
+                    aria-label={t('reading.paperColor', {
+                      label: t(`reading.themes.${theme.id}`),
+                    })}
                     aria-pressed={paperTheme === theme.id}
                     className={cn(
                       'relative flex size-9 items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105',
@@ -225,15 +223,17 @@ export function ReportReadingToolbar({
 
             <div>
               <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                Background
+                {t('reading.background')}
               </p>
               <div className="grid grid-cols-4 gap-1.5">
                 {reportDeskThemes.map((theme) => (
                   <button
                     key={theme.id}
                     type="button"
-                    title={theme.label}
-                    aria-label={`Background color ${theme.label}`}
+                    title={t(`reading.themes.${theme.id}`)}
+                    aria-label={t('reading.backgroundColor', {
+                      label: t(`reading.themes.${theme.id}`),
+                    })}
                     aria-pressed={deskTheme === theme.id}
                     className={cn(
                       'relative flex size-9 items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105',

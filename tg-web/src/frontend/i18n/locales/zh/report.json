@@ -1,0 +1,51 @@
+{
+  "eyebrow": "研究报告",
+  "fallbackTitle": "报告",
+  "finalDecision": "最终决策 · {{decision}}",
+  "analysisFor": "{{ticker}} 的分析",
+  "fallbackSubtitle": "由 Core 分析任务返回的报告内容。",
+  "backAria": "返回研究工作台",
+  "logoAlt": "{{name}} 标志",
+  "instrumentFallback": "标的",
+  "loadErrorTitle": "无法加载报告",
+  "missingId": "缺少报告标识。",
+  "emptyTitle": "尚无完整报告",
+  "emptyBody": "该任务还没有报告内容。",
+  "tabs": {
+    "market_report": "市场",
+    "sentiment_report": "情绪",
+    "news_report": "新闻",
+    "fundamentals_report": "基本面",
+    "research_team_decision": "研究决策",
+    "trader_investment_plan": "交易计划",
+    "final_trade_decision": "最终决策",
+    "bull_researcher": "多头",
+    "bear_researcher": "空头",
+    "risk_management_decision": "风控裁决",
+    "risky_analyst": "激进",
+    "safe_analyst": "保守",
+    "neutral_analyst": "中性"
+  },
+  "reading": {
+    "openOptions": "打开阅读选项",
+    "closeOptions": "关闭阅读选项",
+    "backToTop": "回到顶部",
+    "fontSize": "字号",
+    "decreaseFont": "减小报告字号",
+    "increaseFont": "增大报告字号",
+    "paper": "纸张",
+    "background": "背景",
+    "paperColor": "纸张颜色 {{label}}",
+    "backgroundColor": "背景颜色 {{label}}",
+    "themes": {
+      "ivory": "象牙",
+      "white": "纯白",
+      "linen": "亚麻",
+      "mist": "薄雾",
+      "slate": "石板",
+      "stone": "岩石",
+      "sage": "鼠尾草",
+      "sky": "天空"
+    }
+  }
+}

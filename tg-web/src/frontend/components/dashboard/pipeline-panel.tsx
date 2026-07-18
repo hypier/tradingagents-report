@@ -4,6 +4,7 @@ import {
   LoaderCircle,
   ScrollText,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge } from '../ui/badge';
 import {
@@ -25,19 +26,11 @@ import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
 import { Skeleton } from '../ui/skeleton';
 import { getStageIcon, Workflow } from '../icons/research-icons';
+import { formatLocaleTime } from '@/frontend/lib/format-locale';
+import { localizeProgressMessage } from '@/frontend/lib/localize-progress-message';
 import { cn } from '@/frontend/lib/utils';
 import type { AnalysisEvent, AnalysisJob } from '../../lib/research';
 
-const stageLabels: Record<string, string> = {
-  market: 'Market',
-  fundamentals: 'Fundamentals',
-  news: 'News',
-  social: 'Sentiment',
-  research_debate: 'Debate',
-  trader: 'Trader',
-  risk_review: 'Risk',
-  final_synthesis: 'Synthesis',
-};
 const analystStages = ['market', 'fundamentals', 'news', 'social'];
 const finalStages = [
   'research_debate',
@@ -45,12 +38,7 @@ const finalStages = [
   'risk_review',
   'final_synthesis',
 ];
-
-function displayStage(value?: string | null) {
-  return value
-    ? (stageLabels[value] ?? value.replaceAll('_', ' '))
-    : 'Waiting for a run';
-}
+const knownStageKeys = new Set([...analystStages, ...finalStages]);
 
 function stageFromProgressMessage(value?: string | null) {
   const message = value?.toLowerCase() ?? '';
@@ -81,68 +69,86 @@ export function PipelinePanel({
   events?: AnalysisEvent[];
   loading?: boolean;
 }) {
+  const { t } = useTranslation(['home', 'common']);
   const stages = [...(job?.analysts ?? analystStages), ...finalStages];
   const activeStage = stageFromProgressMessage(job?.current_step);
   const activeIndex = activeStage ? stages.indexOf(activeStage) : -1;
   const CurrentStageIcon = getStageIcon(activeStage ?? 'market');
+
+  function displayStage(value?: string | null) {
+    if (!value) return t('common:stages.waiting');
+    if (knownStageKeys.has(value)) {
+      return t(`common:stages.${value}`);
+    }
+    return localizeProgressMessage(value, t);
+  }
+
+  function statusLabel(complete: boolean, current: boolean) {
+    if (complete) return t('pipeline.complete');
+    if (current) return t('pipeline.inProgress');
+    return t('pipeline.pending');
+  }
+
+  const jobStatus = job?.status
+    ? t(`common:status.${job.status}`, { defaultValue: job.status })
+    : t('common:status.idle');
 
   return (
     <Card aria-labelledby="pipeline-title" className="@container/card">
       <CardHeader className="border-b">
         <CardDescription className="inline-flex items-center gap-1.5">
           <Workflow className="size-3.5" />
-          Live pipeline
+          {t('pipeline.eyebrow')}
         </CardDescription>
         <CardTitle>
-          <h2 id="pipeline-title">Agent activity</h2>
+          <h2 id="pipeline-title">{t('pipeline.title')}</h2>
         </CardTitle>
         <CardAction>
-          <Badge variant={jobStatusVariant(job?.status)} className="capitalize">
-            {job?.status ?? 'Idle'}
-          </Badge>
+          <Badge variant={jobStatusVariant(job?.status)}>{jobStatus}</Badge>
         </CardAction>
       </CardHeader>
-      <CardContent className="grid gap-6 pt-1 @4xl/card:grid-cols-[minmax(0,1.2fr)_minmax(220px,.8fr)]">
-        <div className="flex flex-col gap-5">
+      <CardContent className="grid gap-6 pt-1 @5xl/card:grid-cols-[minmax(0,1fr)_minmax(240px,0.85fr)]">
+        <div className="@container/stages flex flex-col gap-5">
           <div className="flex items-end justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <span className="mt-0.5 flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <CurrentStageIcon className="size-4" />
               </span>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  Current stage
+                  {t('pipeline.currentStage')}
                 </p>
-                <p className="mt-1 text-base font-medium">
+                <p className="mt-1 truncate text-base font-medium">
                   {displayStage(activeStage ?? job?.current_step)}
                 </p>
               </div>
             </div>
-            <span className="font-mono text-sm tabular-nums text-muted-foreground">
+            <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
               {job?.progress_percent ?? 0}%
             </span>
           </div>
           <Progress value={job?.progress_percent ?? 0} className="h-1.5" />
 
-          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <ol className="grid grid-cols-[repeat(auto-fill,minmax(8.75rem,1fr))] gap-2">
             {stages.map((stage, index) => {
               const current =
                 index === activeIndex && job?.status === 'running';
               const complete =
                 activeIndex > index || job?.status === 'succeeded';
-              const statusLabel = complete
-                ? 'Complete'
-                : current
-                  ? 'In progress'
-                  : 'Pending';
+              const label = statusLabel(complete, current);
+              const stageName = displayStage(stage);
               const StageIcon = getStageIcon(stage);
               return (
                 <li
                   key={stage}
-                  aria-label={`${displayStage(stage)}: ${statusLabel}`}
-                  data-stage-status={statusLabel}
+                  aria-label={t('pipeline.stageStatus', {
+                    stage: stageName,
+                    status: label,
+                  })}
+                  data-stage-status={label}
+                  title={stageName}
                   className={cn(
-                    'relative flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors',
+                    'relative flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors',
                     complete && 'border-primary/30 bg-primary/5',
                     current &&
                       'border-primary bg-primary/10 shadow-[0_0_0_1px] shadow-primary/20',
@@ -151,19 +157,19 @@ export function PipelinePanel({
                 >
                   <span
                     className={cn(
-                      'flex size-10 shrink-0 items-center justify-center rounded-lg',
+                      'flex size-8 shrink-0 items-center justify-center rounded-md',
                       complete || current
                         ? 'bg-primary/15 text-primary'
                         : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    <StageIcon className="size-5" aria-hidden="true" />
+                    <StageIcon className="size-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-medium leading-snug text-foreground">
-                      {displayStage(stage)}
+                    <p className="truncate text-sm font-medium leading-snug text-foreground">
+                      {stageName}
                     </p>
-                    <p className="mt-0.5 font-mono text-xs tracking-wider text-muted-foreground uppercase">
+                    <p className="mt-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                       {String(index + 1).padStart(2, '0')}
                     </p>
                   </div>
@@ -183,21 +189,21 @@ export function PipelinePanel({
                       aria-hidden="true"
                     />
                   )}
-                  <span className="sr-only">{statusLabel}</span>
+                  <span className="sr-only">{label}</span>
                 </li>
               );
             })}
           </ol>
         </div>
 
-        <div className="rounded-xl border bg-muted/25 p-4">
+        <div className="min-w-0 rounded-xl border bg-muted/25 p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="inline-flex items-center gap-1.5 text-sm font-medium">
               <ScrollText className="size-3.5 text-muted-foreground" />
-              Event log
+              {t('pipeline.eventLog')}
             </p>
             <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-              Latest
+              {t('pipeline.latest')}
             </span>
           </div>
           {loading ? (
@@ -207,20 +213,29 @@ export function PipelinePanel({
               <Skeleton className="h-3 w-3/5" />
             </div>
           ) : events?.length ? (
-            <ScrollArea className="mt-4 h-56">
-              <ol className="flex flex-col gap-3 border-l border-border/80 pl-3 pr-3">
-                {events
-                  .slice(-6)
-                  .reverse()
-                  .map((event, index) => (
-                    <li
-                      key={`${event.time ?? 'event'}-${index}`}
-                      className="relative text-xs leading-5 text-muted-foreground"
-                    >
-                      <span className="absolute top-1.5 -left-[17px] size-1.5 rounded-full bg-primary/70" />
-                      {event.message ?? 'Stage update received.'}
-                    </li>
-                  ))}
+            <ScrollArea className="mt-4 h-56 pr-2">
+              <ol className="flex flex-col gap-3 border-l border-border/80 py-0.5 pl-3 pr-2">
+                {[...events].reverse().map((event, index) => (
+                  <li
+                    key={`${event.time ?? 'event'}-${index}`}
+                    className="relative text-xs leading-5 text-muted-foreground"
+                  >
+                    <span className="absolute top-1.5 -left-[17px] size-1.5 rounded-full bg-primary/70" />
+                    <div className="flex items-baseline gap-2">
+                      {event.time ? (
+                        <time
+                          dateTime={event.time}
+                          className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80"
+                        >
+                          {formatLocaleTime(event.time)}
+                        </time>
+                      ) : null}
+                      <span className="min-w-0 break-words">
+                        {localizeProgressMessage(event.message, t)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
               </ol>
             </ScrollArea>
           ) : (
@@ -229,9 +244,9 @@ export function PipelinePanel({
                 <EmptyMedia variant="icon">
                   <ScrollText />
                 </EmptyMedia>
-                <EmptyTitle>No events yet</EmptyTitle>
+                <EmptyTitle>{t('pipeline.noEventsTitle')}</EmptyTitle>
                 <EmptyDescription>
-                  Stage updates appear here while the run is processing.
+                  {t('pipeline.noEventsBody')}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

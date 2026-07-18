@@ -1,0 +1,59 @@
+{
+  "brand": {
+    "name": "TradingAgents",
+    "tagline": "Multi-agent research"
+  },
+  "nav": {
+    "workspace": "Workspace",
+    "desk": "Desk",
+    "reports": "Reports"
+  },
+  "header": {
+    "desk": "Research desk",
+    "reports": "Reports",
+    "report": "Report"
+  },
+  "disclaimer": {
+    "title": "Research only",
+    "body": "Outputs are informational and do not place trades."
+  },
+  "language": {
+    "label": "Interface language",
+    "en": "English",
+    "zh": "中文"
+  },
+  "status": {
+    "idle": "Idle",
+    "queued": "Queued",
+    "running": "Running",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "all": "All statuses"
+  },
+  "analysts": {
+    "market": "Market",
+    "fundamentals": "Fundamentals",
+    "news": "News",
+    "social": "Sentiment"
+  },
+  "stages": {
+    "market": "Market",
+    "fundamentals": "Fundamentals",
+    "news": "News",
+    "social": "Sentiment",
+    "research_debate": "Debate",
+    "trader": "Trader",
+    "risk_review": "Risk",
+    "final_synthesis": "Synthesis",
+    "waiting": "Waiting for a run"
+  },
+  "errors": {
+    "generic": "Please try again.",
+    "core_unavailable": "Analysis service is temporarily unavailable.",
+    "not_found": "The requested resource was not found.",
+    "validation": "Some inputs look invalid. Please check and retry."
+  },
+  "notFound": {
+    "title": "Page not found"
+  }
+}

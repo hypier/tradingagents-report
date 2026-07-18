@@ -38,6 +38,7 @@ export default defineConfig({
           name: 'unit',
           include: ['tests/unit/**/*.test.{ts,tsx}'],
           environment: 'node',
+          setupFiles: ['tests/unit/setup-i18n.ts'],
         },
       },
       {

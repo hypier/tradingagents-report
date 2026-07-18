@@ -37,13 +37,6 @@ export const stageIcons: Record<string, LucideIcon> = {
   final_synthesis: Sparkles,
 };
 
-export const analystLabels: Record<string, string> = {
-  market: 'Market',
-  fundamentals: 'Fundamentals',
-  news: 'News',
-  social: 'Sentiment',
-};
-
 export function getAnalystIcon(key: string): LucideIcon {
   return analystIcons[key] ?? Bot;
 }

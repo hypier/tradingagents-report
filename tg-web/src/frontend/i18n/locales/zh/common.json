@@ -1,0 +1,59 @@
+{
+  "brand": {
+    "name": "TradingAgents",
+    "tagline": "多智能体投研"
+  },
+  "nav": {
+    "workspace": "工作区",
+    "desk": "研究台",
+    "reports": "报告库"
+  },
+  "header": {
+    "desk": "研究台",
+    "reports": "报告库",
+    "report": "报告"
+  },
+  "disclaimer": {
+    "title": "仅供研究",
+    "body": "输出内容仅供参考，不会执行真实交易。"
+  },
+  "language": {
+    "label": "界面语言",
+    "en": "English",
+    "zh": "中文"
+  },
+  "status": {
+    "idle": "空闲",
+    "queued": "排队中",
+    "running": "运行中",
+    "succeeded": "已完成",
+    "failed": "失败",
+    "all": "全部状态"
+  },
+  "analysts": {
+    "market": "市场",
+    "fundamentals": "基本面",
+    "news": "新闻",
+    "social": "情绪"
+  },
+  "stages": {
+    "market": "市场",
+    "fundamentals": "基本面",
+    "news": "新闻",
+    "social": "情绪",
+    "research_debate": "辩论",
+    "trader": "交易员",
+    "risk_review": "风控",
+    "final_synthesis": "综合",
+    "waiting": "等待任务"
+  },
+  "errors": {
+    "generic": "请重试。",
+    "core_unavailable": "分析服务暂时不可用。",
+    "not_found": "未找到请求的资源。",
+    "validation": "部分输入无效，请检查后重试。"
+  },
+  "notFound": {
+    "title": "页面未找到"
+  }
+}

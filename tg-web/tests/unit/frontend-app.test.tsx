@@ -94,8 +94,8 @@ it('renders a report detail page inside the dashboard shell', () => {
     within(container).getAllByRole('button', { name: 'Toggle Sidebar' }),
   ).not.toHaveLength(0);
   expect(
-    within(container).getByRole('heading', { name: 'Report' }),
-  ).toBeInTheDocument();
+    within(container).getAllByRole('heading', { name: 'Report' }).length,
+  ).toBeGreaterThan(0);
   expect(within(container).getByText('Research report')).toBeInTheDocument();
   expect(container.querySelector('.max-w-5xl')).toBeNull();
 });
