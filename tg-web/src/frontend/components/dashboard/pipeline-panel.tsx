@@ -166,7 +166,12 @@ export function PipelinePanel({
                     <StageIcon className="size-4" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium leading-snug text-foreground">
+                    <p
+                      className={cn(
+                        'truncate text-sm leading-snug text-foreground',
+                        current ? 'font-bold' : 'font-medium',
+                      )}
+                    >
                       {stageName}
                     </p>
                     <p className="mt-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
