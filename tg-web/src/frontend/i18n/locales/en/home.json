@@ -9,7 +9,8 @@
   "reportLanguage": {
     "label": "Report language",
     "custom": "Custom language",
-    "customPlaceholder": "Turkish"
+    "customPlaceholder": "Turkish",
+    "defaultSuffix": "default"
   },
   "analystTeam": "Analyst team",
   "submit": {

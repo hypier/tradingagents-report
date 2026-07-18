@@ -28,6 +28,7 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { getAnalystIcon, getStageIcon } from '../components/icons/research-icons';
+import { formatOutputLanguage } from '../lib/format-output-language';
 import {
   loadReportReadingPreferences,
   saveReportReadingPreferences,
@@ -322,7 +323,12 @@ export function ReportPage() {
                 <Badge variant="outline">{identity.country}</Badge>
               ) : null}
               {identity.language ? (
-                <Badge variant="outline">{identity.language}</Badge>
+                <Badge variant="outline">
+                  {formatOutputLanguage(
+                    identity.language,
+                    (key, options) => t(`common:${key}`, options),
+                  )}
+                </Badge>
               ) : null}
             </div>
             <p className="mt-0.5 truncate text-sm text-muted-foreground">

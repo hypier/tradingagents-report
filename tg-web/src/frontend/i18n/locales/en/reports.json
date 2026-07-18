@@ -15,6 +15,7 @@
     "instrument": "Instrument",
     "team": "Team",
     "status": "Status",
+    "language": "Language",
     "updated": "Updated",
     "report": "Report",
     "runs": "{{count}} runs",

@@ -43,6 +43,7 @@ __all__ = [
     "resolve_instrument_identity",
     "get_instrument_context_from_state",
     "get_language_instruction",
+    "get_transaction_proposal_instruction",
     "create_msg_delete",
 ]
 
@@ -62,7 +63,28 @@ def get_language_instruction() -> str:
     lang = get_config().get("output_language", "English")
     if lang.strip().lower() == "english":
         return ""
-    return f" Write your entire response in {lang}."
+    return (
+        f" Write your entire response in {lang}, including all headings, "
+        f"section titles, and labels. Do not leave English template phrases "
+        f"such as 'FINAL TRANSACTION PROPOSAL', 'Overall Sentiment', "
+        f"'Recommendation', or 'Rationale'."
+    )
+
+
+def get_transaction_proposal_instruction() -> str:
+    """Return the multi-agent stop-signal sentence in the active report language."""
+    from tradingagents.agents.utils.report_i18n import (
+        get_report_language,
+        get_transaction_proposal_phrase,
+    )
+
+    phrase = get_transaction_proposal_phrase()
+    actions = "**买入/持有/卖出**" if get_report_language() == "chinese" else "**BUY/HOLD/SELL**"
+    return (
+        f" If you or any other assistant has the {phrase}: {actions} "
+        f"or deliverable, prefix your response with {phrase}: "
+        f"{actions} so the team knows to stop."
+    )
 
 
 def _clean_identity_value(value: Any) -> str | None:

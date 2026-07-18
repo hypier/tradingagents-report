@@ -105,6 +105,40 @@ it('shows a TradingView asset logo before the ticker when available', () => {
   );
 });
 
+it('shows the report output language column', async () => {
+  const { default: i18n } = await import('../../src/frontend/i18n');
+
+  render(
+    <TooltipProvider>
+      <RecentReports
+        jobs={[
+          {
+            id: 'job-1',
+            ticker: 'AAPL',
+            status: 'succeeded',
+            output_language: 'Chinese',
+          },
+        ]}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(
+    screen.getByRole('columnheader', { name: 'Language' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Chinese')).toBeInTheDocument();
+
+  await i18n.changeLanguage('zh');
+
+  expect(
+    await screen.findByRole('columnheader', { name: '语言' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('中文')).toBeInTheDocument();
+});
+
 it('renders Yahoo-style display tickers for multi-market instruments', () => {
   render(
     <TooltipProvider>

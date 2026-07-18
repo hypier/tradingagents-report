@@ -137,9 +137,14 @@ def build_reports(final_state: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_decision_fields(text: str) -> dict[str, Any]:
+    from tradingagents.agents.utils.report_i18n import (
+        CONFIDENCE_LABELS,
+        PRICE_TARGET_LABELS,
+    )
+
     rating = parse_rating(text)
-    target = parse_float_after(text, ["Price Target", "Target Price", "target_price"])
-    confidence = parse_float_after(text, ["Confidence", "confidence"])
+    target = parse_float_after(text, list(PRICE_TARGET_LABELS))
+    confidence = parse_float_after(text, list(CONFIDENCE_LABELS))
     if confidence and confidence > 1:
         confidence = min(confidence / 100, 1)
     risk_score = parse_float_after(text, ["Risk Score", "risk_score"])
@@ -156,24 +161,29 @@ def parse_decision_fields(text: str) -> dict[str, Any]:
 
 
 def parse_rating(text: str) -> str:
-    for rating in ["Overweight", "Underweight", "Buy", "Hold", "Sell"]:
-        if re.search(rf"\b{rating}\b", text, re.IGNORECASE):
-            return rating
-    return "Hold"
+    from tradingagents.agents.utils.rating import parse_rating as parse_shared_rating
+
+    return parse_shared_rating(text)
 
 
 def parse_float_after(text: str, labels: list[str]) -> float | None:
     for label in labels:
-        match = re.search(rf"{re.escape(label)}\**\s*:?\s*([-+]?\d+(?:\.\d+)?)", text, re.IGNORECASE)
+        match = re.search(
+            rf"{re.escape(label)}\**\s*[:：]?\s*([-+]?\d+(?:\.\d+)?)",
+            text,
+            re.IGNORECASE,
+        )
         if match:
             return float(match.group(1))
     return None
 
 
 def extract_reasoning(text: str) -> str:
-    for label in ["Investment Thesis", "Reasoning", "Executive Summary"]:
+    from tradingagents.agents.utils.report_i18n import REASONING_LABELS
+
+    for label in REASONING_LABELS:
         match = re.search(
-            rf"\*\*{re.escape(label)}\*\*\s*:\s*(.*?)(?:\n\s*\n\*\*|\Z)",
+            rf"\*\*{re.escape(label)}\*\*\s*[:：]\s*(.*?)(?:\n\s*\n\*\*|\Z)",
             text,
             flags=re.IGNORECASE | re.DOTALL,
         )

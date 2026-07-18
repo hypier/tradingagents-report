@@ -15,6 +15,7 @@
     "instrument": "标的",
     "team": "团队",
     "status": "状态",
+    "language": "语言",
     "updated": "更新时间",
     "report": "报告",
     "runs": "{{count}} 次运行",

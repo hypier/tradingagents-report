@@ -22,6 +22,19 @@
     "en": "English",
     "zh": "中文"
   },
+  "outputLanguages": {
+    "English": "English",
+    "Chinese": "Chinese",
+    "Japanese": "Japanese",
+    "Korean": "Korean",
+    "Hindi": "Hindi",
+    "Spanish": "Spanish",
+    "Portuguese": "Portuguese",
+    "French": "French",
+    "German": "German",
+    "Arabic": "Arabic",
+    "Russian": "Russian"
+  },
   "theme": {
     "label": "Color theme",
     "light": "Light",

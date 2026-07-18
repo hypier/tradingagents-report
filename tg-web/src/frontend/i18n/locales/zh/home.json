@@ -9,7 +9,8 @@
   "reportLanguage": {
     "label": "报告语言",
     "custom": "自定义语言",
-    "customPlaceholder": "Turkish"
+    "customPlaceholder": "Turkish",
+    "defaultSuffix": "默认"
   },
   "analystTeam": "分析师团队",
   "submit": {

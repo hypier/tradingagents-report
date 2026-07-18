@@ -23,6 +23,7 @@ import {
 } from '../ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { formatLocaleDateTime } from '@/frontend/lib/format-locale';
+import { formatOutputLanguage } from '@/frontend/lib/format-output-language';
 import { formatDisplayTicker } from '@/shared/listing';
 import type { AnalysisJob, AssetIdentity } from '../../lib/research';
 
@@ -109,6 +110,7 @@ export function ReportsTable({
               <TableHead className="pl-6">{t('table.instrument')}</TableHead>
               <TableHead>{t('table.team')}</TableHead>
               <TableHead>{t('table.status')}</TableHead>
+              <TableHead>{t('table.language')}</TableHead>
               <TableHead>{t('table.updated')}</TableHead>
               <TableHead className="pr-6 text-right">
                 {t('table.report')}
@@ -119,7 +121,7 @@ export function ReportsTable({
             {loading ? (
               Array.from({ length: 3 }).map((_, index) => (
                 <TableRow key={index}>
-                  <TableCell colSpan={5} className="px-6">
+                  <TableCell colSpan={6} className="px-6">
                     <Skeleton className="h-6 w-full" />
                   </TableCell>
                 </TableRow>
@@ -127,7 +129,7 @@ export function ReportsTable({
             ) : error ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="h-24 text-center text-muted-foreground"
                 >
                   {t('table.unavailable')}
@@ -176,6 +178,20 @@ export function ReportsTable({
                       })}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {job.output_language?.trim() ? (
+                      <Badge variant="outline">
+                        {formatOutputLanguage(
+                          job.output_language,
+                          (key, options) => t(`common:${key}`, options),
+                        )}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t('table.notAvailable')}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
                     {formatLocaleDateTime(
                       job.updated_at ?? job.created_at,
@@ -209,7 +225,7 @@ export function ReportsTable({
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="h-28 text-center text-muted-foreground"
                 >
                   {t('table.empty')}

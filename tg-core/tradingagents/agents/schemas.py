@@ -23,6 +23,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from tradingagents.agents.utils.report_i18n import (
+    localize_report_value,
+    report_labels,
+)
+
 # LLMs sometimes write a placeholder string ("None", "N/A", ...) into an optional
 # numeric field instead of omitting it. Coerce those to None so the structured
 # call validates instead of erroring (#1058). Pydantic still parses real numeric
@@ -104,12 +109,13 @@ class ResearchPlan(BaseModel):
 
 def render_research_plan(plan: ResearchPlan) -> str:
     """Render a ResearchPlan to markdown for storage and the trader's prompt context."""
+    labels = report_labels()
     return "\n".join([
-        f"**Recommendation**: {plan.recommendation.value}",
+        f"**{labels['recommendation']}**: {localize_report_value(plan.recommendation.value)}",
         "",
-        f"**Rationale**: {plan.rationale}",
+        f"**{labels['rationale']}**: {plan.rationale}",
         "",
-        f"**Strategic Actions**: {plan.strategic_actions}",
+        f"**{labels['strategic_actions']}**: {plan.strategic_actions}",
     ])
 
 
@@ -158,24 +164,34 @@ class TraderProposal(BaseModel):
 def render_trader_proposal(proposal: TraderProposal) -> str:
     """Render a TraderProposal to markdown.
 
-    The trailing ``FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**`` line is
-    preserved for backward compatibility with the analyst stop-signal text
-    and any external code that greps for it.
+    The trailing transaction-proposal line is preserved for backward
+    compatibility with the analyst stop-signal text. Its wording follows
+    ``output_language`` (English ``FINAL TRANSACTION PROPOSAL`` or Chinese
+    ``最终交易建议``).
     """
+    labels = report_labels()
+    action = localize_report_value(proposal.action.value)
     parts = [
-        f"**Action**: {proposal.action.value}",
+        f"**{labels['action']}**: {action}",
         "",
-        f"**Reasoning**: {proposal.reasoning}",
+        f"**{labels['reasoning']}**: {proposal.reasoning}",
     ]
     if proposal.entry_price is not None:
-        parts.extend(["", f"**Entry Price**: {proposal.entry_price}"])
+        parts.extend(["", f"**{labels['entry_price']}**: {proposal.entry_price}"])
     if proposal.stop_loss is not None:
-        parts.extend(["", f"**Stop Loss**: {proposal.stop_loss}"])
+        parts.extend(["", f"**{labels['stop_loss']}**: {proposal.stop_loss}"])
     if proposal.position_sizing:
-        parts.extend(["", f"**Position Sizing**: {proposal.position_sizing}"])
+        parts.extend(["", f"**{labels['position_sizing']}**: {proposal.position_sizing}"])
+    # English keeps the historical ALL-CAPS action token; Chinese uses the
+    # localized display value so the saved report stays fully localized.
+    proposal_action = (
+        proposal.action.value.upper()
+        if action == proposal.action.value
+        else action
+    )
     parts.extend([
         "",
-        f"FINAL TRANSACTION PROPOSAL: **{proposal.action.value.upper()}**",
+        f"{labels['final_transaction_proposal']}: **{proposal_action}**",
     ])
     return "\n".join(parts)
 
@@ -231,22 +247,22 @@ class PortfolioDecision(BaseModel):
 def render_pm_decision(decision: PortfolioDecision) -> str:
     """Render a PortfolioDecision back to the markdown shape the rest of the system expects.
 
-    Memory log, CLI display, and saved report files all read this markdown,
-    so the rendered output preserves the exact section headers (``**Rating**``,
-    ``**Executive Summary**``, ``**Investment Thesis**``) that downstream
-    parsers and the report writers already handle.
+    Memory log, CLI display, and saved report files all read this markdown.
+    Section headers follow ``output_language``; parsers accept both English
+    and Chinese label/value forms.
     """
+    labels = report_labels()
     parts = [
-        f"**Rating**: {decision.rating.value}",
+        f"**{labels['rating']}**: {localize_report_value(decision.rating.value)}",
         "",
-        f"**Executive Summary**: {decision.executive_summary}",
+        f"**{labels['executive_summary']}**: {decision.executive_summary}",
         "",
-        f"**Investment Thesis**: {decision.investment_thesis}",
+        f"**{labels['investment_thesis']}**: {decision.investment_thesis}",
     ]
     if decision.price_target is not None:
-        parts.extend(["", f"**Price Target**: {decision.price_target}"])
+        parts.extend(["", f"**{labels['price_target']}**: {decision.price_target}"])
     if decision.time_horizon:
-        parts.extend(["", f"**Time Horizon**: {decision.time_horizon}"])
+        parts.extend(["", f"**{labels['time_horizon']}**: {decision.time_horizon}"])
     return "\n".join(parts)
 
 
@@ -330,12 +346,15 @@ def render_sentiment_report(report: SentimentReport) -> str:
 
     The structured header (band + score + confidence) is prepended to the
     narrative so the saved report is both human-readable and machine-parseable
-    without regex.
+    without regex. Labels and band/confidence values follow ``output_language``.
     """
+    labels = report_labels()
+    band = localize_report_value(report.overall_band.value)
+    confidence = localize_report_value(report.confidence.capitalize())
     return "\n".join([
-        f"**Overall Sentiment:** **{report.overall_band.value}** "
-        f"(Score: {report.overall_score:.1f}/10)",
-        f"**Confidence:** {report.confidence.capitalize()}",
+        f"**{labels['overall_sentiment']}:** **{band}** "
+        f"({labels['score']}: {report.overall_score:.1f}/10)",
+        f"**{labels['confidence']}:** {confidence}",
         "",
         report.narrative,
     ])

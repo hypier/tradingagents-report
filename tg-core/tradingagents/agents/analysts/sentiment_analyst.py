@@ -34,6 +34,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_language_instruction,
     get_news,
+    get_transaction_proposal_instruction,
 )
 from tradingagents.agents.utils.structured import (
     bind_structured,
@@ -79,16 +80,15 @@ def create_sentiment_analyst(llm):
             reddit_block=reddit_block,
         )
 
+        system_prompt = (
+            "You are a helpful AI assistant, collaborating with other assistants."
+            + get_transaction_proposal_instruction()
+            + " Today's date is {current_date}; treat it as 'now' for all analysis and tool-call date ranges. {instrument_context}"
+            + "\n{system_message}"
+        )
         prompt = ChatPromptTemplate.from_messages(
             [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable,"
-                    " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop."
-                    " Today's date is {current_date}; treat it as 'now' for all analysis and tool-call date ranges. {instrument_context}"
-                    "\n{system_message}",
-                ),
+                ("system", system_prompt),
                 MessagesPlaceholder(variable_name="messages"),
             ]
         )

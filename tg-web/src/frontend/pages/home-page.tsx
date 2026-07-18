@@ -47,6 +47,7 @@ import {
   formatLocaleDateTimeValue,
   formatLocaleNumber,
 } from '../lib/format-locale';
+import { OUTPUT_LANGUAGE_IDS } from '../lib/format-output-language';
 import { cn } from '../lib/utils';
 import { formatDisplayTicker } from '@/shared/listing';
 import {
@@ -59,19 +60,6 @@ import {
 } from '../lib/research';
 
 const analystOptions = ['market', 'fundamentals', 'news', 'social'];
-const outputLanguageOptions = [
-  ['English', 'English (default)'],
-  ['Chinese', 'Chinese (中文)'],
-  ['Japanese', 'Japanese (日本語)'],
-  ['Korean', 'Korean (한국어)'],
-  ['Hindi', 'Hindi (हिन्दी)'],
-  ['Spanish', 'Spanish (Español)'],
-  ['Portuguese', 'Portuguese (Português)'],
-  ['French', 'French (Français)'],
-  ['German', 'German (Deutsch)'],
-  ['Arabic', 'Arabic (العربية)'],
-  ['Russian', 'Russian (Русский)'],
-] as const;
 
 function marketMoveVariant(changePercent?: number) {
   if (changePercent === undefined || changePercent === 0) return 'outline';
@@ -235,9 +223,12 @@ export function HomePage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {outputLanguageOptions.map(([value, label]) => (
+                            {OUTPUT_LANGUAGE_IDS.map((value) => (
                               <SelectItem key={value} value={value}>
-                                {label}
+                                {t(`common:outputLanguages.${value}`)}
+                                {value === 'English'
+                                  ? ` (${t('reportLanguage.defaultSuffix')})`
+                                  : ''}
                               </SelectItem>
                             ))}
                             <SelectItem value="custom">
