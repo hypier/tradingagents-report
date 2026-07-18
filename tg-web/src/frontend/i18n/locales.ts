@@ -11,6 +11,12 @@ export const UI_LOCALE_LABELS: Record<UiLocale, string> = {
   zh: '中文',
 };
 
+/** Regional flag emoji shown next to each UI language option. */
+export const UI_LOCALE_FLAGS: Record<UiLocale, string> = {
+  en: '🇺🇸',
+  zh: '🇨🇳',
+};
+
 export function isUiLocale(value: string): value is UiLocale {
   return (UI_LOCALES as readonly string[]).includes(value);
 }

@@ -22,6 +22,12 @@
     "en": "English",
     "zh": "中文"
   },
+  "theme": {
+    "label": "颜色主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统"
+  },
   "status": {
     "idle": "空闲",
     "queued": "排队中",

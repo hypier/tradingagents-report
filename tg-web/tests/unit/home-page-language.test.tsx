@@ -9,15 +9,6 @@ import { expect, it } from 'vitest';
 import { HomePage } from '../../src/frontend/pages/home-page';
 import { TooltipProvider } from '../../src/frontend/components/ui/tooltip';
 
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: () => ({
-    matches: false,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }),
-});
-
 it('shows an output language selector with the Core default', () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },

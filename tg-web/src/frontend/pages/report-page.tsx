@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, FileText } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -119,6 +120,8 @@ function isTypingTarget(target: EventTarget | null) {
 
 export function ReportPage() {
   const { t } = useTranslation(['report', 'common']);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const { id } = useParams();
   const navigate = useNavigate();
   const detail = useQuery({
@@ -147,6 +150,12 @@ export function ReportPage() {
   const deskClassName =
     reportDeskThemes.find((theme) => theme.id === deskTheme)?.className ??
     reportDeskThemes[0].className;
+  const reportHighlight = isDark
+    ? paperThemeConfig.darkHighlight
+    : paperThemeConfig.highlight;
+  const reportHighlightSoft = isDark
+    ? paperThemeConfig.darkHighlightSoft
+    : paperThemeConfig.highlightSoft;
   const decisionLabel = formatDecision(job?.decision);
   const identity = reportIdentity(job);
   const title =
@@ -372,18 +381,18 @@ export function ReportPage() {
                     'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-xl text-foreground',
                     paperClassName,
                     'shadow-[0_1px_1px_rgba(15,23,42,0.04),0_10px_28px_rgba(15,23,42,0.08)]',
-                    'ring-1 ring-black/5',
+                    'dark:shadow-[0_1px_1px_rgba(0,0,0,0.25),0_12px_32px_rgba(0,0,0,0.45)]',
+                    'ring-1 ring-black/5 dark:ring-white/10',
                   )}
                   style={
                     {
                       '--report-font-size': formatFontSize(fontStep),
-                      '--report-highlight': paperThemeConfig.highlight,
-                      '--report-highlight-soft':
-                        paperThemeConfig.highlightSoft,
+                      '--report-highlight': reportHighlight,
+                      '--report-highlight-soft': reportHighlightSoft,
                     } as CSSProperties
                   }
                 >
-                  <div className="border-b border-black/5 px-6 py-4 md:px-10 lg:px-12">
+                  <div className="border-b border-black/5 px-6 py-4 md:px-10 lg:px-12 dark:border-white/10">
                     <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
                       {reportTabLabel(key)}
                     </p>

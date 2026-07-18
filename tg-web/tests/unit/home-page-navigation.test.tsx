@@ -7,15 +7,6 @@ import { expect, it, vi } from 'vitest';
 
 import { App } from '../../src/frontend/app/app';
 
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: () => ({
-    matches: false,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }),
-});
-
 vi.mock('../../src/frontend/lib/research', () => ({
   createResearch: vi.fn(),
   getMarketIdentities: vi.fn().mockResolvedValue({

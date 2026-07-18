@@ -9,15 +9,6 @@ import { expect, it, vi } from 'vitest';
 import { HomePage } from '../../src/frontend/pages/home-page';
 import { TooltipProvider } from '../../src/frontend/components/ui/tooltip';
 
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: () => ({
-    matches: false,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }),
-});
-
 vi.mock('../../src/frontend/lib/research', () => ({
   createResearch: vi.fn(),
   searchMarkets: vi.fn().mockResolvedValue({

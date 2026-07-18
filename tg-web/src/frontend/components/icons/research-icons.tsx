@@ -55,22 +55,45 @@ export function BrandMark({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <rect width="32" height="32" rx="8" fill="currentColor" />
-      <path
-        d="M8 21.5V10.5h3.1c2.55 0 4.15 1.35 4.15 3.45 0 1.32-.7 2.4-1.85 2.95L17.6 21.5h-3.05l-3.2-4.2H11v4.2H8Zm3-6.55h.95c1.05 0 1.7-.55 1.7-1.45s-.65-1.4-1.7-1.4H11v2.85Z"
+      {/* Ascending research bars */}
+      <rect
+        x="7"
+        y="17"
+        width="4"
+        height="7"
+        rx="1.2"
+        fill="var(--primary-foreground)"
+        fillOpacity="0.55"
+      />
+      <rect
+        x="14"
+        y="12.5"
+        width="4"
+        height="11.5"
+        rx="1.2"
+        fill="var(--primary-foreground)"
+        fillOpacity="0.78"
+      />
+      <rect
+        x="21"
+        y="8"
+        width="4"
+        height="16"
+        rx="1.2"
         fill="var(--primary-foreground)"
       />
+      {/* Agent nodes linked along the signal */}
       <path
-        d="M18.2 21.5 21.05 10.5h3.05L27 21.5h-2.85l-.45-1.7h-2.95l-.5 1.7H18.2Zm4.15-3.95h2.05l-1-3.75-1.05 3.75Z"
-        fill="var(--primary-foreground)"
-        fillOpacity="0.88"
-      />
-      <path
-        d="M7.5 24h17"
+        d="M9 15.5h5.2L16 12.2 23 7.2"
         stroke="var(--primary-foreground)"
-        strokeOpacity="0.35"
+        strokeOpacity="0.45"
         strokeWidth="1.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
+      <circle cx="9" cy="15.5" r="1.9" fill="var(--primary-foreground)" />
+      <circle cx="16" cy="12.2" r="1.9" fill="var(--primary-foreground)" />
+      <circle cx="23" cy="7.2" r="1.9" fill="var(--primary-foreground)" />
     </svg>
   );
 }

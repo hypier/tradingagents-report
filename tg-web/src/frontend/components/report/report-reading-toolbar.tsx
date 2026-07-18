@@ -6,6 +6,7 @@ import {
   MoreVertical,
   Plus,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/frontend/components/ui/button';
@@ -15,30 +16,46 @@ export const reportPaperThemes = [
   {
     id: 'ivory',
     swatch: '#fcfbf8',
-    className: 'bg-[#fcfbf8]',
+    // Warm charcoal — default night reading surface.
+    darkSwatch: '#3a342c',
+    className: 'bg-[#fcfbf8] dark:bg-[#3a342c]',
     highlight: '#efece4',
     highlightSoft: '#f5f2ea',
+    darkHighlight: '#524a3e',
+    darkHighlightSoft: '#453e34',
   },
   {
     id: 'white',
     swatch: '#ffffff',
-    className: 'bg-white',
+    // Neutral elevated gray.
+    darkSwatch: '#2f2f33',
+    className: 'bg-white dark:bg-[#2f2f33]',
     highlight: '#eef0f3',
     highlightSoft: '#f5f6f8',
+    darkHighlight: '#45454b',
+    darkHighlightSoft: '#3a3a40',
   },
   {
     id: 'linen',
     swatch: '#f5f1e8',
-    className: 'bg-[#f5f1e8]',
+    // Sepia / amber paper for lower blue light.
+    darkSwatch: '#4a3824',
+    className: 'bg-[#f5f1e8] dark:bg-[#4a3824]',
     highlight: '#ebe3d4',
     highlightSoft: '#f0e9dc',
+    darkHighlight: '#655032',
+    darkHighlightSoft: '#57442b',
   },
   {
     id: 'mist',
     swatch: '#f3f6f8',
-    className: 'bg-[#f3f6f8]',
+    // Cool steel-blue paper.
+    darkSwatch: '#2a3a4a',
+    className: 'bg-[#f3f6f8] dark:bg-[#2a3a4a]',
     highlight: '#e4eaef',
     highlightSoft: '#ebf0f4',
+    darkHighlight: '#3d5368',
+    darkHighlightSoft: '#334859',
   },
 ] as const;
 
@@ -46,22 +63,26 @@ export const reportDeskThemes = [
   {
     id: 'slate',
     swatch: '#e8ebef',
-    className: 'bg-muted/45',
+    darkSwatch: '#1c222b',
+    className: 'bg-muted/45 dark:bg-[#1c222b]',
   },
   {
     id: 'stone',
     swatch: '#ebe7e1',
-    className: 'bg-[#ebe7e1]/70',
+    darkSwatch: '#2a2218',
+    className: 'bg-[#ebe7e1]/70 dark:bg-[#2a2218]',
   },
   {
     id: 'sage',
     swatch: '#e4ece6',
-    className: 'bg-[#e4ece6]/80',
+    darkSwatch: '#1a2820',
+    className: 'bg-[#e4ece6]/80 dark:bg-[#1a2820]',
   },
   {
     id: 'sky',
     swatch: '#e5eef5',
-    className: 'bg-[#e5eef5]/80',
+    darkSwatch: '#152433',
+    className: 'bg-[#e5eef5]/80 dark:bg-[#152433]',
   },
 ] as const;
 
@@ -92,6 +113,8 @@ export function ReportReadingToolbar({
   onBackToTop,
 }: ReportReadingToolbarProps) {
   const { t } = useTranslation('report');
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -207,14 +230,23 @@ export function ReportReadingToolbar({
                     className={cn(
                       'relative flex size-9 items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105',
                       paperTheme === theme.id
-                        ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                        : 'border-black/10',
+                        ? 'ring-2 ring-primary ring-offset-2 ring-offset-popover'
+                        : 'border-black/10 dark:border-white/30',
                     )}
-                    style={{ backgroundColor: theme.swatch }}
+                    style={{
+                      backgroundColor: isDark
+                        ? theme.darkSwatch
+                        : theme.swatch,
+                    }}
                     onClick={() => onPaperThemeChange(theme.id)}
                   >
                     {paperTheme === theme.id ? (
-                      <Check className="size-3.5 text-foreground/70" />
+                      <Check
+                        className={cn(
+                          'size-3.5',
+                          isDark ? 'text-white/90' : 'text-foreground/70',
+                        )}
+                      />
                     ) : null}
                   </button>
                 ))}
@@ -238,14 +270,23 @@ export function ReportReadingToolbar({
                     className={cn(
                       'relative flex size-9 items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105',
                       deskTheme === theme.id
-                        ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                        : 'border-black/10',
+                        ? 'ring-2 ring-primary ring-offset-2 ring-offset-popover'
+                        : 'border-black/10 dark:border-white/30',
                     )}
-                    style={{ backgroundColor: theme.swatch }}
+                    style={{
+                      backgroundColor: isDark
+                        ? theme.darkSwatch
+                        : theme.swatch,
+                    }}
                     onClick={() => onDeskThemeChange(theme.id)}
                   >
                     {deskTheme === theme.id ? (
-                      <Check className="size-3.5 text-foreground/70" />
+                      <Check
+                        className={cn(
+                          'size-3.5',
+                          isDark ? 'text-white/90' : 'text-foreground/70',
+                        )}
+                      />
                     ) : null}
                   </button>
                 ))}

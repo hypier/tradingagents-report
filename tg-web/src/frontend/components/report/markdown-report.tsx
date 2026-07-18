@@ -98,18 +98,18 @@ export function MarkdownReport({
               return <code className={codeClassName}>{children}</code>;
             }
             return (
-              <code className="rounded-md bg-[var(--report-highlight,#efece4)] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground ring-1 ring-black/5">
+              <code className="rounded-md bg-[var(--report-highlight,#efece4)] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground ring-1 ring-foreground/10">
                 {children}
               </code>
             );
           },
           pre: ({ children }) => (
-            <pre className="my-6 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-black/5 bg-[var(--report-highlight-soft,#f5f2ea)] p-4 font-mono text-[0.86em] leading-6 text-foreground">
+            <pre className="my-6 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-[var(--report-highlight-soft,#f5f2ea)] p-4 font-mono text-[0.86em] leading-6 text-foreground">
               {children}
             </pre>
           ),
           table: ({ children }) => (
-            <div className="my-6 overflow-x-auto rounded-xl border border-black/5">
+            <div className="my-6 overflow-x-auto rounded-xl border border-border">
               <table className="w-full table-fixed text-left text-[0.95em] break-words">
                 {children}
               </table>
@@ -121,12 +121,12 @@ export function MarkdownReport({
             </thead>
           ),
           th: ({ children }) => (
-            <th className="border-b border-black/5 px-3.5 py-2.5 align-top font-semibold break-words">
+            <th className="border-b border-border px-3.5 py-2.5 align-top font-semibold break-words">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border-b border-black/5 px-3.5 py-2.5 align-top break-words">
+            <td className="border-b border-border px-3.5 py-2.5 align-top break-words">
               {children}
             </td>
           ),

@@ -1,9 +1,18 @@
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/frontend/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/frontend/components/ui/select';
 import {
   type UiLocale,
+  UI_LOCALE_FLAGS,
   UI_LOCALES,
+  isUiLocale,
   normalizeUiLocale,
 } from '@/frontend/i18n/locales';
 import { cn } from '@/frontend/lib/utils';
@@ -17,24 +26,29 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   }
 
   return (
-    <div
-      className={cn('flex items-center gap-1', className)}
-      role="group"
-      aria-label={t('language.label')}
+    <Select
+      value={active}
+      onValueChange={(value) => {
+        if (isUiLocale(value)) setLocale(value);
+      }}
     >
-      {UI_LOCALES.map((locale) => (
-        <Button
-          key={locale}
-          type="button"
-          size="sm"
-          variant={active === locale ? 'secondary' : 'ghost'}
-          className="h-7 px-2 text-xs"
-          aria-pressed={active === locale}
-          onClick={() => setLocale(locale)}
-        >
-          {t(`language.${locale}`)}
-        </Button>
-      ))}
-    </div>
+      <SelectTrigger
+        size="sm"
+        className={cn(className)}
+        aria-label={t('language.label')}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end" position="popper">
+        <SelectGroup>
+          {UI_LOCALES.map((locale) => (
+            <SelectItem key={locale} value={locale}>
+              <span aria-hidden="true">{UI_LOCALE_FLAGS[locale]}</span>
+              {t(`language.${locale}`)}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }

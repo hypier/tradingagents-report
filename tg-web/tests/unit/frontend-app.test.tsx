@@ -7,15 +7,6 @@ import { expect, it } from 'vitest';
 
 import { App } from '../../src/frontend/app/app';
 
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: () => ({
-    matches: false,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }),
-});
-
 it('renders the research command dashboard', () => {
   render(
     <MemoryRouter initialEntries={['/']}>

@@ -10,15 +10,6 @@ import i18n from '../../src/frontend/i18n';
 import { HomePage } from '../../src/frontend/pages/home-page';
 import { TooltipProvider } from '../../src/frontend/components/ui/tooltip';
 
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: () => ({
-    matches: false,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }),
-});
-
 it('switches the research desk UI between English and Chinese', async () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -39,11 +30,21 @@ it('switches the research desk UI between English and Chinese', async () => {
   ).toBeInTheDocument();
   expect(i18n.language).toMatch(/^en/);
 
-  fireEvent.click(screen.getByRole('button', { name: '中文' }));
+  const languageSelect = screen.getByRole('combobox', {
+    name: 'Interface language',
+  });
+  expect(languageSelect).toHaveTextContent('🇺🇸');
+  expect(languageSelect).toHaveTextContent('English');
+
+  fireEvent.click(languageSelect);
+  fireEvent.click(screen.getByRole('option', { name: /中文/ }));
 
   expect(
     await screen.findByRole('heading', { name: '运行多智能体分析' }),
   ).toBeInTheDocument();
   expect(i18n.language).toBe('zh');
   expect(document.documentElement.lang).toBe('zh');
+  expect(
+    screen.getByRole('combobox', { name: '界面语言' }),
+  ).toHaveTextContent('🇨🇳');
 });

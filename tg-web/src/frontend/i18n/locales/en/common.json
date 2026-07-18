@@ -22,6 +22,12 @@
     "en": "English",
     "zh": "中文"
   },
+  "theme": {
+    "label": "Color theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "status": {
     "idle": "Idle",
     "queued": "Queued",
