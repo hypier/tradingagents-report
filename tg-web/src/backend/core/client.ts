@@ -80,6 +80,13 @@ export class CoreClient implements CoreClientContract {
       );
 
       if (!response.ok) {
+        if (response.status === 400 || response.status === 409) {
+          throw new AppError(
+            'CORE_REQUEST_REJECTED',
+            response.status,
+            'Analysis service rejected the request',
+          );
+        }
         throw coreUnavailable();
       }
 

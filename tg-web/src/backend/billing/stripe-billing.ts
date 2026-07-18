@@ -1,0 +1,559 @@
+import Stripe from 'stripe';
+
+import {
+  BillingServiceError,
+  type BillingInvoice,
+  type BillingOverview,
+  type BillingPlan,
+  type BillingService,
+  type BillingSettings,
+  type BillingSubscription,
+  type CreateBillingCustomerInput,
+  type CreateBillingPlanInput,
+  type StripeSubscriptionSnapshot,
+  type StripeWebhookEvent,
+} from './contract';
+
+export type StripeBillingOptions = {
+  secretKey?: string;
+  webhookSecret?: string;
+  appBaseUrl: URL;
+};
+
+const MANAGEABLE_SUBSCRIPTION_STATUSES = new Set<Stripe.Subscription.Status>([
+  'active',
+  'trialing',
+  'past_due',
+  'unpaid',
+  'paused',
+  'incomplete',
+]);
+
+export function createStripeBillingService(
+  options: StripeBillingOptions,
+): BillingService {
+  if (!options.secretKey) {
+    return new UnavailableBillingService(options);
+  }
+  return new StripeBillingService(options);
+}
+
+class StripeBillingService implements BillingService {
+  private readonly stripe: Stripe;
+  private readonly cryptoProvider: ReturnType<
+    typeof Stripe.createSubtleCryptoProvider
+  >;
+
+  constructor(private readonly options: StripeBillingOptions) {
+    this.stripe = new Stripe(options.secretKey!, {
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+    this.cryptoProvider = Stripe.createSubtleCryptoProvider();
+  }
+
+  async getOverview(customerId: string | null): Promise<BillingOverview> {
+    const plansPromise = this.listPlans();
+    if (!customerId) {
+      return {
+        configured: true,
+        plans: await plansPromise,
+        subscription: null,
+        invoices: [],
+      };
+    }
+
+    const [plans, subscriptions, invoices] = await Promise.all([
+      plansPromise,
+      this.stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 10,
+        expand: ['data.items.data.price.product'],
+      }),
+      this.stripe.invoices.list({ customer: customerId, limit: 10 }),
+    ]);
+
+    const subscription = subscriptions.data.find((candidate) =>
+      MANAGEABLE_SUBSCRIPTION_STATUSES.has(candidate.status),
+    );
+
+    return {
+      configured: true,
+      plans,
+      subscription: subscription ? mapSubscription(subscription) : null,
+      invoices: invoices.data.map(mapInvoice),
+    };
+  }
+
+  async getSettings(): Promise<BillingSettings> {
+    return {
+      configured: true,
+      connectionHealthy: true,
+      webhookConfigured: Boolean(this.options.webhookSecret),
+      webhookUrl: new URL(
+        '/api/stripe/webhook',
+        this.options.appBaseUrl,
+      ).toString(),
+      mode: this.options.secretKey!.startsWith('sk_live_') ? 'live' : 'test',
+      plans: await this.listPlans(),
+      configurationSource: 'environment',
+      configurationEditable: false,
+      secretKeyHint: secretHint(this.options.secretKey),
+      webhookSecretHint: secretHint(this.options.webhookSecret),
+      updatedAt: null,
+    };
+  }
+
+  async createCustomer(input: CreateBillingCustomerInput): Promise<string> {
+    const customer = await this.stripe.customers.create(
+      {
+        email: input.email ?? undefined,
+        name: input.displayName,
+        metadata: { clerk_user_id: input.clerkUserId },
+      },
+      { idempotencyKey: `tg-customer-${input.clerkUserId}` },
+    );
+    return customer.id;
+  }
+
+  async createCheckout(
+    customerId: string,
+    priceId: string,
+    idempotencyKey: string,
+  ): Promise<string> {
+    const [price, subscriptions] = await Promise.all([
+      this.stripe.prices.retrieve(priceId),
+      this.stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 10,
+      }),
+    ]);
+    if (
+      !price.active ||
+      !price.recurring ||
+      metadataInteger(price.metadata.analysis_credits) < 1
+    ) {
+      throw new BillingServiceError(
+        'INVALID_BILLING_PLAN',
+        400,
+        'The selected subscription plan is unavailable',
+      );
+    }
+    if (
+      subscriptions.data.some((subscription) =>
+        MANAGEABLE_SUBSCRIPTION_STATUSES.has(subscription.status),
+      )
+    ) {
+      throw new BillingServiceError(
+        'SUBSCRIPTION_ALREADY_EXISTS',
+        409,
+        'Manage the existing subscription in the billing portal',
+      );
+    }
+
+    const session = await this.stripe.checkout.sessions.create(
+      {
+        customer: customerId,
+        mode: 'subscription',
+        line_items: [{ price: priceId, quantity: 1 }],
+        allow_promotion_codes: true,
+        billing_address_collection: 'auto',
+        success_url: new URL(
+          '/billing?checkout=success',
+          this.options.appBaseUrl,
+        ).toString(),
+        cancel_url: new URL(
+          '/billing?checkout=canceled',
+          this.options.appBaseUrl,
+        ).toString(),
+        subscription_data: {
+          metadata: { source: 'tradingagents-web' },
+        },
+      },
+      { idempotencyKey: `tg-checkout-${customerId}-${idempotencyKey}` },
+    );
+    if (!session.url) {
+      throw new BillingServiceError(
+        'STRIPE_SESSION_UNAVAILABLE',
+        502,
+        'Stripe did not return a Checkout URL',
+      );
+    }
+    return session.url;
+  }
+
+  async createPortal(customerId: string): Promise<string> {
+    const session = await this.stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: new URL('/billing', this.options.appBaseUrl).toString(),
+    });
+    return session.url;
+  }
+
+  async createPlan(input: CreateBillingPlanInput): Promise<BillingPlan> {
+    const product = await this.stripe.products.create({
+      name: input.name,
+      description: input.description,
+      metadata: {
+        managed_by: 'tradingagents-web',
+        analysis_credits: String(input.analysisCredits),
+        supported_markets: JSON.stringify(input.supportedMarkets),
+        features: JSON.stringify(input.features),
+      },
+    });
+
+    try {
+      const price = await this.stripe.prices.create({
+        product: product.id,
+        unit_amount: input.unitAmount,
+        currency: input.currency,
+        recurring: { interval: input.interval },
+        metadata: {
+          managed_by: 'tradingagents-web',
+          analysis_credits: String(input.analysisCredits),
+        },
+      });
+      return mapPlan(price, product);
+    } catch (error) {
+      await this.stripe.products.update(product.id, { active: false });
+      throw error;
+    }
+  }
+
+  async archivePlan(priceId: string): Promise<void> {
+    const price = await this.stripe.prices.retrieve(priceId);
+    if (price.metadata.managed_by !== 'tradingagents-web') {
+      throw new BillingServiceError(
+        'UNMANAGED_BILLING_PLAN',
+        400,
+        'Only TradingAgents-managed plans can be archived',
+      );
+    }
+    await this.stripe.prices.update(priceId, { active: false });
+  }
+
+  async updateConfiguration(): Promise<BillingSettings> {
+    return this.configurationUnavailable();
+  }
+
+  async clearConfiguration(): Promise<BillingSettings> {
+    return this.configurationUnavailable();
+  }
+
+  async handleWebhook(payload: string, signature: string) {
+    if (!this.options.webhookSecret) {
+      throw new BillingServiceError(
+        'STRIPE_WEBHOOK_NOT_CONFIGURED',
+        503,
+        'Stripe webhook signing is not configured',
+      );
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = await this.stripe.webhooks.constructEventAsync(
+        payload,
+        signature,
+        this.options.webhookSecret,
+        undefined,
+        this.cryptoProvider,
+      );
+    } catch (error) {
+      throw new BillingServiceError(
+        'INVALID_STRIPE_SIGNATURE',
+        400,
+        'Invalid Stripe webhook signature',
+        error,
+      );
+    }
+    return normalizeWebhookEvent(event, this.stripe);
+  }
+
+  private async listPlans(): Promise<BillingPlan[]> {
+    const prices = await this.stripe.prices.list({
+      active: true,
+      type: 'recurring',
+      limit: 100,
+      expand: ['data.product'],
+    });
+    return prices.data
+      .filter(
+        (price) =>
+          price.recurring !== null &&
+          typeof price.product !== 'string' &&
+          !price.product.deleted &&
+          price.product.active,
+      )
+      .map((price) => mapPlan(price, price.product as Stripe.Product))
+      .filter((plan) => plan.analysisCredits > 0);
+  }
+
+  private configurationUnavailable(): never {
+    throw new BillingServiceError(
+      'BILLING_CONFIGURATION_NOT_EDITABLE',
+      503,
+      'Stripe configuration is managed by the deployment environment',
+    );
+  }
+}
+
+class UnavailableBillingService implements BillingService {
+  constructor(private readonly options: StripeBillingOptions) {}
+
+  async getOverview(): Promise<BillingOverview> {
+    return {
+      configured: false,
+      plans: [],
+      subscription: null,
+      invoices: [],
+    };
+  }
+
+  async getSettings(): Promise<BillingSettings> {
+    return {
+      configured: false,
+      connectionHealthy: false,
+      webhookConfigured: false,
+      webhookUrl: new URL(
+        '/api/stripe/webhook',
+        this.options.appBaseUrl,
+      ).toString(),
+      mode: 'unconfigured',
+      plans: [],
+      configurationSource: 'none',
+      configurationEditable: false,
+      secretKeyHint: null,
+      webhookSecretHint: null,
+      updatedAt: null,
+    };
+  }
+
+  async createCustomer(): Promise<string> {
+    return this.unavailable();
+  }
+
+  async createCheckout(): Promise<string> {
+    return this.unavailable();
+  }
+
+  async createPortal(): Promise<string> {
+    return this.unavailable();
+  }
+
+  async createPlan(): Promise<BillingPlan> {
+    return this.unavailable();
+  }
+
+  async archivePlan(): Promise<void> {
+    return this.unavailable();
+  }
+
+  async updateConfiguration(): Promise<BillingSettings> {
+    return this.unavailable();
+  }
+
+  async clearConfiguration(): Promise<BillingSettings> {
+    return this.unavailable();
+  }
+
+  async handleWebhook(): Promise<StripeWebhookEvent> {
+    return this.unavailable();
+  }
+
+  private unavailable(): never {
+    throw new BillingServiceError(
+      'BILLING_NOT_CONFIGURED',
+      503,
+      'Stripe billing is not configured',
+    );
+  }
+}
+
+function mapPlan(price: Stripe.Price, product: Stripe.Product): BillingPlan {
+  if (!price.recurring || price.unit_amount === null) {
+    throw new BillingServiceError(
+      'INVALID_STRIPE_PRICE',
+      502,
+      'Stripe returned an invalid recurring price',
+    );
+  }
+  if (!['month', 'year'].includes(price.recurring.interval)) {
+    throw new BillingServiceError(
+      'UNSUPPORTED_BILLING_INTERVAL',
+      502,
+      'Stripe returned an unsupported billing interval',
+    );
+  }
+
+  return {
+    id: price.id,
+    name: product.name,
+    description: product.description,
+    unitAmount: price.unit_amount,
+    currency: price.currency,
+    interval: price.recurring.interval as 'month' | 'year',
+    intervalCount: price.recurring.interval_count,
+    analysisCredits: metadataInteger(
+      price.metadata.analysis_credits ?? product.metadata.analysis_credits,
+    ),
+    supportedMarkets: metadataList(product.metadata.supported_markets),
+    features: metadataList(product.metadata.features),
+  };
+}
+
+async function normalizeWebhookEvent(
+  event: Stripe.Event,
+  stripe: Stripe,
+): Promise<StripeWebhookEvent> {
+  const normalized: StripeWebhookEvent = {
+    id: event.id,
+    type: event.type,
+    payload: { stripeCreatedAt: event.created, livemode: event.livemode },
+  };
+  if (event.type.startsWith('customer.subscription.')) {
+    normalized.subscription = subscriptionSnapshot(
+      event.data.object as Stripe.Subscription,
+    );
+    return normalized;
+  }
+  if (event.type !== 'invoice.paid') return normalized;
+
+  const invoice = event.data.object as Stripe.Invoice;
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  const customerId = objectId(invoice.customer);
+  if (!subscriptionId || !customerId) return normalized;
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ['items.data.price.product'],
+  });
+  const snapshot = subscriptionSnapshot(subscription);
+  normalized.subscription = snapshot;
+  const item = subscription.items.data[0];
+  const product = item?.price.product;
+  const credits = metadataInteger(
+    item?.price.metadata.analysis_credits ??
+      (product && typeof product !== 'string' && !product.deleted
+        ? product.metadata.analysis_credits
+        : undefined),
+  );
+  const grantsCycleCredits =
+    invoice.billing_reason === 'subscription_create' ||
+    invoice.billing_reason === 'subscription_cycle';
+  if (
+    grantsCycleCredits &&
+    credits > 0 &&
+    (subscription.status === 'active' || subscription.status === 'trialing')
+  ) {
+    normalized.creditGrant = {
+      invoiceId: invoice.id,
+      customerId,
+      subscriptionId,
+      priceId: item?.price.id ?? '',
+      credits,
+      periodStart: snapshot.currentPeriodStart,
+      periodEnd: snapshot.currentPeriodEnd,
+    };
+  }
+  return normalized;
+}
+
+function subscriptionSnapshot(
+  subscription: Stripe.Subscription,
+): StripeSubscriptionSnapshot {
+  const item = subscription.items.data[0];
+  return {
+    id: subscription.id,
+    customerId: objectId(subscription.customer) ?? '',
+    priceId: item?.price.id ?? '',
+    status: subscription.status,
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    currentPeriodStart: item?.current_period_start ?? null,
+    currentPeriodEnd: item?.current_period_end ?? null,
+    latestInvoiceId: objectId(subscription.latest_invoice),
+  };
+}
+
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const value = invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+    parent?: {
+      type?: string;
+      subscription_details?: {
+        subscription?: string | Stripe.Subscription | null;
+      } | null;
+    } | null;
+  };
+  return objectId(
+    value.subscription ?? value.parent?.subscription_details?.subscription,
+  );
+}
+
+function objectId(value: { id: string } | string | null | undefined) {
+  return typeof value === 'string' ? value : (value?.id ?? null);
+}
+
+function metadataInteger(value: string | undefined): number {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function metadataList(value: string | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === 'string');
+    }
+  } catch {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function mapSubscription(
+  subscription: Stripe.Subscription,
+): BillingSubscription {
+  const item = subscription.items.data[0];
+  const product = item?.price.product;
+  const planName =
+    product && typeof product !== 'string' && !product.deleted
+      ? product.name
+      : 'Subscription';
+
+  return {
+    id: subscription.id,
+    status: subscription.status,
+    planName,
+    priceId: item?.price.id ?? '',
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    currentPeriodEnd: item?.current_period_end ?? null,
+  };
+}
+
+function mapInvoice(invoice: Stripe.Invoice): BillingInvoice {
+  return {
+    id: invoice.id,
+    number: invoice.number,
+    status: invoice.status,
+    amountDue: invoice.amount_due,
+    amountPaid: invoice.amount_paid,
+    currency: invoice.currency,
+    createdAt: invoice.created,
+    hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+  };
+}
+
+function secretHint(value: string | undefined) {
+  if (!value) return null;
+  const prefix = value.startsWith('whsec_')
+    ? 'whsec_'
+    : value.startsWith('sk_live_')
+      ? 'sk_live_'
+      : value.startsWith('sk_test_')
+        ? 'sk_test_'
+        : '';
+  return `${prefix}...${value.slice(-4)}`;
+}

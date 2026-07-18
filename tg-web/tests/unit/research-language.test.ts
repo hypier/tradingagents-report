@@ -33,5 +33,6 @@ it('sends the selected report language as a Core config override', async () => {
     configOverrides: { output_language: 'Japanese' },
     ticker: 'AAPL',
     tradeDate: '2026-07-16',
+    requestId: expect.any(String),
   });
 });

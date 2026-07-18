@@ -1,6 +1,6 @@
 import { createClerkClient } from '@clerk/backend';
 
-import type { AuthService, AuthUser } from './contract';
+import type { AuthService, AuthUser, ManagedUser, UserRole } from './contract';
 
 export type ClerkAuthOptions = {
   secretKey: string;
@@ -40,6 +40,26 @@ export function createClerkAuthService({
 }: ClerkAuthOptions): AuthService {
   const clerk = createClerkClient({ secretKey, publishableKey });
 
+  async function ensureAssignedRole(userId: string) {
+    const user = await clerk.users.getUser(userId);
+    if (
+      user.publicMetadata.role === 'admin' ||
+      user.publicMetadata.role === 'user'
+    ) {
+      return user;
+    }
+
+    const firstPage = await clerk.users.getUserList({
+      limit: 1,
+      orderBy: '+created_at',
+    });
+    return clerk.users.updateUserMetadata(user.id, {
+      publicMetadata: {
+        role: firstPage.data[0]?.id === user.id ? 'admin' : 'user',
+      },
+    });
+  }
+
   return {
     async authenticate(request) {
       const requestState = await clerk.authenticateRequest(request, {
@@ -55,24 +75,83 @@ export function createClerkAuthService({
     },
 
     async getUser(userId): Promise<AuthUser> {
-      const user = await clerk.users.getUser(userId);
-      const primaryEmail = user.emailAddresses.find(
-        (email) => email.id === user.primaryEmailAddressId,
-      );
-      const fullName = [user.firstName, user.lastName]
-        .filter(Boolean)
-        .join(' ');
+      return normalizeUser(await ensureAssignedRole(userId));
+    },
+
+    async listUsers(input) {
+      const page = await clerk.users.getUserList({
+        limit: input.limit,
+        offset: input.offset,
+        orderBy: '+created_at',
+        query: input.query,
+      });
 
       return {
-        id: user.id,
-        displayName:
-          fullName || user.username || primaryEmail?.emailAddress || 'User',
-        email: primaryEmail?.emailAddress ?? null,
-        imageUrl: user.imageUrl,
-        role: user.publicMetadata.role === 'admin' ? 'admin' : 'user',
+        users: page.data.map(normalizeManagedUser),
+        totalCount: page.totalCount,
       };
     },
+
+    async setUserRole(userId, role) {
+      const user = await clerk.users.updateUserMetadata(userId, {
+        publicMetadata: { role },
+      });
+      return normalizeManagedUser(user);
+    },
+
+    async getBillingIdentity(userId) {
+      const user = await ensureAssignedRole(userId);
+      const customerId = user.privateMetadata.stripeCustomerId;
+      return {
+        user: normalizeUser(user),
+        stripeCustomerId:
+          typeof customerId === 'string' && customerId ? customerId : null,
+      };
+    },
+
+    async setStripeCustomerId(userId, customerId) {
+      await clerk.users.updateUserMetadata(userId, {
+        privateMetadata: { stripeCustomerId: customerId },
+      });
+    },
   };
+}
+
+type ClerkUser = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  imageUrl: string;
+  primaryEmailAddressId: string | null;
+  emailAddresses: Array<{ id: string; emailAddress: string }>;
+  publicMetadata: Record<string, unknown>;
+  privateMetadata: Record<string, unknown>;
+  createdAt: number;
+};
+
+function normalizeUser(user: ClerkUser): AuthUser {
+  const primaryEmail = user.emailAddresses.find(
+    (email) => email.id === user.primaryEmailAddressId,
+  );
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+
+  return {
+    id: user.id,
+    displayName:
+      fullName || user.username || primaryEmail?.emailAddress || 'User',
+    email: primaryEmail?.emailAddress ?? null,
+    imageUrl: user.imageUrl,
+    role: normalizeRole(user.publicMetadata.role),
+  };
+}
+
+function normalizeManagedUser(user: ClerkUser): ManagedUser {
+  return { ...normalizeUser(user), createdAt: user.createdAt };
+}
+
+function normalizeRole(role: unknown): UserRole {
+  return role === 'admin' ? 'admin' : 'user';
 }
 
 function requiredString(env: Record<string, unknown>, name: string): string {

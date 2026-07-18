@@ -30,8 +30,27 @@ function fakeDependencies(): AppDependencies {
     auth: {
       authenticate: vi.fn().mockResolvedValue(null),
       getUser: vi.fn(),
+      listUsers: vi.fn(),
+      setUserRole: vi.fn(),
+      getBillingIdentity: vi.fn(),
+      setStripeCustomerId: vi.fn(),
     },
-    database: { healthcheck: vi.fn().mockResolvedValue(undefined) },
+    billing: {
+      getOverview: vi.fn(),
+      getSettings: vi.fn(),
+      createCustomer: vi.fn(),
+      createCheckout: vi.fn(),
+      createPortal: vi.fn(),
+      createPlan: vi.fn(),
+      archivePlan: vi.fn(),
+      updateConfiguration: vi.fn(),
+      clearConfiguration: vi.fn(),
+      handleWebhook: vi.fn(),
+    },
+    database: {
+      healthcheck: vi.fn().mockResolvedValue(undefined),
+      product: fakeProductRepository(),
+    },
     cache: {
       get: vi.fn(),
       set: vi.fn(),
@@ -47,6 +66,24 @@ function fakeDependencies(): AppDependencies {
     },
     marketAssets: { getIdentities: vi.fn(), getSnapshot: vi.fn() },
     logger: new Logger(),
+  };
+}
+
+function fakeProductRepository() {
+  return {
+    syncUser: vi.fn(),
+    getProfile: vi.fn(),
+    updatePreferences: vi.fn(),
+    recordConsents: vi.fn(),
+    hasCurrentConsents: vi.fn().mockResolvedValue(true),
+    setStripeCustomerId: vi.fn(),
+    getStripeCustomerId: vi.fn().mockResolvedValue(null),
+    getUsage: vi.fn(),
+    reserveAnalysis: vi.fn(),
+    attachAnalysis: vi.fn(),
+    releaseAnalysis: vi.fn(),
+    processStripeEvent: vi.fn(),
+    recordStripeFailure: vi.fn(),
   };
 }
 

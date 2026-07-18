@@ -2,6 +2,8 @@
 
 import { createApp, type AppDependencies, type AppType } from '../backend/app';
 import { createClerkAuthService } from '../backend/auth/clerk-auth';
+import { createBillingConfigurationStore } from '../backend/billing/configuration-store';
+import { createManagedStripeBillingService } from '../backend/billing/managed-stripe-billing';
 import { FailOpenCache } from '../backend/cache/fail-open-cache';
 import { KvCache } from '../backend/cache/kv-cache';
 import { parseWorkerConfig } from '../backend/config/worker-config';
@@ -19,6 +21,10 @@ export interface WorkerEnv {
   CLERK_SECRET_KEY: string;
   VITE_CLERK_PUBLISHABLE_KEY: string;
   CLERK_AUTHORIZED_PARTIES: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  BILLING_CONFIG_ENCRYPTION_KEY?: string;
+  APP_BASE_URL?: string;
   TRADINGVIEW_RAPIDAPI_KEY?: string;
   LOG_LEVEL?: string;
 }
@@ -31,10 +37,18 @@ export type WorkerHandler = {
 function createDependencies(env: WorkerEnv): AppDependencies {
   const config = parseWorkerConfig(env as unknown as Record<string, unknown>);
   const logger = new Logger();
+  const database = createWorkerDatabase(env.HYPERDRIVE.connectionString);
 
   return {
     auth: createClerkAuthService(config.clerkAuth),
-    database: createWorkerDatabase(env.HYPERDRIVE.connectionString),
+    billing: createManagedStripeBillingService({
+      ...config.billing,
+      configurationStore: createBillingConfigurationStore(
+        database.billingConfig,
+        config.billingConfigEncryptionKey,
+      ),
+    }),
+    database,
     cache: new FailOpenCache(new KvCache(env.CACHE_KV, logger), logger),
     core: new CoreClient(config.coreApiUrl, config.coreApiKey),
     marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),

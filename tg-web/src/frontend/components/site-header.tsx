@@ -2,7 +2,7 @@ import { useAccountMenu } from '@/frontend/app/account-menu';
 import { Separator } from '@/frontend/components/ui/separator';
 import { SidebarTrigger } from '@/frontend/components/ui/sidebar';
 
-export function SiteHeader() {
+export function SiteHeader({ title = 'Research command' }: { title?: string }) {
   const accountMenu = useAccountMenu();
 
   return (
@@ -13,7 +13,7 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">Research command</h1>
+        <h1 className="text-base font-medium">{title}</h1>
         {accountMenu && <div className="ml-auto">{accountMenu}</div>}
       </div>
     </header>

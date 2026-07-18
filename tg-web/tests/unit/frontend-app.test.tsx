@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 
 import { App } from '../../src/frontend/app/app';
 
@@ -15,6 +15,23 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: () => undefined,
   }),
 });
+
+vi.mock('../../src/frontend/lib/auth', () => ({
+  getAuthSession: vi.fn().mockResolvedValue({
+    data: {
+      authenticated: true,
+      session: { id: 'session-1' },
+      user: {
+        id: 'user-1',
+        displayName: 'Test User',
+        email: 'test@example.test',
+        imageUrl: '',
+        role: 'user',
+      },
+    },
+    requestId: 'request-1',
+  }),
+}));
 
 it('renders the research command dashboard', () => {
   render(

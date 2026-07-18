@@ -4,7 +4,13 @@ import { AppSidebar } from './app-sidebar';
 import { SiteHeader } from './site-header';
 import { SidebarInset, SidebarProvider } from './ui/sidebar';
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title?: string;
+}) {
   return (
     <SidebarProvider
       style={
@@ -16,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     >
       <AppSidebar variant="inset" />
       <SidebarInset>
-        <SiteHeader />
+        <SiteHeader title={title} />
         {children}
       </SidebarInset>
     </SidebarProvider>

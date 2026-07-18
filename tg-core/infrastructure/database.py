@@ -54,9 +54,7 @@ def init_database() -> None:
             )
             """
         )
-        conn.execute(
-            "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS request_id UUID"
-        )
+        conn.execute("ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS request_id UUID")
         conn.execute(
             "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS progress_percent INTEGER NOT NULL DEFAULT 0"
         )
@@ -75,6 +73,159 @@ def init_database() -> None:
         )
         conn.execute(
             "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS cost_breakdown JSONB NOT NULL DEFAULT '{}'::jsonb"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product_users (
+                clerk_user_id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                email TEXT,
+                avatar_url TEXT NOT NULL DEFAULT '',
+                interface_language TEXT NOT NULL DEFAULT 'en',
+                report_language TEXT NOT NULL DEFAULT 'English',
+                timezone TEXT NOT NULL DEFAULT 'UTC',
+                default_market TEXT NOT NULL DEFAULT 'US',
+                stripe_customer_id TEXT UNIQUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_consents (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                clerk_user_id TEXT NOT NULL REFERENCES product_users(clerk_user_id) ON DELETE CASCADE,
+                document_type TEXT NOT NULL,
+                document_version TEXT NOT NULL,
+                accepted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                ip_address TEXT,
+                user_agent TEXT,
+                UNIQUE (clerk_user_id, document_type, document_version)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS billing_subscriptions (
+                stripe_subscription_id TEXT PRIMARY KEY,
+                clerk_user_id TEXT NOT NULL REFERENCES product_users(clerk_user_id) ON DELETE CASCADE,
+                stripe_customer_id TEXT NOT NULL,
+                stripe_price_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+                current_period_start TIMESTAMPTZ,
+                current_period_end TIMESTAMPTZ,
+                latest_invoice_id TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS billing_subscriptions_user_status_idx
+            ON billing_subscriptions (clerk_user_id, status)
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS credit_accounts (
+                clerk_user_id TEXT PRIMARY KEY REFERENCES product_users(clerk_user_id) ON DELETE CASCADE,
+                available_credits INTEGER NOT NULL DEFAULT 0 CHECK (available_credits >= 0),
+                reserved_credits INTEGER NOT NULL DEFAULT 0 CHECK (reserved_credits >= 0),
+                spent_credits INTEGER NOT NULL DEFAULT 0 CHECK (spent_credits >= 0),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS credit_reservations (
+                request_id UUID PRIMARY KEY,
+                clerk_user_id TEXT NOT NULL REFERENCES product_users(clerk_user_id) ON DELETE CASCADE,
+                analysis_job_id UUID UNIQUE,
+                units INTEGER NOT NULL CHECK (units > 0),
+                status TEXT NOT NULL CHECK (status IN ('reserved', 'consumed', 'released')),
+                reason TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                settled_at TIMESTAMPTZ
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS credit_reservations_user_created_idx
+            ON credit_reservations (clerk_user_id, created_at DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS credit_ledger_entries (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                clerk_user_id TEXT NOT NULL REFERENCES product_users(clerk_user_id) ON DELETE CASCADE,
+                entry_type TEXT NOT NULL,
+                available_delta INTEGER NOT NULL DEFAULT 0,
+                reserved_delta INTEGER NOT NULL DEFAULT 0,
+                spent_delta INTEGER NOT NULL DEFAULT 0,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                reference_type TEXT NOT NULL,
+                reference_id TEXT NOT NULL,
+                description TEXT NOT NULL,
+                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS credit_ledger_user_created_idx
+            ON credit_ledger_entries (clerk_user_id, created_at DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+                stripe_event_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                payload JSONB NOT NULL,
+                error TEXT,
+                received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                processed_at TIMESTAMPTZ,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS billing_provider_configs (
+                provider TEXT PRIMARY KEY,
+                secret_key_ciphertext TEXT NOT NULL,
+                webhook_secret_ciphertext TEXT NOT NULL,
+                updated_by_clerk_user_id TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS billing_config_audit_events (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                provider TEXT NOT NULL,
+                action TEXT NOT NULL CHECK (action IN ('configured', 'cleared')),
+                actor_clerk_user_id TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS billing_config_audit_provider_created_idx
+            ON billing_config_audit_events (provider, created_at DESC)
+            """
         )
         conn.execute(
             """

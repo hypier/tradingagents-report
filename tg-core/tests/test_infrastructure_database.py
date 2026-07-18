@@ -61,6 +61,8 @@ def test_init_database_creates_idempotent_schema_without_price_refresh_or_backfi
     assert "CREATE TABLE IF NOT EXISTS analysis_jobs" in statements
     assert "CREATE TABLE IF NOT EXISTS llm_model_prices" in statements
     assert "CREATE TABLE IF NOT EXISTS llm_pricing_sources" in statements
+    assert "CREATE TABLE IF NOT EXISTS billing_provider_configs" in statements
+    assert "CREATE TABLE IF NOT EXISTS billing_config_audit_events" in statements
     assert "CREATE INDEX IF NOT EXISTS analysis_jobs_ticker_created_idx" in statements
     assert "http" not in statements.lower()
 

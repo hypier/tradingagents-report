@@ -198,6 +198,8 @@ def mark_succeeded(
                 job_id,
             ),
         )
+        if cursor.rowcount == 1:
+            _settle_credit_reservation(conn, job_id=job_id, outcome="consumed")
     return cursor.rowcount == 1
 
 
@@ -227,7 +229,88 @@ def mark_failed(
                 job_id,
             ),
         )
+        if cursor.rowcount == 1:
+            _settle_credit_reservation(conn, job_id=job_id, outcome="released")
     return cursor.rowcount == 1
+
+
+def _settle_credit_reservation(conn, *, job_id: UUID | str, outcome: str) -> None:
+    """Settle an optional product credit reservation with the job transition."""
+    reason = "analysis_succeeded" if outcome == "consumed" else "analysis_failed"
+    reservation = conn.execute(
+        """
+        UPDATE credit_reservations AS reservation
+        SET status = %s, reason = %s, settled_at = now(), updated_at = now()
+        FROM analysis_jobs AS job
+        WHERE job.id = %s
+          AND reservation.status = 'reserved'
+          AND (
+            reservation.analysis_job_id = job.id
+            OR (
+              reservation.analysis_job_id IS NULL
+              AND reservation.request_id = job.request_id
+            )
+          )
+        RETURNING reservation.clerk_user_id, reservation.request_id, reservation.units
+        """,
+        (outcome, reason, job_id),
+    ).fetchone()
+    if reservation is None:
+        return
+
+    units = int(reservation["units"])
+    if outcome == "consumed":
+        account = conn.execute(
+            """
+            UPDATE credit_accounts
+            SET reserved_credits = reserved_credits - %s,
+                spent_credits = spent_credits + %s,
+                updated_at = now()
+            WHERE clerk_user_id = %s AND reserved_credits >= %s
+            RETURNING clerk_user_id
+            """,
+            (units, units, reservation["clerk_user_id"], units),
+        ).fetchone()
+        deltas = (0, -units, units)
+        entry_type = "consume"
+        description = "Analysis credit consumed"
+    else:
+        account = conn.execute(
+            """
+            UPDATE credit_accounts
+            SET available_credits = available_credits + %s,
+                reserved_credits = reserved_credits - %s,
+                updated_at = now()
+            WHERE clerk_user_id = %s AND reserved_credits >= %s
+            RETURNING clerk_user_id
+            """,
+            (units, units, reservation["clerk_user_id"], units),
+        ).fetchone()
+        deltas = (units, -units, 0)
+        entry_type = "release"
+        description = "Analysis credit released"
+    if account is None:
+        raise RuntimeError(f"credit account is inconsistent for analysis job {job_id}")
+
+    conn.execute(
+        """
+        INSERT INTO credit_ledger_entries (
+            clerk_user_id, entry_type, available_delta, reserved_delta,
+            spent_delta, idempotency_key, reference_type, reference_id,
+            description, metadata
+        ) VALUES (%s, %s, %s, %s, %s, %s, 'analysis_job', %s, %s, %s)
+        ON CONFLICT (idempotency_key) DO NOTHING
+        """,
+        (
+            reservation["clerk_user_id"],
+            entry_type,
+            *deltas,
+            f"analysis:{reservation['request_id']}:{entry_type}",
+            str(job_id),
+            description,
+            Jsonb({"reason": reason}),
+        ),
+    )
 
 
 def total_tokens(token_usage: dict | None) -> int:

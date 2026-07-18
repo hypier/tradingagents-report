@@ -3,6 +3,9 @@
   "main": "./src/runtimes/cloudflare.ts",
   "compatibility_date": "2025-09-06",
   "compatibility_flags": ["nodejs_compat"],
+  // Store BILLING_CONFIG_ENCRYPTION_KEY as a Worker secret.
+  // Store Stripe secrets and BILLING_CONFIG_ENCRYPTION_KEY with `wrangler secret put`.
+  // Set APP_BASE_URL as a non-secret variable in each deployment environment.
   "assets": {
     "directory": "./dist/frontend",
     "binding": "ASSETS",

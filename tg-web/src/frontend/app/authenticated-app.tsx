@@ -15,6 +15,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
 import { App } from './app';
+import { LegalPage } from '../pages/legal-page';
 
 export function AuthenticatedApp() {
   return (
@@ -91,6 +92,7 @@ function SignedOutRoutes() {
           </AuthPage>
         }
       />
+      <Route path="/legal/:document" element={<LegalPage publicView />} />
       <Route path="*" element={<Navigate replace to={signInTarget} />} />
     </Routes>
   );

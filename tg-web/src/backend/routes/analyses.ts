@@ -1,20 +1,84 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
-import type { AppDependencies } from '../app';
-import type { RequestIdEnvironment } from '../logging/request-id';
+import type { AppDependencies, AppEnvironment } from '../app';
+import { AppError } from '../errors/app-error';
+import { ProductRepositoryError } from '../database/product-repository';
 
 export function analysisRoutes(dependencies: AppDependencies) {
-  const app = new Hono<RequestIdEnvironment>();
+  const app = new Hono<AppEnvironment>();
 
   app.post('/analyses', async (context) => {
     const input = createAnalysisSchema.parse(await context.req.json());
-    const data = await dependencies.core.submitAnalysis({
-      ticker: input.ticker.toUpperCase(),
-      trade_date: input.tradeDate,
-      analysts: input.analysts,
-      config_overrides: input.configOverrides,
-    });
+    const clerkUserId = context.get('auth').userId;
+    if (
+      !(await dependencies.database.product.hasCurrentConsents(clerkUserId))
+    ) {
+      throw new AppError(
+        'CONSENT_REQUIRED',
+        403,
+        'Accept the current legal documents before running an analysis',
+      );
+    }
+    const requestId = input.requestId ?? crypto.randomUUID();
+    let reservation: 'created' | 'existing';
+    try {
+      reservation = await dependencies.database.product.reserveAnalysis({
+        clerkUserId,
+        requestId,
+        units: 1,
+      });
+    } catch (error) {
+      throw productError(error);
+    }
+
+    let data: unknown;
+    try {
+      data = await dependencies.core.submitAnalysis({
+        ticker: input.ticker.toUpperCase(),
+        trade_date: input.tradeDate,
+        analysts: input.analysts,
+        config_overrides: input.configOverrides,
+        request_id: requestId,
+      });
+    } catch (error) {
+      if (
+        reservation === 'created' &&
+        error instanceof AppError &&
+        error.code === 'CORE_REQUEST_REJECTED'
+      ) {
+        await dependencies.database.product.releaseAnalysis(
+          requestId,
+          'analysis_request_rejected',
+        );
+      }
+      throw error;
+    }
+
+    const result = z
+      .object({ id: z.string().uuid() })
+      .passthrough()
+      .safeParse(data);
+    if (!result.success) {
+      throw new AppError(
+        'INVALID_CORE_RESPONSE',
+        502,
+        'Analysis service returned an invalid job response',
+      );
+    }
+    try {
+      await dependencies.database.product.attachAnalysis(
+        requestId,
+        result.data.id,
+      );
+    } catch (error) {
+      dependencies.logger.warn('Unable to attach analysis credit reservation', {
+        requestId,
+        analysisJobId: result.data.id,
+        error: String(error),
+      });
+    }
     return context.json(apiSuccess(data, context.get('requestId')), 202);
   });
 
@@ -94,4 +158,21 @@ export function analysisRoutes(dependencies: AppDependencies) {
   });
 
   return app;
+}
+
+function productError(error: unknown): AppError {
+  if (error instanceof ProductRepositoryError) {
+    const status =
+      error.code === 'INSUFFICIENT_CREDITS' ||
+      error.code === 'SUBSCRIPTION_REQUIRED'
+        ? 402
+        : 409;
+    return new AppError(error.code, status, error.message, error);
+  }
+  return new AppError(
+    'CREDIT_RESERVATION_FAILED',
+    500,
+    'Unable to reserve an analysis credit',
+    error,
+  );
 }

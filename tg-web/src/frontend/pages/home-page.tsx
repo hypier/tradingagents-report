@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
@@ -114,6 +114,13 @@ export function HomePage() {
       toast.success('Research run submitted.');
     },
   });
+  const createErrorCode =
+    create.error &&
+    typeof create.error === 'object' &&
+    'code' in create.error &&
+    typeof create.error.code === 'string'
+      ? create.error.code
+      : null;
   const quote = snapshot.data?.data;
   const identitiesByTicker = Object.fromEntries(
     (identities.data?.data ?? []).map((identity) => [
@@ -198,6 +205,7 @@ export function HomePage() {
                       <Field className="justify-end">
                         <Button
                           type="submit"
+                          aria-label="Run analysis"
                           disabled={
                             !ticker ||
                             !analysts.length ||
@@ -210,7 +218,9 @@ export function HomePage() {
                           ) : (
                             <Play data-icon="inline-start" />
                           )}
-                          {create.isPending ? 'Submitting...' : 'Run analysis'}
+                          {create.isPending
+                            ? 'Submitting...'
+                            : 'Run analysis (1 credit)'}
                         </Button>
                       </Field>
                     </FieldGroup>
@@ -252,9 +262,27 @@ export function HomePage() {
                     </Field>
                     {create.isError && (
                       <Alert variant="destructive">
-                        <AlertTitle>Unable to submit this run</AlertTitle>
+                        <AlertTitle>
+                          {createErrorCode === 'CONSENT_REQUIRED'
+                            ? 'Legal consent required'
+                            : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                                createErrorCode === 'SUBSCRIPTION_REQUIRED'
+                              ? 'Subscription or credits required'
+                              : 'Unable to submit this run'}
+                        </AlertTitle>
                         <AlertDescription>
-                          Check the service connection and retry.
+                          {createErrorCode === 'CONSENT_REQUIRED' ? (
+                            <Link className="underline" to="/account">
+                              Review account consent
+                            </Link>
+                          ) : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                            createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
+                            <Link className="underline" to="/billing">
+                              Review subscription and usage
+                            </Link>
+                          ) : (
+                            'Check the service connection and retry.'
+                          )}
                         </AlertDescription>
                       </Alert>
                     )}

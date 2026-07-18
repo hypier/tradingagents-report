@@ -29,6 +29,16 @@ that are reachable from the development machine:
 - `CLERK_AUTHORIZED_PARTIES`: comma-separated browser origins allowed in
   Clerk session tokens. Local Vite development normally uses
   `http://localhost:5173` and `http://127.0.0.1:5173`.
+- `STRIPE_SECRET_KEY`: optional server-only Stripe API key. When omitted, the
+  application remains available and billing is shown as not configured.
+- `STRIPE_WEBHOOK_SECRET`: optional Stripe webhook signing secret for
+  `/api/stripe/webhook`.
+- `BILLING_CONFIG_ENCRYPTION_KEY`: optional Base64-encoded 32-byte master key.
+  When configured, administrators can validate, replace, and clear Stripe
+  credentials from `/admin/billing`; values are AES-GCM encrypted before
+  PostgreSQL persistence and are never returned by the API.
+- `APP_BASE_URL`: public application origin used for Checkout success/cancel,
+  Customer Portal return, and webhook URLs.
 
 The sample values are placeholders only. Do not commit a populated `.env`.
 
@@ -39,6 +49,34 @@ Clerk Dashboard. Successful registration and login return to the requested
 internal route (or `/`), while signing out returns to `/sign-in`. When the
 publishable key is missing or Clerk cannot initialize, the page shows an
 explicit configuration error instead of rendering a blank screen.
+
+The earliest user in Clerk is assigned `publicMetadata.role=admin` when that
+account first establishes an application session; other unassigned accounts
+receive `role=user`. This one-time initialization does not overwrite an
+explicitly assigned `user` or `admin` role. Admins see the `/admin/users`
+screen and can search users or change other users' roles.
+The BFF enforces these permissions on `GET /api/admin/users` and
+`PATCH /api/admin/users/:userId/role`; hiding the frontend navigation is not
+treated as an authorization boundary. Administrators cannot demote their own
+account.
+
+Authenticated users see subscription plans, their current Stripe subscription,
+credit balance, credit activity, and invoices at `/billing`. New subscriptions use Stripe Checkout. Renewal,
+cancellation, plan changes, payment methods, and billing history are managed in
+Stripe Customer Portal. The Stripe Customer ID is stored in the local product
+profile and mirrored to Clerk private metadata. Stripe remains the source of
+truth for payment state; PostgreSQL is the source of truth for subscription
+snapshots, credit reservations, and the credit ledger.
+
+`/account` embeds Clerk's profile manager for names, avatars, credentials,
+social accounts, and sessions. Product preferences and versioned acceptance of
+the risk disclaimer, terms, and privacy policy are stored locally. Passwords
+and Clerk session credentials are never stored by TG-web.
+
+Administrators use `/admin/billing` to inspect connection and webhook status,
+create recurring Stripe Products and Prices, and archive active Prices. When
+`BILLING_CONFIG_ENCRYPTION_KEY` is configured, administrators can validate,
+replace, or clear encrypted Stripe credentials without a service restart.
 
 ## Product documentation
 
@@ -88,6 +126,13 @@ tables are Core-owned. `tg-web` does not run migrations for these tables. Its
 direct database access is limited to the mapped query boundary; analysis job
 creation and other job mutations belong to the Core API, not to `tg-web`.
 
+Core startup also idempotently creates the shared product tables used by the
+BFF: `product_users`, `user_consents`, `billing_subscriptions`,
+`credit_accounts`, `credit_reservations`, `credit_ledger_entries`, and
+`stripe_webhook_events`. TG-web owns product writes to these tables. The only
+Core-side product write is settlement of an optional credit reservation in the
+same transaction that marks an analysis job succeeded or failed.
+
 Redis is the Node runtime cache. Cloudflare Workers use KV for their cache
 instead. These are separate backends with different consistency and eviction
 properties; neither is authoritative and cached data must not be treated as a
@@ -105,7 +150,10 @@ pnpm exec wrangler dev --local
 
 The Worker requires a KV namespace, a Hyperdrive binding for the external Core
 PostgreSQL database, `CORE_API_URL` plus `CORE_API_KEY`, and the three
-Clerk settings described above as deployment configuration. Configure binding
+Clerk settings described above as deployment configuration. Stripe billing
+also requires Stripe credentials and `APP_BASE_URL`. Store
+`BILLING_CONFIG_ENCRYPTION_KEY` and any environment-managed Stripe credentials
+with Wrangler secret bindings. Configure binding
 IDs in the named Wrangler environment and provide secrets through Wrangler or
 the deployment platform; do not place production values in `wrangler.jsonc`.
 Build the frontend with `VITE_CLERK_PUBLISHABLE_KEY` set. Local Hyperdrive

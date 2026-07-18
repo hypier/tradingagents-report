@@ -2,6 +2,12 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { analysisJobs, llmModelPrices, llmPricingSources } from './schema';
+import * as schema from './schema';
+import {
+  createProductRepository,
+  type ProductRepository,
+} from './product-repository';
+export type { ProductRepository } from './product-repository';
 
 export type AnalysisJob = typeof analysisJobs.$inferSelect;
 export type ModelPrice = typeof llmModelPrices.$inferSelect;
@@ -32,18 +38,76 @@ export type PricingSourcesRepository = {
   list(): Promise<PricingSource[]>;
 };
 
-type Database = NodePgDatabase<{
-  analysisJobs: typeof analysisJobs;
-  llmModelPrices: typeof llmModelPrices;
-  llmPricingSources: typeof llmPricingSources;
-}>;
+export type BillingConfigRepository = {
+  getStripe(): Promise<
+    typeof schema.billingProviderConfigs.$inferSelect | undefined
+  >;
+  setStripe(input: {
+    secretKeyCiphertext: string;
+    webhookSecretCiphertext: string;
+    actorClerkUserId: string;
+  }): Promise<void>;
+  clearStripe(actorClerkUserId: string): Promise<void>;
+};
+
+type Database = NodePgDatabase<typeof schema>;
 
 export function createRepositories(database: Database): {
   analysisJobs: AnalysisJobsRepository;
   modelPrices: ModelPricesRepository;
   pricingSources: PricingSourcesRepository;
+  product: ProductRepository;
+  billingConfig: BillingConfigRepository;
 } {
   return {
+    product: createProductRepository(database),
+    billingConfig: {
+      async getStripe() {
+        const [configuration] = await database
+          .select()
+          .from(schema.billingProviderConfigs)
+          .where(eq(schema.billingProviderConfigs.provider, 'stripe'));
+        return configuration;
+      },
+      async setStripe(input) {
+        await database.transaction(async (tx) => {
+          await tx
+            .insert(schema.billingProviderConfigs)
+            .values({
+              provider: 'stripe',
+              secretKeyCiphertext: input.secretKeyCiphertext,
+              webhookSecretCiphertext: input.webhookSecretCiphertext,
+              updatedByClerkUserId: input.actorClerkUserId,
+            })
+            .onConflictDoUpdate({
+              target: schema.billingProviderConfigs.provider,
+              set: {
+                secretKeyCiphertext: input.secretKeyCiphertext,
+                webhookSecretCiphertext: input.webhookSecretCiphertext,
+                updatedByClerkUserId: input.actorClerkUserId,
+                updatedAt: new Date(),
+              },
+            });
+          await tx.insert(schema.billingConfigAuditEvents).values({
+            provider: 'stripe',
+            action: 'configured',
+            actorClerkUserId: input.actorClerkUserId,
+          });
+        });
+      },
+      async clearStripe(actorClerkUserId) {
+        await database.transaction(async (tx) => {
+          await tx
+            .delete(schema.billingProviderConfigs)
+            .where(eq(schema.billingProviderConfigs.provider, 'stripe'));
+          await tx.insert(schema.billingConfigAuditEvents).values({
+            provider: 'stripe',
+            action: 'cleared',
+            actorClerkUserId,
+          });
+        });
+      },
+    },
     analysisJobs: {
       async getById(id) {
         const [analysisJob] = await database

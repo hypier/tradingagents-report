@@ -14,6 +14,7 @@ export function isApiFailure(value: unknown): value is ApiFailure {
 import { z } from 'zod';
 
 export const createAnalysisSchema = z.object({
+  requestId: z.string().uuid().optional(),
   ticker: z.string().trim().min(1).max(32),
   tradeDate: z.string().date(),
   analysts: z

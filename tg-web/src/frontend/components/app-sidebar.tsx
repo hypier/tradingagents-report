@@ -1,7 +1,15 @@
 import * as React from 'react';
-import { Activity, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import {
+  Activity,
+  CreditCard,
+  Settings2,
+  Sparkles,
+  UsersRound,
+  UserRound,
+} from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
+import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import {
   Sidebar,
   SidebarContent,
@@ -15,11 +23,25 @@ import {
   SidebarMenuItem,
 } from '@/frontend/components/ui/sidebar';
 
-const navigation = [
-  { title: 'Research', icon: Activity, active: true, href: '/' },
-];
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const location = useLocation();
+  const session = useAuthSession();
+  const navigation = [
+    { title: 'Research', icon: Activity, href: '/' },
+    { title: 'Subscription', icon: CreditCard, href: '/billing' },
+    { title: 'Account', icon: UserRound, href: '/account' },
+    ...(session.data?.data.user.role === 'admin'
+      ? [
+          { title: 'User management', icon: UsersRound, href: '/admin/users' },
+          {
+            title: 'Payment settings',
+            icon: Settings2,
+            href: '/admin/billing',
+          },
+        ]
+      : []),
+  ];
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -47,7 +69,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={item.active}
+                    isActive={
+                      item.href === '/'
+                        ? location.pathname === '/'
+                        : location.pathname.startsWith(item.href)
+                    }
                     tooltip={item.title}
                   >
                     <Link to={item.href}>
