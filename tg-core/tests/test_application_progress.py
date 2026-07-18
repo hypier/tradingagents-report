@@ -12,6 +12,20 @@ def test_progress_moves_from_analysts_to_research_debate():
     assert message == "Running research debate (0/2)"
 
 
+def test_progress_shows_portfolio_manager_while_running():
+    state = {
+        "market_report": "done",
+        "investment_debate_state": {"judge_decision": "research"},
+        "trader_investment_plan": "plan",
+        "risk_debate_state": {"count": 3, "judge_decision": ""},
+    }
+    assert estimate_progress(
+        state,
+        analysts=("market",),
+        config={"max_debate_rounds": 1, "max_risk_discuss_rounds": 1},
+    ) == (90, "Running Portfolio Manager")
+
+
 def test_progress_finishes_at_portfolio_manager():
     state = {
         "market_report": "done",

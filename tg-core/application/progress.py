@@ -79,9 +79,14 @@ def estimate_progress(
         return 66, "Running Trader"
 
     risk_state = state.get("risk_debate_state") or {}
+    max_risk = max(1, int(config.get("max_risk_discuss_rounds") or 1) * 3)
+    risk_count = int(risk_state.get("count") or 0)
     if not risk_state.get("judge_decision"):
-        max_risk = max(1, int(config.get("max_risk_discuss_rounds") or 1) * 3)
-        count = min(max_risk, int(risk_state.get("count") or 0))
+        # Risk routing hands off to Portfolio Manager once count reaches the
+        # configured debate limit; keep that handoff visible while the PM runs.
+        if risk_count >= max_risk:
+            return 90, "Running Portfolio Manager"
+        count = min(max_risk, risk_count)
         return 72 + int((count / max_risk) * 16), f"Running risk debate ({count}/{max_risk})"
 
     return 92, "Portfolio Manager completed"

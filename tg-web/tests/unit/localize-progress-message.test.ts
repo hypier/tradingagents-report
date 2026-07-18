@@ -29,6 +29,10 @@ it('localizes Core tool-call and stage progress messages', () => {
     '正在进行研究辩论（0/2）',
   );
 
+  expect(localizeProgressMessage('Running Portfolio Manager', t)).toBe(
+    '正在运行组合经理',
+  );
+
   expect(localizeProgressMessage('Portfolio Manager completed', t)).toBe(
     '组合经理已完成',
   );
