@@ -113,6 +113,24 @@
       },
       "every": "Every {{interval}}",
       "everyCount": "Every {{count}} {{interval}}",
+      "intervals": {
+        "month": "month",
+        "year": "year"
+      },
+      "defaultPlans": {
+        "starter": {
+          "name": "Starter 20"
+        },
+        "growth": {
+          "name": "Growth 50"
+        },
+        "scale": {
+          "name": "Scale 100"
+        },
+        "description": "{{count}} analysis credits, renewed monthly",
+        "credits": "{{count}} analysis credits per month",
+        "markets": "All supported markets"
+      },
       "archive": "Archive {{name}}"
     },
     "toasts": {

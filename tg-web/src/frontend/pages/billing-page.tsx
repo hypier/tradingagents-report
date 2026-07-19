@@ -48,6 +48,11 @@ import {
   createCheckout,
   getBillingOverview,
 } from '@/frontend/lib/billing';
+import {
+  localizeBillingInterval,
+  localizeBillingPlan,
+  localizeBillingPlanName,
+} from '@/frontend/lib/localize-billing-plan';
 
 export function BillingPage() {
   const { t } = useTranslation('billing');
@@ -94,7 +99,9 @@ export function BillingPage() {
             {data.usage && (
               <section className="flex flex-col gap-3">
                 <div>
-                  <h3 className="text-base font-semibold">{t('usage.title')}</h3>
+                  <h3 className="text-base font-semibold">
+                    {t('usage.title')}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     {t('usage.description')}
                   </p>
@@ -133,7 +140,11 @@ export function BillingPage() {
                     <h3>{t('subscription.title')}</h3>
                   </CardTitle>
                   <CardDescription>
-                    {data.subscription.planName}
+                    {localizeBillingPlanName(
+                      data.subscription.planName,
+                      t,
+                      'plans.defaultPlans',
+                    )}
                   </CardDescription>
                   <CardAction>
                     <Badge
@@ -196,9 +207,7 @@ export function BillingPage() {
                 <Empty>
                   <EmptyHeader>
                     <EmptyTitle>{t('plans.emptyTitle')}</EmptyTitle>
-                    <EmptyDescription>
-                      {t('plans.emptyBody')}
-                    </EmptyDescription>
+                    <EmptyDescription>{t('plans.emptyBody')}</EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               )}
@@ -368,14 +377,16 @@ function PlanCard({
   onSubscribe(): void;
 }) {
   const { t } = useTranslation('billing');
+  const displayPlan = localizeBillingPlan(plan, t, 'plans.defaultPlans');
+  const interval = localizeBillingInterval(plan.interval, t, 'plans.intervals');
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <h4>{plan.name}</h4>
+          <h4>{displayPlan.name}</h4>
         </CardTitle>
         <CardDescription>
-          {plan.description ?? t('plans.fallbackDescription')}
+          {displayPlan.description ?? t('plans.fallbackDescription')}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -386,9 +397,9 @@ function PlanCard({
           {plan.intervalCount > 1
             ? t('plans.perCount', {
                 count: plan.intervalCount,
-                interval: plan.interval,
+                interval,
               })
-            : t('plans.per', { interval: plan.interval })}
+            : t('plans.per', { interval })}
         </p>
         <p className="mt-4 text-sm font-medium tabular-nums">
           {t('plans.analysesPerCycle', { count: plan.analysisCredits })}
@@ -401,7 +412,7 @@ function PlanCard({
           ))}
         </div>
         <ul className="mt-4 flex flex-col gap-2 text-sm text-muted-foreground">
-          {(plan.features ?? []).map((feature) => (
+          {displayPlan.features.map((feature) => (
             <li key={feature}>{feature}</li>
           ))}
         </ul>

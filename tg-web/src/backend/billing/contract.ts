@@ -3,6 +3,7 @@ export type BillingLocale = 'en' | 'zh';
 
 export type BillingPlan = {
   id: string;
+  catalogKey: string | null;
   name: string;
   description: string | null;
   unitAmount: number;

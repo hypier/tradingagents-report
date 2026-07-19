@@ -32,6 +32,24 @@
     "emptyTitle": "No subscription plans",
     "emptyBody": "No active recurring prices are available.",
     "fallbackDescription": "Subscription",
+    "intervals": {
+      "month": "month",
+      "year": "year"
+    },
+    "defaultPlans": {
+      "starter": {
+        "name": "Starter 20"
+      },
+      "growth": {
+        "name": "Growth 50"
+      },
+      "scale": {
+        "name": "Scale 100"
+      },
+      "description": "{{count}} analysis credits, renewed monthly",
+      "credits": "{{count}} analysis credits per month",
+      "markets": "All supported markets"
+    },
     "per": "per {{interval}}",
     "perCount": "per {{count}} {{interval}}",
     "analysesPerCycle": "{{count}} analyses per cycle",

@@ -445,6 +445,7 @@ describe('createApp', () => {
     });
     vi.mocked(dependencies.billing.createPlan).mockResolvedValue({
       id: 'price_test123',
+      catalogKey: null,
       name: 'Pro',
       description: null,
       unitAmount: 1900,

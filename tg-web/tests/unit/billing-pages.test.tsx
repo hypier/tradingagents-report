@@ -13,6 +13,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { App } from '../../src/frontend/app/app';
 import { queryClient } from '../../src/frontend/app/query-client';
+import i18n from '../../src/frontend/i18n';
 
 const state = vi.hoisted(() => ({ role: 'user' as 'user' | 'admin' }));
 const billing = vi.hoisted(() => ({
@@ -59,6 +60,7 @@ Object.defineProperty(window, 'matchMedia', {
 
 const plan = {
   id: 'price_pro',
+  catalogKey: null,
   name: 'Pro',
   description: 'Full research access',
   unitAmount: 1900,
@@ -140,6 +142,34 @@ it('shows subscription plans and invoices to an authenticated user', async () =>
   expect(screen.queryByRole('link', { name: 'Payment settings' })).toBeNull();
 });
 
+it('localizes the default subscription catalog in Chinese', async () => {
+  await i18n.changeLanguage('zh');
+  billing.getBillingOverview.mockResolvedValue({
+    data: {
+      configured: true,
+      plans: [defaultScalePlan()],
+      subscription: null,
+      invoices: [],
+    },
+    requestId: 'request-1',
+  });
+
+  render(
+    <MemoryRouter initialEntries={['/billing']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(
+    await screen.findByRole('heading', { name: '专业版 100' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('每月续订，包含 100 次分析额度')).toBeInTheDocument();
+  expect(screen.getByText('每月 100 次分析额度')).toBeInTheDocument();
+  expect(screen.getByText('支持全部市场')).toBeInTheDocument();
+  expect(screen.getByText('每月')).toBeInTheDocument();
+  expect(screen.queryByText('Scale 100')).toBeNull();
+});
+
 it('lets an administrator inspect Stripe settings and active plans', async () => {
   state.role = 'admin';
   render(
@@ -168,6 +198,44 @@ it('lets an administrator inspect Stripe settings and active plans', async () =>
   );
   expect(
     screen.getByRole('link', { name: 'Payment settings' }),
+  ).toBeInTheDocument();
+});
+
+it('localizes default plans in the Chinese Stripe settings table', async () => {
+  await i18n.changeLanguage('zh');
+  state.role = 'admin';
+  billing.getBillingSettings.mockResolvedValue({
+    data: {
+      configured: true,
+      connectionHealthy: true,
+      webhookConfigured: true,
+      webhookUrl: 'https://app.example.test/api/stripe/webhook',
+      mode: 'test',
+      plans: [defaultScalePlan()],
+      configurationSource: 'environment',
+      configurationEditable: false,
+      secretKeyHint: 'sk_test_...1234',
+      webhookSecretHint: 'whsec_...1234',
+      updatedAt: null,
+    },
+    requestId: 'request-1',
+  });
+
+  render(
+    <MemoryRouter initialEntries={['/admin/billing']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  fireEvent.mouseDown(await screen.findByRole('tab', { name: '套餐' }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  expect(await screen.findByText('专业版 100')).toBeInTheDocument();
+  expect(screen.getByText('每月续订，包含 100 次分析额度')).toBeInTheDocument();
+  expect(screen.getByText('每月')).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: '归档 专业版 100' }),
   ).toBeInTheDocument();
 });
 
@@ -241,3 +309,16 @@ it('does not load payment settings for a regular user', () => {
   expect(screen.getByText('Administrator access required')).toBeInTheDocument();
   expect(billing.getBillingSettings).not.toHaveBeenCalled();
 });
+
+function defaultScalePlan() {
+  return {
+    ...plan,
+    id: 'price_scale',
+    catalogKey: 'scale-usd-monthly-100-v1',
+    name: 'Scale 100',
+    description: '100 analysis credits, renewed monthly',
+    unitAmount: 10_000,
+    analysisCredits: 100,
+    features: ['100 analysis credits per month', 'All supported markets'],
+  };
+}

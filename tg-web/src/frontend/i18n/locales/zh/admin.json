@@ -113,6 +113,24 @@
       },
       "every": "每{{interval}}",
       "everyCount": "每 {{count}} {{interval}}",
+      "intervals": {
+        "month": "月",
+        "year": "年"
+      },
+      "defaultPlans": {
+        "starter": {
+          "name": "基础版 20"
+        },
+        "growth": {
+          "name": "进阶版 50"
+        },
+        "scale": {
+          "name": "专业版 100"
+        },
+        "description": "每月续订，包含 {{count}} 次分析额度",
+        "credits": "每月 {{count}} 次分析额度",
+        "markets": "支持全部市场"
+      },
       "archive": "归档 {{name}}"
     },
     "toasts": {

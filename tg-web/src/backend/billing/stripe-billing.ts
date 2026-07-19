@@ -481,6 +481,8 @@ function mapPlan(price: Stripe.Price, product: Stripe.Product): BillingPlan {
 
   return {
     id: price.id,
+    catalogKey:
+      price.metadata.catalog_key ?? product.metadata.catalog_key ?? null,
     name: product.name,
     description: product.description,
     unitAmount: price.unit_amount,

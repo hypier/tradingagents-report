@@ -76,6 +76,10 @@ import {
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { formatLocaleCurrency } from '@/frontend/lib/format-locale';
 import {
+  localizeBillingInterval,
+  localizeBillingPlan,
+} from '@/frontend/lib/localize-billing-plan';
+import {
   archiveBillingPlan,
   clearStripeConfiguration,
   createBillingPlan,
@@ -697,45 +701,59 @@ function PlansTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {plans.map((plan) => (
-              <TableRow key={plan.id}>
-                <TableCell>
-                  <div className="font-medium">{plan.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {plan.description ?? plan.id}
-                  </div>
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {formatLocaleCurrency(plan.unitAmount, plan.currency)}
-                </TableCell>
-                <TableCell>
-                  {plan.intervalCount > 1
-                    ? t('billing.plans.everyCount', {
-                        count: plan.intervalCount,
-                        interval: plan.interval,
-                      })
-                    : t('billing.plans.every', { interval: plan.interval })}
-                </TableCell>
-                <TableCell className="tabular-nums">
-                  {plan.analysisCredits}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    title={t('billing.plans.archive', { name: plan.name })}
-                    aria-label={t('billing.plans.archive', {
-                      name: plan.name,
-                    })}
-                    disabled={pendingId === plan.id}
-                    onClick={() => onArchive(plan.id)}
-                  >
-                    <Archive />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {plans.map((plan) => {
+              const displayPlan = localizeBillingPlan(
+                plan,
+                t,
+                'billing.plans.defaultPlans',
+              );
+              const interval = localizeBillingInterval(
+                plan.interval,
+                t,
+                'billing.plans.intervals',
+              );
+              return (
+                <TableRow key={plan.id}>
+                  <TableCell>
+                    <div className="font-medium">{displayPlan.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {displayPlan.description ?? plan.id}
+                    </div>
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {formatLocaleCurrency(plan.unitAmount, plan.currency)}
+                  </TableCell>
+                  <TableCell>
+                    {plan.intervalCount > 1
+                      ? t('billing.plans.everyCount', {
+                          count: plan.intervalCount,
+                          interval,
+                        })
+                      : t('billing.plans.every', { interval })}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {plan.analysisCredits}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      title={t('billing.plans.archive', {
+                        name: displayPlan.name,
+                      })}
+                      aria-label={t('billing.plans.archive', {
+                        name: displayPlan.name,
+                      })}
+                      disabled={pendingId === plan.id}
+                      onClick={() => onArchive(plan.id)}
+                    >
+                      <Archive />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>
