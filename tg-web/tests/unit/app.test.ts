@@ -783,6 +783,56 @@ describe('createApp', () => {
     });
   });
 
+  it('logs unexpected errors that become INTERNAL_ERROR responses', async () => {
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const dependencies = fakeDependencies({
+      logger: logger as unknown as Logger,
+      database: {
+        healthcheck: vi.fn().mockResolvedValue(undefined),
+        account: {
+          syncUser: vi
+            .fn()
+            .mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432')),
+          getProfile: vi.fn(),
+          updatePreferences: vi.fn(),
+          recordConsents: vi.fn(),
+          hasCurrentConsents: vi.fn(),
+        },
+        billing: {
+          setStripeCustomerId: vi.fn(),
+          getStripeCustomerId: vi.fn(),
+          getUsage: vi.fn(),
+          reserveAnalysis: vi.fn(),
+          attachAnalysis: vi.fn(),
+          releaseAnalysis: vi.fn(),
+          processStripeEvent: vi.fn(),
+          recordStripeFailure: vi.fn(),
+        },
+      },
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses');
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'INTERNAL_ERROR' },
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      'Request failed',
+      expect.objectContaining({
+        path: '/api/analyses',
+        code: 'INTERNAL_ERROR',
+        error: 'connect ECONNREFUSED 127.0.0.1:5432',
+      }),
+    );
+  });
+
   it('returns health without invoking dependency health checks', async () => {
     const dependencies = fakeDependencies();
     const app = createApp(dependencies);

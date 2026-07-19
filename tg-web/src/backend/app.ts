@@ -73,6 +73,17 @@ export function createApp(dependencies: AppDependencies) {
   app.onError((error, context) => {
     const requestId = context.get('requestId');
     const status = error instanceof AppError ? error.status : 500;
+    if (!(error instanceof AppError) || status >= 500) {
+      dependencies.logger.error('Request failed', {
+        requestId,
+        path: context.req.path,
+        method: context.req.method,
+        status,
+        code: error instanceof AppError ? error.code : 'INTERNAL_ERROR',
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    }
     return context.json(
       toErrorResponse(error, requestId),
       status as ContentfulStatusCode,
