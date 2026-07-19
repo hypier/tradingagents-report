@@ -21,6 +21,7 @@ const billing = vi.hoisted(() => ({
   createCheckout: vi.fn(),
   createBillingPortal: vi.fn(),
   createBillingPlan: vi.fn(),
+  provisionDefaultBillingPlans: vi.fn(),
   archiveBillingPlan: vi.fn(),
   updateStripeConfiguration: vi.fn(),
   clearStripeConfiguration: vi.fn(),
@@ -108,6 +109,10 @@ beforeEach(() => {
     },
     requestId: 'request-1',
   });
+  billing.provisionDefaultBillingPlans.mockResolvedValue({
+    data: [],
+    requestId: 'request-2',
+  });
 });
 
 afterEach(() => {
@@ -157,6 +162,10 @@ it('lets an administrator inspect Stripe settings and active plans', async () =>
   expect(
     screen.getByRole('button', { name: 'Archive Pro' }),
   ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Create default plans' }));
+  await waitFor(() =>
+    expect(billing.provisionDefaultBillingPlans).toHaveBeenCalledOnce(),
+  );
   expect(
     screen.getByRole('link', { name: 'Payment settings' }),
   ).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp, type AppDependencies } from '../../src/backend/app';
+import { BillingRepositoryError } from '../../src/backend/database/billing-repository';
 import { AppError } from '../../src/backend/errors/app-error';
 import { Logger } from '../../src/backend/logging/logger';
 
@@ -61,6 +62,7 @@ function fakeDependencies(
         .fn()
         .mockResolvedValue('https://billing.stripe.test/session'),
       createPlan: vi.fn(),
+      provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
       updateConfiguration: vi.fn(),
       clearConfiguration: vi.fn(),
@@ -342,6 +344,7 @@ describe('createApp', () => {
       body: JSON.stringify({
         priceId: 'price_test123',
         requestId: '00000000-0000-4000-8000-000000000001',
+        locale: 'zh',
       }),
     });
 
@@ -362,6 +365,7 @@ describe('createApp', () => {
       'cus_test',
       'price_test123',
       '00000000-0000-4000-8000-000000000001',
+      'zh',
     );
   });
 
@@ -371,13 +375,32 @@ describe('createApp', () => {
 
     const response = await app.request('/api/billing/portal', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: 'zh' }),
     });
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: { url: 'https://billing.stripe.test/session' },
     });
-    expect(dependencies.billing.createPortal).toHaveBeenCalledWith('cus_test');
+    expect(dependencies.billing.createPortal).toHaveBeenCalledWith(
+      'cus_test',
+      'zh',
+    );
+  });
+
+  it('rejects an unsupported Stripe-hosted page locale', async () => {
+    const dependencies = fakeDependencies();
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/billing/portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: 'fr' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(dependencies.billing.createPortal).not.toHaveBeenCalled();
   });
 
   it('lets an administrator update encrypted Stripe configuration', async () => {
@@ -458,6 +481,26 @@ describe('createApp', () => {
       supportedMarkets: ['US', 'HK'],
       features: ['Full analyst team'],
     });
+  });
+
+  it('lets an administrator provision the default monthly Stripe plans', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    vi.mocked(dependencies.billing.provisionDefaultPlans).mockResolvedValue([]);
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/admin/billing/plans/defaults', {
+      method: 'POST',
+    });
+
+    expect(response.status).toBe(200);
+    expect(dependencies.billing.provisionDefaultPlans).toHaveBeenCalledOnce();
   });
 
   it('lets an administrator archive a managed Stripe plan', async () => {
@@ -635,8 +678,7 @@ describe('createApp', () => {
     expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
   });
 
-  // TEMP: credit reservation is skipped while ANALYSIS_CREDIT_UNITS === 0.
-  it('skips credit reservation while analysis credits are free', async () => {
+  it('releases a new credit reservation when Core rejects the request', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.core.submitAnalysis).mockRejectedValue(
       new AppError(
@@ -660,15 +702,18 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(
-      dependencies.database.billing.reserveAnalysis,
-    ).not.toHaveBeenCalled();
-    expect(
-      dependencies.database.billing.releaseAnalysis,
-    ).not.toHaveBeenCalled();
+    expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith({
+      clerkUserId: 'user-1',
+      requestId,
+      units: 1,
+    });
+    expect(dependencies.database.billing.releaseAnalysis).toHaveBeenCalledWith(
+      requestId,
+      'analysis_request_rejected',
+    );
   });
 
-  it('does not attach a credit reservation while analysis credits are free', async () => {
+  it('attaches a credit reservation to an accepted Core job', async () => {
     const dependencies = fakeDependencies({
       core: {
         healthcheck: vi.fn(),
@@ -702,12 +747,42 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(202);
-    expect(
-      dependencies.database.billing.reserveAnalysis,
-    ).not.toHaveBeenCalled();
-    expect(
-      dependencies.database.billing.attachAnalysis,
-    ).not.toHaveBeenCalled();
+    expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith({
+      clerkUserId: 'user-1',
+      requestId,
+      units: 1,
+    });
+    expect(dependencies.database.billing.attachAnalysis).toHaveBeenCalledWith(
+      requestId,
+      '00000000-0000-4000-8000-000000000005',
+    );
+  });
+
+  it('requires an active subscription before submitting an analysis', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.database.billing.reserveAnalysis).mockRejectedValue(
+      new BillingRepositoryError(
+        'SUBSCRIPTION_REQUIRED',
+        'An active subscription is required to run an analysis',
+      ),
+    );
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: 'MSFT',
+        tradeDate: '2026-07-15',
+        analysts: ['market'],
+      }),
+    });
+
+    expect(response.status).toBe(402);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'SUBSCRIPTION_REQUIRED' },
+    });
+    expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
   });
 
   it('returns server-side TradingView asset identities', async () => {
@@ -810,7 +885,9 @@ describe('createApp', () => {
         account: {
           syncUser: vi
             .fn()
-            .mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432')),
+            .mockRejectedValue(
+              new Error('connect ECONNREFUSED 127.0.0.1:5432'),
+            ),
           getProfile: vi.fn(),
           updatePreferences: vi.fn(),
           recordConsents: vi.fn(),

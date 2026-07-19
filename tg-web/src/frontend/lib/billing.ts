@@ -4,6 +4,8 @@ import type {
   BillingSettings,
   CreateBillingPlanInput,
 } from '@/backend/billing/contract';
+import i18n from '@/frontend/i18n';
+import { normalizeUiLocale } from '@/frontend/i18n/locales';
 
 type FetchImplementation = typeof fetch;
 
@@ -61,19 +63,36 @@ export const createCheckout = (
 ) =>
   write<{ url: string }>(
     '/api/billing/checkout',
-    { priceId, requestId: crypto.randomUUID() },
+    {
+      priceId,
+      requestId: crypto.randomUUID(),
+      locale: normalizeUiLocale(i18n.resolvedLanguage),
+    },
     fetchImplementation,
   );
 
 export const createBillingPortal = (
   fetchImplementation?: FetchImplementation,
 ) =>
-  write<{ url: string }>('/api/billing/portal', undefined, fetchImplementation);
+  write<{ url: string }>(
+    '/api/billing/portal',
+    { locale: normalizeUiLocale(i18n.resolvedLanguage) },
+    fetchImplementation,
+  );
 
 export const createBillingPlan = (
   input: CreateBillingPlanInput,
   fetchImplementation?: FetchImplementation,
 ) => write<BillingPlan>('/api/admin/billing/plans', input, fetchImplementation);
+
+export const provisionDefaultBillingPlans = (
+  fetchImplementation?: FetchImplementation,
+) =>
+  write<BillingPlan[]>(
+    '/api/admin/billing/plans/defaults',
+    undefined,
+    fetchImplementation,
+  );
 
 export const archiveBillingPlan = (
   priceId: string,

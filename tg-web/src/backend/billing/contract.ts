@@ -1,4 +1,5 @@
 export type BillingInterval = 'month' | 'year';
+export type BillingLocale = 'en' | 'zh';
 
 export type BillingPlan = {
   id: string;
@@ -136,9 +137,11 @@ export interface BillingService {
     customerId: string,
     priceId: string,
     idempotencyKey: string,
+    locale: BillingLocale,
   ): Promise<string>;
-  createPortal(customerId: string): Promise<string>;
+  createPortal(customerId: string, locale: BillingLocale): Promise<string>;
   createPlan(input: CreateBillingPlanInput): Promise<BillingPlan>;
+  provisionDefaultPlans(): Promise<BillingPlan[]>;
   archivePlan(priceId: string): Promise<void>;
   updateConfiguration(
     input: UpdateStripeConfigurationInput,

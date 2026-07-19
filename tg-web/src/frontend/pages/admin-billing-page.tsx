@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   Clipboard,
   CreditCard,
+  PackagePlus,
   Save,
   ShieldAlert,
   Trash2,
@@ -79,6 +80,7 @@ import {
   clearStripeConfiguration,
   createBillingPlan,
   getBillingSettings,
+  provisionDefaultBillingPlans,
   updateStripeConfiguration,
 } from '@/frontend/lib/billing';
 
@@ -137,6 +139,14 @@ export function AdminBillingPage() {
       toast.success(t('billing.toasts.planCreated'));
     },
     onError: () => toast.error(t('billing.toasts.planCreateError')),
+  });
+  const provisionPlans = useMutation({
+    mutationFn: () => provisionDefaultBillingPlans(),
+    onSuccess: () => {
+      refresh();
+      toast.success(t('billing.toasts.defaultsProvisioned'));
+    },
+    onError: () => toast.error(t('billing.toasts.defaultsProvisionError')),
   });
   const archivePlan = useMutation({
     mutationFn: (priceId: string) => archiveBillingPlan(priceId),
@@ -436,6 +446,8 @@ export function AdminBillingPage() {
               setPlan={setPlan}
               disabled={!data.configured}
               pending={createPlan.isPending}
+              provisioning={provisionPlans.isPending}
+              onProvisionDefaults={() => provisionPlans.mutate()}
               onSubmit={submitPlan}
             />
             <PlansTable
@@ -457,12 +469,16 @@ function PlanEditor({
   setPlan,
   disabled,
   pending,
+  provisioning,
+  onProvisionDefaults,
   onSubmit,
 }: {
   plan: PlanForm;
   setPlan: React.Dispatch<React.SetStateAction<PlanForm>>;
   disabled: boolean;
   pending: boolean;
+  provisioning: boolean;
+  onProvisionDefaults(): void;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
 }) {
   const { t } = useTranslation('admin');
@@ -477,6 +493,21 @@ function PlanEditor({
         <CardDescription>
           {t('billing.plans.createDescription')}
         </CardDescription>
+        <CardAction>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled || provisioning}
+            onClick={onProvisionDefaults}
+          >
+            {provisioning ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <PackagePlus data-icon="inline-start" />
+            )}
+            {t('billing.plans.provisionDefaults')}
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit}>

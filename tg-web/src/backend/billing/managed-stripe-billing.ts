@@ -1,6 +1,7 @@
 import type { BillingConfigurationStore } from './configuration-store';
 import {
   BillingServiceError,
+  type BillingLocale,
   type BillingOverview,
   type BillingPlan,
   type BillingService,
@@ -101,20 +102,29 @@ class ManagedStripeBillingService implements BillingService {
     customerId: string,
     priceId: string,
     idempotencyKey: string,
+    locale: BillingLocale,
   ): Promise<string> {
     return (await this.resolve()).service.createCheckout(
       customerId,
       priceId,
       idempotencyKey,
+      locale,
     );
   }
 
-  async createPortal(customerId: string): Promise<string> {
-    return (await this.resolve()).service.createPortal(customerId);
+  async createPortal(
+    customerId: string,
+    locale: BillingLocale,
+  ): Promise<string> {
+    return (await this.resolve()).service.createPortal(customerId, locale);
   }
 
   async createPlan(input: CreateBillingPlanInput): Promise<BillingPlan> {
     return (await this.resolve()).service.createPlan(input);
+  }
+
+  async provisionDefaultPlans(): Promise<BillingPlan[]> {
+    return (await this.resolve()).service.provisionDefaultPlans();
   }
 
   async archivePlan(priceId: string): Promise<void> {

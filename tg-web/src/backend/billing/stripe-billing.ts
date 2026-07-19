@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import {
   BillingServiceError,
   type BillingInvoice,
+  type BillingLocale,
   type BillingOverview,
   type BillingPlan,
   type BillingService,
@@ -13,6 +14,10 @@ import {
   type StripeSubscriptionSnapshot,
   type StripeWebhookEvent,
 } from './contract';
+import {
+  DEFAULT_MONTHLY_BILLING_PLANS,
+  type DefaultBillingPlanDefinition,
+} from './default-plans';
 
 export type StripeBillingOptions = {
   secretKey?: string;
@@ -68,7 +73,6 @@ class StripeBillingService implements BillingService {
         customer: customerId,
         status: 'all',
         limit: 10,
-        expand: ['data.items.data.price.product'],
       }),
       this.stripe.invoices.list({ customer: customerId, limit: 10 }),
     ]);
@@ -80,7 +84,14 @@ class StripeBillingService implements BillingService {
     return {
       configured: true,
       plans,
-      subscription: subscription ? mapSubscription(subscription) : null,
+      subscription: subscription
+        ? mapSubscription(
+            subscription,
+            plans.find(
+              (plan) => plan.id === subscription.items.data[0]?.price.id,
+            )?.name,
+          )
+        : null,
       invoices: invoices.data.map(mapInvoice),
     };
   }
@@ -120,6 +131,7 @@ class StripeBillingService implements BillingService {
     customerId: string,
     priceId: string,
     idempotencyKey: string,
+    locale: BillingLocale,
   ): Promise<string> {
     const [price, subscriptions] = await Promise.all([
       this.stripe.prices.retrieve(priceId),
@@ -155,6 +167,7 @@ class StripeBillingService implements BillingService {
     const session = await this.stripe.checkout.sessions.create(
       {
         customer: customerId,
+        locale,
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
         allow_promotion_codes: true,
@@ -183,42 +196,118 @@ class StripeBillingService implements BillingService {
     return session.url;
   }
 
-  async createPortal(customerId: string): Promise<string> {
+  async createPortal(
+    customerId: string,
+    locale: BillingLocale,
+  ): Promise<string> {
     const session = await this.stripe.billingPortal.sessions.create({
       customer: customerId,
+      locale,
       return_url: new URL('/billing', this.options.appBaseUrl).toString(),
     });
     return session.url;
   }
 
   async createPlan(input: CreateBillingPlanInput): Promise<BillingPlan> {
-    const product = await this.stripe.products.create({
-      name: input.name,
-      description: input.description,
-      metadata: {
-        managed_by: 'tradingagents-web',
-        analysis_credits: String(input.analysisCredits),
-        supported_markets: JSON.stringify(input.supportedMarkets),
-        features: JSON.stringify(input.features),
-      },
+    return this.createManagedPlan(input);
+  }
+
+  async provisionDefaultPlans(): Promise<BillingPlan[]> {
+    const prices = await this.stripe.prices.list({
+      type: 'recurring',
+      limit: 100,
+      expand: ['data.product'],
     });
+    const plans: BillingPlan[] = [];
+    for (const definition of DEFAULT_MONTHLY_BILLING_PLANS) {
+      const existing = prices.data.filter(
+        (price) => price.metadata.catalog_key === definition.catalogKey,
+      );
+      if (existing.length > 1) {
+        throw new BillingServiceError(
+          'DEFAULT_BILLING_PLAN_CONFLICT',
+          409,
+          `Stripe has duplicate plans for ${definition.catalogKey}`,
+        );
+      }
+      plans.push(
+        existing[0]
+          ? await this.restoreDefaultPlan(existing[0], definition)
+          : await this.createManagedPlan(definition, definition.catalogKey),
+      );
+    }
+    return plans;
+  }
+
+  private async createManagedPlan(
+    input: CreateBillingPlanInput,
+    catalogKey?: string,
+  ): Promise<BillingPlan> {
+    const metadata = {
+      managed_by: 'tradingagents-web',
+      analysis_credits: String(input.analysisCredits),
+      ...(catalogKey ? { catalog_key: catalogKey } : {}),
+    };
+    let product = await this.stripe.products.create(
+      {
+        name: input.name,
+        description: input.description,
+        metadata: {
+          ...metadata,
+          supported_markets: JSON.stringify(input.supportedMarkets),
+          features: JSON.stringify(input.features),
+        },
+      },
+      catalogKey
+        ? { idempotencyKey: `tg-default-product-${catalogKey}` }
+        : undefined,
+    );
+    if (catalogKey && !product.active) {
+      product = await this.stripe.products.update(product.id, { active: true });
+    }
 
     try {
-      const price = await this.stripe.prices.create({
-        product: product.id,
-        unit_amount: input.unitAmount,
-        currency: input.currency,
-        recurring: { interval: input.interval },
-        metadata: {
-          managed_by: 'tradingagents-web',
-          analysis_credits: String(input.analysisCredits),
+      const price = await this.stripe.prices.create(
+        {
+          product: product.id,
+          unit_amount: input.unitAmount,
+          currency: input.currency,
+          recurring: { interval: input.interval },
+          metadata,
         },
-      });
+        catalogKey
+          ? { idempotencyKey: `tg-default-price-${catalogKey}` }
+          : undefined,
+      );
       return mapPlan(price, product);
     } catch (error) {
       await this.stripe.products.update(product.id, { active: false });
       throw error;
     }
+  }
+
+  private async restoreDefaultPlan(
+    price: Stripe.Price,
+    definition: DefaultBillingPlanDefinition,
+  ): Promise<BillingPlan> {
+    const product = expandedProduct(price);
+    if (!defaultPlanMatches(price, product, definition)) {
+      throw new BillingServiceError(
+        'DEFAULT_BILLING_PLAN_CONFLICT',
+        409,
+        `Stripe plan ${definition.catalogKey} does not match the default catalog`,
+      );
+    }
+    if (!product.active) {
+      await this.stripe.products.update(product.id, { active: true });
+    }
+    if (!price.active) {
+      await this.stripe.prices.update(price.id, { active: true });
+    }
+    const restored = await this.stripe.prices.retrieve(price.id, {
+      expand: ['product'],
+    });
+    return mapPlan(restored, expandedProduct(restored));
   }
 
   async archivePlan(priceId: string): Promise<void> {
@@ -345,6 +434,10 @@ class UnavailableBillingService implements BillingService {
     return this.unavailable();
   }
 
+  async provisionDefaultPlans(): Promise<BillingPlan[]> {
+    return this.unavailable();
+  }
+
   async archivePlan(): Promise<void> {
     return this.unavailable();
   }
@@ -400,6 +493,45 @@ function mapPlan(price: Stripe.Price, product: Stripe.Product): BillingPlan {
     supportedMarkets: metadataList(product.metadata.supported_markets),
     features: metadataList(product.metadata.features),
   };
+}
+
+function expandedProduct(price: Stripe.Price): Stripe.Product {
+  if (
+    typeof price.product === 'string' ||
+    !price.product ||
+    price.product.deleted
+  ) {
+    throw new BillingServiceError(
+      'INVALID_STRIPE_PRODUCT',
+      502,
+      'Stripe returned an invalid product for a subscription plan',
+    );
+  }
+  return price.product;
+}
+
+function defaultPlanMatches(
+  price: Stripe.Price,
+  product: Stripe.Product,
+  definition: DefaultBillingPlanDefinition,
+) {
+  return (
+    price.unit_amount === definition.unitAmount &&
+    price.currency === definition.currency &&
+    price.recurring?.interval === definition.interval &&
+    price.recurring.interval_count === 1 &&
+    price.metadata.managed_by === 'tradingagents-web' &&
+    metadataInteger(price.metadata.analysis_credits) ===
+      definition.analysisCredits &&
+    product.metadata.managed_by === 'tradingagents-web' &&
+    product.metadata.catalog_key === definition.catalogKey &&
+    metadataInteger(product.metadata.analysis_credits) ===
+      definition.analysisCredits &&
+    JSON.stringify(metadataList(product.metadata.supported_markets)) ===
+      JSON.stringify(definition.supportedMarkets) &&
+    JSON.stringify(metadataList(product.metadata.features)) ===
+      JSON.stringify(definition.features)
+  );
 }
 
 async function normalizeWebhookEvent(
@@ -515,13 +647,14 @@ function metadataList(value: string | undefined): string[] {
 
 function mapSubscription(
   subscription: Stripe.Subscription,
+  knownPlanName?: string,
 ): BillingSubscription {
   const item = subscription.items.data[0];
   const product = item?.price.product;
   const planName =
     product && typeof product !== 'string' && !product.deleted
       ? product.name
-      : 'Subscription';
+      : (knownPlanName ?? 'Subscription');
 
   return {
     id: subscription.id,

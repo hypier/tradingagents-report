@@ -77,6 +77,9 @@ Administrators use `/admin/billing` to inspect connection and webhook status,
 create recurring Stripe Products and Prices, and archive active Prices. When
 `BILLING_CONFIG_ENCRYPTION_KEY` is configured, administrators can validate,
 replace, or clear encrypted Stripe credentials without a service restart.
+The plans tab can idempotently provision the standard USD 20, 50, and 100
+monthly plans, which grant 20, 50, and 100 analysis credits per paid billing
+cycle. Each accepted analysis reserves one credit; rejected jobs release it.
 
 ## Product documentation
 

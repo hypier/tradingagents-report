@@ -88,7 +88,8 @@
     },
     "plans": {
       "createTitle": "Create recurring plan",
-      "createDescription": "Creates a Stripe Product and recurring Price",
+      "createDescription": "Create a custom plan or provision the USD 20, 50, and 100 monthly catalog",
+      "provisionDefaults": "Create default plans",
       "name": "Name",
       "description": "Description",
       "price": "Price",
@@ -117,6 +118,8 @@
     "toasts": {
       "planCreated": "Subscription plan created.",
       "planCreateError": "Unable to create the subscription plan.",
+      "defaultsProvisioned": "The USD 20, 50, and 100 monthly plans are ready.",
+      "defaultsProvisionError": "Unable to provision the default monthly plans.",
       "planArchived": "Subscription plan archived.",
       "planArchiveError": "Unable to archive the subscription plan.",
       "configSaved": "Stripe configuration saved.",

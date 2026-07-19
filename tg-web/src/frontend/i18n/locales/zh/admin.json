@@ -88,7 +88,8 @@
     },
     "plans": {
       "createTitle": "创建循环套餐",
-      "createDescription": "将创建 Stripe Product 与循环 Price",
+      "createDescription": "创建自定义套餐，或初始化每月 20、50、100 美元三档套餐",
+      "provisionDefaults": "创建默认套餐",
       "name": "名称",
       "description": "描述",
       "price": "价格",
@@ -117,6 +118,8 @@
     "toasts": {
       "planCreated": "订阅套餐已创建。",
       "planCreateError": "无法创建订阅套餐。",
+      "defaultsProvisioned": "每月 20、50、100 美元三档套餐已就绪。",
+      "defaultsProvisionError": "无法初始化默认月付套餐。",
       "planArchived": "订阅套餐已归档。",
       "planArchiveError": "无法归档订阅套餐。",
       "configSaved": "Stripe 配置已保存。",

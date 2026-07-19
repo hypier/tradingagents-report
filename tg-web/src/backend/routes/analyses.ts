@@ -6,8 +6,7 @@ import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import { BillingRepositoryError } from '../database/billing-repository';
 
-/** TEMP: set back to 1 to restore subscription/credit gating. */
-const ANALYSIS_CREDIT_UNITS = 0;
+const ANALYSIS_CREDIT_UNITS = 1;
 
 export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();

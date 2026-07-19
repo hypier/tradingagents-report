@@ -146,6 +146,7 @@ flowchart LR
 - `/billing` 展示套餐周期额度、支持市场、功能、订阅状态、剩余/预留/已消费额度、周期结束日和额度明细。每个分析固定预留 1 个额度，成功时核销，失败时释放。
 - 支付回调写入 `stripe_webhook_events`，额度发放、预留、核销和释放写入不可变账本并使用唯一幂等键。分析请求 UUID 同时作为 Core `request_id`，重试不会创建重复 job 或重复扣减。
 - 管理员可在 `/admin/billing` 查看 Stripe 连接与 Webhook 配置状态，创建带周期额度、支持市场和功能元数据的循环套餐并停用价格。配置 `BILLING_CONFIG_ENCRYPTION_KEY` 后，管理员可在页面验证、替换或清除 Stripe API Key 与 Webhook Secret；密钥使用 AES-GCM 加密后保存，API 仅返回掩码与配置来源。
+- 管理员可通过 Stripe API 幂等初始化每月 20、50、100 美元三档标准套餐，分别在有效支付周期发放 20、50、100 个分析额度；重复初始化不会创建重复 Product 或 Price，配置冲突会明确报错。
 
 当前尚未实现独立股票详情、自选股、账户语言偏好与界面 i18n 双向同步，以及报告 AI 对话。
 

@@ -12,6 +12,11 @@ const checkoutSchema = z.object({
     .trim()
     .regex(/^price_[A-Za-z0-9]+$/),
   requestId: z.string().uuid(),
+  locale: z.enum(['en', 'zh']),
+});
+
+const billingLocaleSchema = z.object({
+  locale: z.enum(['en', 'zh']),
 });
 
 const priceIdSchema = z
@@ -106,18 +111,25 @@ export function billingRoutes(dependencies: AppDependencies) {
         customerId,
         input.data.priceId,
         input.data.requestId,
+        input.data.locale,
       ),
     );
     return context.json(apiSuccess({ url }, context.get('requestId')));
   });
 
   app.post('/billing/portal', async (context) => {
+    const input = billingLocaleSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid billing locale');
+    }
     const customerId = await ensureCustomer(
       dependencies,
       context.get('auth').userId,
     );
     const url = await callBilling(() =>
-      dependencies.billing.createPortal(customerId),
+      dependencies.billing.createPortal(customerId, input.data.locale),
     );
     return context.json(apiSuccess({ url }, context.get('requestId')));
   });
@@ -166,6 +178,13 @@ export function billingRoutes(dependencies: AppDependencies) {
       dependencies.billing.createPlan(input.data),
     );
     return context.json(apiSuccess(plan, context.get('requestId')), 201);
+  });
+
+  app.post('/admin/billing/plans/defaults', async (context) => {
+    const plans = await callBilling(() =>
+      dependencies.billing.provisionDefaultPlans(),
+    );
+    return context.json(apiSuccess(plans, context.get('requestId')));
   });
 
   app.post('/admin/billing/plans/:priceId/archive', async (context) => {
