@@ -6,12 +6,21 @@
   "nav": {
     "workspace": "Workspace",
     "desk": "Desk",
-    "reports": "Reports"
+    "reports": "Reports",
+    "billing": "Subscription",
+    "account": "Account",
+    "adminUsers": "User management",
+    "adminBilling": "Payment settings"
   },
   "header": {
     "desk": "Research desk",
     "reports": "Reports",
-    "report": "Report"
+    "report": "Report",
+    "billing": "Subscription",
+    "account": "Account",
+    "legal": "Legal",
+    "adminUsers": "User management",
+    "adminBilling": "Payment settings"
   },
   "disclaimer": {
     "title": "Research only",

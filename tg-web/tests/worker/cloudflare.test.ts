@@ -23,6 +23,9 @@ function workerEnv(): WorkerEnv {
       },
     } as unknown as Fetcher,
     CACHE_KV: {} as KVNamespace,
+    CLERK_SECRET_KEY: 'sk_test_secret',
+    VITE_CLERK_PUBLISHABLE_KEY: 'pk_test_public',
+    CLERK_AUTHORIZED_PARTIES: 'https://example.test',
     CORE_API_KEY: 'test-key',
     CORE_API_URL: 'https://core.example.test',
     HYPERDRIVE: {
@@ -58,7 +61,44 @@ describe('Cloudflare Worker runtime', () => {
 
   it('reuses one dependency graph for repeated API requests with the same environment', async () => {
     const createDependencies = vi.fn((): AppDependencies => ({
-      database: { healthcheck: async () => undefined },
+      auth: {
+        authenticate: vi.fn().mockResolvedValue(null),
+        getUser: vi.fn(),
+        listUsers: vi.fn(),
+        setUserRole: vi.fn(),
+        getBillingIdentity: vi.fn(),
+        setStripeCustomerId: vi.fn(),
+      },
+      billing: {
+        getOverview: vi.fn(),
+        getSettings: vi.fn(),
+        createCustomer: vi.fn(),
+        createCheckout: vi.fn(),
+        createPortal: vi.fn(),
+        createPlan: vi.fn(),
+        archivePlan: vi.fn(),
+        updateConfiguration: vi.fn(),
+        clearConfiguration: vi.fn(),
+        handleWebhook: vi.fn(),
+      },
+      database: {
+        healthcheck: async () => undefined,
+        product: {
+          syncUser: vi.fn(),
+          getProfile: vi.fn(),
+          updatePreferences: vi.fn(),
+          recordConsents: vi.fn(),
+          hasCurrentConsents: vi.fn(),
+          setStripeCustomerId: vi.fn(),
+          getStripeCustomerId: vi.fn(),
+          getUsage: vi.fn(),
+          reserveAnalysis: vi.fn(),
+          attachAnalysis: vi.fn(),
+          releaseAnalysis: vi.fn(),
+          processStripeEvent: vi.fn(),
+          recordStripeFailure: vi.fn(),
+        },
+      },
       cache: {
         get: async () => null,
         set: async () => undefined,

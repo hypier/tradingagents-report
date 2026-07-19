@@ -15,9 +15,14 @@
   "analystTeam": "Analyst team",
   "submit": {
     "run": "Run analysis",
+    "runWithCredit": "Run analysis (1 credit)",
     "submitting": "Submitting...",
     "errorTitle": "Unable to submit this run",
     "errorBody": "Check the service connection and retry.",
+    "consentRequiredTitle": "Legal consent required",
+    "consentRequiredBody": "Review account consent",
+    "creditsRequiredTitle": "Subscription or credits required",
+    "creditsRequiredBody": "Review subscription and usage",
     "toastSuccess": "Research run submitted."
   },
   "snapshot": {

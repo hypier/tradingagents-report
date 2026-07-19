@@ -11,6 +11,9 @@ import { pathToFileURL } from 'node:url';
 import Redis from 'ioredis';
 
 import { createApp, type AppDependencies } from '../backend/app';
+import { createClerkAuthService } from '../backend/auth/clerk-auth';
+import { createBillingConfigurationStore } from '../backend/billing/configuration-store';
+import { createManagedStripeBillingService } from '../backend/billing/managed-stripe-billing';
 import { FailOpenCache } from '../backend/cache/fail-open-cache';
 import { RedisCache } from '../backend/cache/redis-cache';
 import { parseNodeConfig } from '../backend/config/node-config';
@@ -158,9 +161,18 @@ async function run(): Promise<void> {
   const config = parseNodeConfig(process.env);
   const logger = new Logger();
   const database = createNodeDatabase(config.databaseUrl);
+  const billingConfigurationStore = createBillingConfigurationStore(
+    database.billingConfig,
+    config.billingConfigEncryptionKey,
+  );
   const redis = new Redis(config.redisUrl.toString(), { lazyConnect: true });
   const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
   const dependencies: AppDependencies = {
+    auth: createClerkAuthService(config.clerkAuth),
+    billing: createManagedStripeBillingService({
+      ...config.billing,
+      configurationStore: billingConfigurationStore,
+    }),
     database,
     cache: new FailOpenCache(new RedisCache(redis, logger), logger),
     core,

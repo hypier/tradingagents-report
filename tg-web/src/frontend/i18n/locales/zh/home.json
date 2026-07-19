@@ -15,9 +15,14 @@
   "analystTeam": "分析师团队",
   "submit": {
     "run": "开始分析",
+    "runWithCredit": "开始分析（消耗 1 额度）",
     "submitting": "提交中...",
     "errorTitle": "无法提交此次分析",
     "errorBody": "请检查服务连接后重试。",
+    "consentRequiredTitle": "需要先同意法律条款",
+    "consentRequiredBody": "前往账户页完成同意",
+    "creditsRequiredTitle": "需要订阅或分析额度",
+    "creditsRequiredBody": "查看订阅与用量",
     "toastSuccess": "分析任务已提交。"
   },
   "snapshot": {

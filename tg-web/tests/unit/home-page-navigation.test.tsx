@@ -32,6 +32,23 @@ vi.mock('../../src/frontend/lib/research', () => ({
   }),
 }));
 
+vi.mock('../../src/frontend/lib/auth', () => ({
+  getAuthSession: vi.fn().mockResolvedValue({
+    data: {
+      authenticated: true,
+      session: { id: 'session-1' },
+      user: {
+        id: 'user-1',
+        displayName: 'Test User',
+        email: 'test@example.test',
+        imageUrl: '',
+        role: 'user',
+      },
+    },
+    requestId: 'request-1',
+  }),
+}));
+
 it('opens a report action on the report detail page', async () => {
   const { container } = render(
     <MemoryRouter initialEntries={['/']}>

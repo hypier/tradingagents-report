@@ -3,9 +3,26 @@ import '@testing-library/jest-dom/vitest';
 
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 
 import { App } from '../../src/frontend/app/app';
+
+vi.mock('../../src/frontend/lib/auth', () => ({
+  getAuthSession: vi.fn().mockResolvedValue({
+    data: {
+      authenticated: true,
+      session: { id: 'session-1' },
+      user: {
+        id: 'user-1',
+        displayName: 'Test User',
+        email: 'test@example.test',
+        imageUrl: '',
+        role: 'user',
+      },
+    },
+    requestId: 'request-1',
+  }),
+}));
 
 it('renders the research command dashboard', () => {
   render(
@@ -41,10 +58,22 @@ it('renders the standard dashboard navigation shell', () => {
   expect(deskLinks.every((link) => link.getAttribute('href') === '/')).toBe(
     true,
   );
-  const submitButtons = screen.getAllByRole('button', { name: 'Run analysis' });
+  const submitButtons = screen.getAllByRole('button', {
+    name: 'Run analysis (1 credit)',
+  });
   expect(
     submitButtons.every((button) => button.getAttribute('type') === 'submit'),
   ).toBe(true);
+});
+
+it('renders an injected account menu in the dashboard header', () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <App accountMenu={<button type="button">Account</button>} />
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument();
 });
 
 it('does not expose unsupported research configuration controls', () => {

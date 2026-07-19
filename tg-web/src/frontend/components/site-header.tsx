@@ -2,10 +2,16 @@ import { Activity } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 
+import { useAccountMenu } from '@/frontend/app/account-menu';
 import { Separator } from '@/frontend/components/ui/separator';
 import { SidebarTrigger } from '@/frontend/components/ui/sidebar';
 
 function headerTitleKey(pathname: string) {
+  if (pathname.startsWith('/admin/billing')) return 'header.adminBilling' as const;
+  if (pathname.startsWith('/admin/users')) return 'header.adminUsers' as const;
+  if (pathname.startsWith('/billing')) return 'header.billing' as const;
+  if (pathname.startsWith('/account')) return 'header.account' as const;
+  if (pathname.startsWith('/legal')) return 'header.legal' as const;
   if (pathname.startsWith('/reports/')) return 'header.report' as const;
   if (pathname.startsWith('/reports')) return 'header.reports' as const;
   return 'header.desk' as const;
@@ -20,6 +26,7 @@ export function SiteHeader({
 }) {
   const location = useLocation();
   const { t } = useTranslation('common');
+  const accountMenu = useAccountMenu();
   const resolvedTitle = title ?? t(headerTitleKey(location.pathname));
 
   return (
@@ -45,6 +52,7 @@ export function SiteHeader({
             ) : null}
           </div>
         </div>
+        {accountMenu ? <div className="ml-auto">{accountMenu}</div> : null}
       </div>
     </header>
   );

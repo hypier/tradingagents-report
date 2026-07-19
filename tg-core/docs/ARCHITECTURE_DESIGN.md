@@ -188,6 +188,8 @@ uvicorn api.app:app --host 0.0.0.0 --port 8000
 
 `api/app.py` 在服务生命周期中初始化 PostgreSQL、写入 fallback 模型价格、恢复中断 job、启动 `api/job_worker.py` 并回灌已排队 job。它直接调用基础设施的任务列表/详情查询和健康检查；提交与执行 job、进度、报告和成本则委托给 `application/`。worker 只从队列取得 job ID 后调用 `application.jobs.run_job()`，不承载 job 业务逻辑。
 
+共享 PostgreSQL 还包含 TG-web 的本地用户档案、法律同意、订阅快照和额度账本。TG-web 在调用 Core 前以客户端 UUID 原子预留 1 个分析额度，并将同一 UUID 作为 `request_id`；`infrastructure.analysis_jobs` 只在 job 成功或失败状态迁移的同一事务内核销或释放已有预留。没有预留的 CLI、程序化图和服务调用不受影响。Stripe 支付、Webhook 验签和 Clerk 身份仍属于 TG-web 边界，Core 不承担这些职责。
+
 ### 6.3 程序化图入口
 
 `TradingAgentsGraph` 可由 Python 代码直接调用：

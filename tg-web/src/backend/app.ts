@@ -1,8 +1,12 @@
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
+import type { AuthService, AuthSession, AuthUser } from './auth/contract';
+import { requireAdmin, requireAuth } from './auth/middleware';
+import type { BillingService } from './billing/contract';
 import type { Cache } from './cache/contract';
 import type { CoreClientContract } from './core/client';
+import type { DatabaseHealth } from './database/client';
 import { AppError } from './errors/app-error';
 import { toErrorResponse } from './errors/error-response';
 import { Logger } from './logging/logger';
@@ -14,9 +18,22 @@ import {
 import { healthRoutes } from './routes/health';
 import { readyRoutes } from './routes/ready';
 import { analysisRoutes } from './routes/analyses';
+import { authRoutes } from './routes/auth';
+import { accountRoutes } from './routes/account';
+import { adminRoutes } from './routes/admin';
+import { billingRoutes, stripeWebhookRoutes } from './routes/billing';
+
+export type AppEnvironment = {
+  Variables: RequestIdEnvironment['Variables'] & {
+    auth: AuthSession;
+    authUser: AuthUser;
+  };
+};
 
 export type AppDependencies = {
-  database: { healthcheck(): Promise<void> };
+  auth: AuthService;
+  billing: BillingService;
+  database: Pick<DatabaseHealth, 'healthcheck' | 'product'>;
   cache: Cache;
   core: CoreClientContract;
   marketAssets: MarketAssetClient;
@@ -24,11 +41,26 @@ export type AppDependencies = {
 };
 
 export function createApp(dependencies: AppDependencies) {
-  const app = new Hono<RequestIdEnvironment>();
+  const app = new Hono<AppEnvironment>();
 
   app.use('/api/*', createRequestIdMiddleware());
   app.route('/api', healthRoutes());
   app.route('/api', readyRoutes(dependencies));
+  app.route('/api', stripeWebhookRoutes(dependencies));
+  app.use('/api/auth/*', requireAuth(dependencies));
+  app.use('/api/account/*', requireAuth(dependencies));
+  app.use('/api/billing/*', requireAuth(dependencies));
+  app.use('/api/admin/*', requireAuth(dependencies));
+  app.use('/api/admin/*', requireAdmin());
+  app.use('/api/analyses', requireAuth(dependencies));
+  app.use('/api/analyses/*', requireAuth(dependencies));
+  app.use('/api/market-search', requireAuth(dependencies));
+  app.use('/api/market-snapshot', requireAuth(dependencies));
+  app.use('/api/market-identities', requireAuth(dependencies));
+  app.route('/api', authRoutes());
+  app.route('/api', accountRoutes(dependencies));
+  app.route('/api', adminRoutes(dependencies));
+  app.route('/api', billingRoutes(dependencies));
   app.route('/api', analysisRoutes(dependencies));
   app.notFound((context) => {
     const requestId = context.get('requestId');

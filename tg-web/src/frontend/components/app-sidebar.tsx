@@ -1,11 +1,20 @@
 import * as React from 'react';
-import { FileText, LayoutDashboard, Shield } from 'lucide-react';
+import {
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  Settings2,
+  Shield,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 
 import { BrandMark } from '@/frontend/components/icons/research-icons';
 import { LanguageSwitcher } from '@/frontend/components/language-switcher';
 import { ThemeSwitcher } from '@/frontend/components/theme-switcher';
+import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import {
   Sidebar,
   SidebarContent,
@@ -19,14 +28,34 @@ import {
   SidebarMenuItem,
 } from '@/frontend/components/ui/sidebar';
 
-const navigation = [
+const baseNavigation = [
   { titleKey: 'nav.desk' as const, icon: LayoutDashboard, href: '/' },
   { titleKey: 'nav.reports' as const, icon: FileText, href: '/reports' },
+  { titleKey: 'nav.billing' as const, icon: CreditCard, href: '/billing' },
+  { titleKey: 'nav.account' as const, icon: UserRound, href: '/account' },
+];
+
+const adminNavigation = [
+  {
+    titleKey: 'nav.adminUsers' as const,
+    icon: UsersRound,
+    href: '/admin/users',
+  },
+  {
+    titleKey: 'nav.adminBilling' as const,
+    icon: Settings2,
+    href: '/admin/billing',
+  },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const { t } = useTranslation('common');
+  const session = useAuthSession();
+  const navigation = [
+    ...baseNavigation,
+    ...(session.data?.data.user.role === 'admin' ? adminNavigation : []),
+  ];
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -60,11 +89,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenu>
               {navigation.map((item) => {
                 const title = t(item.titleKey);
+                const isActive =
+                  item.href === '/'
+                    ? location.pathname === '/'
+                    : location.pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      isActive={location.pathname === item.href}
+                      isActive={isActive}
                       tooltip={title}
                     >
                       <Link to={item.href}>

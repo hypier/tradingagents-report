@@ -6,12 +6,21 @@
   "nav": {
     "workspace": "工作区",
     "desk": "研究台",
-    "reports": "报告库"
+    "reports": "报告库",
+    "billing": "订阅",
+    "account": "账户",
+    "adminUsers": "用户管理",
+    "adminBilling": "支付设置"
   },
   "header": {
     "desk": "研究台",
     "reports": "报告库",
-    "report": "报告"
+    "report": "报告",
+    "billing": "订阅",
+    "account": "账户",
+    "legal": "法律条款",
+    "adminUsers": "用户管理",
+    "adminBilling": "支付设置"
   },
   "disclaimer": {
     "title": "仅供研究",

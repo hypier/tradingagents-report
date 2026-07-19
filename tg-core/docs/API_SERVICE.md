@@ -113,6 +113,10 @@ TRADINGAGENTS_DATABASE_URL=postgresql://user:password@host:5432/db
 - `(ticker, created_at DESC)`
 - `(status, created_at DESC)`
 
+同一 PostgreSQL 中还包含 TG-web 产品表：`product_users`、`user_consents`、`billing_subscriptions`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时只校验核心表存在，不执行 DDL。身份档案、Stripe Webhook、加密支付配置和额度预留由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。
+
+当带 `request_id` 的 HTTP job 存在 `credit_reservations` 预留时，Core 在把 `analysis_jobs` 更新为 `succeeded` 的同一事务中核销额度，在更新为 `failed` 的同一事务中释放额度。CLI、程序化调用和没有预留记录的 API job 保持原行为。账本写入使用 `analysis:<request_id>:consume|release` 幂等键。
+
 ## 4. 接口列表
 
 ### 4.1 健康检查

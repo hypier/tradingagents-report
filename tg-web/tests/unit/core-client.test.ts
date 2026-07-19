@@ -107,4 +107,20 @@ describe('CoreClient', () => {
       }),
     );
   });
+
+  it('preserves definitive Core request rejection for quota release', async () => {
+    const client = new CoreClient(
+      new URL('https://core.example.test'),
+      'server-secret',
+      vi.fn().mockResolvedValue(new Response('invalid', { status: 400 })),
+    );
+
+    await expect(client.submitAnalysis({ ticker: 'INVALID' })).rejects.toEqual(
+      new AppError(
+        'CORE_REQUEST_REJECTED',
+        400,
+        'Analysis service rejected the request',
+      ),
+    );
+  });
 });

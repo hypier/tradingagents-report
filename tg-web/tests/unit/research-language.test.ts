@@ -33,6 +33,7 @@ it('sends the selected report language as a Core config override', async () => {
     configOverrides: { output_language: 'Japanese' },
     ticker: 'AAPL',
     tradeDate: '2026-07-16',
+    requestId: expect.any(String),
   });
 });
 
@@ -76,6 +77,7 @@ it('sends confirmed instrument display metadata with the research request', asyn
     configOverrides: { output_language: 'Chinese' },
     ticker: '0700.HK',
     tradeDate: '2026-07-16',
+    requestId: expect.any(String),
     instrument: {
       exchange: 'HKEX',
       symbol: '700',

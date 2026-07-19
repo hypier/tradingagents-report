@@ -74,4 +74,107 @@ describe('Node database', () => {
       display: {},
     });
   });
+
+  it('grants, reserves, and releases credits idempotently', async () => {
+    await database.product.syncUser({
+      id: 'user-1',
+      displayName: 'Test User',
+      email: 'test@example.test',
+      imageUrl: '',
+      role: 'user',
+    });
+    await database.product.setStripeCustomerId('user-1', 'cus_test');
+    const event = {
+      id: 'evt_invoice_paid',
+      type: 'invoice.paid',
+      payload: { livemode: false },
+      subscription: {
+        id: 'sub_test',
+        customerId: 'cus_test',
+        priceId: 'price_test',
+        status: 'active' as const,
+        cancelAtPeriodEnd: false,
+        currentPeriodStart: 1_784_332_800,
+        currentPeriodEnd: 1_789_516_800,
+        latestInvoiceId: 'in_test',
+      },
+      creditGrant: {
+        invoiceId: 'in_test',
+        customerId: 'cus_test',
+        subscriptionId: 'sub_test',
+        priceId: 'price_test',
+        credits: 5,
+        periodStart: 1_784_332_800,
+        periodEnd: 1_789_516_800,
+      },
+    };
+
+    await expect(database.product.processStripeEvent(event)).resolves.toBe(
+      true,
+    );
+    await expect(database.product.processStripeEvent(event)).resolves.toBe(
+      false,
+    );
+    await expect(database.product.getUsage('user-1')).resolves.toMatchObject({
+      availableCredits: 5,
+      reservedCredits: 0,
+      spentCredits: 0,
+      ledger: [{ entryType: 'grant', availableDelta: 5 }],
+    });
+
+    const requestId = '00000000-0000-4000-8000-000000000020';
+    await expect(
+      database.product.reserveAnalysis({
+        clerkUserId: 'user-1',
+        requestId,
+        units: 1,
+      }),
+    ).resolves.toBe('created');
+    await expect(
+      database.product.reserveAnalysis({
+        clerkUserId: 'user-1',
+        requestId,
+        units: 1,
+      }),
+    ).resolves.toBe('existing');
+    await expect(database.product.getUsage('user-1')).resolves.toMatchObject({
+      availableCredits: 4,
+      reservedCredits: 1,
+    });
+    await database.product.releaseAnalysis(requestId, 'test_failure');
+    await database.product.releaseAnalysis(requestId, 'duplicate');
+    await expect(database.product.getUsage('user-1')).resolves.toMatchObject({
+      availableCredits: 5,
+      reservedCredits: 0,
+      ledger: [
+        { entryType: 'release' },
+        { entryType: 'reserve' },
+        { entryType: 'grant' },
+      ],
+    });
+  });
+
+  it('stores Stripe configuration ciphertext and audits changes', async () => {
+    await database.billingConfig.setStripe({
+      secretKeyCiphertext: 'v1.secret',
+      webhookSecretCiphertext: 'v1.webhook',
+      actorClerkUserId: 'admin-1',
+    });
+    await expect(database.billingConfig.getStripe()).resolves.toMatchObject({
+      provider: 'stripe',
+      secretKeyCiphertext: 'v1.secret',
+      webhookSecretCiphertext: 'v1.webhook',
+      updatedByClerkUserId: 'admin-1',
+    });
+
+    await database.billingConfig.clearStripe('admin-2');
+    await expect(database.billingConfig.getStripe()).resolves.toBeUndefined();
+    const audit = await connection!.query(
+      'SELECT action, actor_clerk_user_id FROM billing_config_audit_events ORDER BY created_at',
+    );
+    expect(audit.rows).toEqual([
+      { action: 'configured', actor_clerk_user_id: 'admin-1' },
+      { action: 'cleared', actor_clerk_user_id: 'admin-2' },
+    ]);
+  });
 });

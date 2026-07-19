@@ -1,0 +1,24 @@
+import { CircleAlert, Sparkles } from 'lucide-react';
+
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+
+export function AuthenticationUnavailable() {
+  return (
+    <main className="grid min-h-svh place-items-center bg-muted/30 px-4 py-10">
+      <section className="flex w-full max-w-sm flex-col items-center gap-6">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-5" aria-hidden="true" />
+          <h1 className="text-xl font-semibold">TradingAgents</h1>
+        </div>
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle>Authentication unavailable</AlertTitle>
+          <AlertDescription>
+            Clerk could not initialize. Configure a valid publishable key and
+            reload the page.
+          </AlertDescription>
+        </Alert>
+      </section>
+    </main>
+  );
+}

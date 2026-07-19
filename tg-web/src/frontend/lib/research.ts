@@ -98,6 +98,13 @@ export type SelectedInstrument = {
 
 type FetchImplementation = typeof fetch;
 
+export class ResearchRequestError extends Error {
+  constructor(public readonly code: string) {
+    super(code);
+    this.name = 'ResearchRequestError';
+  }
+}
+
 export async function createResearch(
   { outputLanguage, instrument, display, ...input }: ResearchInput,
   fetchImplementation: FetchImplementation = fetch,
@@ -107,12 +114,18 @@ export async function createResearch(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...input,
+      requestId: crypto.randomUUID(),
       ...(instrument ? { instrument } : {}),
       ...(display ? { display } : {}),
       configOverrides: { output_language: outputLanguage ?? 'English' },
     }),
   });
-  if (!response.ok) throw new Error('Unable to create research');
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: { code?: string };
+    } | null;
+    throw new ResearchRequestError(body?.error?.code ?? 'REQUEST_FAILED');
+  }
   return response.json() as Promise<{
     data: { id: string };
     requestId: string;

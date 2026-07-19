@@ -5,7 +5,9 @@ import { Pool } from 'pg';
 import {
   createRepositories,
   type AnalysisJobsRepository,
+  type BillingConfigRepository,
   type ModelPricesRepository,
+  type ProductRepository,
   type PricingSourcesRepository,
 } from './repositories';
 import * as schema from './schema';
@@ -15,6 +17,8 @@ export type DatabaseHealth = {
   analysisJobs: AnalysisJobsRepository;
   modelPrices: ModelPricesRepository;
   pricingSources: PricingSourcesRepository;
+  product: ProductRepository;
+  billingConfig: BillingConfigRepository;
 };
 
 export type NodeDatabase = DatabaseHealth & {

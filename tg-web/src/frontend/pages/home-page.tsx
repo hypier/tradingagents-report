@@ -8,7 +8,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
@@ -117,6 +117,13 @@ export function HomePage() {
       toast.success(t('submit.toastSuccess'));
     },
   });
+  const createErrorCode =
+    create.error &&
+    typeof create.error === 'object' &&
+    'code' in create.error &&
+    typeof create.error.code === 'string'
+      ? create.error.code
+      : null;
   const quote = snapshot.data?.data;
   const identitiesByTicker = Object.fromEntries(
     (identities.data?.data ?? []).map((identity) => [
@@ -292,9 +299,27 @@ export function HomePage() {
 
                     {create.isError && (
                       <Alert variant="destructive">
-                        <AlertTitle>{t('submit.errorTitle')}</AlertTitle>
+                        <AlertTitle>
+                          {createErrorCode === 'CONSENT_REQUIRED'
+                            ? t('submit.consentRequiredTitle')
+                            : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                                createErrorCode === 'SUBSCRIPTION_REQUIRED'
+                              ? t('submit.creditsRequiredTitle')
+                              : t('submit.errorTitle')}
+                        </AlertTitle>
                         <AlertDescription>
-                          {t('submit.errorBody')}
+                          {createErrorCode === 'CONSENT_REQUIRED' ? (
+                            <Link className="underline" to="/account">
+                              {t('submit.consentRequiredBody')}
+                            </Link>
+                          ) : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                            createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
+                            <Link className="underline" to="/billing">
+                              {t('submit.creditsRequiredBody')}
+                            </Link>
+                          ) : (
+                            t('submit.errorBody')
+                          )}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -318,7 +343,7 @@ export function HomePage() {
                         )}
                         {create.isPending
                           ? t('submit.submitting')
-                          : t('submit.run')}
+                          : t('submit.runWithCredit')}
                       </Button>
                     </div>
                   </form>

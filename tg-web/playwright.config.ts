@@ -2,11 +2,15 @@ import { defineConfig } from '@playwright/test';
 
 const port = 8790;
 const baseURL = `http://127.0.0.1:${port}`;
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: './tests/e2e',
   use: {
     baseURL,
+    launchOptions: chromiumExecutablePath
+      ? { executablePath: chromiumExecutablePath }
+      : undefined,
     trace: 'on-first-retry',
   },
   projects: [
@@ -28,7 +32,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      'pnpm build && pnpm build:node && DATABASE_URL=postgresql://unused:unused@127.0.0.1:65432/unused REDIS_URL=redis://127.0.0.1:65433 CORE_API_URL=http://127.0.0.1:65434 CORE_API_KEY=test-only-key PORT=8790 node dist/backend/node.js',
+      'pnpm build --mode e2e && pnpm build:node && node --env-file=.env.e2e dist/backend/node.js',
     url: `${baseURL}/api/health`,
     reuseExistingServer: false,
   },

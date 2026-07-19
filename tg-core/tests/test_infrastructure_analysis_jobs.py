@@ -315,6 +315,9 @@ def test_mark_succeeded_only_updates_running_job(monkeypatch):
     class Cursor:
         rowcount = 1
 
+        def fetchone(self):
+            return None
+
     class Connection:
         def execute(self, sql, params=()):
             executed.append((sql, params))
@@ -372,6 +375,9 @@ def test_mark_failed_only_updates_running_job_and_returns_bool(monkeypatch):
     class Cursor:
         rowcount = 1
 
+        def fetchone(self):
+            return None
+
     class Connection:
         def execute(self, sql, params=()):
             executed.append((sql, params))
@@ -418,3 +424,40 @@ def test_mark_failed_returns_false_when_job_is_already_terminal(monkeypatch):
         )
         is False
     )
+
+
+def test_settle_credit_reservation_consumes_reserved_credit():
+    executed = []
+
+    class Cursor:
+        def __init__(self, row=None):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class Connection:
+        def execute(self, sql, params=()):
+            executed.append((sql, params))
+            if "UPDATE credit_reservations" in sql:
+                return Cursor(
+                    {
+                        "clerk_user_id": "user-1",
+                        "request_id": UUID("00000000-0000-4000-8000-000000000010"),
+                        "units": 1,
+                    }
+                )
+            if "UPDATE credit_accounts" in sql:
+                return Cursor({"clerk_user_id": "user-1"})
+            return Cursor()
+
+    analysis_jobs._settle_credit_reservation(
+        Connection(),
+        job_id=UUID("00000000-0000-4000-8000-000000000011"),
+        outcome="consumed",
+    )
+
+    assert "status = %s" in executed[0][0]
+    assert executed[0][1][0] == "consumed"
+    assert "spent_credits = spent_credits + %s" in executed[1][0]
+    assert executed[2][1][1:5] == ("consume", 0, -1, 1)
