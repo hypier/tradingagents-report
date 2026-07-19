@@ -15,7 +15,7 @@
   "analystTeam": "分析师团队",
   "submit": {
     "run": "开始分析",
-    "runWithCredit": "开始分析（消耗 1 额度）",
+    "runWithCredit": "开始分析（消耗 0 额度）",
     "submitting": "提交中...",
     "errorTitle": "无法提交此次分析",
     "errorBody": "请检查服务连接后重试。",

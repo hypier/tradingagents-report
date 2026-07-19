@@ -6,6 +6,9 @@ import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import { BillingRepositoryError } from '../database/billing-repository';
 
+/** TEMP: set back to 1 to restore subscription/credit gating. */
+const ANALYSIS_CREDIT_UNITS = 0;
+
 export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
@@ -22,15 +25,17 @@ export function analysisRoutes(dependencies: AppDependencies) {
       );
     }
     const requestId = input.requestId ?? crypto.randomUUID();
-    let reservation: 'created' | 'existing';
-    try {
-      reservation = await dependencies.database.billing.reserveAnalysis({
-        clerkUserId,
-        requestId,
-        units: 1,
-      });
-    } catch (error) {
-      throw billingError(error);
+    let reservation: 'created' | 'existing' | 'skipped' = 'skipped';
+    if (ANALYSIS_CREDIT_UNITS > 0) {
+      try {
+        reservation = await dependencies.database.billing.reserveAnalysis({
+          clerkUserId,
+          requestId,
+          units: ANALYSIS_CREDIT_UNITS,
+        });
+      } catch (error) {
+        throw billingError(error);
+      }
     }
 
     let data: unknown;
@@ -96,17 +101,22 @@ export function analysisRoutes(dependencies: AppDependencies) {
         'Analysis service returned an invalid job response',
       );
     }
-    try {
-      await dependencies.database.billing.attachAnalysis(
-        requestId,
-        result.data.id,
-      );
-    } catch (error) {
-      dependencies.logger.warn('Unable to attach analysis credit reservation', {
-        requestId,
-        analysisJobId: result.data.id,
-        error: String(error),
-      });
+    if (reservation !== 'skipped') {
+      try {
+        await dependencies.database.billing.attachAnalysis(
+          requestId,
+          result.data.id,
+        );
+      } catch (error) {
+        dependencies.logger.warn(
+          'Unable to attach analysis credit reservation',
+          {
+            requestId,
+            analysisJobId: result.data.id,
+            error: String(error),
+          },
+        );
+      }
     }
     return context.json(apiSuccess(data, context.get('requestId')), 202);
   });

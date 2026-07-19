@@ -635,7 +635,8 @@ describe('createApp', () => {
     expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
   });
 
-  it('releases a reserved credit when Core rejects the request', async () => {
+  // TEMP: credit reservation is skipped while ANALYSIS_CREDIT_UNITS === 0.
+  it('skips credit reservation while analysis credits are free', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.core.submitAnalysis).mockRejectedValue(
       new AppError(
@@ -659,24 +660,33 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(dependencies.database.billing.releaseAnalysis).toHaveBeenCalledWith(
-      requestId,
-      'analysis_request_rejected',
-    );
+    expect(
+      dependencies.database.billing.reserveAnalysis,
+    ).not.toHaveBeenCalled();
+    expect(
+      dependencies.database.billing.releaseAnalysis,
+    ).not.toHaveBeenCalled();
   });
 
-  it('does not release an existing reservation when a retry is rejected', async () => {
-    const dependencies = fakeDependencies();
-    vi.mocked(dependencies.database.billing.reserveAnalysis).mockResolvedValue(
-      'existing',
-    );
-    vi.mocked(dependencies.core.submitAnalysis).mockRejectedValue(
-      new AppError(
-        'CORE_REQUEST_REJECTED',
-        409,
-        'Analysis service rejected the request',
-      ),
-    );
+  it('does not attach a credit reservation while analysis credits are free', async () => {
+    const dependencies = fakeDependencies({
+      core: {
+        healthcheck: vi.fn(),
+        resolveListing: vi.fn(),
+        submitAnalysis: vi.fn().mockResolvedValue({
+          id: '00000000-0000-4000-8000-000000000005',
+          ticker: 'MSFT',
+        }),
+        listAnalyses: vi.fn(),
+        getAnalysis: vi.fn(),
+        getAnalysisEvents: vi.fn(),
+      },
+      marketAssets: {
+        searchMarkets: vi.fn(),
+        getIdentities: vi.fn(),
+        getSnapshot: vi.fn(),
+      },
+    });
     const app = createApp(dependencies);
     const requestId = '00000000-0000-4000-8000-000000000005';
 
@@ -691,9 +701,12 @@ describe('createApp', () => {
       }),
     });
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(202);
     expect(
-      dependencies.database.billing.releaseAnalysis,
+      dependencies.database.billing.reserveAnalysis,
+    ).not.toHaveBeenCalled();
+    expect(
+      dependencies.database.billing.attachAnalysis,
     ).not.toHaveBeenCalled();
   });
 

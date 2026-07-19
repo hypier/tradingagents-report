@@ -23,6 +23,6 @@ RUN addgroup -S appuser && adduser -S appuser -G appuser
 
 USER appuser
 
-EXPOSE 8787
+EXPOSE 8788
 
 CMD ["node", "dist/backend/node.js"]

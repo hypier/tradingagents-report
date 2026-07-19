@@ -15,7 +15,7 @@
   "analystTeam": "Analyst team",
   "submit": {
     "run": "Run analysis",
-    "runWithCredit": "Run analysis (1 credit)",
+    "runWithCredit": "Run analysis (0 credits)",
     "submitting": "Submitting...",
     "errorTitle": "Unable to submit this run",
     "errorBody": "Check the service connection and retry.",

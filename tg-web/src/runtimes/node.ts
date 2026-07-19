@@ -76,7 +76,7 @@ export async function startNodeRuntime(
 
   await new Promise<void>((resolveListening, rejectListening) => {
     server.once('error', rejectListening);
-    server.listen(options.port ?? 8787, '0.0.0.0', () => {
+    server.listen(options.port ?? 8788, '0.0.0.0', () => {
       server.off('error', rejectListening);
       resolveListening();
     });

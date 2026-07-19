@@ -11,7 +11,7 @@ const nodeEnv = {
   CORE_API_KEY: 'secret',
   DATABASE_URL: 'postgresql://user:password@db.example.test:5432/tg',
   REDIS_URL: 'redis://127.0.0.1:6379',
-  PORT: '8787',
+  PORT: '8788',
 };
 const billingEncryptionKey = btoa('01234567890123456789012345678901');
 
@@ -44,7 +44,7 @@ describe('parseNodeConfig', () => {
         'postgresql://user:password@db.example.test:5432/tg',
       ),
       redisUrl: new URL('redis://127.0.0.1:6379'),
-      port: 8787,
+      port: 8788,
       logLevel: 'info',
     });
   });
