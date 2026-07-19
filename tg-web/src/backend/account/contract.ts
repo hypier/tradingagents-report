@@ -8,7 +8,7 @@ export type LegalDocumentType = keyof typeof LEGAL_DOCUMENT_VERSIONS;
 export type InterfaceLanguage = 'en' | 'zh-CN';
 export type DefaultMarket = 'US' | 'HK' | 'CN' | 'CRYPTO';
 
-export type ProductProfile = {
+export type AccountProfile = {
   clerkUserId: string;
   displayName: string;
   email: string | null;
@@ -26,7 +26,7 @@ export type ProductProfile = {
   hasCurrentConsents: boolean;
 };
 
-export type ProductPreferences = Pick<
-  ProductProfile,
+export type AccountPreferences = Pick<
+  AccountProfile,
   'interfaceLanguage' | 'reportLanguage' | 'timezone' | 'defaultMarket'
 >;

@@ -33,7 +33,7 @@ export type AppEnvironment = {
 export type AppDependencies = {
   auth: AuthService;
   billing: BillingService;
-  database: Pick<DatabaseHealth, 'healthcheck' | 'product'>;
+  database: Pick<DatabaseHealth, 'healthcheck' | 'account' | 'billing'>;
   cache: Cache;
   core: CoreClientContract;
   marketAssets: MarketAssetClient;

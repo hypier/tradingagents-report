@@ -76,14 +76,14 @@ describe('Node database', () => {
   });
 
   it('grants, reserves, and releases credits idempotently', async () => {
-    await database.product.syncUser({
+    await database.account.syncUser({
       id: 'user-1',
       displayName: 'Test User',
       email: 'test@example.test',
       imageUrl: '',
       role: 'user',
     });
-    await database.product.setStripeCustomerId('user-1', 'cus_test');
+    await database.billing.setStripeCustomerId('user-1', 'cus_test');
     const event = {
       id: 'evt_invoice_paid',
       type: 'invoice.paid',
@@ -109,13 +109,13 @@ describe('Node database', () => {
       },
     };
 
-    await expect(database.product.processStripeEvent(event)).resolves.toBe(
+    await expect(database.billing.processStripeEvent(event)).resolves.toBe(
       true,
     );
-    await expect(database.product.processStripeEvent(event)).resolves.toBe(
+    await expect(database.billing.processStripeEvent(event)).resolves.toBe(
       false,
     );
-    await expect(database.product.getUsage('user-1')).resolves.toMatchObject({
+    await expect(database.billing.getUsage('user-1')).resolves.toMatchObject({
       availableCredits: 5,
       reservedCredits: 0,
       spentCredits: 0,
@@ -124,26 +124,26 @@ describe('Node database', () => {
 
     const requestId = '00000000-0000-4000-8000-000000000020';
     await expect(
-      database.product.reserveAnalysis({
+      database.billing.reserveAnalysis({
         clerkUserId: 'user-1',
         requestId,
         units: 1,
       }),
     ).resolves.toBe('created');
     await expect(
-      database.product.reserveAnalysis({
+      database.billing.reserveAnalysis({
         clerkUserId: 'user-1',
         requestId,
         units: 1,
       }),
     ).resolves.toBe('existing');
-    await expect(database.product.getUsage('user-1')).resolves.toMatchObject({
+    await expect(database.billing.getUsage('user-1')).resolves.toMatchObject({
       availableCredits: 4,
       reservedCredits: 1,
     });
-    await database.product.releaseAnalysis(requestId, 'test_failure');
-    await database.product.releaseAnalysis(requestId, 'duplicate');
-    await expect(database.product.getUsage('user-1')).resolves.toMatchObject({
+    await database.billing.releaseAnalysis(requestId, 'test_failure');
+    await database.billing.releaseAnalysis(requestId, 'duplicate');
+    await expect(database.billing.getUsage('user-1')).resolves.toMatchObject({
       availableCredits: 5,
       reservedCredits: 0,
       ledger: [

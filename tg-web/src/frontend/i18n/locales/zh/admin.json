@@ -1,0 +1,133 @@
+{
+  "users": {
+    "title": "用户管理",
+    "heading": "用户与角色",
+    "description": "查看注册账号并授予管理员权限。",
+    "count": "{{count}} 位用户",
+    "accessRequired": {
+      "title": "需要管理员权限",
+      "body": "当前账号没有管理用户的权限。"
+    },
+    "searchLabel": "搜索用户",
+    "searchPlaceholder": "姓名、邮箱或用户 ID",
+    "search": "搜索",
+    "loadError": {
+      "title": "无法加载用户",
+      "body": "请检查 Clerk 连接后重试。"
+    },
+    "emptyTitle": "未找到用户",
+    "emptyBody": "请调整搜索条件后重试。",
+    "columns": {
+      "user": "用户",
+      "email": "邮箱",
+      "registered": "注册时间",
+      "role": "角色"
+    },
+    "you": "你",
+    "noEmail": "无邮箱",
+    "roleAria": "{{name}} 的角色",
+    "roleUser": "用户",
+    "roleAdmin": "管理员",
+    "roleUpdated": "用户角色已更新。",
+    "roleUpdateError": "无法更新用户角色。"
+  },
+  "billing": {
+    "title": "支付设置",
+    "heading": "Stripe 计费",
+    "subtitle": "连接状态与循环订阅套餐",
+    "accessRequired": {
+      "title": "需要管理员权限",
+      "body": "当前账号没有管理计费的权限。"
+    },
+    "loadError": {
+      "title": "无法加载 Stripe 设置",
+      "body": "请检查服务器配置后重试。"
+    },
+    "tabs": {
+      "connection": "连接",
+      "plans": "套餐"
+    },
+    "connection": {
+      "title": "Stripe 连接",
+      "description": "服务端支付服务商配置",
+      "connected": "已连接",
+      "connectionError": "连接错误",
+      "notConfigured": "未配置",
+      "environment": "环境",
+      "webhookSigning": "Webhook 签名",
+      "configurationSource": "配置来源",
+      "configured": "已配置",
+      "missing": "缺失",
+      "webhookEndpoint": "Webhook 端点",
+      "copyEndpoint": "复制 Webhook 端点",
+      "copied": "已复制 Webhook 端点。",
+      "copyError": "无法复制端点。",
+      "secretKey": "Stripe Secret Key",
+      "webhookSecret": "Webhook 签名密钥",
+      "clearStored": "清除已存储配置",
+      "clearConfirm": "确定清除已存储的 Stripe 配置？",
+      "saveValidate": "保存并验证",
+      "deploymentManaged": {
+        "title": "部署环境托管配置",
+        "body": "为此部署启用加密计费配置后，即可在此更改 Stripe 凭据。"
+      },
+      "connectionFailed": {
+        "title": "Stripe 连接失败",
+        "body": "请替换或清除已存储凭据，或检查 Stripe 服务可用性。"
+      },
+      "mode": {
+        "test": "测试模式",
+        "live": "正式模式",
+        "unconfigured": "未配置"
+      },
+      "source": {
+        "database": "管理员托管",
+        "environment": "部署环境变量",
+        "none": "未配置"
+      }
+    },
+    "plans": {
+      "createTitle": "创建循环套餐",
+      "createDescription": "将创建 Stripe Product 与循环 Price",
+      "name": "名称",
+      "description": "描述",
+      "price": "价格",
+      "currency": "货币",
+      "interval": "计费周期",
+      "monthly": "按月",
+      "yearly": "按年",
+      "credits": "每周期额度",
+      "markets": "支持市场",
+      "features": "功能",
+      "featuresPlaceholder": "完整分析师团队、PDF 报告",
+      "create": "创建套餐",
+      "activeTitle": "生效套餐",
+      "emptyTitle": "暂无生效套餐",
+      "emptyBody": "生效的 Stripe 循环价格将显示在这里。",
+      "columns": {
+        "plan": "套餐",
+        "price": "价格",
+        "interval": "周期",
+        "credits": "额度"
+      },
+      "every": "每{{interval}}",
+      "everyCount": "每 {{count}} {{interval}}",
+      "archive": "归档 {{name}}"
+    },
+    "toasts": {
+      "planCreated": "订阅套餐已创建。",
+      "planCreateError": "无法创建订阅套餐。",
+      "planArchived": "订阅套餐已归档。",
+      "planArchiveError": "无法归档订阅套餐。",
+      "configSaved": "Stripe 配置已保存。",
+      "configSaveError": "无法验证或保存 Stripe 设置。",
+      "configCleared": "已清除存储的 Stripe 配置。",
+      "configClearError": "无法清除 Stripe 设置。",
+      "invalidPrice": "请输入至少 0.50 的有效价格。",
+      "invalidCredits": "请输入至少一个分析额度。"
+    },
+    "defaults": {
+      "features": "完整分析师团队、PDF 报告"
+    }
+  }
+}

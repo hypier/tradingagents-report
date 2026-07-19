@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
-import { ProductRepositoryError } from '../database/product-repository';
+import { BillingRepositoryError } from '../database/billing-repository';
 
 export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
@@ -13,7 +13,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
     const input = createAnalysisSchema.parse(await context.req.json());
     const clerkUserId = context.get('auth').userId;
     if (
-      !(await dependencies.database.product.hasCurrentConsents(clerkUserId))
+      !(await dependencies.database.account.hasCurrentConsents(clerkUserId))
     ) {
       throw new AppError(
         'CONSENT_REQUIRED',
@@ -24,13 +24,13 @@ export function analysisRoutes(dependencies: AppDependencies) {
     const requestId = input.requestId ?? crypto.randomUUID();
     let reservation: 'created' | 'existing';
     try {
-      reservation = await dependencies.database.product.reserveAnalysis({
+      reservation = await dependencies.database.billing.reserveAnalysis({
         clerkUserId,
         requestId,
         units: 1,
       });
     } catch (error) {
-      throw productError(error);
+      throw billingError(error);
     }
 
     let data: unknown;
@@ -77,7 +77,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
         error instanceof AppError &&
         error.code === 'CORE_REQUEST_REJECTED'
       ) {
-        await dependencies.database.product.releaseAnalysis(
+        await dependencies.database.billing.releaseAnalysis(
           requestId,
           'analysis_request_rejected',
         );
@@ -97,7 +97,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
       );
     }
     try {
-      await dependencies.database.product.attachAnalysis(
+      await dependencies.database.billing.attachAnalysis(
         requestId,
         result.data.id,
       );
@@ -212,8 +212,8 @@ export function analysisRoutes(dependencies: AppDependencies) {
   return app;
 }
 
-function productError(error: unknown): AppError {
-  if (error instanceof ProductRepositoryError) {
+function billingError(error: unknown): AppError {
+  if (error instanceof BillingRepositoryError) {
     const status =
       error.code === 'INSUFFICIENT_CREDITS' ||
       error.code === 'SUBSCRIPTION_REQUIRED'

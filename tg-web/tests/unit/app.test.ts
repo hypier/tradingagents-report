@@ -70,12 +70,14 @@ function fakeDependencies(
     },
     database: {
       healthcheck: vi.fn().mockResolvedValue(undefined),
-      product: {
+      account: {
         syncUser: vi.fn().mockResolvedValue(undefined),
         getProfile: vi.fn(),
         updatePreferences: vi.fn(),
         recordConsents: vi.fn(),
         hasCurrentConsents: vi.fn().mockResolvedValue(true),
+      },
+      billing: {
         setStripeCustomerId: vi.fn().mockResolvedValue(undefined),
         getStripeCustomerId: vi.fn().mockResolvedValue('cus_test'),
         getUsage: vi.fn().mockResolvedValue({
@@ -161,9 +163,9 @@ describe('createApp', () => {
     expect(dependencies.auth.getUser).toHaveBeenCalledWith('user-1');
   });
 
-  it('records versioned legal consent for the local product profile', async () => {
+  it('records versioned legal consent for the local account profile', async () => {
     const dependencies = fakeDependencies();
-    vi.mocked(dependencies.database.product.recordConsents).mockResolvedValue({
+    vi.mocked(dependencies.database.account.recordConsents).mockResolvedValue({
       clerkUserId: 'user-1',
       displayName: 'Test User',
       email: 'test@example.test',
@@ -190,7 +192,7 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(201);
-    expect(dependencies.database.product.recordConsents).toHaveBeenCalledWith({
+    expect(dependencies.database.account.recordConsents).toHaveBeenCalledWith({
       clerkUserId: 'user-1',
       documentTypes: ['risk_disclaimer', 'terms', 'privacy'],
       ipAddress: null,
@@ -330,7 +332,7 @@ describe('createApp', () => {
       stripeCustomerId: null,
     });
     vi.mocked(
-      dependencies.database.product.getStripeCustomerId,
+      dependencies.database.billing.getStripeCustomerId,
     ).mockResolvedValue(null);
     const app = createApp(dependencies);
 
@@ -609,7 +611,7 @@ describe('createApp', () => {
   it('blocks analysis until current legal documents are accepted', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(
-      dependencies.database.product.hasCurrentConsents,
+      dependencies.database.account.hasCurrentConsents,
     ).mockResolvedValue(false);
     const app = createApp(dependencies);
 
@@ -628,7 +630,7 @@ describe('createApp', () => {
       error: { code: 'CONSENT_REQUIRED' },
     });
     expect(
-      dependencies.database.product.reserveAnalysis,
+      dependencies.database.billing.reserveAnalysis,
     ).not.toHaveBeenCalled();
     expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
   });
@@ -657,7 +659,7 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(dependencies.database.product.releaseAnalysis).toHaveBeenCalledWith(
+    expect(dependencies.database.billing.releaseAnalysis).toHaveBeenCalledWith(
       requestId,
       'analysis_request_rejected',
     );
@@ -665,7 +667,7 @@ describe('createApp', () => {
 
   it('does not release an existing reservation when a retry is rejected', async () => {
     const dependencies = fakeDependencies();
-    vi.mocked(dependencies.database.product.reserveAnalysis).mockResolvedValue(
+    vi.mocked(dependencies.database.billing.reserveAnalysis).mockResolvedValue(
       'existing',
     );
     vi.mocked(dependencies.core.submitAnalysis).mockRejectedValue(
@@ -691,7 +693,7 @@ describe('createApp', () => {
 
     expect(response.status).toBe(409);
     expect(
-      dependencies.database.product.releaseAnalysis,
+      dependencies.database.billing.releaseAnalysis,
     ).not.toHaveBeenCalled();
   });
 

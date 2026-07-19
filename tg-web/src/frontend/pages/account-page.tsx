@@ -2,12 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { UserProfile } from '@clerk/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save, ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import type {
   LegalDocumentType,
-  ProductPreferences,
+  AccountPreferences,
 } from '@/backend/account/contract';
 import { AppShell } from '@/frontend/components/app-shell';
 import {
@@ -47,19 +48,20 @@ import {
   updateAccountPreferences,
 } from '@/frontend/lib/account';
 
-const legalDocuments: Array<[LegalDocumentType, string, string]> = [
-  ['risk_disclaimer', 'Risk disclaimer', 'risk-disclaimer'],
-  ['terms', 'Terms of service', 'terms'],
-  ['privacy', 'Privacy policy', 'privacy'],
+const legalDocuments: Array<[LegalDocumentType, string]> = [
+  ['risk_disclaimer', 'risk-disclaimer'],
+  ['terms', 'terms'],
+  ['privacy', 'privacy'],
 ];
 
 export function AccountPage() {
+  const { t } = useTranslation('account');
   const queryClient = useQueryClient();
   const profile = useQuery({
     queryKey: ['account-profile'],
     queryFn: getAccountProfile,
   });
-  const [preferences, setPreferences] = useState<ProductPreferences | null>(
+  const [preferences, setPreferences] = useState<AccountPreferences | null>(
     null,
   );
   const [accepted, setAccepted] = useState<LegalDocumentType[]>([]);
@@ -89,45 +91,39 @@ export function AccountPage() {
     mutationFn: updateAccountPreferences,
     onSuccess: () => {
       void refresh();
-      toast.success('Preferences saved.');
+      toast.success(t('preferences.saved'));
     },
-    onError: () => toast.error('Unable to save preferences.'),
+    onError: () => toast.error(t('preferences.saveError')),
   });
   const consent = useMutation({
     mutationFn: acceptLegalDocuments,
     onSuccess: () => {
       void refresh();
-      toast.success('Consent recorded.');
+      toast.success(t('legal.recorded'));
     },
-    onError: () => toast.error('Unable to record consent.'),
+    onError: () => toast.error(t('legal.recordError')),
   });
 
   return (
-    <AppShell title="Account">
+    <AppShell title={t('title')}>
       <main className="flex flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
         <header className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold">Profile and preferences</h2>
-          <p className="text-sm text-muted-foreground">
-            Identity, research defaults, and legal consent
-          </p>
+          <h2 className="text-xl font-semibold">{t('heading')}</h2>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </header>
         {profile.isLoading || !preferences ? (
           <Skeleton className="h-80 w-full" />
         ) : profile.isError ? (
           <Alert variant="destructive">
-            <AlertTitle>Unable to load account</AlertTitle>
-            <AlertDescription>
-              Retry after checking the service connection.
-            </AlertDescription>
+            <AlertTitle>{t('loadError.title')}</AlertTitle>
+            <AlertDescription>{t('loadError.body')}</AlertDescription>
           </Alert>
         ) : (
           <>
             <Card>
               <CardHeader>
-                <CardTitle>Research preferences</CardTitle>
-                <CardDescription>
-                  Defaults applied across the product
-                </CardDescription>
+                <CardTitle>{t('preferences.title')}</CardTitle>
+                <CardDescription>{t('preferences.description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <form
@@ -138,23 +134,23 @@ export function AccountPage() {
                 >
                   <FieldGroup className="grid gap-4 md:grid-cols-2">
                     <PreferenceSelect
-                      label="Interface language"
+                      label={t('preferences.interfaceLanguage')}
                       value={preferences.interfaceLanguage}
                       values={[
-                        ['en', 'English'],
-                        ['zh-CN', '简体中文'],
+                        ['en', t('preferences.languages.en')],
+                        ['zh-CN', t('preferences.languages.zhCN')],
                       ]}
                       onChange={(interfaceLanguage) =>
                         setPreferences({
                           ...preferences,
                           interfaceLanguage:
-                            interfaceLanguage as ProductPreferences['interfaceLanguage'],
+                            interfaceLanguage as AccountPreferences['interfaceLanguage'],
                         })
                       }
                     />
                     <Field>
                       <FieldLabel htmlFor="report-language">
-                        Report language
+                        {t('preferences.reportLanguage')}
                       </FieldLabel>
                       <Input
                         id="report-language"
@@ -169,7 +165,9 @@ export function AccountPage() {
                       />
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+                      <FieldLabel htmlFor="timezone">
+                        {t('preferences.timezone')}
+                      </FieldLabel>
                       <Input
                         id="timezone"
                         value={preferences.timezone}
@@ -183,19 +181,19 @@ export function AccountPage() {
                       />
                     </Field>
                     <PreferenceSelect
-                      label="Default market"
+                      label={t('preferences.defaultMarket')}
                       value={preferences.defaultMarket}
                       values={[
-                        ['US', 'United States'],
-                        ['HK', 'Hong Kong'],
-                        ['CN', 'Mainland China'],
-                        ['CRYPTO', 'Crypto'],
+                        ['US', t('preferences.markets.US')],
+                        ['HK', t('preferences.markets.HK')],
+                        ['CN', t('preferences.markets.CN')],
+                        ['CRYPTO', t('preferences.markets.CRYPTO')],
                       ]}
                       onChange={(defaultMarket) =>
                         setPreferences({
                           ...preferences,
                           defaultMarket:
-                            defaultMarket as ProductPreferences['defaultMarket'],
+                            defaultMarket as AccountPreferences['defaultMarket'],
                         })
                       }
                     />
@@ -206,7 +204,7 @@ export function AccountPage() {
                         ) : (
                           <Save data-icon="inline-start" />
                         )}
-                        Save preferences
+                        {t('preferences.save')}
                       </Button>
                     </Field>
                   </FieldGroup>
@@ -215,15 +213,12 @@ export function AccountPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Legal consent</CardTitle>
-                <CardDescription>
-                  Current documents must be accepted before submitting analysis
-                  jobs
-                </CardDescription>
+                <CardTitle>{t('legal.title')}</CardTitle>
+                <CardDescription>{t('legal.description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <FieldGroup>
-                  {legalDocuments.map(([type, label, path]) => (
+                  {legalDocuments.map(([type, path]) => (
                     <Field key={type} orientation="horizontal">
                       <Checkbox
                         id={`consent-${type}`}
@@ -239,17 +234,19 @@ export function AccountPage() {
                       <div className="flex flex-col gap-1">
                         <FieldTitle>
                           <label htmlFor={`consent-${type}`}>
-                            I accept the{' '}
+                            {t('legal.acceptPrefix')}{' '}
                             <Link
                               className="underline underline-offset-4"
                               to={`/legal/${path}`}
                             >
-                              {label}
+                              {t(`legal.documents.${type}`)}
                             </Link>
                           </label>
                         </FieldTitle>
                         <p className="text-xs text-muted-foreground">
-                          Version {profile.data!.data.legalVersions[type]}
+                          {t('legal.version', {
+                            version: profile.data!.data.legalVersions[type],
+                          })}
                         </p>
                       </div>
                     </Field>
@@ -269,8 +266,8 @@ export function AccountPage() {
                         <ShieldCheck data-icon="inline-start" />
                       )}
                       {profile.data?.data.profile.hasCurrentConsents
-                        ? 'Consent current'
-                        : 'Record consent'}
+                        ? t('legal.current')
+                        : t('legal.record')}
                     </Button>
                   </Field>
                 </FieldGroup>
@@ -278,9 +275,9 @@ export function AccountPage() {
             </Card>
             <section className="flex flex-col gap-3">
               <div>
-                <h3 className="text-base font-semibold">Clerk identity</h3>
+                <h3 className="text-base font-semibold">{t('clerk.title')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Name, avatar, password, social accounts, and active sessions
+                  {t('clerk.description')}
                 </p>
               </div>
               <UserProfile routing="hash" />

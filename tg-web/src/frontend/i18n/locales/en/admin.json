@@ -1,0 +1,133 @@
+{
+  "users": {
+    "title": "User management",
+    "heading": "Users and roles",
+    "description": "Review registered accounts and grant administrator access.",
+    "count": "{{count}} users",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to manage users."
+    },
+    "searchLabel": "Search users",
+    "searchPlaceholder": "Name, email, or user ID",
+    "search": "Search",
+    "loadError": {
+      "title": "Unable to load users",
+      "body": "Check the Clerk connection and retry."
+    },
+    "emptyTitle": "No users found",
+    "emptyBody": "Adjust the search and try again.",
+    "columns": {
+      "user": "User",
+      "email": "Email",
+      "registered": "Registered",
+      "role": "Role"
+    },
+    "you": "You",
+    "noEmail": "No email",
+    "roleAria": "Role for {{name}}",
+    "roleUser": "User",
+    "roleAdmin": "Admin",
+    "roleUpdated": "User role updated.",
+    "roleUpdateError": "Unable to update the user role."
+  },
+  "billing": {
+    "title": "Payment settings",
+    "heading": "Stripe billing",
+    "subtitle": "Connection status and recurring subscription plans",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to manage billing."
+    },
+    "loadError": {
+      "title": "Unable to load Stripe settings",
+      "body": "Check the server configuration and retry."
+    },
+    "tabs": {
+      "connection": "Connection",
+      "plans": "Plans"
+    },
+    "connection": {
+      "title": "Stripe connection",
+      "description": "Server-side payment provider configuration",
+      "connected": "Connected",
+      "connectionError": "Connection error",
+      "notConfigured": "Not configured",
+      "environment": "Environment",
+      "webhookSigning": "Webhook signing",
+      "configurationSource": "Configuration source",
+      "configured": "Configured",
+      "missing": "Missing",
+      "webhookEndpoint": "Webhook endpoint",
+      "copyEndpoint": "Copy webhook endpoint",
+      "copied": "Webhook endpoint copied.",
+      "copyError": "Unable to copy the endpoint.",
+      "secretKey": "Stripe secret key",
+      "webhookSecret": "Webhook signing secret",
+      "clearStored": "Clear stored configuration",
+      "clearConfirm": "Clear the stored Stripe configuration?",
+      "saveValidate": "Save and validate",
+      "deploymentManaged": {
+        "title": "Deployment-managed configuration",
+        "body": "Stripe credentials can be changed here after encrypted billing configuration is enabled for this deployment."
+      },
+      "connectionFailed": {
+        "title": "Stripe connection failed",
+        "body": "Replace or clear the stored credentials, or check Stripe service availability."
+      },
+      "mode": {
+        "test": "Test mode",
+        "live": "Live mode",
+        "unconfigured": "Unconfigured"
+      },
+      "source": {
+        "database": "Admin managed",
+        "environment": "Deployment environment",
+        "none": "Not configured"
+      }
+    },
+    "plans": {
+      "createTitle": "Create recurring plan",
+      "createDescription": "Creates a Stripe Product and recurring Price",
+      "name": "Name",
+      "description": "Description",
+      "price": "Price",
+      "currency": "Currency",
+      "interval": "Billing interval",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "credits": "Credits per cycle",
+      "markets": "Supported markets",
+      "features": "Features",
+      "featuresPlaceholder": "Full analyst team, PDF reports",
+      "create": "Create plan",
+      "activeTitle": "Active plans",
+      "emptyTitle": "No active plans",
+      "emptyBody": "Active recurring Stripe prices will appear here.",
+      "columns": {
+        "plan": "Plan",
+        "price": "Price",
+        "interval": "Interval",
+        "credits": "Credits"
+      },
+      "every": "Every {{interval}}",
+      "everyCount": "Every {{count}} {{interval}}",
+      "archive": "Archive {{name}}"
+    },
+    "toasts": {
+      "planCreated": "Subscription plan created.",
+      "planCreateError": "Unable to create the subscription plan.",
+      "planArchived": "Subscription plan archived.",
+      "planArchiveError": "Unable to archive the subscription plan.",
+      "configSaved": "Stripe configuration saved.",
+      "configSaveError": "Unable to validate or save Stripe settings.",
+      "configCleared": "Stored Stripe configuration cleared.",
+      "configClearError": "Unable to clear Stripe settings.",
+      "invalidPrice": "Enter a valid price of at least 0.50.",
+      "invalidCredits": "Enter at least one analysis credit."
+    },
+    "defaults": {
+      "features": "Full analyst team, PDF reports"
+    }
+  }
+}

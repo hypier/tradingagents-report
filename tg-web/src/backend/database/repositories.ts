@@ -1,13 +1,25 @@
+/**
+ * 仓库组合入口。
+ *
+ * - 账户 / 计费领域逻辑放在独立文件中。
+ * - 分析任务、LLM 价格、定价来源、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
+ */
 import { and, desc, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { analysisJobs, llmModelPrices, llmPricingSources } from './schema';
 import * as schema from './schema';
 import {
-  createProductRepository,
-  type ProductRepository,
-} from './product-repository';
-export type { ProductRepository } from './product-repository';
+  createAccountRepository,
+  type AccountRepository,
+} from './account-repository';
+import {
+  createBillingRepository,
+  type BillingRepository,
+} from './billing-repository';
+
+export type { AccountRepository } from './account-repository';
+export type { BillingRepository } from './billing-repository';
 
 export type AnalysisJob = typeof analysisJobs.$inferSelect;
 export type ModelPrice = typeof llmModelPrices.$inferSelect;
@@ -18,6 +30,7 @@ export type ModelPriceKey = Pick<
   'provider' | 'model' | 'billingMode' | 'contextTier'
 >;
 
+/** `analysis_jobs` 的只读访问，供管理/列表路径使用。 */
 export type AnalysisJobsRepository = {
   getById(id: string): Promise<AnalysisJob | undefined>;
   list(input: {
@@ -28,16 +41,22 @@ export type AnalysisJobsRepository = {
   }): Promise<AnalysisJob[]>;
 };
 
+/** `llm_model_prices` 的 upsert / 删除辅助。 */
 export type ModelPricesRepository = {
   list(input: { provider?: string }): Promise<ModelPrice[]>;
   upsert(input: NewModelPrice): Promise<ModelPrice>;
   delete(key: ModelPriceKey): Promise<void>;
 };
 
+/** `llm_pricing_sources` 的读取辅助。 */
 export type PricingSourcesRepository = {
   list(): Promise<PricingSource[]>;
 };
 
+/**
+ * 管理员 Stripe 凭据存储（`billing_provider_configs`）。
+ * 与负责用户账单/积分状态的 `BillingRepository` 不同。
+ */
 export type BillingConfigRepository = {
   getStripe(): Promise<
     typeof schema.billingProviderConfigs.$inferSelect | undefined
@@ -52,15 +71,18 @@ export type BillingConfigRepository = {
 
 type Database = NodePgDatabase<typeof schema>;
 
+/** 将全部仓库绑定到同一个 Drizzle 数据库实例。 */
 export function createRepositories(database: Database): {
   analysisJobs: AnalysisJobsRepository;
   modelPrices: ModelPricesRepository;
   pricingSources: PricingSourcesRepository;
-  product: ProductRepository;
+  account: AccountRepository;
+  billing: BillingRepository;
   billingConfig: BillingConfigRepository;
 } {
   return {
-    product: createProductRepository(database),
+    account: createAccountRepository(database),
+    billing: createBillingRepository(database),
     billingConfig: {
       async getStripe() {
         const [configuration] = await database

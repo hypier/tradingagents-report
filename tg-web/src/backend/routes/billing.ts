@@ -61,7 +61,7 @@ export function billingRoutes(dependencies: AppDependencies) {
   app.get('/billing/overview', async (context) => {
     const session = context.get('auth');
     const localCustomerId =
-      await dependencies.database.product.getStripeCustomerId(session.userId);
+      await dependencies.database.billing.getStripeCustomerId(session.userId);
     const identity = await dependencies.auth.getBillingIdentity(session.userId);
     const [overview, usage] = await Promise.all([
       callBilling(() =>
@@ -69,7 +69,7 @@ export function billingRoutes(dependencies: AppDependencies) {
           localCustomerId ?? identity.stripeCustomerId,
         ),
       ),
-      dependencies.database.product.getUsage(session.userId),
+      dependencies.database.billing.getUsage(session.userId),
     ]);
     return context.json(
       apiSuccess(
@@ -200,9 +200,9 @@ export function stripeWebhookRoutes(dependencies: AppDependencies) {
       dependencies.billing.handleWebhook(payload, signature),
     );
     try {
-      await dependencies.database.product.processStripeEvent(event);
+      await dependencies.database.billing.processStripeEvent(event);
     } catch (error) {
-      await dependencies.database.product.recordStripeFailure(event, error);
+      await dependencies.database.billing.recordStripeFailure(event, error);
       throw new AppError(
         'STRIPE_WEBHOOK_PROCESSING_FAILED',
         500,
@@ -229,11 +229,11 @@ async function ensureCustomer(
 ): Promise<string> {
   const identity = await dependencies.auth.getBillingIdentity(userId);
   const localCustomerId =
-    await dependencies.database.product.getStripeCustomerId(userId);
+    await dependencies.database.billing.getStripeCustomerId(userId);
   if (localCustomerId ?? identity.stripeCustomerId) {
     const customerId = localCustomerId ?? identity.stripeCustomerId!;
     if (!localCustomerId) {
-      await dependencies.database.product.setStripeCustomerId(
+      await dependencies.database.billing.setStripeCustomerId(
         userId,
         customerId,
       );
@@ -249,7 +249,7 @@ async function ensureCustomer(
     }),
   );
   await dependencies.auth.setStripeCustomerId(userId, customerId);
-  await dependencies.database.product.setStripeCustomerId(userId, customerId);
+  await dependencies.database.billing.setStripeCustomerId(userId, customerId);
   return customerId;
 }
 

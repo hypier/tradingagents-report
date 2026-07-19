@@ -1,3 +1,9 @@
+/**
+ * `pnpm db:migrate` 的 CLI 入口。
+ *
+ * 加载 `tg-web/.env`（覆盖陈旧的 shell 导出），校验 DATABASE_URL，
+ * 再通过 `migrateDatabase()` 应用 Drizzle 迁移。
+ */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -14,7 +20,7 @@ function stripQuotes(value: string): string {
   return value;
 }
 
-/** Load KEY=VALUE pairs, optionally overriding existing process.env values. */
+/** 加载 KEY=VALUE；可选是否覆盖已有 process.env。 */
 export function loadEnvFile(path: string, { override = false } = {}): void {
   if (!existsSync(path)) return;
 
@@ -32,6 +38,7 @@ export function loadEnvFile(path: string, { override = false } = {}): void {
   }
 }
 
+/** 要求 DATABASE_URL 为包含凭据的 PostgreSQL 连接串。 */
 export function databaseUrlFromEnv(env: NodeJS.ProcessEnv = process.env): string {
   const urlValue = env.DATABASE_URL?.trim() || '';
   if (!urlValue) {
@@ -48,11 +55,12 @@ export function databaseUrlFromEnv(env: NodeJS.ProcessEnv = process.env): string
   return urlValue;
 }
 
+/** 迁移前优先加载 tg-web/.env，覆盖陈旧 shell 环境变量。 */
 export function loadMigrationEnv(cwd: string = process.cwd()): void {
-  // Prefer tg-web/.env over stale shell exports.
   loadEnvFile(resolve(cwd, '.env'), { override: true });
 }
 
+/** package.json `db:migrate` 使用的入口。 */
 export async function runMigrations(): Promise<void> {
   loadMigrationEnv();
   const connectionString = databaseUrlFromEnv();

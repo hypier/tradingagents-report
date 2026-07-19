@@ -10,6 +10,7 @@ import {
   UserButton,
 } from '@clerk/react';
 import { Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { Button } from '../components/ui/button';
@@ -18,11 +19,13 @@ import { App } from './app';
 import { LegalPage } from '../pages/legal-page';
 
 export function AuthenticatedApp() {
+  const { t } = useTranslation('auth');
+
   return (
     <>
       <ClerkLoading>
         <main className="grid min-h-svh place-items-center">
-          <Spinner aria-label="Loading session" />
+          <Spinner aria-label={t('loadingSession')} />
         </main>
       </ClerkLoading>
       <ClerkLoaded>
@@ -38,6 +41,7 @@ export function AuthenticatedApp() {
 }
 
 function SignedOutRoutes() {
+  const { t } = useTranslation('auth');
   const location = useLocation();
   const returnTo = `${location.pathname}${location.search}`;
   const signInTarget =
@@ -54,12 +58,12 @@ function SignedOutRoutes() {
             <div className="flex w-full gap-2">
               <SignInButton mode="redirect">
                 <Button className="flex-1" size="lg" variant="outline">
-                  Sign in
+                  {t('signIn')}
                 </Button>
               </SignInButton>
               <SignUpButton mode="redirect">
                 <Button className="flex-1" size="lg">
-                  Sign up
+                  {t('signUp')}
                 </Button>
               </SignUpButton>
             </div>
@@ -112,12 +116,14 @@ function SignedInApp() {
 }
 
 function AuthPage({ children }: { children: ReactNode }) {
+  const { t } = useTranslation('auth');
+
   return (
     <main className="grid min-h-svh place-items-center bg-muted/30 px-4 py-10">
       <section className="flex w-full max-w-sm flex-col items-center gap-6">
         <div className="flex items-center gap-2">
           <Sparkles className="size-5" aria-hidden="true" />
-          <h1 className="text-xl font-semibold">TradingAgents</h1>
+          <h1 className="text-xl font-semibold">{t('brand')}</h1>
         </div>
         {children}
       </section>

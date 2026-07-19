@@ -1,0 +1,64 @@
+{
+  "title": "Subscription",
+  "heading": "Subscription and billing",
+  "subtitle": "Plans, renewal status, and invoices",
+  "loadError": {
+    "title": "Unable to load billing",
+    "body": "Stripe billing data is currently unavailable."
+  },
+  "notConfigured": {
+    "title": "Subscriptions are not available",
+    "body": "Stripe is not connected for this environment."
+  },
+  "checkoutError": "Unable to start Stripe Checkout.",
+  "portalError": "Unable to open the billing portal.",
+  "usage": {
+    "title": "Usage",
+    "description": "One completed analysis consumes one credit",
+    "available": "Available",
+    "reserved": "Reserved",
+    "consumed": "Consumed",
+    "cycleEnds": "Cycle ends"
+  },
+  "subscription": {
+    "title": "Current subscription",
+    "ends": "Ends",
+    "renews": "Renews",
+    "manage": "Manage subscription"
+  },
+  "plans": {
+    "title": "Available plans",
+    "description": "Recurring Stripe plans",
+    "emptyTitle": "No subscription plans",
+    "emptyBody": "No active recurring prices are available.",
+    "fallbackDescription": "Subscription",
+    "per": "per {{interval}}",
+    "perCount": "per {{count}} {{interval}}",
+    "analysesPerCycle": "{{count}} analyses per cycle",
+    "subscribe": "Subscribe"
+  },
+  "ledger": {
+    "title": "Credit activity",
+    "description": "Grants, reservations, consumption, and releases",
+    "date": "Date",
+    "activity": "Activity",
+    "reference": "Reference",
+    "available": "Available",
+    "reserved": "Reserved",
+    "emptyTitle": "No credit activity",
+    "emptyBody": "Cycle grants and analysis usage will appear here."
+  },
+  "invoices": {
+    "title": "Invoices",
+    "description": "Latest Stripe billing documents",
+    "invoice": "Invoice",
+    "date": "Date",
+    "status": "Status",
+    "paid": "Paid",
+    "open": "Open",
+    "emptyTitle": "No invoices",
+    "emptyBody": "Stripe invoices will appear here.",
+    "unknown": "unknown"
+  },
+  "notAvailable": "Not available"
+}

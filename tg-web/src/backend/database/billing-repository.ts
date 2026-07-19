@@ -1,16 +1,16 @@
+/**
+ * 计费 / 积分领域持久化。
+ *
+ * 负责 Stripe Customer 关联、订阅镜像、分析积分预留/释放、账本读取，
+ * 以及幂等的 webhook 落地。管理员 Stripe API 密钥由 `BillingConfigRepository` 管理。
+ */
 import { and, desc, eq, gt, gte, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import {
-  LEGAL_DOCUMENT_VERSIONS,
-  type LegalDocumentType,
-  type ProductPreferences,
-  type ProductProfile,
-} from '../account/contract';
-import type { AuthUser } from '../auth/contract';
 import type { StripeWebhookEvent } from '../billing/contract';
 import * as schema from './schema';
 
+/** 供 UI 聚合的积分钱包 + 最新订阅 + 近期流水。 */
 export type CreditUsage = {
   availableCredits: number;
   reservedCredits: number;
@@ -19,161 +19,61 @@ export type CreditUsage = {
   ledger: Array<typeof schema.creditLedgerEntries.$inferSelect>;
 };
 
-export interface ProductRepository {
-  syncUser(user: AuthUser): Promise<void>;
-  getProfile(clerkUserId: string): Promise<ProductProfile>;
-  updatePreferences(
-    clerkUserId: string,
-    preferences: ProductPreferences,
-  ): Promise<ProductProfile>;
-  recordConsents(input: {
-    clerkUserId: string;
-    documentTypes: LegalDocumentType[];
-    ipAddress: string | null;
-    userAgent: string | null;
-  }): Promise<ProductProfile>;
-  hasCurrentConsents(clerkUserId: string): Promise<boolean>;
+export interface BillingRepository {
+  /** 将 Stripe Customer ID 写入本地账户行。 */
   setStripeCustomerId(clerkUserId: string, customerId: string): Promise<void>;
+  /** 读取已关联的 Stripe Customer ID；尚未创建时为 null。 */
   getStripeCustomerId(clerkUserId: string): Promise<string | null>;
+  /** 积分余额、最新订阅镜像与近期账本行。 */
   getUsage(clerkUserId: string): Promise<CreditUsage>;
+  /**
+   * 为分析请求预留积分（按 requestId 幂等）。
+   * 需要有效/试用中的订阅，且可用积分充足。
+   */
   reserveAnalysis(input: {
     clerkUserId: string;
     requestId: string;
     units: number;
   }): Promise<'created' | 'existing'>;
+  /** 提交成功后，将预留绑定到 Core 的 `analysis_jobs.id`。 */
   attachAnalysis(requestId: string, analysisJobId: string): Promise<void>;
+  /** 释放仍处于 reserved 的预留，退回可用积分。 */
   releaseAnalysis(requestId: string, reason: string): Promise<void>;
+  /**
+   * 在事务内应用规范化后的 Stripe webhook。
+   * 若事件已处理或已忽略则返回 false。
+   */
   processStripeEvent(event: StripeWebhookEvent): Promise<boolean>;
+  /** 将 webhook 投递标记为失败，供后续排查/重试。 */
   recordStripeFailure(event: StripeWebhookEvent, error: unknown): Promise<void>;
 }
 
-export class ProductRepositoryError extends Error {
+export class BillingRepositoryError extends Error {
   constructor(
     public readonly code: string,
     message: string,
   ) {
     super(message);
-    this.name = 'ProductRepositoryError';
+    this.name = 'BillingRepositoryError';
   }
 }
 
 type Database = NodePgDatabase<typeof schema>;
 
-export function createProductRepository(database: Database): ProductRepository {
-  const getProfile = async (clerkUserId: string): Promise<ProductProfile> => {
-    const [user] = await database
-      .select()
-      .from(schema.productUsers)
-      .where(eq(schema.productUsers.clerkUserId, clerkUserId));
-    if (!user) {
-      throw new ProductRepositoryError(
-        'PROFILE_NOT_FOUND',
-        'Product profile not found',
-      );
-    }
-    const consents = await database
-      .select({
-        documentType: schema.userConsents.documentType,
-        documentVersion: schema.userConsents.documentVersion,
-        acceptedAt: schema.userConsents.acceptedAt,
-      })
-      .from(schema.userConsents)
-      .where(eq(schema.userConsents.clerkUserId, clerkUserId))
-      .orderBy(desc(schema.userConsents.acceptedAt));
-
-    return {
-      ...user,
-      interfaceLanguage:
-        user.interfaceLanguage as ProductProfile['interfaceLanguage'],
-      defaultMarket: user.defaultMarket as ProductProfile['defaultMarket'],
-      consents,
-      hasCurrentConsents: hasEveryCurrentConsent(consents),
-    };
-  };
-
+export function createBillingRepository(database: Database): BillingRepository {
   return {
-    async syncUser(user) {
-      await database.transaction(async (tx) => {
-        await tx
-          .insert(schema.productUsers)
-          .values({
-            clerkUserId: user.id,
-            displayName: user.displayName,
-            email: user.email,
-            avatarUrl: user.imageUrl,
-          })
-          .onConflictDoUpdate({
-            target: schema.productUsers.clerkUserId,
-            set: {
-              displayName: user.displayName,
-              email: user.email,
-              avatarUrl: user.imageUrl,
-              updatedAt: new Date(),
-            },
-          });
-        await tx
-          .insert(schema.creditAccounts)
-          .values({ clerkUserId: user.id })
-          .onConflictDoNothing();
-      });
-    },
-
-    getProfile,
-
-    async updatePreferences(clerkUserId, preferences) {
-      const [updated] = await database
-        .update(schema.productUsers)
-        .set({ ...preferences, updatedAt: new Date() })
-        .where(eq(schema.productUsers.clerkUserId, clerkUserId))
-        .returning();
-      if (!updated) {
-        throw new ProductRepositoryError(
-          'PROFILE_NOT_FOUND',
-          'Product profile not found',
-        );
-      }
-      return getProfile(clerkUserId);
-    },
-
-    async recordConsents(input) {
-      await database
-        .insert(schema.userConsents)
-        .values(
-          input.documentTypes.map((documentType) => ({
-            clerkUserId: input.clerkUserId,
-            documentType,
-            documentVersion: LEGAL_DOCUMENT_VERSIONS[documentType],
-            ipAddress: input.ipAddress,
-            userAgent: input.userAgent,
-          })),
-        )
-        .onConflictDoNothing();
-      return getProfile(input.clerkUserId);
-    },
-
-    async hasCurrentConsents(clerkUserId) {
-      const rows = await database
-        .select({
-          documentType: schema.userConsents.documentType,
-          documentVersion: schema.userConsents.documentVersion,
-        })
-        .from(schema.userConsents)
-        .where(eq(schema.userConsents.clerkUserId, clerkUserId));
-      return hasEveryCurrentConsent(rows);
-    },
-
     async setStripeCustomerId(clerkUserId, customerId) {
       await database
-        .update(schema.productUsers)
+        .update(schema.accountUsers)
         .set({ stripeCustomerId: customerId, updatedAt: new Date() })
-        .where(eq(schema.productUsers.clerkUserId, clerkUserId));
+        .where(eq(schema.accountUsers.clerkUserId, clerkUserId));
     },
 
     async getStripeCustomerId(clerkUserId) {
       const [user] = await database
-        .select({ stripeCustomerId: schema.productUsers.stripeCustomerId })
-        .from(schema.productUsers)
-        .where(eq(schema.productUsers.clerkUserId, clerkUserId));
+        .select({ stripeCustomerId: schema.accountUsers.stripeCustomerId })
+        .from(schema.accountUsers)
+        .where(eq(schema.accountUsers.clerkUserId, clerkUserId));
       return user?.stripeCustomerId ?? null;
     },
 
@@ -230,7 +130,7 @@ export function createProductRepository(database: Database): ProductRepository {
           ) {
             return 'existing';
           }
-          throw new ProductRepositoryError(
+          throw new BillingRepositoryError(
             'IDEMPOTENCY_CONFLICT',
             'The analysis request ID was already used',
           );
@@ -251,7 +151,7 @@ export function createProductRepository(database: Database): ProductRepository {
           )
           .limit(1);
         if (!subscription) {
-          throw new ProductRepositoryError(
+          throw new BillingRepositoryError(
             'SUBSCRIPTION_REQUIRED',
             'An active subscription is required to run an analysis',
           );
@@ -272,7 +172,7 @@ export function createProductRepository(database: Database): ProductRepository {
           )
           .returning({ clerkUserId: schema.creditAccounts.clerkUserId });
         if (!account) {
-          throw new ProductRepositoryError(
+          throw new BillingRepositoryError(
             'INSUFFICIENT_CREDITS',
             'There are not enough analysis credits available',
           );
@@ -298,7 +198,7 @@ export function createProductRepository(database: Database): ProductRepository {
         .where(eq(schema.creditReservations.requestId, requestId))
         .returning({ requestId: schema.creditReservations.requestId });
       if (!reservation) {
-        throw new ProductRepositoryError(
+        throw new BillingRepositoryError(
           'RESERVATION_NOT_FOUND',
           'Credit reservation not found',
         );
@@ -382,13 +282,13 @@ export function createProductRepository(database: Database): ProductRepository {
           return true;
         }
         const [user] = await tx
-          .select({ clerkUserId: schema.productUsers.clerkUserId })
-          .from(schema.productUsers)
-          .where(eq(schema.productUsers.stripeCustomerId, customerId));
+          .select({ clerkUserId: schema.accountUsers.clerkUserId })
+          .from(schema.accountUsers)
+          .where(eq(schema.accountUsers.stripeCustomerId, customerId));
         if (!user) {
-          throw new ProductRepositoryError(
+          throw new BillingRepositoryError(
             'BILLING_CUSTOMER_NOT_FOUND',
-            `Stripe customer ${customerId} is not linked to a product user`,
+            `Stripe customer ${customerId} is not linked to an account`,
           );
         }
 
@@ -479,22 +379,12 @@ export function createProductRepository(database: Database): ProductRepository {
   };
 }
 
-function hasEveryCurrentConsent(
-  rows: Array<{ documentType: LegalDocumentType; documentVersion: string }>,
-) {
-  return Object.entries(LEGAL_DOCUMENT_VERSIONS).every(
-    ([documentType, version]) =>
-      rows.some(
-        (row) =>
-          row.documentType === documentType && row.documentVersion === version,
-      ),
-  );
-}
-
+/** 将 Stripe 的 unix 秒转为 Date；null 保持 null。 */
 function fromUnix(value: number | null): Date | null {
   return value === null ? null : new Date(value * 1000);
 }
 
+/** 保存紧凑审计载荷（原始数据 + 规范化后的订阅/积分发放）。 */
 function webhookAuditPayload(event: StripeWebhookEvent) {
   return {
     ...event.payload,
@@ -503,6 +393,7 @@ function webhookAuditPayload(event: StripeWebhookEvent) {
   };
 }
 
+/** 成功处理后将 webhook 行标记为终态。 */
 async function finishWebhook(
   tx: Parameters<Parameters<Database['transaction']>[0]>[0],
   eventId: string,

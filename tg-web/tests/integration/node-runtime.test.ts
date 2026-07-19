@@ -49,7 +49,8 @@ function fakeDependencies(): AppDependencies {
     },
     database: {
       healthcheck: vi.fn().mockResolvedValue(undefined),
-      product: fakeProductRepository(),
+      account: fakeAccountRepository(),
+      billing: fakeBillingRepository(),
     },
     cache: {
       get: vi.fn(),
@@ -74,13 +75,18 @@ function fakeDependencies(): AppDependencies {
   };
 }
 
-function fakeProductRepository() {
+function fakeAccountRepository() {
   return {
     syncUser: vi.fn(),
     getProfile: vi.fn(),
     updatePreferences: vi.fn(),
     recordConsents: vi.fn(),
     hasCurrentConsents: vi.fn().mockResolvedValue(true),
+  };
+}
+
+function fakeBillingRepository() {
+  return {
     setStripeCustomerId: vi.fn(),
     getStripeCustomerId: vi.fn().mockResolvedValue(null),
     getUsage: vi.fn(),

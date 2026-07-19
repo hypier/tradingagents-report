@@ -32,7 +32,7 @@ export function accountRoutes(dependencies: AppDependencies) {
     context.json(
       apiSuccess(
         {
-          profile: await dependencies.database.product.getProfile(
+          profile: await dependencies.database.account.getProfile(
             context.get('auth').userId,
           ),
           legalVersions: LEGAL_DOCUMENT_VERSIONS,
@@ -51,7 +51,7 @@ export function accountRoutes(dependencies: AppDependencies) {
     }
     return context.json(
       apiSuccess(
-        await dependencies.database.product.updatePreferences(
+        await dependencies.database.account.updatePreferences(
           context.get('auth').userId,
           input.data,
         ),
@@ -69,7 +69,7 @@ export function accountRoutes(dependencies: AppDependencies) {
     }
     return context.json(
       apiSuccess(
-        await dependencies.database.product.recordConsents({
+        await dependencies.database.account.recordConsents({
           clerkUserId: context.get('auth').userId,
           documentTypes: input.data.documentTypes,
           ipAddress: context.req.header('cf-connecting-ip') ?? null,

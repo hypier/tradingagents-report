@@ -1,0 +1,49 @@
+{
+  "title": "账户",
+  "heading": "个人资料与偏好",
+  "subtitle": "身份信息、研究默认项与法律同意",
+  "loadError": {
+    "title": "无法加载账户",
+    "body": "请检查服务连接后重试。"
+  },
+  "preferences": {
+    "title": "研究偏好",
+    "description": "应用于整个产品的默认设置",
+    "interfaceLanguage": "界面语言",
+    "reportLanguage": "报告语言",
+    "timezone": "时区",
+    "defaultMarket": "默认市场",
+    "save": "保存偏好",
+    "saved": "偏好已保存。",
+    "saveError": "无法保存偏好。",
+    "languages": {
+      "en": "English",
+      "zhCN": "简体中文"
+    },
+    "markets": {
+      "US": "美国",
+      "HK": "香港",
+      "CN": "中国大陆",
+      "CRYPTO": "加密货币"
+    }
+  },
+  "legal": {
+    "title": "法律同意",
+    "description": "提交分析任务前必须接受当前法律文档",
+    "acceptPrefix": "我已阅读并同意",
+    "version": "版本 {{version}}",
+    "record": "记录同意",
+    "current": "同意已是最新",
+    "recorded": "同意已记录。",
+    "recordError": "无法记录同意。",
+    "documents": {
+      "risk_disclaimer": "风险免责声明",
+      "terms": "服务条款",
+      "privacy": "隐私政策"
+    }
+  },
+  "clerk": {
+    "title": "Clerk 身份",
+    "description": "姓名、头像、密码、社交账号与活跃会话"
+  }
+}

@@ -3,11 +3,11 @@ import type { MiddlewareHandler } from 'hono';
 import type { AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import type { AuthService } from './contract';
-import type { ProductRepository } from '../database/repositories';
+import type { AccountRepository } from '../database/repositories';
 
 export function requireAuth(dependencies: {
   auth: AuthService;
-  database: { product: Pick<ProductRepository, 'syncUser'> };
+  database: { account: Pick<AccountRepository, 'syncUser'> };
 }): MiddlewareHandler<AppEnvironment> {
   return async (context, next) => {
     const session = await dependencies.auth.authenticate(context.req.raw);
@@ -21,7 +21,7 @@ export function requireAuth(dependencies: {
 
     context.set('auth', session);
     const user = await dependencies.auth.getUser(session.userId);
-    await dependencies.database.product.syncUser(user);
+    await dependencies.database.account.syncUser(user);
     context.set('authUser', user);
     await next();
   };

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Coins, ExternalLink, ReceiptText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import type { BillingPlan } from '@/backend/billing/contract';
@@ -38,12 +39,18 @@ import {
   TableRow,
 } from '@/frontend/components/ui/table';
 import {
+  formatLocaleCurrency,
+  formatLocaleDate,
+  formatLocaleDateTimeValue,
+} from '@/frontend/lib/format-locale';
+import {
   createBillingPortal,
   createCheckout,
   getBillingOverview,
 } from '@/frontend/lib/billing';
 
 export function BillingPage() {
+  const { t } = useTranslation('billing');
   const overview = useQuery({
     queryKey: ['billing-overview'],
     queryFn: () => getBillingOverview(),
@@ -51,31 +58,27 @@ export function BillingPage() {
   const checkout = useMutation({
     mutationFn: (priceId: string) => createCheckout(priceId),
     onSuccess: ({ data }) => window.location.assign(data.url),
-    onError: () => toast.error('Unable to start Stripe Checkout.'),
+    onError: () => toast.error(t('checkoutError')),
   });
   const portal = useMutation({
     mutationFn: () => createBillingPortal(),
     onSuccess: ({ data }) => window.location.assign(data.url),
-    onError: () => toast.error('Unable to open the billing portal.'),
+    onError: () => toast.error(t('portalError')),
   });
   const data = overview.data?.data;
 
   return (
-    <AppShell title="Subscription">
+    <AppShell title={t('title')}>
       <main className="flex flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
         <header className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold">Subscription and billing</h2>
-          <p className="text-sm text-muted-foreground">
-            Plans, renewal status, and invoices
-          </p>
+          <h2 className="text-xl font-semibold">{t('heading')}</h2>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </header>
 
         {overview.isError && (
           <Alert variant="destructive">
-            <AlertTitle>Unable to load billing</AlertTitle>
-            <AlertDescription>
-              Stripe billing data is currently unavailable.
-            </AlertDescription>
+            <AlertTitle>{t('loadError.title')}</AlertTitle>
+            <AlertDescription>{t('loadError.body')}</AlertDescription>
           </Alert>
         )}
 
@@ -83,35 +86,41 @@ export function BillingPage() {
           <Skeleton className="h-44 w-full" />
         ) : data && !data.configured ? (
           <Alert>
-            <AlertTitle>Subscriptions are not available</AlertTitle>
-            <AlertDescription>
-              Stripe is not connected for this environment.
-            </AlertDescription>
+            <AlertTitle>{t('notConfigured.title')}</AlertTitle>
+            <AlertDescription>{t('notConfigured.body')}</AlertDescription>
           </Alert>
         ) : data ? (
           <>
             {data.usage && (
               <section className="flex flex-col gap-3">
                 <div>
-                  <h3 className="text-base font-semibold">Usage</h3>
+                  <h3 className="text-base font-semibold">{t('usage.title')}</h3>
                   <p className="text-sm text-muted-foreground">
-                    One completed analysis consumes one credit
+                    {t('usage.description')}
                   </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <UsageCard
-                    label="Available"
+                    label={t('usage.available')}
                     value={data.usage.availableCredits}
                   />
                   <UsageCard
-                    label="Reserved"
+                    label={t('usage.reserved')}
                     value={data.usage.reservedCredits}
                   />
-                  <UsageCard label="Consumed" value={data.usage.spentCredits} />
+                  <UsageCard
+                    label={t('usage.consumed')}
+                    value={data.usage.spentCredits}
+                  />
                   <Card>
                     <CardHeader>
-                      <CardDescription>Cycle ends</CardDescription>
-                      <CardTitle>{formatDate(data.usage.periodEnd)}</CardTitle>
+                      <CardDescription>{t('usage.cycleEnds')}</CardDescription>
+                      <CardTitle>
+                        {formatLocaleDate(
+                          data.usage.periodEnd,
+                          t('notAvailable'),
+                        )}
+                      </CardTitle>
                     </CardHeader>
                   </Card>
                 </div>
@@ -121,7 +130,7 @@ export function BillingPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>
-                    <h3>Current subscription</h3>
+                    <h3>{t('subscription.title')}</h3>
                   </CardTitle>
                   <CardDescription>
                     {data.subscription.planName}
@@ -140,8 +149,13 @@ export function BillingPage() {
                 </CardHeader>
                 <CardContent className="flex flex-col gap-1">
                   <p className="text-sm text-muted-foreground">
-                    {data.subscription.cancelAtPeriodEnd ? 'Ends' : 'Renews'}{' '}
-                    {formatDate(data.subscription.currentPeriodEnd)}
+                    {data.subscription.cancelAtPeriodEnd
+                      ? t('subscription.ends')
+                      : t('subscription.renews')}{' '}
+                    {formatLocaleDate(
+                      data.subscription.currentPeriodEnd,
+                      t('notAvailable'),
+                    )}
                   </p>
                 </CardContent>
                 <CardFooter>
@@ -154,7 +168,7 @@ export function BillingPage() {
                     ) : (
                       <ExternalLink data-icon="inline-start" />
                     )}
-                    Manage subscription
+                    {t('subscription.manage')}
                   </Button>
                 </CardFooter>
               </Card>
@@ -162,9 +176,9 @@ export function BillingPage() {
 
             <section className="flex flex-col gap-3">
               <div>
-                <h3 className="text-base font-semibold">Available plans</h3>
+                <h3 className="text-base font-semibold">{t('plans.title')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Recurring Stripe plans
+                  {t('plans.description')}
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -181,9 +195,9 @@ export function BillingPage() {
               {data.plans.length === 0 && (
                 <Empty>
                   <EmptyHeader>
-                    <EmptyTitle>No subscription plans</EmptyTitle>
+                    <EmptyTitle>{t('plans.emptyTitle')}</EmptyTitle>
                     <EmptyDescription>
-                      No active recurring prices are available.
+                      {t('plans.emptyBody')}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -193,30 +207,33 @@ export function BillingPage() {
             {data.usage && (
               <section className="flex flex-col gap-3">
                 <div>
-                  <h3 className="text-base font-semibold">Credit activity</h3>
+                  <h3 className="text-base font-semibold">
+                    {t('ledger.title')}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Grants, reservations, consumption, and releases
+                    {t('ledger.description')}
                   </p>
                 </div>
                 {data.usage.ledger.length ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Activity</TableHead>
-                        <TableHead>Reference</TableHead>
-                        <TableHead className="text-right">Available</TableHead>
-                        <TableHead className="text-right">Reserved</TableHead>
+                        <TableHead>{t('ledger.date')}</TableHead>
+                        <TableHead>{t('ledger.activity')}</TableHead>
+                        <TableHead>{t('ledger.reference')}</TableHead>
+                        <TableHead className="text-right">
+                          {t('ledger.available')}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {t('ledger.reserved')}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {data.usage.ledger.map((entry) => (
                         <TableRow key={entry.id}>
                           <TableCell>
-                            {new Intl.DateTimeFormat(undefined, {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            }).format(new Date(entry.createdAt))}
+                            {formatLocaleDateTimeValue(entry.createdAt)}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">
@@ -245,9 +262,9 @@ export function BillingPage() {
                       <EmptyMedia variant="icon">
                         <Coins />
                       </EmptyMedia>
-                      <EmptyTitle>No credit activity</EmptyTitle>
+                      <EmptyTitle>{t('ledger.emptyTitle')}</EmptyTitle>
                       <EmptyDescription>
-                        Cycle grants and analysis usage will appear here.
+                        {t('ledger.emptyBody')}
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -257,19 +274,23 @@ export function BillingPage() {
 
             <section className="flex flex-col gap-3">
               <div>
-                <h3 className="text-base font-semibold">Invoices</h3>
+                <h3 className="text-base font-semibold">
+                  {t('invoices.title')}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Latest Stripe billing documents
+                  {t('invoices.description')}
                 </p>
               </div>
               {data.invoices.length ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Invoice</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Paid</TableHead>
+                      <TableHead>{t('invoices.invoice')}</TableHead>
+                      <TableHead>{t('invoices.date')}</TableHead>
+                      <TableHead>{t('invoices.status')}</TableHead>
+                      <TableHead className="text-right">
+                        {t('invoices.paid')}
+                      </TableHead>
                       <TableHead className="w-24" />
                     </TableRow>
                   </TableHeader>
@@ -277,14 +298,24 @@ export function BillingPage() {
                     {data.invoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell>{invoice.number ?? invoice.id}</TableCell>
-                        <TableCell>{formatDate(invoice.createdAt)}</TableCell>
+                        <TableCell>
+                          {formatLocaleDate(
+                            invoice.createdAt,
+                            t('notAvailable'),
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {formatStatus(invoice.status ?? 'unknown')}
+                            {formatStatus(
+                              invoice.status ?? t('invoices.unknown'),
+                            )}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {formatMoney(invoice.amountPaid, invoice.currency)}
+                          {formatLocaleCurrency(
+                            invoice.amountPaid,
+                            invoice.currency,
+                          )}
                         </TableCell>
                         <TableCell>
                           {invoice.hostedInvoiceUrl && (
@@ -295,7 +326,7 @@ export function BillingPage() {
                                 rel="noreferrer"
                               >
                                 <ExternalLink data-icon="inline-start" />
-                                Open
+                                {t('invoices.open')}
                               </a>
                             </Button>
                           )}
@@ -310,9 +341,9 @@ export function BillingPage() {
                     <EmptyMedia variant="icon">
                       <ReceiptText />
                     </EmptyMedia>
-                    <EmptyTitle>No invoices</EmptyTitle>
+                    <EmptyTitle>{t('invoices.emptyTitle')}</EmptyTitle>
                     <EmptyDescription>
-                      Stripe invoices will appear here.
+                      {t('invoices.emptyBody')}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -336,24 +367,31 @@ function PlanCard({
   pending: boolean;
   onSubscribe(): void;
 }) {
+  const { t } = useTranslation('billing');
   return (
     <Card>
       <CardHeader>
         <CardTitle>
           <h4>{plan.name}</h4>
         </CardTitle>
-        <CardDescription>{plan.description ?? 'Subscription'}</CardDescription>
+        <CardDescription>
+          {plan.description ?? t('plans.fallbackDescription')}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <p className="text-2xl font-semibold tabular-nums">
-          {formatMoney(plan.unitAmount, plan.currency)}
+          {formatLocaleCurrency(plan.unitAmount, plan.currency)}
         </p>
         <p className="text-sm text-muted-foreground">
-          per {plan.intervalCount > 1 ? `${plan.intervalCount} ` : ''}
-          {plan.interval}
+          {plan.intervalCount > 1
+            ? t('plans.perCount', {
+                count: plan.intervalCount,
+                interval: plan.interval,
+              })
+            : t('plans.per', { interval: plan.interval })}
         </p>
         <p className="mt-4 text-sm font-medium tabular-nums">
-          {plan.analysisCredits} analyses per cycle
+          {t('plans.analysesPerCycle', { count: plan.analysisCredits })}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {(plan.supportedMarkets ?? []).map((market) => (
@@ -371,26 +409,11 @@ function PlanCard({
       <CardFooter>
         <Button disabled={disabled} onClick={onSubscribe}>
           {pending && <Spinner data-icon="inline-start" />}
-          Subscribe
+          {t('plans.subscribe')}
         </Button>
       </CardFooter>
     </Card>
   );
-}
-
-function formatMoney(amount: number, currency: string) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-  }).format(amount / 100);
-}
-
-function formatDate(timestamp: number | null) {
-  return timestamp
-    ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-        new Date(timestamp * 1000),
-      )
-    : 'Not available';
 }
 
 function formatStatus(status: string) {

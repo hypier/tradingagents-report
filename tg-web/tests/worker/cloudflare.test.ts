@@ -83,12 +83,14 @@ describe('Cloudflare Worker runtime', () => {
       },
       database: {
         healthcheck: async () => undefined,
-        product: {
+        account: {
           syncUser: vi.fn(),
           getProfile: vi.fn(),
           updatePreferences: vi.fn(),
           recordConsents: vi.fn(),
           hasCurrentConsents: vi.fn(),
+        },
+        billing: {
           setStripeCustomerId: vi.fn(),
           getStripeCustomerId: vi.fn(),
           getUsage: vi.fn(),

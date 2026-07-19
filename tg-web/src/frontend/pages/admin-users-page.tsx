@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, ShieldAlert, UsersRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import type { UserRole } from '@/backend/auth/contract';
@@ -52,9 +53,11 @@ import {
   TableRow,
 } from '@/frontend/components/ui/table';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
+import { formatLocaleDateTimeValue } from '@/frontend/lib/format-locale';
 import { listManagedUsers, updateManagedUserRole } from '@/frontend/lib/auth';
 
 export function AdminUsersPage() {
+  const { t } = useTranslation('admin');
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState<string>();
   const session = useAuthSession();
@@ -69,14 +72,14 @@ export function AdminUsersPage() {
       updateManagedUserRole(userId, role),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      toast.success('User role updated.');
+      toast.success(t('users.roleUpdated'));
     },
-    onError: () => toast.error('Unable to update the user role.'),
+    onError: () => toast.error(t('users.roleUpdateError')),
   });
 
   if (session.isLoading) {
     return (
-      <AppShell title="User management">
+      <AppShell title={t('users.title')}>
         <PageLayout>
           <Skeleton className="h-72 w-full" />
         </PageLayout>
@@ -86,13 +89,13 @@ export function AdminUsersPage() {
 
   if (session.isError || session.data?.data.user.role !== 'admin') {
     return (
-      <AppShell title="User management">
+      <AppShell title={t('users.title')}>
         <PageLayout>
           <Alert variant="destructive">
             <ShieldAlert />
-            <AlertTitle>Administrator access required</AlertTitle>
+            <AlertTitle>{t('users.accessRequired.title')}</AlertTitle>
             <AlertDescription>
-              Your account does not have permission to manage users.
+              {t('users.accessRequired.body')}
             </AlertDescription>
           </Alert>
         </PageLayout>
@@ -104,19 +107,19 @@ export function AdminUsersPage() {
   const managedUsers = users.data?.data.users ?? [];
 
   return (
-    <AppShell title="User management">
+    <AppShell title={t('users.title')}>
       <PageLayout>
         <Card>
           <CardHeader>
             <CardTitle>
-              <h2>Users and roles</h2>
+              <h2>{t('users.heading')}</h2>
             </CardTitle>
-            <CardDescription>
-              Review registered accounts and grant administrator access.
-            </CardDescription>
+            <CardDescription>{t('users.description')}</CardDescription>
             <CardAction>
               <Badge variant="secondary">
-                {users.data?.data.totalCount ?? 0} users
+                {t('users.count', {
+                  count: users.data?.data.totalCount ?? 0,
+                })}
               </Badge>
             </CardAction>
           </CardHeader>
@@ -129,18 +132,20 @@ export function AdminUsersPage() {
             >
               <FieldGroup className="flex-row items-end gap-2">
                 <Field className="max-w-sm">
-                  <FieldLabel htmlFor="user-search">Search users</FieldLabel>
+                  <FieldLabel htmlFor="user-search">
+                    {t('users.searchLabel')}
+                  </FieldLabel>
                   <Input
                     id="user-search"
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder="Name, email, or user ID"
+                    placeholder={t('users.searchPlaceholder')}
                   />
                 </Field>
                 <Field className="w-auto">
                   <Button type="submit" variant="outline">
                     <Search data-icon="inline-start" />
-                    Search
+                    {t('users.search')}
                   </Button>
                 </Field>
               </FieldGroup>
@@ -148,9 +153,9 @@ export function AdminUsersPage() {
 
             {users.isError && (
               <Alert variant="destructive">
-                <AlertTitle>Unable to load users</AlertTitle>
+                <AlertTitle>{t('users.loadError.title')}</AlertTitle>
                 <AlertDescription>
-                  Check the Clerk connection and retry.
+                  {t('users.loadError.body')}
                 </AlertDescription>
               </Alert>
             )}
@@ -167,20 +172,20 @@ export function AdminUsersPage() {
                   <EmptyMedia variant="icon">
                     <UsersRound />
                   </EmptyMedia>
-                  <EmptyTitle>No users found</EmptyTitle>
-                  <EmptyDescription>
-                    Adjust the search and try again.
-                  </EmptyDescription>
+                  <EmptyTitle>{t('users.emptyTitle')}</EmptyTitle>
+                  <EmptyDescription>{t('users.emptyBody')}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Registered</TableHead>
-                    <TableHead className="w-36">Role</TableHead>
+                    <TableHead>{t('users.columns.user')}</TableHead>
+                    <TableHead>{t('users.columns.email')}</TableHead>
+                    <TableHead>{t('users.columns.registered')}</TableHead>
+                    <TableHead className="w-36">
+                      {t('users.columns.role')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -208,18 +213,16 @@ export function AdminUsersPage() {
                                 {user.displayName}
                               </span>
                               {isCurrentUser && (
-                                <Badge variant="outline">You</Badge>
+                                <Badge variant="outline">{t('users.you')}</Badge>
                               )}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {user.email ?? 'No email'}
+                          {user.email ?? t('users.noEmail')}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {new Intl.DateTimeFormat(undefined, {
-                            dateStyle: 'medium',
-                          }).format(new Date(user.createdAt))}
+                          {formatLocaleDateTimeValue(user.createdAt)}
                         </TableCell>
                         <TableCell>
                           <Select
@@ -230,7 +233,9 @@ export function AdminUsersPage() {
                             }
                           >
                             <SelectTrigger
-                              aria-label={`Role for ${user.displayName}`}
+                              aria-label={t('users.roleAria', {
+                                name: user.displayName,
+                              })}
                               className="w-full"
                               size="sm"
                             >
@@ -238,8 +243,12 @@ export function AdminUsersPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
-                                <SelectItem value="user">User</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="user">
+                                  {t('users.roleUser')}
+                                </SelectItem>
+                                <SelectItem value="admin">
+                                  {t('users.roleAdmin')}
+                                </SelectItem>
                               </SelectGroup>
                             </SelectContent>
                           </Select>

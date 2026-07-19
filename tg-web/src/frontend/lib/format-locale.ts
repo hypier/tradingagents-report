@@ -26,3 +26,20 @@ export function formatLocaleTime(value?: string | null, fallback = '') {
     hour12: false,
   }).format(new Date(value));
 }
+
+export function formatLocaleCurrency(amount: number, currency: string) {
+  return new Intl.NumberFormat(toIntlLocale(i18n.language), {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(amount / 100);
+}
+
+export function formatLocaleDate(
+  timestamp: number | null,
+  fallback = '',
+) {
+  if (timestamp === null) return fallback;
+  return new Intl.DateTimeFormat(toIntlLocale(i18n.language), {
+    dateStyle: 'medium',
+  }).format(new Date(timestamp * 1000));
+}

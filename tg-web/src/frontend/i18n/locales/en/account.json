@@ -1,0 +1,49 @@
+{
+  "title": "Account",
+  "heading": "Profile and preferences",
+  "subtitle": "Identity, research defaults, and legal consent",
+  "loadError": {
+    "title": "Unable to load account",
+    "body": "Retry after checking the service connection."
+  },
+  "preferences": {
+    "title": "Research preferences",
+    "description": "Defaults applied across the product",
+    "interfaceLanguage": "Interface language",
+    "reportLanguage": "Report language",
+    "timezone": "Timezone",
+    "defaultMarket": "Default market",
+    "save": "Save preferences",
+    "saved": "Preferences saved.",
+    "saveError": "Unable to save preferences.",
+    "languages": {
+      "en": "English",
+      "zhCN": "简体中文"
+    },
+    "markets": {
+      "US": "United States",
+      "HK": "Hong Kong",
+      "CN": "Mainland China",
+      "CRYPTO": "Crypto"
+    }
+  },
+  "legal": {
+    "title": "Legal consent",
+    "description": "Current documents must be accepted before submitting analysis jobs",
+    "acceptPrefix": "I accept the",
+    "version": "Version {{version}}",
+    "record": "Record consent",
+    "current": "Consent current",
+    "recorded": "Consent recorded.",
+    "recordError": "Unable to record consent.",
+    "documents": {
+      "risk_disclaimer": "Risk disclaimer",
+      "terms": "Terms of service",
+      "privacy": "Privacy policy"
+    }
+  },
+  "clerk": {
+    "title": "Clerk identity",
+    "description": "Name, avatar, password, social accounts, and active sessions"
+  }
+}

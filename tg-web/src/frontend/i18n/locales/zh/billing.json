@@ -1,0 +1,64 @@
+{
+  "title": "订阅",
+  "heading": "订阅与账单",
+  "subtitle": "套餐、续订状态与发票",
+  "loadError": {
+    "title": "无法加载账单",
+    "body": "当前无法获取 Stripe 账单数据。"
+  },
+  "notConfigured": {
+    "title": "订阅暂不可用",
+    "body": "此环境尚未连接 Stripe。"
+  },
+  "checkoutError": "无法启动 Stripe Checkout。",
+  "portalError": "无法打开账单门户。",
+  "usage": {
+    "title": "用量",
+    "description": "每次成功完成的分析消耗 1 个额度",
+    "available": "可用",
+    "reserved": "预留",
+    "consumed": "已消耗",
+    "cycleEnds": "周期结束"
+  },
+  "subscription": {
+    "title": "当前订阅",
+    "ends": "结束于",
+    "renews": "续订于",
+    "manage": "管理订阅"
+  },
+  "plans": {
+    "title": "可用套餐",
+    "description": "Stripe 循环计费套餐",
+    "emptyTitle": "暂无订阅套餐",
+    "emptyBody": "当前没有可用的循环价格。",
+    "fallbackDescription": "订阅",
+    "per": "每{{interval}}",
+    "perCount": "每 {{count}} {{interval}}",
+    "analysesPerCycle": "每周期 {{count}} 次分析",
+    "subscribe": "订阅"
+  },
+  "ledger": {
+    "title": "额度明细",
+    "description": "发放、预留、核销与释放记录",
+    "date": "日期",
+    "activity": "活动",
+    "reference": "关联",
+    "available": "可用变动",
+    "reserved": "预留变动",
+    "emptyTitle": "暂无额度活动",
+    "emptyBody": "周期发放与分析用量将显示在这里。"
+  },
+  "invoices": {
+    "title": "发票",
+    "description": "最近的 Stripe 账单文档",
+    "invoice": "发票",
+    "date": "日期",
+    "status": "状态",
+    "paid": "已付",
+    "open": "打开",
+    "emptyTitle": "暂无发票",
+    "emptyBody": "Stripe 发票将显示在这里。",
+    "unknown": "未知"
+  },
+  "notAvailable": "不可用"
+}

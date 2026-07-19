@@ -14,11 +14,21 @@ import enHome from './locales/en/home.json';
 import enReports from './locales/en/reports.json';
 import enReport from './locales/en/report.json';
 import enSearch from './locales/en/search.json';
+import enAuth from './locales/en/auth.json';
+import enAccount from './locales/en/account.json';
+import enBilling from './locales/en/billing.json';
+import enAdmin from './locales/en/admin.json';
+import enLegal from './locales/en/legal.json';
 import zhCommon from './locales/zh/common.json';
 import zhHome from './locales/zh/home.json';
 import zhReports from './locales/zh/reports.json';
 import zhReport from './locales/zh/report.json';
 import zhSearch from './locales/zh/search.json';
+import zhAuth from './locales/zh/auth.json';
+import zhAccount from './locales/zh/account.json';
+import zhBilling from './locales/zh/billing.json';
+import zhAdmin from './locales/zh/admin.json';
+import zhLegal from './locales/zh/legal.json';
 
 export const i18nNamespaces = [
   'common',
@@ -26,6 +36,11 @@ export const i18nNamespaces = [
   'reports',
   'report',
   'search',
+  'auth',
+  'account',
+  'billing',
+  'admin',
+  'legal',
 ] as const;
 
 void i18n
@@ -39,6 +54,11 @@ void i18n
         reports: enReports,
         report: enReport,
         search: enSearch,
+        auth: enAuth,
+        account: enAccount,
+        billing: enBilling,
+        admin: enAdmin,
+        legal: enLegal,
       },
       zh: {
         common: zhCommon,
@@ -46,6 +66,11 @@ void i18n
         reports: zhReports,
         report: zhReport,
         search: zhSearch,
+        auth: zhAuth,
+        account: zhAccount,
+        billing: zhBilling,
+        admin: zhAdmin,
+        legal: zhLegal,
       },
     },
     fallbackLng: DEFAULT_UI_LOCALE,

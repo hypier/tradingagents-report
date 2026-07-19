@@ -11,6 +11,7 @@ import {
   Trash2,
   Webhook,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import type {
@@ -72,6 +73,7 @@ import {
   ToggleGroupItem,
 } from '@/frontend/components/ui/toggle-group';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
+import { formatLocaleCurrency } from '@/frontend/lib/format-locale';
 import {
   archiveBillingPlan,
   clearStripeConfiguration,
@@ -91,19 +93,24 @@ type PlanForm = {
   features: string;
 };
 
-const initialPlan: PlanForm = {
-  name: '',
-  description: '',
-  price: '',
-  currency: 'usd',
-  interval: 'month',
-  analysisCredits: '20',
-  supportedMarkets: ['US'],
-  features: 'Full analyst team, PDF reports',
-};
+function createInitialPlan(features: string): PlanForm {
+  return {
+    name: '',
+    description: '',
+    price: '',
+    currency: 'usd',
+    interval: 'month',
+    analysisCredits: '20',
+    supportedMarkets: ['US'],
+    features,
+  };
+}
 
 export function AdminBillingPage() {
-  const [plan, setPlan] = useState(initialPlan);
+  const { t } = useTranslation('admin');
+  const [plan, setPlan] = useState(() =>
+    createInitialPlan(t('billing.defaults.features')),
+  );
   const [stripeConfiguration, setStripeConfiguration] = useState({
     secretKey: '',
     webhookSecret: '',
@@ -125,36 +132,36 @@ export function AdminBillingPage() {
   const createPlan = useMutation({
     mutationFn: (input: CreateBillingPlanInput) => createBillingPlan(input),
     onSuccess: () => {
-      setPlan(initialPlan);
+      setPlan(createInitialPlan(t('billing.defaults.features')));
       refresh();
-      toast.success('Subscription plan created.');
+      toast.success(t('billing.toasts.planCreated'));
     },
-    onError: () => toast.error('Unable to create the subscription plan.'),
+    onError: () => toast.error(t('billing.toasts.planCreateError')),
   });
   const archivePlan = useMutation({
     mutationFn: (priceId: string) => archiveBillingPlan(priceId),
     onSuccess: () => {
       refresh();
-      toast.success('Subscription plan archived.');
+      toast.success(t('billing.toasts.planArchived'));
     },
-    onError: () => toast.error('Unable to archive the subscription plan.'),
+    onError: () => toast.error(t('billing.toasts.planArchiveError')),
   });
   const updateConfiguration = useMutation({
     mutationFn: () => updateStripeConfiguration(stripeConfiguration),
     onSuccess: () => {
       setStripeConfiguration({ secretKey: '', webhookSecret: '' });
       refresh();
-      toast.success('Stripe configuration saved.');
+      toast.success(t('billing.toasts.configSaved'));
     },
-    onError: () => toast.error('Unable to validate or save Stripe settings.'),
+    onError: () => toast.error(t('billing.toasts.configSaveError')),
   });
   const clearConfiguration = useMutation({
     mutationFn: () => clearStripeConfiguration(),
     onSuccess: () => {
       refresh();
-      toast.success('Stored Stripe configuration cleared.');
+      toast.success(t('billing.toasts.configCleared'));
     },
-    onError: () => toast.error('Unable to clear Stripe settings.'),
+    onError: () => toast.error(t('billing.toasts.configClearError')),
   });
 
   if (session.isLoading) {
@@ -169,9 +176,9 @@ export function AdminBillingPage() {
       <Shell>
         <Alert variant="destructive">
           <ShieldAlert />
-          <AlertTitle>Administrator access required</AlertTitle>
+          <AlertTitle>{t('billing.accessRequired.title')}</AlertTitle>
           <AlertDescription>
-            Your account does not have permission to manage billing.
+            {t('billing.accessRequired.body')}
           </AlertDescription>
         </Alert>
       </Shell>
@@ -185,11 +192,11 @@ export function AdminBillingPage() {
     const unitAmount = Math.round(amount * 100);
     const analysisCredits = Number(plan.analysisCredits);
     if (!Number.isFinite(amount) || amount <= 0 || unitAmount < 50) {
-      toast.error('Enter a valid price of at least 0.50.');
+      toast.error(t('billing.toasts.invalidPrice'));
       return;
     }
     if (!Number.isSafeInteger(analysisCredits) || analysisCredits < 1) {
-      toast.error('Enter at least one analysis credit.');
+      toast.error(t('billing.toasts.invalidCredits'));
       return;
     }
     createPlan.mutate({
@@ -210,17 +217,13 @@ export function AdminBillingPage() {
   return (
     <Shell>
       <header className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold">Stripe billing</h2>
-        <p className="text-sm text-muted-foreground">
-          Connection status and recurring subscription plans
-        </p>
+        <h2 className="text-xl font-semibold">{t('billing.heading')}</h2>
+        <p className="text-sm text-muted-foreground">{t('billing.subtitle')}</p>
       </header>
       {settings.isError && (
         <Alert variant="destructive">
-          <AlertTitle>Unable to load Stripe settings</AlertTitle>
-          <AlertDescription>
-            Check the server configuration and retry.
-          </AlertDescription>
+          <AlertTitle>{t('billing.loadError.title')}</AlertTitle>
+          <AlertDescription>{t('billing.loadError.body')}</AlertDescription>
         </Alert>
       )}
       {settings.isLoading ? (
@@ -229,54 +232,62 @@ export function AdminBillingPage() {
         <Tabs defaultValue="connection">
           <TabsList>
             <TabsTrigger value="connection">
-              <CreditCard data-icon="inline-start" /> Connection
+              <CreditCard data-icon="inline-start" />{' '}
+              {t('billing.tabs.connection')}
             </TabsTrigger>
             <TabsTrigger value="plans">
-              <CircleDollarSign data-icon="inline-start" /> Plans
+              <CircleDollarSign data-icon="inline-start" />{' '}
+              {t('billing.tabs.plans')}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="connection" className="pt-3">
             <Card>
               <CardHeader>
                 <CardTitle>
-                  <h3>Stripe connection</h3>
+                  <h3>{t('billing.connection.title')}</h3>
                 </CardTitle>
                 <CardDescription>
-                  Server-side payment provider configuration
+                  {t('billing.connection.description')}
                 </CardDescription>
                 <CardAction>
                   <Badge
                     variant={data.connectionHealthy ? 'default' : 'secondary'}
                   >
                     {data.connectionHealthy
-                      ? 'Connected'
+                      ? t('billing.connection.connected')
                       : data.configured
-                        ? 'Connection error'
-                        : 'Not configured'}
+                        ? t('billing.connection.connectionError')
+                        : t('billing.connection.notConfigured')}
                   </Badge>
                 </CardAction>
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
                 <dl className="grid gap-4 sm:grid-cols-2">
                   <StatusItem
-                    label="Environment"
-                    value={formatMode(data.mode)}
+                    label={t('billing.connection.environment')}
+                    value={t(`billing.connection.mode.${data.mode}`)}
                     ready={data.connectionHealthy}
                   />
                   <StatusItem
-                    label="Webhook signing"
-                    value={data.webhookConfigured ? 'Configured' : 'Missing'}
+                    label={t('billing.connection.webhookSigning')}
+                    value={
+                      data.webhookConfigured
+                        ? t('billing.connection.configured')
+                        : t('billing.connection.missing')
+                    }
                     ready={data.webhookConfigured}
                   />
                   <StatusItem
-                    label="Configuration source"
-                    value={formatConfigurationSource(data.configurationSource)}
+                    label={t('billing.connection.configurationSource')}
+                    value={t(
+                      `billing.connection.source.${data.configurationSource}`,
+                    )}
                     ready={data.configured}
                   />
                 </dl>
                 <Field>
                   <FieldLabel htmlFor="stripe-webhook-url">
-                    Webhook endpoint
+                    {t('billing.connection.webhookEndpoint')}
                   </FieldLabel>
                   <div className="flex gap-2">
                     <Input
@@ -288,14 +299,16 @@ export function AdminBillingPage() {
                       type="button"
                       size="icon"
                       variant="outline"
-                      title="Copy webhook endpoint"
-                      aria-label="Copy webhook endpoint"
+                      title={t('billing.connection.copyEndpoint')}
+                      aria-label={t('billing.connection.copyEndpoint')}
                       onClick={() => {
                         void navigator.clipboard
                           .writeText(data.webhookUrl)
-                          .then(() => toast.success('Webhook endpoint copied.'))
+                          .then(() =>
+                            toast.success(t('billing.connection.copied')),
+                          )
                           .catch(() =>
-                            toast.error('Unable to copy the endpoint.'),
+                            toast.error(t('billing.connection.copyError')),
                           );
                       }}
                     >
@@ -313,7 +326,7 @@ export function AdminBillingPage() {
                     <FieldGroup className="grid gap-4 md:grid-cols-2">
                       <Field>
                         <FieldLabel htmlFor="stripe-secret-key">
-                          Stripe secret key
+                          {t('billing.connection.secretKey')}
                         </FieldLabel>
                         <Input
                           id="stripe-secret-key"
@@ -335,7 +348,7 @@ export function AdminBillingPage() {
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="stripe-webhook-secret">
-                          Webhook signing secret
+                          {t('billing.connection.webhookSecret')}
                         </FieldLabel>
                         <Input
                           id="stripe-webhook-secret"
@@ -364,7 +377,7 @@ export function AdminBillingPage() {
                             onClick={() => {
                               if (
                                 window.confirm(
-                                  'Clear the stored Stripe configuration?',
+                                  t('billing.connection.clearConfirm'),
                                 )
                               ) {
                                 clearConfiguration.mutate();
@@ -376,7 +389,7 @@ export function AdminBillingPage() {
                             ) : (
                               <Trash2 data-icon="inline-start" />
                             )}
-                            Clear stored configuration
+                            {t('billing.connection.clearStored')}
                           </Button>
                         )}
                         <Button
@@ -388,7 +401,7 @@ export function AdminBillingPage() {
                           ) : (
                             <Save data-icon="inline-start" />
                           )}
-                          Save and validate
+                          {t('billing.connection.saveValidate')}
                         </Button>
                       </Field>
                     </FieldGroup>
@@ -396,19 +409,21 @@ export function AdminBillingPage() {
                 )}
                 {!data.configurationEditable && (
                   <Alert>
-                    <AlertTitle>Deployment-managed configuration</AlertTitle>
+                    <AlertTitle>
+                      {t('billing.connection.deploymentManaged.title')}
+                    </AlertTitle>
                     <AlertDescription>
-                      Stripe credentials can be changed here after encrypted
-                      billing configuration is enabled for this deployment.
+                      {t('billing.connection.deploymentManaged.body')}
                     </AlertDescription>
                   </Alert>
                 )}
                 {data.configured && !data.connectionHealthy && (
                   <Alert variant="destructive">
-                    <AlertTitle>Stripe connection failed</AlertTitle>
+                    <AlertTitle>
+                      {t('billing.connection.connectionFailed.title')}
+                    </AlertTitle>
                     <AlertDescription>
-                      Replace or clear the stored credentials, or check Stripe
-                      service availability.
+                      {t('billing.connection.connectionFailed.body')}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -450,23 +465,26 @@ function PlanEditor({
   pending: boolean;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
 }) {
+  const { t } = useTranslation('admin');
   const change = (values: Partial<PlanForm>) =>
     setPlan((current) => ({ ...current, ...values }));
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <h3>Create recurring plan</h3>
+          <h3>{t('billing.plans.createTitle')}</h3>
         </CardTitle>
         <CardDescription>
-          Creates a Stripe Product and recurring Price
+          {t('billing.plans.createDescription')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit}>
           <FieldGroup className="grid gap-4 md:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="plan-name">Name</FieldLabel>
+              <FieldLabel htmlFor="plan-name">
+                {t('billing.plans.name')}
+              </FieldLabel>
               <Input
                 id="plan-name"
                 value={plan.name}
@@ -476,7 +494,9 @@ function PlanEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="plan-description">Description</FieldLabel>
+              <FieldLabel htmlFor="plan-description">
+                {t('billing.plans.description')}
+              </FieldLabel>
               <Input
                 id="plan-description"
                 value={plan.description}
@@ -487,7 +507,9 @@ function PlanEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="plan-price">Price</FieldLabel>
+              <FieldLabel htmlFor="plan-price">
+                {t('billing.plans.price')}
+              </FieldLabel>
               <Input
                 id="plan-price"
                 type="number"
@@ -500,7 +522,9 @@ function PlanEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="plan-currency">Currency</FieldLabel>
+              <FieldLabel htmlFor="plan-currency">
+                {t('billing.plans.currency')}
+              </FieldLabel>
               <Select
                 value={plan.currency}
                 onValueChange={(value) =>
@@ -522,7 +546,7 @@ function PlanEditor({
               </Select>
             </Field>
             <Field>
-              <FieldLabel>Billing interval</FieldLabel>
+              <FieldLabel>{t('billing.plans.interval')}</FieldLabel>
               <ToggleGroup
                 type="single"
                 variant="outline"
@@ -531,12 +555,18 @@ function PlanEditor({
                   value && change({ interval: value as BillingInterval })
                 }
               >
-                <ToggleGroupItem value="month">Monthly</ToggleGroupItem>
-                <ToggleGroupItem value="year">Yearly</ToggleGroupItem>
+                <ToggleGroupItem value="month">
+                  {t('billing.plans.monthly')}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="year">
+                  {t('billing.plans.yearly')}
+                </ToggleGroupItem>
               </ToggleGroup>
             </Field>
             <Field>
-              <FieldLabel htmlFor="plan-credits">Credits per cycle</FieldLabel>
+              <FieldLabel htmlFor="plan-credits">
+                {t('billing.plans.credits')}
+              </FieldLabel>
               <Input
                 id="plan-credits"
                 type="number"
@@ -550,7 +580,7 @@ function PlanEditor({
               />
             </Field>
             <Field>
-              <FieldLabel>Supported markets</FieldLabel>
+              <FieldLabel>{t('billing.plans.markets')}</FieldLabel>
               <ToggleGroup
                 type="multiple"
                 variant="outline"
@@ -567,18 +597,21 @@ function PlanEditor({
               </ToggleGroup>
             </Field>
             <Field>
-              <FieldLabel htmlFor="plan-features">Features</FieldLabel>
+              <FieldLabel htmlFor="plan-features">
+                {t('billing.plans.features')}
+              </FieldLabel>
               <Input
                 id="plan-features"
                 value={plan.features}
                 required
-                placeholder="Full analyst team, PDF reports"
+                placeholder={t('billing.plans.featuresPlaceholder')}
                 onChange={(event) => change({ features: event.target.value })}
               />
             </Field>
             <Field className="justify-end md:items-end">
               <Button type="submit" disabled={disabled || pending}>
-                {pending && <Spinner data-icon="inline-start" />} Create plan
+                {pending && <Spinner data-icon="inline-start" />}{' '}
+                {t('billing.plans.create')}
               </Button>
             </Field>
           </FieldGroup>
@@ -597,6 +630,7 @@ function PlansTable({
   pendingId?: string;
   onArchive(priceId: string): void;
 }) {
+  const { t } = useTranslation('admin');
   if (!plans.length) {
     return (
       <Empty>
@@ -604,10 +638,8 @@ function PlansTable({
           <EmptyMedia variant="icon">
             <CircleDollarSign />
           </EmptyMedia>
-          <EmptyTitle>No active plans</EmptyTitle>
-          <EmptyDescription>
-            Active recurring Stripe prices will appear here.
-          </EmptyDescription>
+          <EmptyTitle>{t('billing.plans.emptyTitle')}</EmptyTitle>
+          <EmptyDescription>{t('billing.plans.emptyBody')}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -616,7 +648,7 @@ function PlansTable({
     <Card>
       <CardHeader>
         <CardTitle>
-          <h3>Active plans</h3>
+          <h3>{t('billing.plans.activeTitle')}</h3>
         </CardTitle>
         <CardAction>
           <Badge variant="secondary">{plans.length}</Badge>
@@ -626,10 +658,10 @@ function PlansTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Plan</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Interval</TableHead>
-              <TableHead>Credits</TableHead>
+              <TableHead>{t('billing.plans.columns.plan')}</TableHead>
+              <TableHead>{t('billing.plans.columns.price')}</TableHead>
+              <TableHead>{t('billing.plans.columns.interval')}</TableHead>
+              <TableHead>{t('billing.plans.columns.credits')}</TableHead>
               <TableHead className="w-16" />
             </TableRow>
           </TableHeader>
@@ -643,11 +675,15 @@ function PlansTable({
                   </div>
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {formatMoney(plan.unitAmount, plan.currency)}
+                  {formatLocaleCurrency(plan.unitAmount, plan.currency)}
                 </TableCell>
                 <TableCell>
-                  Every {plan.intervalCount > 1 ? `${plan.intervalCount} ` : ''}
-                  {plan.interval}
+                  {plan.intervalCount > 1
+                    ? t('billing.plans.everyCount', {
+                        count: plan.intervalCount,
+                        interval: plan.interval,
+                      })
+                    : t('billing.plans.every', { interval: plan.interval })}
                 </TableCell>
                 <TableCell className="tabular-nums">
                   {plan.analysisCredits}
@@ -657,8 +693,10 @@ function PlansTable({
                     type="button"
                     size="icon"
                     variant="ghost"
-                    title={`Archive ${plan.name}`}
-                    aria-label={`Archive ${plan.name}`}
+                    title={t('billing.plans.archive', { name: plan.name })}
+                    aria-label={t('billing.plans.archive', {
+                      name: plan.name,
+                    })}
                     disabled={pendingId === plan.id}
                     onClick={() => onArchive(plan.id)}
                   >
@@ -675,8 +713,9 @@ function PlansTable({
 }
 
 function Shell({ children }: { children: ReactNode }) {
+  const { t } = useTranslation('admin');
   return (
-    <AppShell title="Payment settings">
+    <AppShell title={t('billing.title')}>
       <main className="flex flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
         {children}
       </main>
@@ -706,29 +745,4 @@ function StatusItem({
       </div>
     </div>
   );
-}
-
-function formatMode(mode: 'test' | 'live' | 'unconfigured') {
-  return mode === 'test'
-    ? 'Test mode'
-    : mode === 'live'
-      ? 'Live mode'
-      : 'Unconfigured';
-}
-
-function formatConfigurationSource(
-  source: 'database' | 'environment' | 'none',
-) {
-  return source === 'database'
-    ? 'Admin managed'
-    : source === 'environment'
-      ? 'Deployment environment'
-      : 'Not configured';
-}
-
-function formatMoney(amount: number, currency: string) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-  }).format(amount / 100);
 }

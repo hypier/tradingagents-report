@@ -1,12 +1,12 @@
 import type {
   LEGAL_DOCUMENT_VERSIONS,
   LegalDocumentType,
-  ProductPreferences,
-  ProductProfile,
+  AccountPreferences,
+  AccountProfile,
 } from '@/backend/account/contract';
 
 type AccountPayload = {
-  profile: ProductProfile;
+  profile: AccountProfile;
   legalVersions: typeof LEGAL_DOCUMENT_VERSIONS;
 };
 
@@ -19,15 +19,15 @@ async function request<T>(path: string, init?: RequestInit) {
 export const getAccountProfile = () =>
   request<AccountPayload>('/api/account/profile');
 
-export const updateAccountPreferences = (preferences: ProductPreferences) =>
-  request<ProductProfile>('/api/account/profile', {
+export const updateAccountPreferences = (preferences: AccountPreferences) =>
+  request<AccountProfile>('/api/account/profile', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(preferences),
   });
 
 export const acceptLegalDocuments = (documentTypes: LegalDocumentType[]) =>
-  request<ProductProfile>('/api/account/consents', {
+  request<AccountProfile>('/api/account/consents', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ documentTypes }),
