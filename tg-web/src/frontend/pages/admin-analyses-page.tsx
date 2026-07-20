@@ -1,11 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RotateCcw, ShieldAlert } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import { AppShell } from '@/frontend/components/app-shell';
+import { AdminGate } from '@/frontend/components/admin-gate';
+import {
+  PageFrame,
+  PageToolbar,
+} from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -72,77 +76,49 @@ export function AdminAnalysesPage() {
     onError: () => toast.error(t('admin:analyses.retryError')),
   });
 
-  if (session.isLoading) {
-    return (
-      <AppShell title={t('admin:analyses.title')}>
-        <div className="px-4 py-6 lg:px-6">
-          <Skeleton className="h-72 w-full" />
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (session.isError || session.data?.data.user.role !== 'admin') {
-    return (
-      <AppShell title={t('admin:analyses.title')}>
-        <div className="px-4 py-6 lg:px-6">
-          <Alert variant="destructive">
-            <ShieldAlert />
-            <AlertTitle>{t('admin:analyses.accessRequired.title')}</AlertTitle>
-            <AlertDescription>
-              {t('admin:analyses.accessRequired.body')}
-            </AlertDescription>
-          </Alert>
-        </div>
-      </AppShell>
-    );
-  }
-
   const jobs = (analyses.data?.data ?? []) as AdminJob[];
 
   return (
-    <AppShell title={t('admin:analyses.title')}>
-      <div className="flex flex-1 flex-col gap-6 px-4 py-6 lg:px-6">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t('admin:analyses.heading')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t('admin:analyses.subtitle')}
-          </p>
-        </header>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {['all', 'queued', 'running', 'succeeded', 'failed'].map(
-                (value) => (
-                  <SelectItem key={value} value={value}>
-                    {value === 'all'
-                      ? t('common:status.all')
-                      : t(`common:status.${value}`)}
-                  </SelectItem>
-                ),
-              )}
-            </SelectContent>
-          </Select>
-          <Input
-            value={ticker}
-            onChange={(event) => setTicker(event.target.value)}
-            placeholder={t('admin:analyses.tickerPlaceholder')}
-            className="font-mono"
-          />
-          <Input
-            value={userId}
-            onChange={(event) => setUserId(event.target.value)}
-            placeholder={t('admin:analyses.userPlaceholder')}
-            className="font-mono"
-          />
-        </div>
-
+    <AdminGate
+      accessTitle={t('admin:analyses.accessRequired.title')}
+      accessBody={t('admin:analyses.accessRequired.body')}
+    >
+      <PageFrame
+        title={t('admin:analyses.heading')}
+        description={t('admin:analyses.subtitle')}
+        toolbar={
+          <PageToolbar className="grid gap-3 md:grid-cols-3">
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {['all', 'queued', 'running', 'succeeded', 'failed'].map(
+                  (value) => (
+                    <SelectItem key={value} value={value}>
+                      {value === 'all'
+                        ? t('common:status.all')
+                        : t(`common:status.${value}`)}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
+            <Input
+              value={ticker}
+              onChange={(event) => setTicker(event.target.value)}
+              placeholder={t('admin:analyses.tickerPlaceholder')}
+              className="font-mono"
+            />
+            <Input
+              value={userId}
+              onChange={(event) => setUserId(event.target.value)}
+              placeholder={t('admin:analyses.userPlaceholder')}
+              className="font-mono"
+            />
+          </PageToolbar>
+        }
+      >
         {analyses.isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : analyses.isError ? (
@@ -153,7 +129,7 @@ export function AdminAnalysesPage() {
             </AlertDescription>
           </Alert>
         ) : (
-          <div className="overflow-hidden rounded-xl border">
+          <div className="overflow-hidden border border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -223,7 +199,7 @@ export function AdminAnalysesPage() {
             </Table>
           </div>
         )}
-      </div>
-    </AppShell>
+      </PageFrame>
+    </AdminGate>
   );
 }

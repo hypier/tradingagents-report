@@ -11,19 +11,13 @@ import type {
   AccountPreferences,
 } from '@/backend/account/contract';
 import { AppShell } from '@/frontend/components/app-shell';
+import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from '@/frontend/components/ui/alert';
 import { Button } from '@/frontend/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/frontend/components/ui/card';
 import { Checkbox } from '@/frontend/components/ui/checkbox';
 import {
   Field,
@@ -109,12 +103,8 @@ export function AccountPage() {
   });
 
   return (
-    <AppShell title={t('title')}>
-      <main className="flex flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-        <header className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold">{t('heading')}</h2>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
-        </header>
+    <AppShell>
+      <PageFrame title={t('heading')} description={t('subtitle')}>
         {profile.isLoading || !preferences ? (
           <Skeleton className="h-80 w-full" />
         ) : profile.isError ? (
@@ -124,12 +114,10 @@ export function AccountPage() {
           </Alert>
         ) : (
           <>
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('preferences.title')}</CardTitle>
-                <CardDescription>{t('preferences.description')}</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <SectionPanel
+              title={t('preferences.title')}
+              description={t('preferences.description')}
+            >
                 <form
                   onSubmit={(event: FormEvent) => {
                     event.preventDefault();
@@ -213,14 +201,11 @@ export function AccountPage() {
                     </Field>
                   </FieldGroup>
                 </form>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('legal.title')}</CardTitle>
-                <CardDescription>{t('legal.description')}</CardDescription>
-              </CardHeader>
-              <CardContent>
+            </SectionPanel>
+            <SectionPanel
+              title={t('legal.title')}
+              description={t('legal.description')}
+            >
                 <FieldGroup>
                   {legalDocuments.map(([type, path]) => (
                     <Field key={type} orientation="horizontal">
@@ -275,20 +260,16 @@ export function AccountPage() {
                     </Button>
                   </Field>
                 </FieldGroup>
-              </CardContent>
-            </Card>
-            <section className="flex flex-col gap-3">
-              <div>
-                <h3 className="text-base font-semibold">{t('clerk.title')}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('clerk.description')}
-                </p>
-              </div>
+            </SectionPanel>
+            <SectionPanel
+              title={t('clerk.title')}
+              description={t('clerk.description')}
+            >
               <UserProfile routing="hash" />
-            </section>
+            </SectionPanel>
           </>
         )}
-      </main>
+      </PageFrame>
     </AppShell>
   );
 }

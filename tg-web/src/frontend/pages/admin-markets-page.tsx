@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, ShieldAlert } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import { AppShell } from '@/frontend/components/app-shell';
+import { AdminGate } from '@/frontend/components/admin-gate';
+import { PageFrame } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -22,7 +23,6 @@ import {
 import { Checkbox } from '@/frontend/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
-import { Skeleton } from '@/frontend/components/ui/skeleton';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import {
   Table,
@@ -107,32 +107,6 @@ export function AdminMarketsPage() {
     onError: () => toast.error(t('markets.saveError')),
   });
 
-  if (session.isLoading || (isAdmin && markets.isLoading)) {
-    return (
-      <AppShell title={t('markets.title')}>
-        <div className="px-4 py-6 lg:px-6">
-          <Skeleton className="h-72 w-full" />
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (session.isError || !isAdmin) {
-    return (
-      <AppShell title={t('markets.title')}>
-        <div className="px-4 py-6 lg:px-6">
-          <Alert variant="destructive">
-            <ShieldAlert />
-            <AlertTitle>{t('markets.accessRequired.title')}</AlertTitle>
-            <AlertDescription>
-              {t('markets.accessRequired.body')}
-            </AlertDescription>
-          </Alert>
-        </div>
-      </AppShell>
-    );
-  }
-
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!form.code.trim() || !form.displayName.trim()) return;
@@ -140,17 +114,15 @@ export function AdminMarketsPage() {
   }
 
   return (
-    <AppShell title={t('markets.title')}>
-      <div className="flex flex-1 flex-col gap-6 px-4 py-6 lg:px-6">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t('markets.heading')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t('markets.subtitle')}
-          </p>
-        </header>
-
+    <AdminGate
+      accessTitle={t('markets.accessRequired.title')}
+      accessBody={t('markets.accessRequired.body')}
+      loading={markets.isLoading}
+    >
+      <PageFrame
+        title={t('markets.heading')}
+        description={t('markets.subtitle')}
+      >
         {markets.isError ? (
           <Alert variant="destructive">
             <AlertTitle>{t('markets.loadError.title')}</AlertTitle>
@@ -357,7 +329,7 @@ export function AdminMarketsPage() {
             </Card>
           </>
         )}
-      </div>
-    </AppShell>
+      </PageFrame>
+    </AdminGate>
   );
 }

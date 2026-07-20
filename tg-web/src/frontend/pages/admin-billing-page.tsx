@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
@@ -8,7 +8,6 @@ import {
   CreditCard,
   PackagePlus,
   Save,
-  ShieldAlert,
   Trash2,
   Webhook,
 } from 'lucide-react';
@@ -20,7 +19,8 @@ import type {
   BillingPlan,
   CreateBillingPlanInput,
 } from '@/backend/billing/contract';
-import { AppShell } from '@/frontend/components/app-shell';
+import { AdminGate } from '@/frontend/components/admin-gate';
+import { PageFrame } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -178,27 +178,6 @@ export function AdminBillingPage() {
     onError: () => toast.error(t('billing.toasts.configClearError')),
   });
 
-  if (session.isLoading) {
-    return (
-      <Shell>
-        <Skeleton className="h-72 w-full" />
-      </Shell>
-    );
-  }
-  if (session.isError || !isAdmin) {
-    return (
-      <Shell>
-        <Alert variant="destructive">
-          <ShieldAlert />
-          <AlertTitle>{t('billing.accessRequired.title')}</AlertTitle>
-          <AlertDescription>
-            {t('billing.accessRequired.body')}
-          </AlertDescription>
-        </Alert>
-      </Shell>
-    );
-  }
-
   const data = settings.data?.data;
   const submitPlan = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -229,242 +208,246 @@ export function AdminBillingPage() {
   };
 
   return (
-    <Shell>
-      <header className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold">{t('billing.heading')}</h2>
-        <p className="text-sm text-muted-foreground">{t('billing.subtitle')}</p>
-      </header>
-      {settings.isError && (
-        <Alert variant="destructive">
-          <AlertTitle>{t('billing.loadError.title')}</AlertTitle>
-          <AlertDescription>{t('billing.loadError.body')}</AlertDescription>
-        </Alert>
-      )}
-      {settings.isLoading ? (
-        <Skeleton className="h-72 w-full" />
-      ) : data ? (
-        <Tabs defaultValue="connection">
-          <TabsList>
-            <TabsTrigger value="connection">
-              <CreditCard data-icon="inline-start" />{' '}
-              {t('billing.tabs.connection')}
-            </TabsTrigger>
-            <TabsTrigger value="plans">
-              <CircleDollarSign data-icon="inline-start" />{' '}
-              {t('billing.tabs.plans')}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="connection" className="pt-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <h3>{t('billing.connection.title')}</h3>
-                </CardTitle>
-                <CardDescription>
-                  {t('billing.connection.description')}
-                </CardDescription>
-                <CardAction>
-                  <Badge
-                    variant={data.connectionHealthy ? 'default' : 'secondary'}
-                  >
-                    {data.connectionHealthy
-                      ? t('billing.connection.connected')
-                      : data.configured
-                        ? t('billing.connection.connectionError')
-                        : t('billing.connection.notConfigured')}
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-5">
-                <dl className="grid gap-4 sm:grid-cols-2">
-                  <StatusItem
-                    label={t('billing.connection.environment')}
-                    value={t(`billing.connection.mode.${data.mode}`)}
-                    ready={data.connectionHealthy}
-                  />
-                  <StatusItem
-                    label={t('billing.connection.webhookSigning')}
-                    value={
-                      data.webhookConfigured
-                        ? t('billing.connection.configured')
-                        : t('billing.connection.missing')
-                    }
-                    ready={data.webhookConfigured}
-                  />
-                  <StatusItem
-                    label={t('billing.connection.configurationSource')}
-                    value={t(
-                      `billing.connection.source.${data.configurationSource}`,
-                    )}
-                    ready={data.configured}
-                  />
-                </dl>
-                <Field>
-                  <FieldLabel htmlFor="stripe-webhook-url">
-                    {t('billing.connection.webhookEndpoint')}
-                  </FieldLabel>
-                  <div className="flex gap-2">
-                    <Input
-                      id="stripe-webhook-url"
-                      value={data.webhookUrl}
-                      readOnly
+    <AdminGate
+      accessTitle={t('billing.accessRequired.title')}
+      accessBody={t('billing.accessRequired.body')}
+    >
+      <PageFrame
+        title={t('billing.heading')}
+        description={t('billing.subtitle')}
+      >
+        {settings.isError && (
+          <Alert variant="destructive">
+            <AlertTitle>{t('billing.loadError.title')}</AlertTitle>
+            <AlertDescription>{t('billing.loadError.body')}</AlertDescription>
+          </Alert>
+        )}
+        {settings.isLoading ? (
+          <Skeleton className="h-72 w-full" />
+        ) : data ? (
+          <Tabs defaultValue="connection">
+            <TabsList>
+              <TabsTrigger value="connection">
+                <CreditCard data-icon="inline-start" />{' '}
+                {t('billing.tabs.connection')}
+              </TabsTrigger>
+              <TabsTrigger value="plans">
+                <CircleDollarSign data-icon="inline-start" />{' '}
+                {t('billing.tabs.plans')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="connection" className="pt-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    <h3>{t('billing.connection.title')}</h3>
+                  </CardTitle>
+                  <CardDescription>
+                    {t('billing.connection.description')}
+                  </CardDescription>
+                  <CardAction>
+                    <Badge
+                      variant={data.connectionHealthy ? 'default' : 'secondary'}
+                    >
+                      {data.connectionHealthy
+                        ? t('billing.connection.connected')
+                        : data.configured
+                          ? t('billing.connection.connectionError')
+                          : t('billing.connection.notConfigured')}
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-5">
+                  <dl className="grid gap-4 sm:grid-cols-2">
+                    <StatusItem
+                      label={t('billing.connection.environment')}
+                      value={t(`billing.connection.mode.${data.mode}`)}
+                      ready={data.connectionHealthy}
                     />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      title={t('billing.connection.copyEndpoint')}
-                      aria-label={t('billing.connection.copyEndpoint')}
-                      onClick={() => {
-                        void navigator.clipboard
-                          .writeText(data.webhookUrl)
-                          .then(() =>
-                            toast.success(t('billing.connection.copied')),
-                          )
-                          .catch(() =>
-                            toast.error(t('billing.connection.copyError')),
-                          );
+                    <StatusItem
+                      label={t('billing.connection.webhookSigning')}
+                      value={
+                        data.webhookConfigured
+                          ? t('billing.connection.configured')
+                          : t('billing.connection.missing')
+                      }
+                      ready={data.webhookConfigured}
+                    />
+                    <StatusItem
+                      label={t('billing.connection.configurationSource')}
+                      value={t(
+                        `billing.connection.source.${data.configurationSource}`,
+                      )}
+                      ready={data.configured}
+                    />
+                  </dl>
+                  <Field>
+                    <FieldLabel htmlFor="stripe-webhook-url">
+                      {t('billing.connection.webhookEndpoint')}
+                    </FieldLabel>
+                    <div className="flex gap-2">
+                      <Input
+                        id="stripe-webhook-url"
+                        value={data.webhookUrl}
+                        readOnly
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        title={t('billing.connection.copyEndpoint')}
+                        aria-label={t('billing.connection.copyEndpoint')}
+                        onClick={() => {
+                          void navigator.clipboard
+                            .writeText(data.webhookUrl)
+                            .then(() =>
+                              toast.success(t('billing.connection.copied')),
+                            )
+                            .catch(() =>
+                              toast.error(t('billing.connection.copyError')),
+                            );
+                        }}
+                      >
+                        <Clipboard />
+                      </Button>
+                    </div>
+                  </Field>
+                  {data.configurationEditable && (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        updateConfiguration.mutate();
                       }}
                     >
-                      <Clipboard />
-                    </Button>
-                  </div>
-                </Field>
-                {data.configurationEditable && (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      updateConfiguration.mutate();
-                    }}
-                  >
-                    <FieldGroup className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="stripe-secret-key">
-                          {t('billing.connection.secretKey')}
-                        </FieldLabel>
-                        <Input
-                          id="stripe-secret-key"
-                          type="password"
-                          autoComplete="off"
-                          spellCheck={false}
-                          required
-                          minLength={16}
-                          maxLength={256}
-                          placeholder={data.secretKeyHint ?? 'sk_test_...'}
-                          value={stripeConfiguration.secretKey}
-                          onChange={(event) =>
-                            setStripeConfiguration((current) => ({
-                              ...current,
-                              secretKey: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="stripe-webhook-secret">
-                          {t('billing.connection.webhookSecret')}
-                        </FieldLabel>
-                        <Input
-                          id="stripe-webhook-secret"
-                          type="password"
-                          autoComplete="off"
-                          spellCheck={false}
-                          required
-                          minLength={16}
-                          maxLength={256}
-                          placeholder={data.webhookSecretHint ?? 'whsec_...'}
-                          value={stripeConfiguration.webhookSecret}
-                          onChange={(event) =>
-                            setStripeConfiguration((current) => ({
-                              ...current,
-                              webhookSecret: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                      <Field className="flex-row flex-wrap justify-end md:col-span-2">
-                        {data.configurationSource === 'database' && (
+                      <FieldGroup className="grid gap-4 md:grid-cols-2">
+                        <Field>
+                          <FieldLabel htmlFor="stripe-secret-key">
+                            {t('billing.connection.secretKey')}
+                          </FieldLabel>
+                          <Input
+                            id="stripe-secret-key"
+                            type="password"
+                            autoComplete="off"
+                            spellCheck={false}
+                            required
+                            minLength={16}
+                            maxLength={256}
+                            placeholder={data.secretKeyHint ?? 'sk_test_...'}
+                            value={stripeConfiguration.secretKey}
+                            onChange={(event) =>
+                              setStripeConfiguration((current) => ({
+                                ...current,
+                                secretKey: event.target.value,
+                              }))
+                            }
+                          />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="stripe-webhook-secret">
+                            {t('billing.connection.webhookSecret')}
+                          </FieldLabel>
+                          <Input
+                            id="stripe-webhook-secret"
+                            type="password"
+                            autoComplete="off"
+                            spellCheck={false}
+                            required
+                            minLength={16}
+                            maxLength={256}
+                            placeholder={data.webhookSecretHint ?? 'whsec_...'}
+                            value={stripeConfiguration.webhookSecret}
+                            onChange={(event) =>
+                              setStripeConfiguration((current) => ({
+                                ...current,
+                                webhookSecret: event.target.value,
+                              }))
+                            }
+                          />
+                        </Field>
+                        <Field className="flex-row flex-wrap justify-end md:col-span-2">
+                          {data.configurationSource === 'database' && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={clearConfiguration.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    t('billing.connection.clearConfirm'),
+                                  )
+                                ) {
+                                  clearConfiguration.mutate();
+                                }
+                              }}
+                            >
+                              {clearConfiguration.isPending ? (
+                                <Spinner data-icon="inline-start" />
+                              ) : (
+                                <Trash2 data-icon="inline-start" />
+                              )}
+                              {t('billing.connection.clearStored')}
+                            </Button>
+                          )}
                           <Button
-                            type="button"
-                            variant="outline"
-                            disabled={clearConfiguration.isPending}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  t('billing.connection.clearConfirm'),
-                                )
-                              ) {
-                                clearConfiguration.mutate();
-                              }
-                            }}
+                            type="submit"
+                            disabled={updateConfiguration.isPending}
                           >
-                            {clearConfiguration.isPending ? (
+                            {updateConfiguration.isPending ? (
                               <Spinner data-icon="inline-start" />
                             ) : (
-                              <Trash2 data-icon="inline-start" />
+                              <Save data-icon="inline-start" />
                             )}
-                            {t('billing.connection.clearStored')}
+                            {t('billing.connection.saveValidate')}
                           </Button>
-                        )}
-                        <Button
-                          type="submit"
-                          disabled={updateConfiguration.isPending}
-                        >
-                          {updateConfiguration.isPending ? (
-                            <Spinner data-icon="inline-start" />
-                          ) : (
-                            <Save data-icon="inline-start" />
-                          )}
-                          {t('billing.connection.saveValidate')}
-                        </Button>
-                      </Field>
-                    </FieldGroup>
-                  </form>
-                )}
-                {!data.configurationEditable && (
-                  <Alert>
-                    <AlertTitle>
-                      {t('billing.connection.deploymentManaged.title')}
-                    </AlertTitle>
-                    <AlertDescription>
-                      {t('billing.connection.deploymentManaged.body')}
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {data.configured && !data.connectionHealthy && (
-                  <Alert variant="destructive">
-                    <AlertTitle>
-                      {t('billing.connection.connectionFailed.title')}
-                    </AlertTitle>
-                    <AlertDescription>
-                      {t('billing.connection.connectionFailed.body')}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="plans" className="flex flex-col gap-4 pt-3">
-            <PlanEditor
-              plan={plan}
-              setPlan={setPlan}
-              disabled={!data.configured}
-              pending={createPlan.isPending}
-              provisioning={provisionPlans.isPending}
-              onProvisionDefaults={() => provisionPlans.mutate()}
-              onSubmit={submitPlan}
-            />
-            <PlansTable
-              plans={data.plans}
-              pendingId={
-                archivePlan.isPending ? archivePlan.variables : undefined
-              }
-              onArchive={(priceId) => archivePlan.mutate(priceId)}
-            />
-          </TabsContent>
-        </Tabs>
-      ) : null}
-    </Shell>
+                        </Field>
+                      </FieldGroup>
+                    </form>
+                  )}
+                  {!data.configurationEditable && (
+                    <Alert>
+                      <AlertTitle>
+                        {t('billing.connection.deploymentManaged.title')}
+                      </AlertTitle>
+                      <AlertDescription>
+                        {t('billing.connection.deploymentManaged.body')}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {data.configured && !data.connectionHealthy && (
+                    <Alert variant="destructive">
+                      <AlertTitle>
+                        {t('billing.connection.connectionFailed.title')}
+                      </AlertTitle>
+                      <AlertDescription>
+                        {t('billing.connection.connectionFailed.body')}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="plans" className="flex flex-col gap-4 pt-3">
+              <PlanEditor
+                plan={plan}
+                setPlan={setPlan}
+                disabled={!data.configured}
+                pending={createPlan.isPending}
+                provisioning={provisionPlans.isPending}
+                onProvisionDefaults={() => provisionPlans.mutate()}
+                onSubmit={submitPlan}
+              />
+              <PlansTable
+                plans={data.plans}
+                pendingId={
+                  archivePlan.isPending ? archivePlan.variables : undefined
+                }
+                onArchive={(priceId) => archivePlan.mutate(priceId)}
+              />
+            </TabsContent>
+          </Tabs>
+        ) : null}
+      </PageFrame>
+    </AdminGate>
   );
 }
 
@@ -758,17 +741,6 @@ function PlansTable({
         </Table>
       </CardContent>
     </Card>
-  );
-}
-
-function Shell({ children }: { children: ReactNode }) {
-  const { t } = useTranslation('admin');
-  return (
-    <AppShell title={t('billing.title')}>
-      <main className="flex flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-        {children}
-      </main>
-    </AppShell>
   );
 }
 

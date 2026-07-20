@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import type { BillingPlan } from '@/backend/billing/contract';
 import { AppShell } from '@/frontend/components/app-shell';
+import { PageFrame, StatTile } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -73,13 +74,8 @@ export function BillingPage() {
   const data = overview.data?.data;
 
   return (
-    <AppShell title={t('title')}>
-      <main className="flex flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-        <header className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold">{t('heading')}</h2>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
-        </header>
-
+    <AppShell>
+      <PageFrame title={t('heading')} description={t('subtitle')}>
         {overview.isError && (
           <Alert variant="destructive">
             <AlertTitle>{t('loadError.title')}</AlertTitle>
@@ -107,29 +103,25 @@ export function BillingPage() {
                   </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <UsageCard
+                  <StatTile
                     label={t('usage.available')}
                     value={data.usage.availableCredits}
                   />
-                  <UsageCard
+                  <StatTile
                     label={t('usage.reserved')}
                     value={data.usage.reservedCredits}
                   />
-                  <UsageCard
+                  <StatTile
                     label={t('usage.consumed')}
                     value={data.usage.spentCredits}
                   />
-                  <Card>
-                    <CardHeader>
-                      <CardDescription>{t('usage.cycleEnds')}</CardDescription>
-                      <CardTitle>
-                        {formatLocaleDate(
-                          data.usage.periodEnd,
-                          t('notAvailable'),
-                        )}
-                      </CardTitle>
-                    </CardHeader>
-                  </Card>
+                  <StatTile
+                    label={t('usage.cycleEnds')}
+                    value={formatLocaleDate(
+                      data.usage.periodEnd,
+                      t('notAvailable'),
+                    )}
+                  />
                 </div>
               </section>
             )}
@@ -360,7 +352,7 @@ export function BillingPage() {
             </section>
           </>
         ) : null}
-      </main>
+      </PageFrame>
     </AppShell>
   );
 }
@@ -433,15 +425,4 @@ function formatStatus(status: string) {
 
 function formatDelta(value: number) {
   return value > 0 ? `+${value}` : String(value);
-}
-
-function UsageCard({ label, value }: { label: string; value: number }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-      </CardHeader>
-    </Card>
-  );
 }

@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, ShieldAlert, UsersRound } from 'lucide-react';
+import { Search, UsersRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import type { UserRole } from '@/backend/auth/contract';
-import { AppShell } from '@/frontend/components/app-shell';
+import { AdminGate } from '@/frontend/components/admin-gate';
+import {
+  PageFrame,
+  PageToolbar,
+} from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -19,14 +23,6 @@ import {
 } from '@/frontend/components/ui/avatar';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/frontend/components/ui/card';
 import {
   Empty,
   EmptyDescription,
@@ -78,53 +74,26 @@ export function AdminUsersPage() {
     onError: () => toast.error(t('users.roleUpdateError')),
   });
 
-  if (session.isLoading) {
-    return (
-      <AppShell title={t('users.title')}>
-        <PageLayout>
-          <Skeleton className="h-72 w-full" />
-        </PageLayout>
-      </AppShell>
-    );
-  }
-
-  if (session.isError || session.data?.data.user.role !== 'admin') {
-    return (
-      <AppShell title={t('users.title')}>
-        <PageLayout>
-          <Alert variant="destructive">
-            <ShieldAlert />
-            <AlertTitle>{t('users.accessRequired.title')}</AlertTitle>
-            <AlertDescription>
-              {t('users.accessRequired.body')}
-            </AlertDescription>
-          </Alert>
-        </PageLayout>
-      </AppShell>
-    );
-  }
-
-  const currentUserId = session.data.data.user.id;
+  const currentUserId = session.data?.data.user.id;
   const managedUsers = users.data?.data.users ?? [];
 
   return (
-    <AppShell title={t('users.title')}>
-      <PageLayout>
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2>{t('users.heading')}</h2>
-            </CardTitle>
-            <CardDescription>{t('users.description')}</CardDescription>
-            <CardAction>
-              <Badge variant="secondary">
-                {t('users.count', {
-                  count: users.data?.data.totalCount ?? 0,
-                })}
-              </Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
+    <AdminGate
+      accessTitle={t('users.accessRequired.title')}
+      accessBody={t('users.accessRequired.body')}
+    >
+      <PageFrame
+        title={t('users.heading')}
+        description={t('users.description')}
+        actions={
+          <Badge variant="secondary">
+            {t('users.count', {
+              count: users.data?.data.totalCount ?? 0,
+            })}
+          </Badge>
+        }
+        toolbar={
+          <PageToolbar>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -151,134 +120,133 @@ export function AdminUsersPage() {
                 </Field>
               </FieldGroup>
             </form>
+          </PageToolbar>
+        }
+        bodyClassName="gap-0 p-0"
+      >
+        {users.isError && (
+          <div className="px-5 py-4 lg:px-6">
+            <Alert variant="destructive">
+              <AlertTitle>{t('users.loadError.title')}</AlertTitle>
+              <AlertDescription>
+                {t('users.loadError.body')}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
 
-            {users.isError && (
-              <Alert variant="destructive">
-                <AlertTitle>{t('users.loadError.title')}</AlertTitle>
-                <AlertDescription>
-                  {t('users.loadError.body')}
-                </AlertDescription>
-              </Alert>
-            )}
+        {users.isLoading ? (
+          <div className="flex flex-col gap-2 px-5 py-4 lg:px-6">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : managedUsers.length === 0 && !users.isError ? (
+          <div className="px-5 py-4 lg:px-6">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <UsersRound />
+                </EmptyMedia>
+                <EmptyTitle>{t('users.emptyTitle')}</EmptyTitle>
+                <EmptyDescription>{t('users.emptyBody')}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </div>
+        ) : (
+          <div className="overflow-hidden border-t border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('users.columns.user')}</TableHead>
+                  <TableHead>{t('users.columns.email')}</TableHead>
+                  <TableHead>{t('users.columns.registered')}</TableHead>
+                  <TableHead className="w-36">
+                    {t('users.columns.role')}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {managedUsers.map((user) => {
+                  const isCurrentUser = user.id === currentUserId;
+                  const isUpdating =
+                    updateRole.isPending &&
+                    updateRole.variables?.userId === user.id;
 
-            {users.isLoading ? (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : managedUsers.length === 0 && !users.isError ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <UsersRound />
-                  </EmptyMedia>
-                  <EmptyTitle>{t('users.emptyTitle')}</EmptyTitle>
-                  <EmptyDescription>{t('users.emptyBody')}</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('users.columns.user')}</TableHead>
-                    <TableHead>{t('users.columns.email')}</TableHead>
-                    <TableHead>{t('users.columns.registered')}</TableHead>
-                    <TableHead className="w-36">
-                      {t('users.columns.role')}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {managedUsers.map((user) => {
-                    const isCurrentUser = user.id === currentUserId;
-                    const isUpdating =
-                      updateRole.isPending &&
-                      updateRole.variables?.userId === user.id;
-
-                    return (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar size="sm">
-                              <AvatarImage
-                                src={user.imageUrl}
-                                alt={user.displayName}
-                              />
-                              <AvatarFallback>
-                                {user.displayName.slice(0, 1).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex min-w-0 items-center gap-2">
-                              <Link
-                                className="truncate font-medium hover:underline"
-                                to={`/admin/users/${encodeURIComponent(user.id)}`}
-                              >
-                                {user.displayName}
-                              </Link>
-                              {user.banned ? (
-                                <Badge variant="destructive">
-                                  {t('users.banned')}
-                                </Badge>
-                              ) : null}
-                              {isCurrentUser && (
-                                <Badge variant="outline">{t('users.you')}</Badge>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {user.email ?? t('users.noEmail')}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatLocaleDateTimeValue(user.createdAt)}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={user.role}
-                            disabled={isCurrentUser || isUpdating}
-                            onValueChange={(role: UserRole) =>
-                              updateRole.mutate({ userId: user.id, role })
-                            }
-                          >
-                            <SelectTrigger
-                              aria-label={t('users.roleAria', {
-                                name: user.displayName,
-                              })}
-                              className="w-full"
-                              size="sm"
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar size="sm">
+                            <AvatarImage
+                              src={user.imageUrl}
+                              alt={user.displayName}
+                            />
+                            <AvatarFallback>
+                              {user.displayName.slice(0, 1).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Link
+                              className="truncate font-medium hover:underline"
+                              to={`/admin/users/${encodeURIComponent(user.id)}`}
                             >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                <SelectItem value="user">
-                                  {t('users.roleUser')}
-                                </SelectItem>
-                                <SelectItem value="admin">
-                                  {t('users.roleAdmin')}
-                                </SelectItem>
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </PageLayout>
-    </AppShell>
-  );
-}
-
-function PageLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      {children}
-    </main>
+                              {user.displayName}
+                            </Link>
+                            {user.banned ? (
+                              <Badge variant="destructive">
+                                {t('users.banned')}
+                              </Badge>
+                            ) : null}
+                            {isCurrentUser && (
+                              <Badge variant="outline">{t('users.you')}</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {user.email ?? t('users.noEmail')}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatLocaleDateTimeValue(user.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={user.role}
+                          disabled={isCurrentUser || isUpdating}
+                          onValueChange={(role: UserRole) =>
+                            updateRole.mutate({ userId: user.id, role })
+                          }
+                        >
+                          <SelectTrigger
+                            aria-label={t('users.roleAria', {
+                              name: user.displayName,
+                            })}
+                            className="w-full"
+                            size="sm"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectItem value="user">
+                                {t('users.roleUser')}
+                              </SelectItem>
+                              <SelectItem value="admin">
+                                {t('users.roleAdmin')}
+                              </SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </PageFrame>
+    </AdminGate>
   );
 }

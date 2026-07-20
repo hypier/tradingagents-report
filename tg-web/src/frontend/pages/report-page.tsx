@@ -371,8 +371,8 @@ export function ReportPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-5 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <div className="flex items-center gap-3">
+      <div className="@container/main flex flex-1 flex-col gap-5 px-5 py-3.5 md:gap-5 lg:px-6">
+        <div className="flex items-center gap-3 border-b border-border pb-3.5">
           <Button
             variant="ghost"
             size="icon"
@@ -403,7 +403,7 @@ export function ReportPage() {
           </Avatar>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+              <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">
                 {title}
               </h1>
               {decisionLabel ? (
@@ -501,7 +501,7 @@ export function ReportPage() {
         </div>
 
         {canShare && (shares.data?.data.length ?? 0) > 0 ? (
-          <div className="rounded-xl border bg-muted/20 px-4 py-3">
+          <div className="rounded-none border bg-muted/20 px-4 py-3">
             <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {t('share.linksTitle')}
             </p>
@@ -561,8 +561,8 @@ export function ReportPage() {
           </Alert>
         ) : detail.isLoading ? (
           <div className="flex flex-col gap-4">
-            <Skeleton className="h-10 w-full max-w-xl rounded-xl" />
-            <Skeleton className="h-[28rem] w-full rounded-xl" />
+            <Skeleton className="h-10 w-full max-w-xl rounded-none" />
+            <Skeleton className="h-[28rem] w-full rounded-none" />
           </div>
         ) : detail.isError ? (
           <Alert variant="destructive">
@@ -601,7 +601,7 @@ export function ReportPage() {
               >
                 <article
                   className={cn(
-                    'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-xl text-foreground',
+                    'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-none text-foreground',
                     paperClassName,
                     'shadow-[0_1px_1px_rgba(15,23,42,0.04),0_10px_28px_rgba(15,23,42,0.08)]',
                     'dark:shadow-[0_1px_1px_rgba(0,0,0,0.25),0_12px_32px_rgba(0,0,0,0.45)]',
@@ -630,7 +630,7 @@ export function ReportPage() {
             ))}
           </Tabs>
         ) : (
-          <Empty className="min-h-64 flex-1 rounded-xl border">
+          <Empty className="min-h-64 flex-1 rounded-none border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <FileText />

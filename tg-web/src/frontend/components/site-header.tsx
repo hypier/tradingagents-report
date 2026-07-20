@@ -30,6 +30,19 @@ function headerTitleKey(pathname: string) {
   return 'header.desk' as const;
 }
 
+/** Pages that render their own PageHeader / ruled H1 — skip chrome title. */
+function pageOwnsTitle(pathname: string) {
+  if (pathname === '/') return true;
+  if (pathname === '/tasks') return true;
+  if (pathname === '/reports' || pathname.startsWith('/reports/')) return true;
+  if (pathname === '/watchlist') return true;
+  if (pathname === '/billing') return true;
+  if (pathname === '/account') return true;
+  if (pathname.startsWith('/stocks/')) return true;
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) return true;
+  return false;
+}
+
 export function SiteHeader({
   title,
   subtitle,
@@ -40,9 +53,8 @@ export function SiteHeader({
   const location = useLocation();
   const { t } = useTranslation('common');
   const accountMenu = useAccountMenu();
-  const isDeskHome = location.pathname === '/';
-  // Desk page owns its own H1 — avoid repeating the nav label in the chrome.
-  const showTitle = Boolean(title) || !isDeskHome;
+  const showTitle =
+    Boolean(title) || !pageOwnsTitle(location.pathname);
   const resolvedTitle = title ?? t(headerTitleKey(location.pathname));
 
   return (

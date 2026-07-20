@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Save, ShieldAlert, Trash2 } from 'lucide-react';
+import { Plus, Save, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import { AppShell } from '@/frontend/components/app-shell';
+import { AdminGate } from '@/frontend/components/admin-gate';
+import { PageFrame } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -21,7 +22,6 @@ import {
 import { Checkbox } from '@/frontend/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
-import { Skeleton } from '@/frontend/components/ui/skeleton';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import {
   Table,
@@ -171,32 +171,6 @@ export function AdminSettingsPage() {
     onError: () => toast.error(t('settings.ruleDeleteError')),
   });
 
-  if (session.isLoading || (isAdmin && settings.isLoading)) {
-    return (
-      <AppShell title={t('settings.title')}>
-        <div className="px-4 py-6 lg:px-6">
-          <Skeleton className="h-72 w-full" />
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (session.isError || !isAdmin) {
-    return (
-      <AppShell title={t('settings.title')}>
-        <div className="px-4 py-6 lg:px-6">
-          <Alert variant="destructive">
-            <ShieldAlert />
-            <AlertTitle>{t('settings.accessRequired.title')}</AlertTitle>
-            <AlertDescription>
-              {t('settings.accessRequired.body')}
-            </AlertDescription>
-          </Alert>
-        </div>
-      </AppShell>
-    );
-  }
-
   function onSave(event: FormEvent) {
     event.preventDefault();
     saveSettings.mutate();
@@ -208,17 +182,15 @@ export function AdminSettingsPage() {
   }
 
   return (
-    <AppShell title={t('settings.title')}>
-      <div className="flex flex-1 flex-col gap-6 px-4 py-6 lg:px-6">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t('settings.heading')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t('settings.subtitle')}
-          </p>
-        </header>
-
+    <AdminGate
+      accessTitle={t('settings.accessRequired.title')}
+      accessBody={t('settings.accessRequired.body')}
+      loading={settings.isLoading}
+    >
+      <PageFrame
+        title={t('settings.heading')}
+        description={t('settings.subtitle')}
+      >
         {settings.isError ? (
           <Alert variant="destructive">
             <AlertTitle>{t('settings.loadError.title')}</AlertTitle>
@@ -511,7 +483,7 @@ export function AdminSettingsPage() {
             </Table>
           </CardContent>
         </Card>
-      </div>
-    </AppShell>
+      </PageFrame>
+    </AdminGate>
   );
 }

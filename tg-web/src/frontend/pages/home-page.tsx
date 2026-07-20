@@ -231,10 +231,10 @@ export function HomePage() {
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Composer: search → quote → team → run */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border lg:border-r">
-          <div className="border-b border-border px-5 py-4 lg:px-6">
-            <h2 className="text-xl font-semibold tracking-tight">
+          <div className="border-b border-border px-5 py-3.5 lg:px-6">
+            <h1 className="text-xl font-semibold tracking-tight">
               {t('title')}
-            </h2>
+            </h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               {t('subtitle')}
             </p>
