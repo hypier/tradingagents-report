@@ -99,13 +99,13 @@ export function PipelinePanel({
 
   if (variant === 'rail') {
     return (
-      <div className="flex min-h-0 flex-col border-b border-border">
+      <div className="flex min-h-0 flex-col">
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <p className="inline-flex items-center gap-2 font-label-caps text-muted-foreground">
             <span
               className={cn(
-                'size-2 rounded-full',
-                isLive ? 'animate-pulse bg-primary' : 'bg-muted-foreground/50',
+                'size-1.5',
+                isLive ? 'animate-pulse bg-primary' : 'bg-muted-foreground/45',
               )}
             />
             {t('pipeline.eyebrow')}
@@ -116,7 +116,7 @@ export function PipelinePanel({
         </div>
 
         {job ? (
-          <div className="space-y-3.5 px-4 py-4">
+          <div className="space-y-3 px-4 py-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-mono text-base font-semibold tracking-wide">
@@ -126,18 +126,21 @@ export function PipelinePanel({
                   {displayStage(activeStage ?? job.current_step)}
                 </p>
               </div>
-              <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+              <span className="shrink-0 font-mono text-sm tabular-nums text-primary">
                 {job.progress_percent ?? 0}%
               </span>
             </div>
-            <Progress value={job.progress_percent ?? 0} className="h-1.5" />
+            <Progress
+              value={job.progress_percent ?? 0}
+              className={cn('h-1', isLive && 'bg-primary/15')}
+            />
             {loading ? (
               <div className="flex flex-col gap-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-4/5" />
               </div>
             ) : events?.length ? (
-              <ol className="flex max-h-44 flex-col gap-2.5 overflow-y-auto border-l border-border pl-3.5">
+              <ol className="flex max-h-48 flex-col gap-2 overflow-y-auto border-l border-border pl-3">
                 {[...events].slice(-6).reverse().map((event, index) => (
                   <li
                     key={`${event.time ?? 'event'}-${index}`}
@@ -145,20 +148,25 @@ export function PipelinePanel({
                   >
                     <span
                       className={cn(
-                        'absolute top-1.5 -left-[15px] size-2 rounded-full',
-                        index === 0 ? 'bg-primary' : 'bg-muted-foreground/50',
+                        'absolute top-1.5 -left-[13px] size-1.5',
+                        index === 0 ? 'bg-primary' : 'bg-muted-foreground/45',
                       )}
                     />
                     <div className="flex items-baseline gap-2">
                       {event.time ? (
                         <time
                           dateTime={event.time}
-                          className="shrink-0 font-mono text-xs tabular-nums"
+                          className="shrink-0 font-mono text-[11px] tabular-nums"
                         >
                           {formatLocaleTime(event.time)}
                         </time>
                       ) : null}
-                      <span className="min-w-0 break-words">
+                      <span
+                        className={cn(
+                          'min-w-0 break-words',
+                          index === 0 && 'text-foreground',
+                        )}
+                      >
                         {localizeProgressMessage(event.message, t)}
                       </span>
                     </div>
@@ -172,8 +180,11 @@ export function PipelinePanel({
             )}
           </div>
         ) : (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            {t('pipeline.noEventsBody')}
+          <div className="px-4 py-7 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground/80">
+              {t('pipeline.idleTitle')}
+            </p>
+            <p className="mt-1 leading-relaxed">{t('pipeline.noEventsBody')}</p>
           </div>
         )}
       </div>

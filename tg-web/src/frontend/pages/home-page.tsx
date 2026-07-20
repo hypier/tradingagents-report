@@ -227,14 +227,13 @@ export function HomePage() {
   return (
     <AppShell>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Composer + pipeline */}
+        {/* Composer: search → quote → team → run */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border lg:border-r">
-          <div className="border-b border-border px-6 py-5 lg:px-8">
-            <p className="font-label-caps text-primary">{t('eyebrow')}</p>
-            <h2 className="mt-1.5 text-xl font-semibold tracking-tight md:text-2xl">
+          <div className="border-b border-border px-5 py-4 lg:px-6">
+            <h2 className="text-xl font-semibold tracking-tight">
               {t('title')}
             </h2>
-            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               {t('subtitle')}
             </p>
           </div>
@@ -246,7 +245,7 @@ export function HomePage() {
               submit();
             }}
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 lg:px-8">
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5 lg:px-6">
               <Field>
                 <FieldLabel
                   htmlFor="ticker"
@@ -266,18 +265,28 @@ export function HomePage() {
                 ) : null}
               </Field>
 
+              <QuoteStrip
+                variant="strip"
+                quote={quoteForStrip}
+                loading={
+                  Boolean(instrument?.provider_symbol) && snapshot.isLoading
+                }
+                detailHref={
+                  instrument?.provider_symbol
+                    ? `/stocks/${encodeURIComponent(instrument.provider_symbol)}`
+                    : undefined
+                }
+              />
+
               <Field>
-                <FieldTitle
-                  id="analyst-team-label"
-                  className="inline-flex items-center gap-2 text-sm"
-                >
+                <FieldTitle id="analyst-team-label" className="text-sm">
                   {t('analystTeam')}
                 </FieldTitle>
                 <FieldDescription>{t('analystTeamHint')}</FieldDescription>
                 <div
                   role="group"
                   aria-labelledby="analyst-team-label"
-                  className="mt-1 grid gap-3 sm:grid-cols-2"
+                  className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4"
                 >
                   {analystOptions.map((analyst) => {
                     const Icon = getAnalystIcon(analyst);
@@ -287,6 +296,7 @@ export function HomePage() {
                         key={analyst}
                         type="button"
                         aria-pressed={selected}
+                        title={t(`analysts.${analyst}.description`)}
                         onClick={() => {
                           setAnalysts((current) =>
                             selected
@@ -295,53 +305,42 @@ export function HomePage() {
                           );
                         }}
                         className={cn(
-                          'group/analyst relative flex min-h-[6.75rem] flex-col items-start gap-2.5 rounded-soft border bg-background px-4 py-3.5 text-left transition-colors',
-                          'border-border hover:border-foreground/25 hover:bg-muted/30',
+                          'flex min-h-[4.25rem] flex-col items-start justify-center gap-1.5 border px-3.5 py-3 text-left transition-colors',
+                          'border-border bg-background hover:border-foreground/20 hover:bg-muted/40',
                           'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
                           'active:translate-y-px',
                           selected &&
-                            'border-primary bg-background shadow-[inset_3px_0_0_0_var(--primary)]',
+                            'border-primary/50 bg-primary/10 text-foreground shadow-[inset_2px_0_0_0_var(--primary)]',
                         )}
                       >
-                        <div className="flex w-full items-start gap-3">
+                        <span className="flex w-full items-center gap-2.5">
+                          <Icon
+                            className={cn(
+                              'size-5 shrink-0',
+                              selected
+                                ? 'text-primary'
+                                : 'text-muted-foreground',
+                            )}
+                          />
                           <span
                             className={cn(
-                              'flex size-10 shrink-0 items-center justify-center rounded-soft border bg-muted/60 text-foreground/70',
-                              'border-border',
-                              selected &&
-                                'border-primary/50 bg-primary text-primary-foreground',
+                              'min-w-0 truncate text-sm font-semibold tracking-tight',
+                              selected && 'text-primary',
                             )}
                           >
-                            <Icon className="size-5" />
+                            {t(`analysts.${analyst}.title`)}
                           </span>
-                          <div className="min-w-0 flex-1 pt-0.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-semibold tracking-tight text-foreground">
-                                {t(`analysts.${analyst}.title`)}
-                              </span>
-                              <span
-                                className={cn(
-                                  'font-mono text-[10px] font-semibold tracking-[0.12em] uppercase',
-                                  selected
-                                    ? 'text-primary'
-                                    : 'text-muted-foreground/50',
-                                )}
-                              >
-                                {selected ? 'ON' : 'OFF'}
-                              </span>
-                            </div>
-                            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                              {t(`analysts.${analyst}.description`)}
-                            </p>
-                          </div>
-                        </div>
+                        </span>
+                        <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                          {t(`analysts.${analyst}.description`)}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
               </Field>
 
-              <FieldGroup className="grid gap-5 sm:grid-cols-2">
+              <FieldGroup className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel
                     htmlFor="trade-date"
@@ -451,75 +450,57 @@ export function HomePage() {
                   </AlertDescription>
                 </Alert>
               )}
-
-              <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
-                {billing.isSuccess && !insufficientCredits ? (
-                  <p className="font-mono text-sm tabular-nums text-muted-foreground">
-                    {t('submit.runEstimate', {
-                      cost: creditUnits,
-                      available: availableCredits,
-                      defaultValue: `This run: ${creditUnits} · Available: ${availableCredits}`,
-                    })}
-                  </p>
-                ) : null}
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="ml-auto min-w-[12rem] font-semibold tracking-wide uppercase"
-                  disabled={
-                    !instrument ||
-                    !analysts.length ||
-                    !selectedOutputLanguage ||
-                    !tradeDate ||
-                    insufficientCredits ||
-                    create.isPending
-                  }
-                >
-                  {create.isPending ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : (
-                    <Play data-icon="inline-start" />
-                  )}
-                  {create.isPending
-                    ? t('submit.submitting')
-                    : t('submit.runWithCredit', {
-                        count: creditUnits,
-                      })}
-                </Button>
-              </div>
             </div>
 
-            <div className="shrink-0 border-t border-border bg-muted/15">
-              <PipelinePanel
-                variant="rail"
-                job={active}
-                events={events.data?.data}
-                loading={events.isLoading}
-              />
+            <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-border bg-muted/20 px-5 py-3.5 lg:px-6">
+              {billing.isSuccess && !insufficientCredits ? (
+                <p className="font-mono text-sm tabular-nums text-muted-foreground">
+                  {t('submit.runEstimate', {
+                    cost: creditUnits,
+                    available: availableCredits,
+                    defaultValue: `This run: ${creditUnits} · Available: ${availableCredits}`,
+                  })}
+                </p>
+              ) : null}
+              <Button
+                type="submit"
+                size="lg"
+                className="ml-auto min-w-[11rem]"
+                disabled={
+                  !instrument ||
+                  !analysts.length ||
+                  !selectedOutputLanguage ||
+                  !tradeDate ||
+                  insufficientCredits ||
+                  create.isPending
+                }
+              >
+                {create.isPending ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <Play data-icon="inline-start" />
+                )}
+                {create.isPending
+                  ? t('submit.submitting')
+                  : t('submit.runWithCredit', {
+                      count: creditUnits,
+                    })}
+              </Button>
             </div>
           </form>
         </section>
 
-        {/* Quote + recent reports */}
-        <aside className="flex w-full min-h-0 shrink-0 flex-col border-t border-border bg-muted/20 lg:w-[min(100%,24rem)] lg:border-t-0 xl:w-[26rem]">
-          <div className="shrink-0 border-b border-border p-4">
-            <p className="mb-3 font-label-caps text-muted-foreground">
-              {t('snapshot.title')}
-            </p>
-            <QuoteStrip
-              variant="panel"
-              quote={quoteForStrip}
-              loading={
-                Boolean(instrument?.provider_symbol) && snapshot.isLoading
-              }
-              detailHref={
-                instrument?.provider_symbol
-                  ? `/stocks/${encodeURIComponent(instrument.provider_symbol)}`
-                  : undefined
-              }
+        {/* Active job + recent activity */}
+        <aside className="flex w-full min-h-0 shrink-0 flex-col border-t border-border bg-muted/15 lg:w-[min(100%,22rem)] lg:border-t-0 xl:w-[24rem]">
+          <div className="shrink-0">
+            <PipelinePanel
+              variant="rail"
+              job={active}
+              events={events.data?.data}
+              loading={events.isLoading}
             />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto border-t border-border">
             <RecentReports
               density="rail"
               jobs={jobs.data?.data ?? []}

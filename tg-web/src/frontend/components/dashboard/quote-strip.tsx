@@ -42,7 +42,7 @@ export function QuoteStrip({
   loading?: boolean;
   detailHref?: string;
   className?: string;
-  /** strip = inline row; panel = stacked card for rail */
+  /** strip = inline under search; panel = stacked card for rail */
   variant?: 'strip' | 'panel';
 }) {
   const { t } = useTranslation('home');
@@ -55,7 +55,7 @@ export function QuoteStrip({
   if (loading) {
     return (
       <Skeleton
-        className={cn(isPanel ? 'h-36 w-full' : 'h-[5.5rem] w-full', className)}
+        className={cn(isPanel ? 'h-36 w-full' : 'h-[4.75rem] w-full', className)}
       />
     );
   }
@@ -64,19 +64,19 @@ export function QuoteStrip({
     return (
       <div
         className={cn(
-          'flex gap-3 border border-dashed border-border/80 bg-muted/20',
+          'flex gap-3 border border-dashed border-border bg-muted/25',
           isPanel
             ? 'flex-col items-center px-4 py-6 text-center'
-            : 'items-center px-4 py-4',
+            : 'items-center px-3.5 py-3.5',
           className,
         )}
       >
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary">
-          <Search className="size-5" />
+        <span className="flex size-10 shrink-0 items-center justify-center border border-border bg-card text-primary">
+          <Search className="size-4" />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium">{t('snapshot.emptyTitle')}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
             {t('snapshot.emptyBody')}
           </p>
         </div>
@@ -87,18 +87,20 @@ export function QuoteStrip({
   return (
     <div
       className={cn(
-        'border border-border bg-card ring-1 ring-border/80',
-        isPanel ? 'flex flex-col gap-3 px-4 py-4' : 'flex flex-wrap items-center gap-4 px-4 py-3.5',
-        isUp && 'border-market-up/30 bg-market-up-bg/30 ring-market-up/10',
-        isDown && 'border-market-down/30 bg-market-down-bg/30 ring-market-down/10',
+        'border border-border bg-card',
+        isPanel
+          ? 'flex flex-col gap-3 px-4 py-4'
+          : 'flex flex-wrap items-center gap-x-4 gap-y-2.5 px-3.5 py-3',
+        isUp && 'border-market-up/25 bg-market-up-bg/20',
+        isDown && 'border-market-down/25 bg-market-down-bg/20',
         className,
       )}
     >
-      <div className={cn('flex items-start gap-3.5', isPanel && 'w-full')}>
+      <div className={cn('flex min-w-0 items-center gap-3', isPanel && 'w-full items-start')}>
         <Avatar
           className={cn(
-            'shrink-0',
-            isPanel ? 'size-16!' : 'size-12!',
+            'shrink-0 !rounded-none after:!rounded-none',
+            isPanel ? 'size-14!' : 'size-10!',
           )}
           data-logo-url={quote.logo_url}
         >
@@ -107,8 +109,9 @@ export function QuoteStrip({
             alt={t('snapshot.logoAlt', {
               name: quote.display_name ?? quote.ticker,
             })}
+            className="!rounded-none"
           />
-          <AvatarFallback className="text-lg font-semibold">
+          <AvatarFallback className="!rounded-none text-sm font-semibold">
             {quote.ticker.slice(0, 1)}
           </AvatarFallback>
         </Avatar>
@@ -120,43 +123,38 @@ export function QuoteStrip({
             </p>
             <Badge
               variant="secondary"
-              className="font-mono text-xs tracking-wider"
+              className="font-mono text-[11px] tracking-wider"
             >
               {quote.display_ticker ?? formatDisplayTicker(quote.ticker)}
             </Badge>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className="gap-1.5 font-mono text-xs tabular-nums"
-            >
-              <span
-                className={cn(
-                  'size-2 rounded-full',
-                  freshness === 'stale'
-                    ? 'bg-primary'
-                    : isDown
-                      ? 'bg-market-down'
-                      : 'bg-market-up',
-                )}
-              />
-              {freshness === 'stale' ? t('snapshot.stale') : t('snapshot.asOf')}
-            </Badge>
-            <p className="font-mono text-xs text-muted-foreground tabular-nums">
-              {quote.source ?? 'TradingView'}
-              {quote.as_of ? ` · ${formatLocaleDateTimeValue(quote.as_of)}` : ''}
-            </p>
-          </div>
+          <p className="mt-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+            <span
+              className={cn(
+                'mr-1.5 inline-block size-1.5 align-middle',
+                freshness === 'stale'
+                  ? 'bg-primary'
+                  : isDown
+                    ? 'bg-market-down'
+                    : 'bg-market-up',
+              )}
+            />
+            {freshness === 'stale' ? t('snapshot.stale') : t('snapshot.asOf')}
+            {quote.source ? ` · ${quote.source}` : ''}
+            {quote.as_of ? ` · ${formatLocaleDateTimeValue(quote.as_of)}` : ''}
+          </p>
         </div>
       </div>
 
       <div
         className={cn(
           'flex items-baseline gap-2.5 font-mono tabular-nums',
-          isPanel && 'w-full justify-between border-t border-border/60 pt-3',
+          isPanel
+            ? 'w-full justify-between border-t border-border/60 pt-3'
+            : 'ml-auto',
         )}
       >
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-1.5">
           <span
             className={cn(
               'font-semibold tracking-tight',
@@ -170,15 +168,17 @@ export function QuoteStrip({
               : '—'}
           </span>
           {quote.currency ? (
-            <span className="text-xs text-muted-foreground">{quote.currency}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {quote.currency}
+            </span>
           ) : null}
         </div>
         <Badge
           variant={marketMoveVariant(changePercent)}
           className="h-6 gap-0.5 px-1.5 font-mono text-xs font-semibold"
         >
-          {isUp ? <ArrowUpRight className="size-4" /> : null}
-          {isDown ? <ArrowDownRight className="size-4" /> : null}
+          {isUp ? <ArrowUpRight className="size-3.5" /> : null}
+          {isDown ? <ArrowDownRight className="size-3.5" /> : null}
           {changePercent === undefined
             ? t('snapshot.changeUnavailable')
             : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`}
@@ -190,7 +190,7 @@ export function QuoteStrip({
           asChild
           variant="outline"
           size="sm"
-          className={cn('shrink-0', isPanel && 'w-full')}
+          className={cn('shrink-0', isPanel ? 'w-full' : 'h-8 px-2.5 text-xs')}
         >
           <Link to={detailHref}>{t('snapshot.openDetail')}</Link>
         </Button>

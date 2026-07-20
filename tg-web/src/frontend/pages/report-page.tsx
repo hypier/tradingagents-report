@@ -63,7 +63,7 @@ const reportFontSteps = [0.92, 1.0, 1.08, 1.18, 1.3] as const;
 const defaultFontStep = 1;
 const defaultReadingPreferences = {
   fontStep: defaultFontStep,
-  paperTheme: 'ivory' as const,
+  paperTheme: 'mist' as const,
   deskTheme: 'slate' as const,
 };
 
@@ -384,7 +384,7 @@ export function ReportPage() {
           </Button>
           <Avatar
             size="lg"
-            className="size-11 rounded-xl after:rounded-xl"
+            className="size-11 !rounded-none after:!rounded-none"
             data-logo-url={identity.logoUrl ?? undefined}
           >
             <AvatarImage
@@ -395,17 +395,14 @@ export function ReportPage() {
                   identity.ticker ??
                   t('instrumentFallback'),
               })}
-              className="rounded-xl"
+              className="!rounded-none"
             />
-            <AvatarFallback className="rounded-xl bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
+            <AvatarFallback className="!rounded-none bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
               {(identity.ticker ?? 'R').slice(0, 1)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
-              {t('eyebrow')}
-            </p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
                 {title}
               </h1>
@@ -443,7 +440,7 @@ export function ReportPage() {
                 </Badge>
               ) : null}
             </div>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+            <p className="mt-1 truncate text-sm text-muted-foreground">
               {subtitle}
             </p>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">

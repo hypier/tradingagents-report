@@ -1,6 +1,6 @@
 {
   "eyebrow": "Task center",
-  "title": "Your analysis jobs",
+  "title": "Tasks",
   "subtitle": "Track queued, running, succeeded, and failed runs.",
   "reportsLink": "Open report library",
   "statusFilter": "Status",

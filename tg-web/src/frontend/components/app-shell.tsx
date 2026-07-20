@@ -33,8 +33,8 @@ export function AppShell({
       className="min-h-svh"
       style={
         {
-          '--sidebar-width': '17rem',
-          '--header-height': '3.5rem',
+          '--sidebar-width': '15.5rem',
+          '--header-height': '3.25rem',
         } as CSSProperties
       }
     >

@@ -200,7 +200,7 @@ export function TickerSearch({
             id={listboxId}
             role="listbox"
             style={menuStyle}
-            className="max-h-80 overflow-auto rounded-xl border bg-popover p-1.5 shadow-lg"
+            className="max-h-80 overflow-auto rounded-none border border-border bg-popover p-1 shadow-lg"
           >
             {search.isLoading ? (
               <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
@@ -222,18 +222,19 @@ export function TickerSearch({
                     role="option"
                     aria-selected={active}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left',
+                      'flex w-full items-center gap-3 rounded-none px-2.5 py-2.5 text-left',
                       active ? 'bg-accent' : 'hover:bg-accent/70',
                     )}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => selectHit(hit)}
                   >
-                    <Avatar className="size-11!">
+                    <Avatar className="size-10! shrink-0 !rounded-none after:!rounded-none">
                       <AvatarImage
                         src={hit.logo_url}
                         alt=""
+                        className="!rounded-none"
                       />
-                      <AvatarFallback className="text-sm font-semibold">
+                      <AvatarFallback className="!rounded-none text-sm font-semibold">
                         {hit.display_ticker.slice(0, 1)}
                       </AvatarFallback>
                     </Avatar>
@@ -261,8 +262,8 @@ export function TickerSearch({
       <div
         ref={inputWrapRef}
         className={cn(
-          'relative flex items-center rounded-soft border border-border/80 bg-card shadow-sm ring-1 ring-border/60',
-          'focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30',
+          'relative flex items-center border border-border bg-card',
+          'focus-within:border-primary/70 focus-within:ring-2 focus-within:ring-primary/35',
         )}
       >
         <Search

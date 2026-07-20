@@ -41,7 +41,7 @@ export function SiteHeader({
   const resolvedTitle = title ?? t(headerTitleKey(location.pathname));
 
   return (
-    <header className="sticky top-0 z-20 flex h-(--header-height) shrink-0 items-center gap-2 border-b border-border bg-background/95 backdrop-blur-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+    <header className="sticky top-0 z-20 flex h-(--header-height) shrink-0 items-center gap-2 border-b border-border bg-background/90 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex w-full items-center gap-2 px-4 lg:gap-3 lg:px-5">
         <SidebarTrigger className="-ml-1" />
         <Separator
@@ -50,7 +50,7 @@ export function SiteHeader({
         />
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
+            <h1 className="truncate text-sm font-semibold tracking-tight text-foreground md:text-base">
               {resolvedTitle}
             </h1>
             {subtitle ? (

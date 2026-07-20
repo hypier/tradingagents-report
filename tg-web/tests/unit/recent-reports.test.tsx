@@ -171,8 +171,8 @@ it('shows logo and company name in the rail density list', () => {
   const texts = [...(row?.querySelectorAll('span.block') ?? [])].map(
     (node) => node.textContent,
   );
-  expect(texts[0]).toBe('Apple Inc.');
-  expect(texts[1]).toBe('AAPL');
+  expect(texts[0]).toBe('AAPL');
+  expect(texts[1]).toBe('Apple Inc.');
 });
 
 it('renders Yahoo-style display tickers for multi-market instruments', () => {

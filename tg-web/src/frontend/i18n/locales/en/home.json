@@ -1,10 +1,10 @@
 {
   "eyebrow": "Research desk",
-  "title": "Run multi-agent analysis",
-  "subtitle": "Pick a ticker, choose the team, and follow the research pipeline to a report.",
+  "title": "Research desk",
+  "subtitle": "Search a ticker, choose analysts, then run the research pipeline.",
   "instrument": {
     "label": "Instrument",
-    "hint": "Search and select a listing to confirm the instrument."
+    "hint": "Type a symbol like AAPL or 0700.HK, then pick a listing."
   },
   "reportLanguage": {
     "label": "Report language",
@@ -16,23 +16,23 @@
     "label": "Analysis date",
     "hint": "Uses your account timezone. Cannot be after today."
   },
-  "analystTeam": "Analyst team",
-  "analystTeamHint": "Select the research agents included in this run.",
+  "analystTeam": "Research nodes",
+  "analystTeamHint": "Toggle agents included in this run.",
   "analysts": {
     "market": {
       "title": "Market",
-      "description": "Technicals, price action, volume, and momentum structure."
+      "description": "Technicals, price action, volume, and momentum."
     },
     "fundamentals": {
       "title": "Fundamentals",
-      "description": "Financials, valuation, quality, and business drivers."
+      "description": "Financials, valuation, quality, and drivers."
     },
     "news": {
       "title": "News",
       "description": "Headlines, catalysts, filings, and macro context."
     },
     "social": {
-      "title": "Sentiment",
+      "title": "Social",
       "description": "Social buzz, crowd positioning, and narrative shift."
     }
   },
@@ -42,7 +42,7 @@
     "runWithCredit_other": "Run analysis ({{count}} credits)",
     "runEstimate": "This run: {{cost}} · Available: {{available}}",
     "creditsAvailable": "{{count}} credits available",
-    "insufficientCredits": "Not enough credits — review subscription",
+    "insufficientCredits": "Not enough credits - review subscription",
     "submitting": "Submitting...",
     "errorTitle": "Unable to submit this run",
     "errorBody": "Check the service connection and retry.",
@@ -58,20 +58,21 @@
     "stale": "Possibly delayed",
     "lastPrice": "Last price",
     "changeUnavailable": "Change unavailable",
-    "emptyTitle": "Pick a stock to begin",
-    "emptyBody": "Use the search on the left — quotes and price moves will show up here.",
+    "emptyTitle": "Select an instrument",
+    "emptyBody": "Quotes and daily moves appear here after you pick a listing.",
     "logoAlt": "{{name}} logo",
-    "openDetail": "Open stock detail"
+    "openDetail": "Open detail"
   },
   "pipeline": {
     "eyebrow": "Live pipeline",
     "title": "Agent activity",
+    "idleTitle": "No active job",
     "currentStage": "Current stage",
     "eventLog": "Event log",
     "latest": "Latest",
     "stageUpdate": "Stage update received.",
     "noEventsTitle": "No events yet",
-    "noEventsBody": "Stage updates appear here while the run is processing.",
+    "noEventsBody": "Stage updates appear here while a run is processing.",
     "complete": "Complete",
     "inProgress": "In progress",
     "pending": "Pending",
