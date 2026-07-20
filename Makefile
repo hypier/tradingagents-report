@@ -15,7 +15,7 @@ COMPOSE = docker compose --env-file docker/config.env -f docker/docker-compose.y
 DOCKERFILE_API = docker/Dockerfile.core
 DOCKERFILE_WEB = docker/Dockerfile.web
 
-.PHONY: help prod-start prod-stop prod-logs prod-pull status
+.PHONY: help prod-start prod-stop prod-logs prod-pull status db-migrate
 .PHONY: docker-login docker-login-ghcr docker-login-hub
 .PHONY: docker-build docker-build-api docker-build-web
 .PHONY: docker-build-amd64 docker-build-amd64-api docker-build-amd64-web
@@ -31,6 +31,7 @@ help:
 	@echo "  make prod-stop      Stop production stack"
 	@echo "  make prod-logs      Follow production logs"
 	@echo "  make prod-pull      Pull images only"
+	@echo "  make db-migrate     Apply Drizzle migrations (web image)"
 	@echo ""
 	@echo "Images:"
 	@echo "  make docker-login            Login to REGISTRY"
@@ -66,6 +67,9 @@ prod-logs:
 prod-pull:
 	$(COMPOSE) pull tradingagents-api tradingagents-web
 	@echo "Images pulled"
+
+db-migrate:
+	bash docker/migrate.sh
 
 status:
 	$(COMPOSE) ps

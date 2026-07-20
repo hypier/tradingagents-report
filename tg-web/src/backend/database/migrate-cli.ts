@@ -42,7 +42,9 @@ export function loadEnvFile(path: string, { override = false } = {}): void {
 export function databaseUrlFromEnv(env: NodeJS.ProcessEnv = process.env): string {
   const urlValue = env.DATABASE_URL?.trim() || '';
   if (!urlValue) {
-    throw new Error('DATABASE_URL must be set in tg-web/.env to run migrations');
+    throw new Error(
+      'DATABASE_URL must be set (tg-web/.env or container env) to run migrations',
+    );
   }
 
   const parsed = new URL(urlValue);

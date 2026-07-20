@@ -48,7 +48,7 @@ git submodule update --init --recursive
 cd docker
 # 编辑 config.env：填写密钥与版本
 ./login.sh
-./start-prod.sh
+./start-prod.sh   # 自动 migrate 后启动全栈
 ```
 
 GitHub Actions 工作流 [`.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml) 在 `main` / tag / 手动触发时构建并推送 `tradingagents-api` 与 `tradingagents-web`。
