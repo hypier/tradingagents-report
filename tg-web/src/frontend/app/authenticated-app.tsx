@@ -5,11 +5,12 @@ import {
   Show,
   SignIn,
   SignInButton,
+  SignOutButton,
   SignUp,
   SignUpButton,
   UserButton,
 } from '@clerk/react';
-import { Sparkles } from 'lucide-react';
+import { LogOut, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -108,6 +109,7 @@ function SignedOutRoutes() {
 }
 
 function SignedInApp() {
+  const { t } = useTranslation('auth');
   const location = useLocation();
 
   if (isAuthenticationPath(location.pathname)) {
@@ -117,7 +119,21 @@ function SignedInApp() {
     return <Navigate replace to={safeRedirectTarget(redirectUrl)} />;
   }
 
-  return <App accountMenu={<UserButton signInUrl="/sign-in" />} />;
+  return (
+    <App
+      accountMenu={
+        <div className="flex items-center gap-1.5">
+          <SignOutButton>
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 px-2.5">
+              <LogOut className="size-3.5" />
+              {t('signOut')}
+            </Button>
+          </SignOutButton>
+          <UserButton signInUrl="/sign-in" />
+        </div>
+      }
+    />
+  );
 }
 
 function AuthPage({ children }: { children: ReactNode }) {

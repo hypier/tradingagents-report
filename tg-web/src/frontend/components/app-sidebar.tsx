@@ -1,13 +1,10 @@
-import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ChevronRight,
   CreditCard,
   FileText,
   LayoutDashboard,
   ListChecks,
   ListTodo,
-  Settings2,
   Shield,
   SlidersHorizontal,
   UserRound,
@@ -20,13 +17,6 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 
 import { BrandMark } from '@/frontend/components/icons/research-icons';
-import { LanguageSwitcher } from '@/frontend/components/language-switcher';
-import { ThemeSwitcher } from '@/frontend/components/theme-switcher';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/frontend/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
@@ -38,9 +28,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarSeparator,
 } from '@/frontend/components/ui/sidebar';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
@@ -96,7 +83,7 @@ const adminNavigation: NavLeaf[] = [
 ];
 
 const floorNavButtonClass = cn(
-  'relative h-10 rounded-none px-3.5 text-sm font-medium tracking-wide',
+  'relative h-11 rounded-none px-3.5 text-base font-medium tracking-wide',
   'text-sidebar-foreground/55 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
   'data-active:bg-sidebar-accent data-active:font-semibold data-active:text-sidebar-primary',
   'data-active:hover:bg-sidebar-accent data-active:hover:text-sidebar-primary',
@@ -192,12 +179,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   pathname={location.pathname}
                 />
               ))}
-              {isAdmin ? (
-                <AdminNavSection pathname={location.pathname} />
-              ) : null}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin ? (
+          <>
+            <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
+            <SidebarGroup className="gap-1 p-0">
+              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+                {t('nav.admin')}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5 px-0">
+                  {adminNavigation.map((item) => (
+                    <FlatNavItem
+                      key={item.href}
+                      item={item}
+                      pathname={location.pathname}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        ) : null}
       </SidebarContent>
 
       <SidebarFooter className="gap-3 border-t border-sidebar-border p-3.5">
@@ -227,11 +233,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             ) : null}
           </Link>
         ) : null}
-
-        <div className="flex items-center justify-between gap-2">
-          <ThemeSwitcher className="gap-0.5 [&_button]:size-9 [&_button]:rounded-none [&_button]:text-sidebar-foreground/60 [&_button[aria-pressed=true]]:bg-sidebar-accent [&_button[aria-pressed=true]]:text-sidebar-primary" />
-          <LanguageSwitcher className="h-9 min-w-0 border-sidebar-border bg-transparent text-sm text-sidebar-foreground/70" />
-        </div>
 
         <div className="rounded-none border border-sidebar-border/80 px-3 py-2.5">
           <div className="mb-1.5 flex items-center gap-1.5 font-mono text-xs tracking-[0.12em] text-sidebar-foreground/45 uppercase">
@@ -270,65 +271,5 @@ function FlatNavItem({
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
-  );
-}
-
-function AdminNavSection({ pathname }: { pathname: string }) {
-  const { t } = useTranslation('common');
-  const hasActive = adminNavigation.some((item) =>
-    isNavActive(pathname, item.href),
-  );
-  const [open, setOpen] = React.useState(hasActive);
-
-  React.useEffect(() => {
-    if (hasActive) setOpen(true);
-  }, [hasActive]);
-
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="group/collapsible"
-    >
-      <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton
-            tooltip={t('nav.admin')}
-            className={floorNavButtonClass}
-          >
-            <Settings2 className="size-4!" />
-            <span>{t('nav.admin')}</span>
-            <ChevronRight className="ml-auto size-4! opacity-50 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub className="mx-0 ml-0 border-l border-sidebar-border px-0 py-1">
-            {adminNavigation.map((item) => {
-              const isActive = isNavActive(pathname, item.href);
-              return (
-                <SidebarMenuSubItem key={item.href}>
-                  <SidebarMenuSubButton
-                    asChild
-                    isActive={isActive}
-                    className={cn(
-                      'relative h-10 rounded-none pl-6 text-sm text-sidebar-foreground/50',
-                      'hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
-                      'data-active:bg-sidebar-accent data-active:text-sidebar-primary',
-                      'before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-none before:bg-transparent before:content-[""]',
-                      'data-active:before:bg-sidebar-primary',
-                    )}
-                  >
-                    <Link to={item.href}>
-                      <item.icon className="size-4!" />
-                      <span>{t(item.titleKey)}</span>
-                    </Link>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              );
-            })}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
   );
 }

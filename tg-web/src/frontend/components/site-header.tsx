@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 
 import { useAccountMenu } from '@/frontend/app/account-menu';
+import { LanguageSwitcher } from '@/frontend/components/language-switcher';
+import { ThemeSwitcher } from '@/frontend/components/theme-switcher';
 import { Separator } from '@/frontend/components/ui/separator';
 import { SidebarTrigger } from '@/frontend/components/ui/sidebar';
 
@@ -38,29 +40,40 @@ export function SiteHeader({
   const location = useLocation();
   const { t } = useTranslation('common');
   const accountMenu = useAccountMenu();
+  const isDeskHome = location.pathname === '/';
+  // Desk page owns its own H1 — avoid repeating the nav label in the chrome.
+  const showTitle = Boolean(title) || !isDeskHome;
   const resolvedTitle = title ?? t(headerTitleKey(location.pathname));
 
   return (
     <header className="sticky top-0 z-20 flex h-(--header-height) shrink-0 items-center gap-2 border-b border-border bg-background/90 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex w-full items-center gap-2 px-4 lg:gap-3 lg:px-5">
         <SidebarTrigger className="-ml-1" />
-        <Separator
-          orientation="vertical"
-          className="mx-1 data-[orientation=vertical]:h-5"
-        />
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold tracking-tight text-foreground md:text-base">
-              {resolvedTitle}
-            </h1>
-            {subtitle ? (
-              <p className="truncate text-sm text-muted-foreground">
-                {subtitle}
-              </p>
-            ) : null}
-          </div>
+        {showTitle ? (
+          <>
+            <Separator
+              orientation="vertical"
+              className="mx-1 data-[orientation=vertical]:h-5"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-sm font-semibold tracking-tight text-foreground md:text-base">
+                {resolvedTitle}
+              </h1>
+              {subtitle ? (
+                <p className="truncate text-sm text-muted-foreground">
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ThemeSwitcher className="gap-0.5 [&_button]:size-8 [&_button]:rounded-none" />
+          <LanguageSwitcher className="h-8 min-w-[7.5rem] rounded-none border-border bg-transparent px-2.5 text-sm" />
+          {accountMenu}
         </div>
-        {accountMenu ? <div className="ml-auto">{accountMenu}</div> : null}
       </div>
     </header>
   );

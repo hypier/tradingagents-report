@@ -31,11 +31,17 @@ it('renders the research command dashboard', () => {
     </MemoryRouter>,
   );
 
-  expect(screen.getByRole('main')).toHaveTextContent('Research desk');
+  expect(screen.getByRole('main')).toHaveTextContent('Run analysis');
   expect(screen.getByRole('main')).toHaveTextContent('Live pipeline');
   expect(
     screen.getByRole('heading', { name: 'Recent reports' }),
   ).toBeInTheDocument();
+  expect(
+    screen.getByRole('link', { name: 'Desk' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: 'Research desk' }),
+  ).not.toBeInTheDocument();
 });
 
 it('renders the standard dashboard navigation shell', () => {
