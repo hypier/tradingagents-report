@@ -21,7 +21,7 @@ DOCKERFILE_WEB = docker/Dockerfile.web
 .PHONY: docker-build-amd64 docker-build-amd64-api docker-build-amd64-web
 .PHONY: docker-setup-buildx docker-push-multiarch docker-all-multiarch
 .PHONY: docker-push docker-push-api docker-push-web docker-all docker-clean
-.PHONY: update-api update-web update-all check-health
+.PHONY: update-api update-web update-apps update-all check-health
 
 help:
 	@echo "TradingAgents Report — commands:"
@@ -44,6 +44,7 @@ help:
 	@echo "Updates:"
 	@echo "  make update-api     Rolling update tradingagents-api"
 	@echo "  make update-web     Rolling update tradingagents-web"
+	@echo "  make update-apps    Redeploy API + Web"
 	@echo "  make update-all     Update all services"
 	@echo "  make check-health   Curl health endpoints"
 	@echo ""
@@ -160,6 +161,9 @@ update-api:
 
 update-web:
 	bash docker/zero-downtime-update.sh tradingagents-web
+
+update-apps:
+	bash docker/zero-downtime-update.sh apps
 
 update-all:
 	bash docker/zero-downtime-update.sh all
