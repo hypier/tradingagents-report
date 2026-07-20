@@ -73,6 +73,7 @@ function fakeDependencies(): AppDependencies {
       getSnapshot: vi.fn(),
     },
     logger: new Logger(),
+    clerkPublishableKey: 'pk_test_public',
   };
 }
 

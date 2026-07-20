@@ -25,7 +25,11 @@ that are reachable from the development machine:
 - `PORT`: Node BFF port; Vite proxies `/api` to it.
 - `VITE_API_BASE_URL`: browser-visible same-origin API base path.
 - `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`: the Clerk
-  application keys used by the browser and BFF respectively.
+  application keys used by the browser and BFF respectively. In production
+  the browser loads the publishable key from `GET /api/public-config` at
+  runtime (from the BFF environment), so changing `config.env` and
+  restarting web is enough; rebuilding the image is not required for key
+  rotation. Vite still injects the same variable for local `pnpm dev`.
 - `CLERK_AUTHORIZED_PARTIES`: comma-separated browser origins allowed in
   Clerk session tokens. Local Vite development normally uses
   `http://localhost:5173` and `http://127.0.0.1:5173`.

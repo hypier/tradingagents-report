@@ -122,6 +122,7 @@ describe('Cloudflare Worker runtime', () => {
         getSnapshot: vi.fn(),
       },
       logger: new Logger(),
+      clerkPublishableKey: 'pk_test_public',
     }));
     const handler = createWorkerHandler(createDependencies);
     const env = workerEnv();

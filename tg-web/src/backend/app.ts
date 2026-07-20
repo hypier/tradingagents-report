@@ -16,6 +16,7 @@ import {
   type RequestIdEnvironment,
 } from './logging/request-id';
 import { healthRoutes } from './routes/health';
+import { publicConfigRoutes } from './routes/public-config';
 import { readyRoutes } from './routes/ready';
 import { analysisRoutes } from './routes/analyses';
 import { authRoutes } from './routes/auth';
@@ -38,6 +39,8 @@ export type AppDependencies = {
   core: CoreClientContract;
   marketAssets: MarketAssetClient;
   logger: Logger;
+  /** Browser Clerk publishable key; exposed via /api/public-config at runtime. */
+  clerkPublishableKey: string;
 };
 
 export function createApp(dependencies: AppDependencies) {
@@ -45,6 +48,7 @@ export function createApp(dependencies: AppDependencies) {
 
   app.use('/api/*', createRequestIdMiddleware());
   app.route('/api', healthRoutes());
+  app.route('/api', publicConfigRoutes(dependencies));
   app.route('/api', readyRoutes(dependencies));
   app.route('/api', stripeWebhookRoutes(dependencies));
   app.use('/api/auth/*', requireAuth(dependencies));

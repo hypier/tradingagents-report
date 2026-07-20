@@ -54,6 +54,7 @@ function createDependencies(env: WorkerEnv): AppDependencies {
     core,
     marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
     logger,
+    clerkPublishableKey: config.clerkAuth.publishableKey,
   };
 }
 

@@ -116,6 +116,7 @@ function fakeDependencies(
       getSnapshot: vi.fn(),
     },
     logger: new Logger(),
+    clerkPublishableKey: 'pk_test_public',
     ...overrides,
   };
 }
@@ -936,6 +937,19 @@ describe('createApp', () => {
     expect(dependencies.cache.healthcheck).not.toHaveBeenCalled();
     expect(dependencies.core.healthcheck).not.toHaveBeenCalled();
     expect(dependencies.auth.authenticate).not.toHaveBeenCalled();
+  });
+
+  it('exposes the Clerk publishable key via public config', async () => {
+    const app = createApp(
+      fakeDependencies({ clerkPublishableKey: 'pk_live_from_runtime' }),
+    );
+
+    const response = await app.request('/api/public-config');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { clerkPublishableKey: 'pk_live_from_runtime' },
+    });
   });
 
   it('returns degraded readiness when only cache health fails', async () => {

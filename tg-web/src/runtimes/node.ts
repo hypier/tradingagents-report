@@ -178,6 +178,7 @@ async function run(): Promise<void> {
     core,
     marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
     logger,
+    clerkPublishableKey: config.clerkAuth.publishableKey,
   };
   const runtime = await startNodeRuntime(dependencies, {
     port: config.port,
