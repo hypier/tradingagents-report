@@ -93,7 +93,7 @@ pnpm install
 pnpm dev
 pnpm build
 pnpm test
-docker compose --env-file ../tg-core/.env --profile web -f ../docker/docker-compose.yml up --build
+docker compose --env-file ../tg-core/.env -f ../docker/docker-compose.yml up --build
 pnpm exec wrangler dev --local
 ```
 
@@ -116,7 +116,7 @@ dependencies.
 ## Docker deployment
 
 ```bash
-docker compose --env-file tg-core/.env --profile web -f docker/docker-compose.yml up --build
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build
 ```
 
 Compose starts `tg-web`, Redis, the Core API, and PostgreSQL on one internal

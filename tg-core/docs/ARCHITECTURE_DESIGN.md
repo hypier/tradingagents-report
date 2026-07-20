@@ -63,10 +63,12 @@ tg-core/
 ├── tests/                        # pytest 测试
 ├── scripts/                      # 冒烟脚本
 ├── pyproject.toml                # 包、依赖、CLI 脚本、pytest、ruff 配置
-└── ../docker/
+└── ../docker/                    # git submodule → hypier/tradingagents-report-docker
     ├── Dockerfile.core
     ├── Dockerfile.web
-    └── docker-compose.yml
+    ├── docker-compose.yml
+    ├── config.env
+    └── README.md                 # GHCR 拉取与生产部署
 ```
 
 ## 4. 总体架构

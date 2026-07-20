@@ -41,16 +41,28 @@ printf 'TRADINGAGENTS_API_KEY=%s\nTRADINGAGENTS_POSTGRES_PASSWORD=%s\n' \
 docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build -d postgres tradingagents-api
 ```
 
+生产环境推荐从 GHCR 拉取镜像（见 [`docker/README.md`](../../docker/README.md)；`docker/` 为私有子模块 [`tradingagents-report-docker`](https://github.com/hypier/tradingagents-report-docker)）：
+
+```bash
+git submodule update --init --recursive
+cd docker
+# 编辑 config.env：填写密钥与版本
+./login.sh
+./start-prod.sh
+```
+
+GitHub Actions 工作流 [`.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml) 在 `main` / tag / 手动触发时构建并推送 `tradingagents-api` 与 `tradingagents-web`。
+
 API 默认监听：
 
 ```text
 http://localhost:8000
 ```
 
-Frontend URL:
+Web BFF：
 
 ```text
-http://localhost:3000
+http://localhost:8788
 ```
 
 Swagger 文档：

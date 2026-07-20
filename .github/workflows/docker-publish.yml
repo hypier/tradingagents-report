@@ -1,0 +1,271 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+    paths:
+      - 'VERSION'
+      - 'docker'
+      - '.gitmodules'
+      - 'tg-core/**'
+      - 'tg-web/**'
+      - '.github/workflows/docker-publish.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
+      - 'docker'
+      - '.gitmodules'
+      - 'tg-core/**'
+      - 'tg-web/**'
+      - '.github/workflows/docker-publish.yml'
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to build (all/api/web, comma-separated)'
+        required: false
+        default: 'all'
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ${{ github.repository_owner }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      api_version: ${{ steps.version.outputs.API_VERSION }}
+      web_version: ${{ steps.version.outputs.WEB_VERSION }}
+      build_api: ${{ steps.changes.outputs.build_api }}
+      build_web: ${{ steps.changes.outputs.build_web }}
+      should_push: ${{ steps.changes.outputs.should_push }}
+      is_tag: ${{ steps.changes.outputs.is_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          # Private submodule hypier/tradingagents-report-docker
+          token: ${{ secrets.SUBMODULES_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Read version config
+        id: version
+        run: |
+          if [ -f "VERSION" ]; then
+            # shellcheck disable=SC1091
+            source VERSION
+          else
+            echo "ERROR: No VERSION file found in root directory"
+            exit 1
+          fi
+          echo "API_VERSION=${API_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "WEB_VERSION=${WEB_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Detect changes and determine build strategy
+        id: changes
+        run: |
+          SHOULD_PUSH="false"
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            SHOULD_PUSH="true"
+          fi
+          echo "should_push=${SHOULD_PUSH}" >> "$GITHUB_OUTPUT"
+
+          IS_TAG="false"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            IS_TAG="true"
+          fi
+          echo "is_tag=${IS_TAG}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SERVICES="${{ github.event.inputs.services }}"
+            [[ "$SERVICES" == "all" || "$SERVICES" == *"api"* ]] && echo "build_api=true" >> "$GITHUB_OUTPUT" || echo "build_api=false" >> "$GITHUB_OUTPUT"
+            [[ "$SERVICES" == "all" || "$SERVICES" == *"web"* ]] && echo "build_web=true" >> "$GITHUB_OUTPUT" || echo "build_web=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$IS_TAG" == "true" ]]; then
+            echo "build_api=true" >> "$GITHUB_OUTPUT"
+            echo "build_web=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [[ -z "$BASE_SHA" ]] || [[ "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            echo "build_api=true" >> "$GITHUB_OUTPUT"
+            echo "build_web=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git show "$BASE_SHA":VERSION > /tmp/VERSION.old 2>/dev/null || touch /tmp/VERSION.old
+          # shellcheck disable=SC1091
+          source /tmp/VERSION.old || true
+          OLD_API_VERSION="${API_VERSION:-}"
+          OLD_WEB_VERSION="${WEB_VERSION:-}"
+
+          NEW_API_VERSION="${{ steps.version.outputs.API_VERSION }}"
+          NEW_WEB_VERSION="${{ steps.version.outputs.WEB_VERSION }}"
+
+          # Also rebuild when Dockerfiles or package trees change without VERSION bump
+          CHANGED_FILES="$(git diff --name-only "$BASE_SHA"...HEAD || true)"
+          API_PATH_CHANGED=false
+          WEB_PATH_CHANGED=false
+          echo "$CHANGED_FILES" | grep -E '^(tg-core/|docker$)' >/dev/null && API_PATH_CHANGED=true
+          echo "$CHANGED_FILES" | grep -E '^(tg-web/|docker$)' >/dev/null && WEB_PATH_CHANGED=true
+
+          if [[ "$OLD_API_VERSION" != "$NEW_API_VERSION" || "$API_PATH_CHANGED" == "true" ]]; then
+            echo "build_api=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_api=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "$OLD_WEB_VERSION" != "$NEW_WEB_VERSION" || "$WEB_PATH_CHANGED" == "true" ]]; then
+            echo "build_web=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_web=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-api:
+    needs: prepare
+    if: needs.prepare.outputs.build_api == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULES_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: needs.prepare.outputs.should_push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/tradingagents-api
+          tags: |
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ needs.prepare.outputs.api_version }},enable=${{ needs.prepare.outputs.is_tag == 'false' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push api image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.core
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.prepare.outputs.should_push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+  build-web:
+    needs: prepare
+    if: needs.prepare.outputs.build_web == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULES_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: needs.prepare.outputs.should_push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/tradingagents-web
+          tags: |
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ needs.prepare.outputs.web_version }},enable=${{ needs.prepare.outputs.is_tag == 'false' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.web
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.prepare.outputs.should_push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  summary:
+    needs: [prepare, build-api, build-web]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          {
+            echo "## Docker Images Build Summary"
+            echo ""
+            if [[ "${{ needs.prepare.outputs.should_push }}" == "true" ]]; then
+              echo "Images pushed to registry"
+            else
+              echo "PR mode: build only, no push"
+            fi
+            echo ""
+            echo "| Service | Built | Version | Status |"
+            echo "|---------|-------|---------|--------|"
+            if [[ "${{ needs.prepare.outputs.build_api }}" == "true" ]]; then
+              echo "| api | yes | ${{ needs.prepare.outputs.api_version }} | ${{ needs.build-api.result }} |"
+            else
+              echo "| api | skipped | ${{ needs.prepare.outputs.api_version }} | skipped |"
+            fi
+            if [[ "${{ needs.prepare.outputs.build_web }}" == "true" ]]; then
+              echo "| web | yes | ${{ needs.prepare.outputs.web_version }} | ${{ needs.build-web.result }} |"
+            else
+              echo "| web | skipped | ${{ needs.prepare.outputs.web_version }} | skipped |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

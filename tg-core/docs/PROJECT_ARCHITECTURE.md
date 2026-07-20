@@ -53,10 +53,12 @@ TradingAgents/
 │   ├── default_config.py        # 默认配置和环境变量覆盖
 │   └── reporting.py             # 统一报告目录写入
 ├── pyproject.toml               # 打包、依赖、pytest 和 Ruff 配置
-└── ../docker/
+└── ../docker/                    # git submodule → hypier/tradingagents-report-docker
     ├── Dockerfile.core
     ├── Dockerfile.web
-    └── docker-compose.yml
+    ├── docker-compose.yml
+    ├── config.env
+    └── README.md
 ```
 
 核心模块职责：
