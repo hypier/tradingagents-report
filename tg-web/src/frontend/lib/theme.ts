@@ -2,7 +2,8 @@ export const UI_THEMES = ['light', 'dark', 'system'] as const;
 
 export type UiTheme = (typeof UI_THEMES)[number];
 
-export const DEFAULT_UI_THEME: UiTheme = 'system';
+/** Signal Floor is dark-first; users can still switch to light. */
+export const DEFAULT_UI_THEME: UiTheme = 'dark';
 
 export const UI_THEME_STORAGE_KEY = 'tg-web.theme';
 

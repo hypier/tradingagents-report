@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Activity,
   ChevronRight,
   CreditCard,
   FileText,
@@ -42,9 +41,12 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarSeparator,
 } from '@/frontend/components/ui/sidebar';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
+import { getBillingOverview } from '@/frontend/lib/billing';
 import { fetchPublicConfig } from '@/frontend/lib/public-config';
+import { cn } from '@/frontend/lib/utils';
 
 type NavLeaf = {
   titleKey:
@@ -66,12 +68,6 @@ type NavLeaf = {
   href: string;
 };
 
-type NavSection = {
-  titleKey: 'nav.research' | 'nav.accountGroup' | 'nav.admin';
-  icon: typeof LayoutDashboard;
-  items: NavLeaf[];
-};
-
 const researchNavigationBase: NavLeaf[] = [
   { titleKey: 'nav.desk', icon: LayoutDashboard, href: '/' },
   { titleKey: 'nav.tasks', icon: ListTodo, href: '/tasks' },
@@ -85,14 +81,10 @@ const accountNavigation: NavLeaf[] = [
 ];
 
 const adminNavigation: NavLeaf[] = [
-  { titleKey: 'nav.adminOverview', icon: Activity, href: '/admin' },
+  { titleKey: 'nav.adminOverview', icon: LayoutDashboard, href: '/admin' },
   { titleKey: 'nav.adminUsers', icon: UsersRound, href: '/admin/users' },
   { titleKey: 'nav.adminAnalyses', icon: ListTodo, href: '/admin/analyses' },
-  {
-    titleKey: 'nav.adminBilling',
-    icon: Settings2,
-    href: '/admin/billing',
-  },
+  { titleKey: 'nav.adminBilling', icon: CreditCard, href: '/admin/billing' },
   { titleKey: 'nav.adminModels', icon: Cpu, href: '/admin/models' },
   {
     titleKey: 'nav.adminSettings',
@@ -103,14 +95,19 @@ const adminNavigation: NavLeaf[] = [
   { titleKey: 'nav.adminAudit', icon: ScrollText, href: '/admin/audit' },
 ];
 
+const floorNavButtonClass = cn(
+  'relative h-12 rounded-none px-3.5 text-base font-medium tracking-wide',
+  'text-sidebar-foreground/55 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
+  'data-active:bg-sidebar-accent data-active:font-semibold data-active:text-sidebar-primary',
+  'data-active:hover:bg-sidebar-accent data-active:hover:text-sidebar-primary',
+  'before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-none before:bg-transparent before:content-[""]',
+  'data-active:before:bg-sidebar-primary',
+);
+
 function isNavActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
   if (href === '/admin') return pathname === '/admin';
   return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function sectionHasActive(pathname: string, items: NavLeaf[]) {
-  return items.some((item) => isNavActive(pathname, item.href));
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -123,52 +120,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     queryFn: () => fetchPublicConfig(),
     staleTime: 60_000,
   });
+  const billing = useQuery({
+    queryKey: ['billing-overview'],
+    queryFn: () => getBillingOverview(),
+    staleTime: 30_000,
+  });
   const showWatchlist =
     publicConfig.isLoading || publicConfig.data?.features.watchlist !== false;
   const researchNavigation = showWatchlist
     ? researchNavigationBase
     : researchNavigationBase.filter((item) => item.href !== '/watchlist');
-
-  const sections: NavSection[] = [
-    {
-      titleKey: 'nav.research',
-      icon: LayoutDashboard,
-      items: researchNavigation,
-    },
-    {
-      titleKey: 'nav.accountGroup',
-      icon: UserRound,
-      items: accountNavigation,
-    },
-    ...(isAdmin
-      ? [
-          {
-            titleKey: 'nav.admin' as const,
-            icon: Shield,
-            items: adminNavigation,
-          },
-        ]
-      : []),
-  ];
+  const availableCredits = billing.data?.data.usage?.availableCredits;
+  const periodEnd = billing.data?.data.usage?.periodEnd;
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
+      <SidebarHeader className="gap-0 border-b border-sidebar-border p-0">
+        <SidebarMenu className="gap-0">
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               size="lg"
-              className="data-[slot=sidebar-menu-button]:p-1.5! [&_svg]:size-10!"
+              className="h-16 rounded-none px-3.5 hover:bg-transparent data-active:bg-transparent [&_svg]:size-8!"
             >
               <Link to="/">
-                <BrandMark className="size-10 text-primary" />
-                <span className="flex flex-col gap-0.5">
-                  <span className="text-sm font-semibold tracking-tight">
+                <BrandMark className="size-8 text-sidebar-primary" />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-base font-semibold tracking-tight text-sidebar-foreground">
                     {t('brand.name')}
                   </span>
-                  <span className="text-[11px] font-normal text-muted-foreground">
-                    {t('brand.tagline')}
+                  <span className="font-mono text-xs tracking-[0.16em] text-sidebar-primary/80 uppercase">
+                    {t('brand.floorTag')}
                   </span>
                 </span>
               </Link>
@@ -176,33 +158,87 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t('nav.workspace')}</SidebarGroupLabel>
+
+      <SidebarContent className="gap-0 px-0 py-2">
+        <SidebarGroup className="gap-1 p-0">
+          <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+            {t('nav.research')}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {sections.map((section) => (
-                <NavSectionItem
-                  key={section.titleKey}
-                  section={section}
+            <SidebarMenu className="gap-0.5 px-0">
+              {researchNavigation.map((item) => (
+                <FlatNavItem
+                  key={item.href}
+                  item={item}
                   pathname={location.pathname}
                 />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
+
+        <SidebarGroup className="gap-1 p-0">
+          <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+            {t('nav.accountGroup')}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5 px-0">
+              {accountNavigation.map((item) => (
+                <FlatNavItem
+                  key={item.href}
+                  item={item}
+                  pathname={location.pathname}
+                />
+              ))}
+              {isAdmin ? (
+                <AdminNavSection pathname={location.pathname} />
+              ) : null}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-          <ThemeSwitcher />
-          <LanguageSwitcher />
+
+      <SidebarFooter className="gap-3 border-t border-sidebar-border p-3.5">
+        {typeof availableCredits === 'number' ? (
+          <Link
+            to="/billing"
+            className="group block rounded-none border border-sidebar-border bg-[#151c25] px-3 py-3 transition-colors hover:border-sidebar-primary/40"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-mono text-xs tracking-[0.14em] text-sidebar-foreground/45 uppercase">
+                {t('nav.creditsLedger')}
+              </p>
+              <CreditCard className="size-4 text-sidebar-primary opacity-80 transition-opacity group-hover:opacity-100" />
+            </div>
+            <p className="mt-1.5 font-mono text-2xl font-semibold leading-none tabular-nums text-sidebar-foreground">
+              <span className="mr-2 text-xs font-medium tracking-wide text-sidebar-foreground/45 uppercase">
+                {t('nav.creditsLabel', { defaultValue: 'Credits' })}
+              </span>
+              {availableCredits}
+            </p>
+            {periodEnd ? (
+              <p className="mt-2 font-mono text-xs text-sidebar-foreground/45">
+                {t('nav.creditsCycle', {
+                  date: new Date(periodEnd * 1000).toLocaleDateString(),
+                })}
+              </p>
+            ) : null}
+          </Link>
+        ) : null}
+
+        <div className="flex items-center justify-between gap-2">
+          <ThemeSwitcher className="gap-0.5 [&_button]:size-9 [&_button]:rounded-none [&_button]:text-sidebar-foreground/60 [&_button[aria-pressed=true]]:bg-sidebar-accent [&_button[aria-pressed=true]]:text-sidebar-primary" />
+          <LanguageSwitcher className="h-9 min-w-0 border-sidebar-border bg-transparent text-sm text-sidebar-foreground/70" />
         </div>
-        <div className="rounded-lg border bg-sidebar-accent/40 px-3 py-2.5">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-sidebar-foreground/90">
-            <Shield className="size-3.5 text-primary" />
+
+        <div className="rounded-none border border-sidebar-border/80 px-3 py-2.5">
+          <div className="mb-1.5 flex items-center gap-1.5 font-mono text-xs tracking-[0.12em] text-sidebar-foreground/45 uppercase">
+            <Shield className="size-3.5 text-sidebar-primary/80" />
             {t('disclaimer.title')}
           </div>
-          <p className="text-[11px] leading-relaxed text-sidebar-foreground/75">
+          <p className="text-xs leading-relaxed text-sidebar-foreground/50">
             {t('disclaimer.body')}
           </p>
         </div>
@@ -211,24 +247,42 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   );
 }
 
-function NavSectionItem({
-  section,
+function FlatNavItem({
+  item,
   pathname,
 }: {
-  section: NavSection;
+  item: NavLeaf;
   pathname: string;
 }) {
   const { t } = useTranslation('common');
-  const hasActive = sectionHasActive(pathname, section.items);
-  const [open, setOpen] = React.useState(
-    () => hasActive || section.titleKey !== 'nav.admin',
+  const isActive = isNavActive(pathname, item.href);
+  return (
+    <SidebarMenuItem className="px-0">
+      <SidebarMenuButton
+        asChild
+        isActive={isActive}
+        tooltip={t(item.titleKey)}
+        className={floorNavButtonClass}
+      >
+        <Link to={item.href}>
+          <item.icon className="size-5!" />
+          <span>{t(item.titleKey)}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
+}
+
+function AdminNavSection({ pathname }: { pathname: string }) {
+  const { t } = useTranslation('common');
+  const hasActive = adminNavigation.some((item) =>
+    isNavActive(pathname, item.href),
+  );
+  const [open, setOpen] = React.useState(hasActive);
 
   React.useEffect(() => {
     if (hasActive) setOpen(true);
   }, [hasActive]);
-
-  const title = t(section.titleKey);
 
   return (
     <Collapsible
@@ -238,23 +292,35 @@ function NavSectionItem({
     >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={title}>
-            <section.icon />
-            <span>{title}</span>
-            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+          <SidebarMenuButton
+            tooltip={t('nav.admin')}
+            className={floorNavButtonClass}
+          >
+            <Settings2 className="size-4!" />
+            <span>{t('nav.admin')}</span>
+            <ChevronRight className="ml-auto size-4! opacity-50 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <SidebarMenuSub>
-            {section.items.map((item) => {
-              const itemTitle = t(item.titleKey);
+          <SidebarMenuSub className="mx-0 ml-0 border-l border-sidebar-border px-0 py-1">
+            {adminNavigation.map((item) => {
               const isActive = isNavActive(pathname, item.href);
               return (
                 <SidebarMenuSubItem key={item.href}>
-                  <SidebarMenuSubButton asChild isActive={isActive}>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={isActive}
+                    className={cn(
+                      'relative h-10 rounded-none pl-6 text-sm text-sidebar-foreground/50',
+                      'hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
+                      'data-active:bg-sidebar-accent data-active:text-sidebar-primary',
+                      'before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-none before:bg-transparent before:content-[""]',
+                      'data-active:before:bg-sidebar-primary',
+                    )}
+                  >
                     <Link to={item.href}>
-                      <item.icon />
-                      <span>{itemTitle}</span>
+                      <item.icon className="size-4!" />
+                      <span>{t(item.titleKey)}</span>
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

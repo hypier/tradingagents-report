@@ -110,6 +110,10 @@ export function createApp(dependencies: AppDependencies) {
         status,
         code: error instanceof AppError ? error.code : 'INTERNAL_ERROR',
         error: error instanceof Error ? error.message : String(error),
+        cause:
+          error instanceof Error && error.cause instanceof Error
+            ? error.cause.message
+            : undefined,
         stack: error instanceof Error ? error.stack : undefined,
       });
     }

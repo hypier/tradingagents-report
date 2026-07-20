@@ -1,7 +1,8 @@
 {
   "brand": {
     "name": "TradingAgents",
-    "tagline": "Multi-agent research"
+    "tagline": "Multi-agent research",
+    "floorTag": "Signal Floor"
   },
   "nav": {
     "workspace": "Workspace",
@@ -13,6 +14,9 @@
     "reports": "Reports",
     "watchlist": "Watchlist",
     "billing": "Subscription",
+    "creditsLedger": "Ledger status",
+    "creditsLabel": "Credits",
+    "creditsCycle": "Cycle ends {{date}}",
     "account": "Account",
     "adminOverview": "Ops overview",
     "adminUsers": "User management",

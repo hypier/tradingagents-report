@@ -47,7 +47,7 @@ it('uses the destructive badge variant for failed research', () => {
   );
 });
 
-it('uses the primary green badge variant for succeeded research', () => {
+it('uses the market-up badge variant for succeeded research', () => {
   const { container } = render(
     <TooltipProvider>
       <RecentReports
@@ -61,11 +61,11 @@ it('uses the primary green badge variant for succeeded research', () => {
 
   expect(within(container).getByText('Succeeded')).toHaveAttribute(
     'data-variant',
-    'default',
+    'up',
   );
 });
 
-it('uses the blue info badge variant for running research', () => {
+it('uses the running badge variant for running research', () => {
   render(
     <TooltipProvider>
       <RecentReports
@@ -77,7 +77,7 @@ it('uses the blue info badge variant for running research', () => {
     </TooltipProvider>,
   );
 
-  expect(screen.getByText('Running')).toHaveAttribute('data-variant', 'info');
+  expect(screen.getByText('Running')).toHaveAttribute('data-variant', 'running');
 });
 
 it('shows a TradingView asset logo before the ticker when available', () => {
@@ -129,7 +129,7 @@ it('shows the report output language column', async () => {
   expect(
     screen.getByRole('columnheader', { name: 'Language' }),
   ).toBeInTheDocument();
-  expect(screen.getByText('Chinese')).toBeInTheDocument();
+  expect(screen.getByText('Chinese · 中文')).toBeInTheDocument();
 
   await i18n.changeLanguage('zh');
 
@@ -137,6 +137,42 @@ it('shows the report output language column', async () => {
     await screen.findByRole('columnheader', { name: '语言' }),
   ).toBeInTheDocument();
   expect(screen.getByText('中文')).toBeInTheDocument();
+});
+
+it('shows logo and company name in the rail density list', () => {
+  const { container } = render(
+    <TooltipProvider>
+      <RecentReports
+        density="rail"
+        jobs={[{ id: 'job-1', ticker: 'AAPL', status: 'succeeded' }]}
+        identities={{
+          AAPL: {
+            ticker: 'AAPL',
+            display_name: 'Apple Inc.',
+            logo_url: 'https://tv-logo.tradingviewapi.com/logo/apple.svg',
+          },
+        }}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(screen.getByText('Apple Inc.')).toBeInTheDocument();
+  expect(screen.getByText('AAPL')).toBeInTheDocument();
+  expect(container.querySelector('[data-logo-url]')).toHaveAttribute(
+    'data-logo-url',
+    'https://tv-logo.tradingviewapi.com/logo/apple.svg',
+  );
+
+  const row = screen.getByText('AAPL').closest('button');
+  expect(row).toBeTruthy();
+  const texts = [...(row?.querySelectorAll('span.block') ?? [])].map(
+    (node) => node.textContent,
+  );
+  expect(texts[0]).toBe('Apple Inc.');
+  expect(texts[1]).toBe('AAPL');
 });
 
 it('renders Yahoo-style display tickers for multi-market instruments', () => {

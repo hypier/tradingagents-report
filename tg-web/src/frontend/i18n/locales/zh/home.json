@@ -17,10 +17,30 @@
     "hint": "按账户时区计算；不可晚于今天。"
   },
   "analystTeam": "分析师团队",
+  "analystTeamHint": "选择本次运行要纳入的研究智能体。",
+  "analysts": {
+    "market": {
+      "title": "市场",
+      "description": "技术面、价格行为、成交量与动能结构。"
+    },
+    "fundamentals": {
+      "title": "基本面",
+      "description": "财务、估值、质量与业务驱动因素。"
+    },
+    "news": {
+      "title": "新闻",
+      "description": "头条、催化事件、公告与宏观语境。"
+    },
+    "social": {
+      "title": "情绪",
+      "description": "社交热度、群体仓位与叙事变化。"
+    }
+  },
   "submit": {
     "run": "开始分析",
     "runWithCredit": "开始分析（消耗 {{count}} 额度）",
     "runWithCredit_other": "开始分析（消耗 {{count}} 额度）",
+    "runEstimate": "本次：{{cost}} · 剩余：{{available}}",
     "creditsAvailable": "剩余 {{count}} 额度",
     "insufficientCredits": "额度不足 — 查看订阅",
     "submitting": "提交中...",
@@ -38,8 +58,8 @@
     "stale": "可能延迟",
     "lastPrice": "最新价",
     "changeUnavailable": "涨跌幅不可用",
-    "emptyTitle": "尚未加载行情",
-    "emptyBody": "搜索并选择股票，可在运行分析前预览最新快照。",
+    "emptyTitle": "先选一只股票吧",
+    "emptyBody": "在左侧搜索框里找到标的后，这里会显示最新价格与涨跌。",
     "logoAlt": "{{name}} 标志",
     "openDetail": "打开股票详情"
   },

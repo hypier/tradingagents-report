@@ -1,31 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  CalendarDays,
-  LineChart,
-  Play,
-  Search,
-} from 'lucide-react';
+import { CalendarDays, Play, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
 import { PipelinePanel } from '../components/dashboard/pipeline-panel';
+import { QuoteStrip } from '../components/dashboard/quote-strip';
 import { RecentReports } from '../components/dashboard/recent-reports';
 import {
   getAnalystIcon,
   Languages,
-  Workflow,
 } from '../components/icons/research-icons';
 import { TickerSearch } from '../components/ticker-search';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
 import {
   Field,
   FieldDescription,
@@ -41,21 +31,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
-import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import { getAccountProfile } from '../lib/account';
 import { getBillingOverview } from '../lib/billing';
-import {
-  formatLocaleDateTimeValue,
-  formatLocaleNumber,
-} from '../lib/format-locale';
-import { OUTPUT_LANGUAGE_IDS } from '../lib/format-output-language';
+import { OUTPUT_LANGUAGE_IDS, formatOutputLanguage } from '../lib/format-output-language';
 import { fetchCreditEstimate } from '../lib/public-config';
-import { snapshotFreshness } from '../lib/snapshot-freshness';
-import { cn } from '../lib/utils';
 import { todayInTimezone } from '../i18n/locales';
-import { formatDisplayTicker, listingFromProviderSymbol } from '@/shared/listing';
+import { cn } from '../lib/utils';
+import { listingFromProviderSymbol } from '@/shared/listing';
 import { marketFromExchange } from '@/shared/market-codes';
 import {
   createResearch,
@@ -67,11 +50,6 @@ import {
 } from '../lib/research';
 
 const analystOptions = ['market', 'fundamentals', 'news', 'social'];
-
-function marketMoveVariant(changePercent?: number) {
-  if (changePercent === undefined || changePercent === 0) return 'outline';
-  return changePercent > 0 ? 'up' : 'down';
-}
 
 function instrumentFromProviderSymbol(
   providerSymbol: string,
@@ -174,7 +152,6 @@ export function HomePage() {
       ? create.error.code
       : null;
   const quote = snapshot.data?.data;
-  const freshness = snapshotFreshness(quote?.as_of);
   const identitiesByTicker = Object.fromEntries(
     (identities.data?.data ?? []).map((identity) => [
       identity.ticker,
@@ -183,9 +160,6 @@ export function HomePage() {
   );
   const selectedOutputLanguage =
     outputLanguage === 'custom' ? customLanguage.trim() : outputLanguage;
-  const changePercent = quote?.change_percent;
-  const isUp = changePercent !== undefined && changePercent > 0;
-  const isDown = changePercent !== undefined && changePercent < 0;
   const availableCredits = billing.data?.data.usage?.availableCredits ?? 0;
   const subscriptionStatus = billing.data?.data.subscription?.status;
   const hasActiveSubscription =
@@ -232,422 +206,330 @@ export function HomePage() {
     }
   }
 
+  const quoteForStrip = quote
+    ? {
+        ...quote,
+        logo_url:
+          quote.logo_url ??
+          identitiesByTicker[quote.ticker]?.logo_url ??
+          instrument?.logo_url,
+        display_name:
+          quote.display_name ??
+          identitiesByTicker[quote.ticker]?.display_name ??
+          instrument?.display_name,
+        display_ticker:
+          quote.display_ticker ??
+          identitiesByTicker[quote.ticker]?.display_ticker ??
+          instrument?.display_ticker,
+      }
+    : null;
+
   return (
     <AppShell>
-      <div className="flex flex-1 flex-col">
-        <div className="@container/main flex flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-5 py-4 md:gap-6 md:py-6">
-            <section className="px-4 lg:px-6">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-                  <Workflow className="size-5" />
-                </span>
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
-                    {t('eyebrow')}
-                  </p>
-                  <h2 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                    {t('title')}
-                  </h2>
-                  <p className="max-w-xl text-sm text-muted-foreground">
-                    {t('subtitle')}
-                  </p>
-                </div>
-              </div>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Composer + pipeline */}
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border lg:border-r">
+          <div className="border-b border-border px-6 py-5 lg:px-8">
+            <p className="font-label-caps text-primary">{t('eyebrow')}</p>
+            <h2 className="mt-1.5 text-xl font-semibold tracking-tight md:text-2xl">
+              {t('title')}
+            </h2>
+            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+              {t('subtitle')}
+            </p>
+          </div>
 
-              <Card className="overflow-hidden border-primary/10 bg-card/90 shadow-sm ring-1 ring-primary/10">
-                <CardContent className="grid gap-0 p-0 @3xl/main:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.8fr)]">
-                  <form
-                    className="flex flex-col gap-6 p-5 md:p-6"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      submit();
-                    }}
-                  >
-                    <Field>
-                      <FieldLabel
-                        htmlFor="ticker"
-                        className="inline-flex items-center gap-1.5"
-                      >
-                        <Search className="size-3.5 text-muted-foreground" />
-                        {t('instrument.label')}
-                      </FieldLabel>
-                      <TickerSearch
-                        id="ticker"
-                        value={instrument}
-                        onChange={setInstrument}
-                        preferredMarket={defaultMarket}
-                      />
-                      {!instrument ? (
-                        <FieldDescription>
-                          {t('instrument.hint')}
-                        </FieldDescription>
-                      ) : null}
-                    </Field>
+          <form
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit();
+            }}
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 lg:px-8">
+              <Field>
+                <FieldLabel
+                  htmlFor="ticker"
+                  className="inline-flex items-center gap-2 text-sm"
+                >
+                  <Search className="size-4 text-muted-foreground" />
+                  {t('instrument.label')}
+                </FieldLabel>
+                <TickerSearch
+                  id="ticker"
+                  value={instrument}
+                  onChange={setInstrument}
+                  preferredMarket={defaultMarket}
+                />
+                {!instrument ? (
+                  <FieldDescription>{t('instrument.hint')}</FieldDescription>
+                ) : null}
+              </Field>
 
-                    <FieldGroup className="grid gap-5 sm:grid-cols-[minmax(180px,0.9fr)_minmax(0,1.4fr)]">
-                      <Field>
-                        <FieldLabel
-                          htmlFor="trade-date"
-                          className="inline-flex items-center gap-1.5"
-                        >
-                          <CalendarDays className="size-3.5 text-muted-foreground" />
-                          {t('tradeDate.label')}
-                        </FieldLabel>
-                        <Input
-                          id="trade-date"
-                          type="date"
-                          value={tradeDate}
-                          max={maxTradeDate}
-                          onChange={(event) => setTradeDate(event.target.value)}
-                          required
-                        />
-                        <FieldDescription>{t('tradeDate.hint')}</FieldDescription>
-                      </Field>
-
-                      <Field>
-                        <FieldLabel
-                          htmlFor="output-language"
-                          className="inline-flex items-center gap-1.5"
-                        >
-                          <Languages className="size-3.5 text-muted-foreground" />
-                          {t('reportLanguage.label')}
-                        </FieldLabel>
-                        <Select
-                          value={outputLanguage}
-                          onValueChange={setOutputLanguage}
-                        >
-                          <SelectTrigger
-                            id="output-language"
-                            aria-label={t('reportLanguage.label')}
-                            className="w-full"
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {OUTPUT_LANGUAGE_IDS.map((value) => (
-                              <SelectItem key={value} value={value}>
-                                {t(`common:outputLanguages.${value}`)}
-                                {value === 'English'
-                                  ? ` (${t('reportLanguage.defaultSuffix')})`
-                                  : ''}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="custom">
-                              {t('reportLanguage.custom')}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    </FieldGroup>
-
-                    <Field>
-                      <FieldTitle
-                        id="analyst-team-label"
-                        className="inline-flex items-center gap-1.5"
-                      >
-                        {t('analystTeam')}
-                      </FieldTitle>
-                      <ToggleGroup
-                        type="multiple"
-                        variant="outline"
-                        size="sm"
-                        className="flex-wrap justify-start"
-                        aria-labelledby="analyst-team-label"
-                        value={analysts}
-                        onValueChange={setAnalysts}
-                      >
-                        {analystOptions.map((analyst) => {
-                          const Icon = getAnalystIcon(analyst);
-                          return (
-                            <ToggleGroupItem
-                              key={analyst}
-                              value={analyst}
-                              className="gap-1.5"
-                            >
-                              <Icon className="size-3.5" />
-                              {t(`common:analysts.${analyst}`, {
-                                defaultValue: analyst,
-                              })}
-                            </ToggleGroupItem>
+              <Field>
+                <FieldTitle
+                  id="analyst-team-label"
+                  className="inline-flex items-center gap-2 text-sm"
+                >
+                  {t('analystTeam')}
+                </FieldTitle>
+                <FieldDescription>{t('analystTeamHint')}</FieldDescription>
+                <div
+                  role="group"
+                  aria-labelledby="analyst-team-label"
+                  className="mt-1 grid gap-3 sm:grid-cols-2"
+                >
+                  {analystOptions.map((analyst) => {
+                    const Icon = getAnalystIcon(analyst);
+                    const selected = analysts.includes(analyst);
+                    return (
+                      <button
+                        key={analyst}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => {
+                          setAnalysts((current) =>
+                            selected
+                              ? current.filter((value) => value !== analyst)
+                              : [...current, analyst],
                           );
-                        })}
-                      </ToggleGroup>
-                    </Field>
-
-                    {outputLanguage === 'custom' && (
-                      <Field>
-                        <FieldLabel htmlFor="custom-language">
-                          {t('reportLanguage.custom')}
-                        </FieldLabel>
-                        <Input
-                          id="custom-language"
-                          value={customLanguage}
-                          onChange={(event) =>
-                            setCustomLanguage(event.target.value)
-                          }
-                          placeholder={t('reportLanguage.customPlaceholder')}
-                          required
-                        />
-                      </Field>
-                    )}
-
-                    {insufficientCredits ? (
-                      <Alert>
-                        <AlertTitle>{t('submit.creditsRequiredTitle')}</AlertTitle>
-                        <AlertDescription>
-                          <Link className="underline" to="/billing">
-                            {t('submit.insufficientCredits')}
-                          </Link>
-                        </AlertDescription>
-                      </Alert>
-                    ) : billing.isSuccess ? (
-                      <p className="text-xs text-muted-foreground">
-                        {t('submit.creditsAvailable', {
-                          count: availableCredits,
-                        })}
-                      </p>
-                    ) : null}
-
-                    {create.isError && (
-                      <Alert variant="destructive">
-                        <AlertTitle>
-                          {createErrorCode === 'CONSENT_REQUIRED'
-                            ? t('submit.consentRequiredTitle')
-                            : createErrorCode === 'INSUFFICIENT_CREDITS' ||
-                                createErrorCode === 'SUBSCRIPTION_REQUIRED'
-                              ? t('submit.creditsRequiredTitle')
-                              : t('submit.errorTitle')}
-                        </AlertTitle>
-                        <AlertDescription>
-                          {createErrorCode === 'CONSENT_REQUIRED' ? (
-                            <Link className="underline" to="/account">
-                              {t('submit.consentRequiredBody')}
-                            </Link>
-                          ) : createErrorCode === 'INSUFFICIENT_CREDITS' ||
-                            createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
-                            <Link className="underline" to="/billing">
-                              {t('submit.creditsRequiredBody')}
-                            </Link>
-                          ) : (
-                            t('submit.errorBody')
-                          )}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-
-                    <div className="flex justify-end border-t border-border/60 pt-4">
-                      <Button
-                        type="submit"
-                        size="lg"
-                        className="w-full sm:w-auto"
-                        disabled={
-                          !instrument ||
-                          !analysts.length ||
-                          !selectedOutputLanguage ||
-                          !tradeDate ||
-                          insufficientCredits ||
-                          create.isPending
-                        }
-                      >
-                        {create.isPending ? (
-                          <Spinner data-icon="inline-start" />
-                        ) : (
-                          <Play data-icon="inline-start" />
-                        )}
-                        {create.isPending
-                          ? t('submit.submitting')
-                          : t('submit.runWithCredit', {
-                              count: creditUnits,
-                            })}
-                      </Button>
-                    </div>
-                  </form>
-
-                  <aside className="flex flex-col border-t bg-muted/20 p-4 md:p-5 @3xl/main:border-t-0 @3xl/main:border-l">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <p className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
-                        <LineChart className="size-3.5 text-primary" />
-                        {t('snapshot.title')}
-                      </p>
-                      <Badge variant="outline" className="gap-1.5 text-[10px]">
-                        <span
-                          className={cn(
-                            'size-1.5 rounded-full',
-                            quote
-                              ? freshness === 'stale'
-                                ? 'bg-amber-500'
-                                : isDown
-                                  ? 'bg-market-down'
-                                  : 'bg-market-up'
-                              : 'bg-muted-foreground/50',
-                          )}
-                        />
-                        {quote
-                          ? freshness === 'stale'
-                            ? t('snapshot.stale')
-                            : t('snapshot.asOf')
-                          : t('snapshot.asOf')}
-                      </Badge>
-                    </div>
-
-                    {snapshot.isLoading ? (
-                      <Skeleton className="min-h-44 w-full flex-1 rounded-xl" />
-                    ) : quote ? (
-                      <div
+                        }}
                         className={cn(
-                          'flex flex-1 flex-col justify-between gap-5 rounded-xl border bg-card p-4 shadow-sm ring-1',
-                          isUp &&
-                            'border-market-up/25 ring-market-up/10 bg-linear-to-b from-market-up-bg/80 to-card',
-                          isDown &&
-                            'border-market-down/25 ring-market-down/10 bg-linear-to-b from-market-down-bg/80 to-card',
-                          !isUp &&
-                            !isDown &&
-                            'border-border/80 ring-foreground/5',
+                          'group/analyst relative flex min-h-[6.75rem] flex-col items-start gap-2.5 rounded-soft border bg-background px-4 py-3.5 text-left transition-colors',
+                          'border-border hover:border-foreground/25 hover:bg-muted/30',
+                          'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
+                          'active:translate-y-px',
+                          selected &&
+                            'border-primary bg-background shadow-[inset_3px_0_0_0_var(--primary)]',
                         )}
                       >
-                        <div className="flex items-start gap-3">
-                          <Avatar
-                            size="lg"
-                            className="size-12 rounded-xl after:rounded-xl"
-                            data-logo-url={
-                              quote.logo_url ??
-                              identitiesByTicker[quote.ticker]?.logo_url
-                            }
+                        <div className="flex w-full items-start gap-3">
+                          <span
+                            className={cn(
+                              'flex size-10 shrink-0 items-center justify-center rounded-soft border bg-muted/60 text-foreground/70',
+                              'border-border',
+                              selected &&
+                                'border-primary/50 bg-primary text-primary-foreground',
+                            )}
                           >
-                            <AvatarImage
-                              className="rounded-xl"
-                              src={
-                                quote.logo_url ??
-                                identitiesByTicker[quote.ticker]?.logo_url
-                              }
-                              alt={t('snapshot.logoAlt', {
-                                name: quote.display_name ?? quote.ticker,
-                              })}
-                            />
-                            <AvatarFallback className="rounded-xl text-base font-semibold">
-                              {quote.ticker.slice(0, 1)}
-                            </AvatarFallback>
-                          </Avatar>
+                            <Icon className="size-5" />
+                          </span>
                           <div className="min-w-0 flex-1 pt-0.5">
-                            <p className="truncate text-base font-semibold tracking-tight">
-                              {quote.display_name ?? quote.ticker}
-                            </p>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              <Badge
-                                variant="secondary"
-                                className="rounded-md px-1.5 font-mono text-[11px] tracking-wider"
-                              >
-                                {quote.display_ticker ??
-                                  identitiesByTicker[quote.ticker]
-                                    ?.display_ticker ??
-                                  formatDisplayTicker(quote.ticker)}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                              {t('snapshot.lastPrice')}
-                            </p>
-                            <p
-                              className={cn(
-                                'mt-1 flex items-baseline gap-1.5 font-mono leading-none font-semibold tracking-tight tabular-nums',
-                                isUp && 'text-market-up',
-                                isDown && 'text-market-down',
-                              )}
-                            >
-                              <span className="text-4xl">
-                                {quote.last_price !== undefined
-                                  ? formatLocaleNumber(quote.last_price)
-                                  : null}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold tracking-tight text-foreground">
+                                {t(`analysts.${analyst}.title`)}
                               </span>
-                              {quote.currency ? (
-                                <span className="text-sm font-medium text-muted-foreground">
-                                  {quote.currency}
-                                </span>
-                              ) : null}
+                              <span
+                                className={cn(
+                                  'font-mono text-[10px] font-semibold tracking-[0.12em] uppercase',
+                                  selected
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground/50',
+                                )}
+                              >
+                                {selected ? 'ON' : 'OFF'}
+                              </span>
+                            </div>
+                            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                              {t(`analysts.${analyst}.description`)}
                             </p>
                           </div>
-
-                          <Badge
-                            variant={marketMoveVariant(changePercent)}
-                            className="h-8 gap-1 rounded-lg px-2.5 text-sm font-semibold tabular-nums"
-                          >
-                            {isUp ? (
-                              <ArrowUpRight className="size-4" />
-                            ) : null}
-                            {isDown ? (
-                              <ArrowDownRight className="size-4" />
-                            ) : null}
-                            {changePercent === undefined
-                              ? t('snapshot.changeUnavailable')
-                              : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`}
-                          </Badge>
                         </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
 
-                        <div className="space-y-2 border-t border-border/60 pt-3">
-                          <p className="text-[11px] leading-relaxed text-muted-foreground">
-                            {quote.source ?? 'TradingView'}
-                            {quote.as_of
-                              ? ` · ${formatLocaleDateTimeValue(quote.as_of)}`
-                              : ''}
-                          </p>
-                          {instrument?.provider_symbol ? (
-                            <Button
-                              asChild
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                            >
-                              <Link
-                                to={`/stocks/${encodeURIComponent(instrument.provider_symbol)}`}
-                              >
-                                {t('snapshot.openDetail')}
-                              </Link>
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
+              <FieldGroup className="grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel
+                    htmlFor="trade-date"
+                    className="inline-flex items-center gap-2 text-sm"
+                  >
+                    <CalendarDays className="size-4 text-muted-foreground" />
+                    {t('tradeDate.label')}
+                  </FieldLabel>
+                  <Input
+                    id="trade-date"
+                    type="date"
+                    value={tradeDate}
+                    max={maxTradeDate}
+                    onChange={(event) => setTradeDate(event.target.value)}
+                    required
+                  />
+                  <FieldDescription>{t('tradeDate.hint')}</FieldDescription>
+                </Field>
+
+                <Field>
+                  <FieldLabel
+                    htmlFor="output-language"
+                    className="inline-flex items-center gap-2 text-sm"
+                  >
+                    <Languages className="size-4 text-muted-foreground" />
+                    {t('reportLanguage.label')}
+                  </FieldLabel>
+                  <Select
+                    value={outputLanguage}
+                    onValueChange={setOutputLanguage}
+                  >
+                    <SelectTrigger
+                      id="output-language"
+                      aria-label={t('reportLanguage.label')}
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OUTPUT_LANGUAGE_IDS.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {formatOutputLanguage(value, (key, options) =>
+                            t(`common:${key}`, options),
+                          )}
+                          {value === 'English'
+                            ? ` (${t('reportLanguage.defaultSuffix')})`
+                            : ''}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">
+                        {t('reportLanguage.custom')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
+
+              {outputLanguage === 'custom' && (
+                <Field>
+                  <FieldLabel htmlFor="custom-language">
+                    {t('reportLanguage.custom')}
+                  </FieldLabel>
+                  <Input
+                    id="custom-language"
+                    value={customLanguage}
+                    onChange={(event) => setCustomLanguage(event.target.value)}
+                    placeholder={t('reportLanguage.customPlaceholder')}
+                    required
+                  />
+                </Field>
+              )}
+
+              {insufficientCredits ? (
+                <Alert>
+                  <AlertTitle>{t('submit.creditsRequiredTitle')}</AlertTitle>
+                  <AlertDescription>
+                    <Link className="underline" to="/billing">
+                      {t('submit.insufficientCredits')}
+                    </Link>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              {create.isError && (
+                <Alert variant="destructive">
+                  <AlertTitle>
+                    {createErrorCode === 'CONSENT_REQUIRED'
+                      ? t('submit.consentRequiredTitle')
+                      : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                          createErrorCode === 'SUBSCRIPTION_REQUIRED'
+                        ? t('submit.creditsRequiredTitle')
+                        : t('submit.errorTitle')}
+                  </AlertTitle>
+                  <AlertDescription>
+                    {createErrorCode === 'CONSENT_REQUIRED' ? (
+                      <Link className="underline" to="/account">
+                        {t('submit.consentRequiredBody')}
+                      </Link>
+                    ) : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                      createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
+                      <Link className="underline" to="/billing">
+                        {t('submit.creditsRequiredBody')}
+                      </Link>
                     ) : (
-                      <div className="flex min-h-44 flex-1 flex-col items-start justify-center gap-2 rounded-xl border border-dashed bg-card/60 px-4 py-6">
-                        <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                          <Search className="size-4" />
-                        </span>
-                        <p className="text-sm font-medium">
-                          {t('snapshot.emptyTitle')}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t('snapshot.emptyBody')}
-                        </p>
-                      </div>
+                      t('submit.errorBody')
                     )}
-                  </aside>
-                </CardContent>
-              </Card>
-            </section>
+                  </AlertDescription>
+                </Alert>
+              )}
 
-            <section className="px-4 lg:px-6">
+              <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
+                {billing.isSuccess && !insufficientCredits ? (
+                  <p className="font-mono text-sm tabular-nums text-muted-foreground">
+                    {t('submit.runEstimate', {
+                      cost: creditUnits,
+                      available: availableCredits,
+                      defaultValue: `This run: ${creditUnits} · Available: ${availableCredits}`,
+                    })}
+                  </p>
+                ) : null}
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="ml-auto min-w-[12rem] font-semibold tracking-wide uppercase"
+                  disabled={
+                    !instrument ||
+                    !analysts.length ||
+                    !selectedOutputLanguage ||
+                    !tradeDate ||
+                    insufficientCredits ||
+                    create.isPending
+                  }
+                >
+                  {create.isPending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <Play data-icon="inline-start" />
+                  )}
+                  {create.isPending
+                    ? t('submit.submitting')
+                    : t('submit.runWithCredit', {
+                        count: creditUnits,
+                      })}
+                </Button>
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t border-border bg-muted/15">
               <PipelinePanel
+                variant="rail"
                 job={active}
                 events={events.data?.data}
                 loading={events.isLoading}
               />
-            </section>
+            </div>
+          </form>
+        </section>
 
-            <section id="reports" className="scroll-mt-6 px-4 lg:px-6">
-              <RecentReports
-                jobs={jobs.data?.data ?? []}
-                loading={jobs.isLoading}
-                error={jobs.isError}
-                identities={identitiesByTicker}
-                onOpenReport={(id) => navigate(`/reports/${id}`)}
-              />
-            </section>
+        {/* Quote + recent reports */}
+        <aside className="flex w-full min-h-0 shrink-0 flex-col border-t border-border bg-muted/20 lg:w-[min(100%,24rem)] lg:border-t-0 xl:w-[26rem]">
+          <div className="shrink-0 border-b border-border p-4">
+            <p className="mb-3 font-label-caps text-muted-foreground">
+              {t('snapshot.title')}
+            </p>
+            <QuoteStrip
+              variant="panel"
+              quote={quoteForStrip}
+              loading={
+                Boolean(instrument?.provider_symbol) && snapshot.isLoading
+              }
+              detailHref={
+                instrument?.provider_symbol
+                  ? `/stocks/${encodeURIComponent(instrument.provider_symbol)}`
+                  : undefined
+              }
+            />
           </div>
-        </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <RecentReports
+              density="rail"
+              jobs={jobs.data?.data ?? []}
+              loading={jobs.isLoading}
+              error={jobs.isError}
+              identities={identitiesByTicker}
+              onOpenReport={(id) => navigate(`/reports/${id}`)}
+            />
+          </div>
+        </aside>
       </div>
     </AppShell>
   );

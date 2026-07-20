@@ -15,6 +15,21 @@ export const OUTPUT_LANGUAGE_IDS = [
 
 export type OutputLanguageId = (typeof OUTPUT_LANGUAGE_IDS)[number];
 
+/** Endonym — how speakers of that language name it. */
+export const OUTPUT_LANGUAGE_NATIVE_NAMES: Record<OutputLanguageId, string> = {
+  English: 'English',
+  Chinese: '中文',
+  Japanese: '日本語',
+  Korean: '한국어',
+  Hindi: 'हिन्दी',
+  Spanish: 'Español',
+  Portuguese: 'Português',
+  French: 'Français',
+  German: 'Deutsch',
+  Arabic: 'العربية',
+  Russian: 'Русский',
+};
+
 const OUTPUT_LANGUAGE_ALIASES: Record<string, OutputLanguageId> = {
   english: 'English',
   chinese: 'Chinese',
@@ -57,7 +72,11 @@ type Translate = (
   options?: { defaultValue?: string },
 ) => string;
 
-/** Localize a stored report output language for UI display. */
+/**
+ * Localize a report output language for UI display.
+ * When the UI label differs from the native endonym, show both:
+ * e.g. zh UI → "英语 · English", "日语 · 日本語".
+ */
 export function formatOutputLanguage(
   value: string | null | undefined,
   t: Translate,
@@ -69,5 +88,8 @@ export function formatOutputLanguage(
   const id = normalizeOutputLanguageId(trimmed);
   if (!id) return trimmed;
 
-  return t(`outputLanguages.${id}`, { defaultValue: trimmed });
+  const localized = t(`outputLanguages.${id}`, { defaultValue: trimmed });
+  const native = OUTPUT_LANGUAGE_NATIVE_NAMES[id];
+  if (!native || localized === native) return localized;
+  return `${localized} · ${native}`;
 }

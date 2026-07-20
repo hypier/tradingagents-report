@@ -216,6 +216,25 @@ describe('default Stripe plan provisioning', () => {
     });
   });
 
+  it('treats a missing Stripe customer as an empty overview', async () => {
+    const missing = Object.assign(new Error("No such customer: 'cus_missing'"), {
+      code: 'resource_missing',
+      param: 'customer',
+    });
+    stripe.subscriptions.list.mockRejectedValue(missing);
+    const service = createStripeBillingService({
+      secretKey: 'sk_test_secret',
+      appBaseUrl: new URL('https://app.example.test'),
+    });
+
+    await expect(service.getOverview('cus_missing')).resolves.toEqual({
+      configured: true,
+      plans: [],
+      subscription: null,
+      invoices: [],
+    });
+  });
+
   it('uses the active interface language for Stripe-hosted pages', async () => {
     const price = existingPrice(DEFAULT_MONTHLY_BILLING_PLANS[0]!, true);
     stripe.prices.retrieve.mockResolvedValue(price);

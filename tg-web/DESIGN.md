@@ -3,6 +3,7 @@
 **Product:** TG-web — multi-market AI equity research for individual investors  
 **Skill:** stitch-design-taste  
 **Locked style:** **D · Signal Floor** (see alternatives in [`DESIGN_OPTIONS.md`](./DESIGN_OPTIONS.md))  
+**Implementation:** Tokens landed in `src/frontend/styles/globals.css` (dark-first default). Stitch mocks in `docs/stitch-signal-floor/`.  
 **Intent:** Abandon the soft gallery-SaaS look. Ship a near-black, high-density market-floor instrument — finance-first at a glance, research-only (never order tickets).
 
 ---
@@ -54,7 +55,7 @@ One cool carbon-neutral system. Do not mix warm cream with cool slate.
 
 ### Light reading surface (reports only)
 
-- **Cool Paper** (#EEF2F6) — Long-form report reading canvas (cool gray, not cream, not pure white)
+- **Cool Paper / Light** — Canvas `#FFFFFF`; panels `#F4F6F9`. Borders ≥18% ink; Dim Meta `#3F4B5B` for secondary text contrast.
 - **Report Ink** (#0F172A) — Body text on paper
 - **Report Quiet** (#475569) — Secondary report metadata
 
@@ -97,9 +98,9 @@ One cool carbon-neutral system. Do not mix warm cream with cool slate.
 
 Density 8 mandate: **all numbers are monospace** — prices, percents, credits, timestamps, IDs, quantities.
 
-- **Display / UI headings:** `Geist` — track-tight (`-0.02em`), weight 600–700. In-app page titles **≤ `1.5rem`** (`clamp(1.25rem, 1.8vw, 1.5rem)`). Hierarchy via weight and color, not scream size.
-- **Body / UI:** `Geist` weight 400–500 — leading `1.45–1.55` (tighter than gallery apps). Prose blocks max ~65ch.
-- **Mono:** `Geist Mono` — tabular figures. Tables `0.75rem–0.875rem`; hero quote price `1.5rem–2rem`.
+- **Display / UI headings:** `Geist` — track-tight (`-0.02em`), weight 600–700. In-app page titles ~`18–22px`. Hierarchy via weight and color.
+- **Body / UI:** `Geist` weight 400–500 — root / body **`14px`**, leading `1.45–1.55`. Prose blocks max ~65ch.
+- **Mono:** `Geist Mono` — tabular figures. Tables `11–13px`; hero quote price ~`22–28px`.
 - **Report long-form:** `Geist` `1.0625rem`, leading `1.65–1.7` on Cool Paper. Section titles weight 600. No prestige serif.
 
 ### Type behaviors
@@ -120,7 +121,7 @@ Density 8 mandate: **all numbers are monospace** — prices, percents, credits, 
 
 ### Buttons
 
-- Primary: Signal Amber fill (`#D97706`), text `#0C0A09` or `#070A0E` (high contrast on amber). Radius `0.5rem` (8px). No glow. Hover: slightly lighter amber. Active: `translateY(1px)` + `scale(0.98)`.
+- Primary: Signal Amber fill (`#D97706`), text `#0C0A09` or `#070A0E` (high contrast on amber). Radius `0` (rectangular). No glow. Hover: slightly lighter amber. Active: `translateY(1px)` + `scale(0.98)`.
 - Secondary: transparent + Wire Edge, Hot Ink text. Hover: Pit Surface fill.
 - Destructive: Critical Rose outline or soft fill — never amber.
 - Disabled: Ghost Meta, no strong fill.
@@ -129,9 +130,9 @@ Density 8 mandate: **all numbers are monospace** — prices, percents, credits, 
 ### Cards & panels
 
 - Prefer **flat pit surfaces** and ruled rows over floating soft cards.
-- Radius `6–10px` — sharp instrument chrome, not 2.5rem blobs.
+- Radius `0` — rectangular instrument chrome (no soft corners).
 - Fill: Pit Surface on Floor Carbon. Border: Wire Edge. Shadow: deep carbon (`0 10px 28px -12px rgba(0,0,0,0.55)`), minimal — elevation is rare.
-- Lists (tasks, watchlists, admin, ledgers): **no cards** — hairline rows, optional zebra `rgba(148,163,184,0.04)`, row height ~32–36px.
+- Lists (tasks, watchlists, admin, ledgers): **no cards** — hairline rows, optional zebra `rgba(148,163,184,0.04)`, row height ~40–44px.
 
 ### Inputs & forms
 
@@ -272,6 +273,6 @@ Glance test: *With logo removed, does this still read as equity research softwar
 | Rise | `#22C55E` | Positive data |
 | Fall | `#F43F5E` | Negative data |
 | Report bg | `#EEF2F6` | Long-form reading |
-| Radius | `6–10px` | Controls / panels |
+| Radius | `0` | Rectangular controls / panels |
 | Font UI | Geist | Headings + body |
 | Font Data | Geist Mono | All numbers, tickers, credits |

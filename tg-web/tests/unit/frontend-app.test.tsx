@@ -32,9 +32,7 @@ it('renders the research command dashboard', () => {
   );
 
   expect(screen.getByRole('main')).toHaveTextContent('Research desk');
-  expect(
-    screen.getByRole('heading', { name: 'Agent activity' }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole('main')).toHaveTextContent('Live pipeline');
   expect(
     screen.getByRole('heading', { name: 'Recent reports' }),
   ).toBeInTheDocument();

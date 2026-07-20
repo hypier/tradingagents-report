@@ -6,13 +6,55 @@
 
 ---
 
-## How to run in Google Stitch
+## How to set DESIGN.md as the project design system
 
-1. Open [labs.google/stitch](https://labs.google/stitch) and create a project named `TG Web — Signal Floor`.
-2. Paste or attach the full contents of `DESIGN.md` as the project design system / global instructions (every screen must obey it).
-3. Create **three screens** in order below. For each screen: paste the **Screen prompt** block only (do not paste this whole file).
-4. After each generation, iterate with the **Tighten** line if needed.
-5. Optional follow-ups (same project):
+Stitch 没有单独的「上传设计系统文件」菜单；**项目设计系统 = 该项目的 styleguide / DESIGN.md**。做法如下。
+
+### 方法 A（推荐）：先写入 styleguide，再出屏
+
+1. 打开 [labs.google/stitch](https://labs.google/stitch)，**New project**，名称可用 `TG Web — Signal Floor`。
+2. 在首条生成框里粘贴（或附上）**整份** [`../DESIGN.md`](../DESIGN.md)，并加一句指令，例如：
+
+```text
+Use the following DESIGN.md as this project's permanent design system / styleguide.
+Do not invent a new palette. Then generate only a compact style guide board
+(colors, type, buttons, quote strip, table row) — no full app screen yet.
+
+---
+<粘贴 DESIGN.md 全文>
+```
+
+3. 生成完成后，画布上会出现 **Style guide / Styleguide**。点开它 → **Edit**，确认内容是 Signal Floor（近黑 + Amber `#D97706`），不是 Stitch 自造的另一套。
+4. 若被改写了：在 Edit 里**整份替换**为仓库里的 `DESIGN.md`，保存。此后同项目新屏会优先吃这份 styleguide。
+5. 再开新对话 / 新生成，只粘贴下文 **Screen 1 / 2 / 3** 的 prompt（不要再整份塞 DESIGN.md，除非 styleguide 丢了）。
+
+### 方法 B：先随便出一屏，再改 styleguide
+
+1. 用任意短 prompt 生成一屏（甚至空壳也行）。
+2. 点画布上的 **Style guide** → **Edit**，打开 `DESIGN.md`。
+3. 删除自动内容，粘贴仓库 `tg-web/DESIGN.md` 全文 → 保存。
+4. 用 prompt 说：`Regenerate this screen strictly following the project DESIGN.md / styleguide.`  
+   或直接用 Screen prompt 重新生成。
+
+### 方法 C：每条 prompt 自带系统（兜底）
+
+若 UI 里找不到 Style guide Edit：把 `DESIGN.md` **摘要 token 表 + Anti-Patterns** 贴在每条 Screen prompt 顶部（`STITCH_PROMPTS` 各屏已含关键色值）。效果不如项目级 styleguide 稳，但能用。
+
+### 和仓库文件的关系
+
+| 位置 | 作用 |
+|------|------|
+| `tg-web/DESIGN.md` | 源文件（我们维护的真相） |
+| Stitch 项目里的 Style guide → Edit | 运行时设计系统（需与源文件同步） |
+
+改完仓库 `DESIGN.md` 后，记得再进 Stitch **Edit styleguide** 同步一次。
+
+### 出三屏
+
+1. Style guide 已锁定 Signal Floor 后，按顺序生成 Home → Report → Tasks。
+2. 每条只粘贴对应 **Screen prompt**。
+3. 偏软/偏空时用文内 **Tighten**。
+4. 可选：
    - `Adapt this screen to 375px mobile width. Stack panes. Keep density 8. Touch targets ≥ 44px.`
    - `Show empty state for this screen using DESIGN.md empty-state rules.`
    - `Show running-job state with amber pulse and progress shimmer.`

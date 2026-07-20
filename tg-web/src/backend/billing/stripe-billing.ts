@@ -67,33 +67,46 @@ class StripeBillingService implements BillingService {
       };
     }
 
-    const [plans, subscriptions, invoices] = await Promise.all([
-      plansPromise,
-      this.stripe.subscriptions.list({
-        customer: customerId,
-        status: 'all',
-        limit: 10,
-      }),
-      this.stripe.invoices.list({ customer: customerId, limit: 10 }),
-    ]);
+    try {
+      const [plans, subscriptions, invoices] = await Promise.all([
+        plansPromise,
+        this.stripe.subscriptions.list({
+          customer: customerId,
+          status: 'all',
+          limit: 10,
+        }),
+        this.stripe.invoices.list({ customer: customerId, limit: 10 }),
+      ]);
 
-    const subscription = subscriptions.data.find((candidate) =>
-      MANAGEABLE_SUBSCRIPTION_STATUSES.has(candidate.status),
-    );
+      const subscription = subscriptions.data.find((candidate) =>
+        MANAGEABLE_SUBSCRIPTION_STATUSES.has(candidate.status),
+      );
 
-    return {
-      configured: true,
-      plans,
-      subscription: subscription
-        ? mapSubscription(
-            subscription,
-            plans.find(
-              (plan) => plan.id === subscription.items.data[0]?.price.id,
-            )?.name,
-          )
-        : null,
-      invoices: invoices.data.map(mapInvoice),
-    };
+      return {
+        configured: true,
+        plans,
+        subscription: subscription
+          ? mapSubscription(
+              subscription,
+              plans.find(
+                (plan) => plan.id === subscription.items.data[0]?.price.id,
+              )?.name,
+            )
+          : null,
+        invoices: invoices.data.map(mapInvoice),
+      };
+    } catch (error) {
+      // Stale local/dev customer IDs should not break the whole overview.
+      if (isMissingStripeCustomer(error)) {
+        return {
+          configured: true,
+          plans: await plansPromise,
+          subscription: null,
+          invoices: [],
+        };
+      }
+      throw error;
+    }
   }
 
   async getSettings(): Promise<BillingSettings> {
@@ -679,6 +692,21 @@ function mapInvoice(invoice: Stripe.Invoice): BillingInvoice {
     createdAt: invoice.created,
     hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
   };
+}
+
+function isMissingStripeCustomer(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as {
+    code?: string;
+    param?: string;
+    message?: string;
+  };
+  if (candidate.code !== 'resource_missing') return false;
+  if (candidate.param === 'customer') return true;
+  return (
+    typeof candidate.message === 'string' &&
+    candidate.message.toLowerCase().includes('no such customer')
+  );
 }
 
 function secretHint(value: string | undefined) {

@@ -23,11 +23,24 @@ describe('formatOutputLanguage', () => {
     const t = (key: string, options?: { defaultValue?: string }) => {
       if (key === 'outputLanguages.Chinese') return '中文';
       if (key === 'outputLanguages.English') return '英语';
+      if (key === 'outputLanguages.Japanese') return '日语';
       return options?.defaultValue ?? key;
     };
 
     expect(formatOutputLanguage('Chinese', t)).toBe('中文');
-    expect(formatOutputLanguage('English', t)).toBe('英语');
+    expect(formatOutputLanguage('English', t)).toBe('英语 · English');
+    expect(formatOutputLanguage('Japanese', t)).toBe('日语 · 日本語');
     expect(formatOutputLanguage('Turkish', t)).toBe('Turkish');
+  });
+
+  it('keeps a single label when UI text matches the native name', () => {
+    const t = (key: string, options?: { defaultValue?: string }) => {
+      if (key === 'outputLanguages.English') return 'English';
+      if (key === 'outputLanguages.Chinese') return 'Chinese';
+      return options?.defaultValue ?? key;
+    };
+
+    expect(formatOutputLanguage('English', t)).toBe('English');
+    expect(formatOutputLanguage('Chinese', t)).toBe('Chinese · 中文');
   });
 });

@@ -1,7 +1,8 @@
 {
   "brand": {
     "name": "TradingAgents",
-    "tagline": "多智能体投研"
+    "tagline": "多智能体投研",
+    "floorTag": "Signal Floor"
   },
   "nav": {
     "workspace": "工作区",
@@ -13,6 +14,9 @@
     "reports": "报告库",
     "watchlist": "自选股",
     "billing": "订阅",
+    "creditsLedger": "额度账本",
+    "creditsLabel": "Credits",
+    "creditsCycle": "周期至 {{date}}",
     "account": "账户",
     "adminOverview": "运营概览",
     "adminUsers": "用户管理",

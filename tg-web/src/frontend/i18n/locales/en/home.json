@@ -17,10 +17,30 @@
     "hint": "Uses your account timezone. Cannot be after today."
   },
   "analystTeam": "Analyst team",
+  "analystTeamHint": "Select the research agents included in this run.",
+  "analysts": {
+    "market": {
+      "title": "Market",
+      "description": "Technicals, price action, volume, and momentum structure."
+    },
+    "fundamentals": {
+      "title": "Fundamentals",
+      "description": "Financials, valuation, quality, and business drivers."
+    },
+    "news": {
+      "title": "News",
+      "description": "Headlines, catalysts, filings, and macro context."
+    },
+    "social": {
+      "title": "Sentiment",
+      "description": "Social buzz, crowd positioning, and narrative shift."
+    }
+  },
   "submit": {
     "run": "Run analysis",
     "runWithCredit": "Run analysis ({{count}} credit)",
     "runWithCredit_other": "Run analysis ({{count}} credits)",
+    "runEstimate": "This run: {{cost}} · Available: {{available}}",
     "creditsAvailable": "{{count}} credits available",
     "insufficientCredits": "Not enough credits — review subscription",
     "submitting": "Submitting...",
@@ -38,8 +58,8 @@
     "stale": "Possibly delayed",
     "lastPrice": "Last price",
     "changeUnavailable": "Change unavailable",
-    "emptyTitle": "No quote loaded",
-    "emptyBody": "Search and select a stock to preview the latest snapshot before running analysis.",
+    "emptyTitle": "Pick a stock to begin",
+    "emptyBody": "Use the search on the left — quotes and price moves will show up here.",
     "logoAlt": "{{name}} logo",
     "openDetail": "Open stock detail"
   },

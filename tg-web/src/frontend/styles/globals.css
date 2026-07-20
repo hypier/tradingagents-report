@@ -6,83 +6,93 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  Signal Floor — Alpha Terminal
+  Rectangular chrome, near-zero radius. Sparse pages use a roomier type scale.
+  See tg-web/DESIGN.md
+*/
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.12 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.12 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.12 0 0);
-  --primary: oklch(0.48 0.15 150.069);
-  --primary-foreground: oklch(0.982 0.018 155.826);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.45 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.845 0.143 164.978);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.596 0.145 163.225);
-  --chart-4: oklch(0.508 0.118 165.612);
-  --chart-5: oklch(0.432 0.095 166.913);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.97 0 0);
-  --sidebar-foreground: oklch(0.12 0 0);
-  --sidebar-primary: oklch(0.48 0.15 149.214);
-  --sidebar-primary-foreground: oklch(0.982 0.018 155.826);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --market-up: oklch(0.52 0.15 155);
-  --market-up-bg: oklch(0.95 0.04 155);
-  --market-down: oklch(0.55 0.2 25);
-  --market-down-bg: oklch(0.96 0.03 25);
-  --surface-elevated: oklch(1 0 0 / 0.92);
+  /* Light pit — white canvas, stronger borders/meta for contrast */
+  --background: #ffffff;
+  --foreground: #0b1220;
+  --card: #f4f6f9;
+  --card-foreground: #0b1220;
+  --popover: #ffffff;
+  --popover-foreground: #0b1220;
+  --primary: #c2410c;
+  --primary-foreground: #fff7ed;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0b1220;
+  --muted: #e8edf3;
+  --muted-foreground: #3f4b5b;
+  --accent: rgba(194, 65, 12, 0.12);
+  --accent-foreground: #9a3412;
+  --destructive: #be123c;
+  --border: rgba(15, 23, 42, 0.18);
+  --input: rgba(15, 23, 42, 0.24);
+  --ring: #c2410c;
+  --chart-1: #c2410c;
+  --chart-2: #15803d;
+  --chart-3: #be123c;
+  --chart-4: #475569;
+  --chart-5: #0b1220;
+  /* Rectangular blocks — no soft corners */
+  --radius: 0px;
+  --sidebar: #0e141b;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #d97706;
+  --sidebar-primary-foreground: #070a0e;
+  --sidebar-accent: rgba(217, 119, 6, 0.14);
+  --sidebar-accent-foreground: #fbbf24;
+  --sidebar-border: rgba(148, 163, 184, 0.16);
+  --sidebar-ring: #d97706;
+  --market-up: #15803d;
+  --market-up-bg: rgba(21, 128, 61, 0.12);
+  --market-down: #be123c;
+  --market-down-bg: rgba(190, 18, 60, 0.12);
+  --surface-elevated: rgba(244, 246, 249, 0.96);
+  --report-paper: #f4f6f9;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.448 0.119 151.328);
-  --primary-foreground: oklch(0.982 0.018 155.826);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.845 0.143 164.978);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.596 0.145 163.225);
-  --chart-4: oklch(0.508 0.118 165.612);
-  --chart-5: oklch(0.432 0.095 166.913);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.723 0.219 149.579);
-  --sidebar-primary-foreground: oklch(0.982 0.018 155.826);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --market-up: oklch(0.72 0.16 155);
-  --market-up-bg: oklch(0.28 0.06 155);
-  --market-down: oklch(0.72 0.16 25);
-  --market-down-bg: oklch(0.3 0.06 25);
-  --surface-elevated: oklch(0.22 0 0 / 0.92);
+  --background: #070a0e;
+  --foreground: #f1f5f9;
+  --card: #151c25;
+  --card-foreground: #f1f5f9;
+  --popover: #151c25;
+  --popover-foreground: #f1f5f9;
+  --primary: #d97706;
+  --primary-foreground: #070a0e;
+  --secondary: #151c25;
+  --secondary-foreground: #f1f5f9;
+  --muted: #0e141b;
+  --muted-foreground: #78879b;
+  --accent: rgba(217, 119, 6, 0.14);
+  --accent-foreground: #fbbf24;
+  --destructive: #f43f5e;
+  --border: rgba(148, 163, 184, 0.16);
+  --input: rgba(148, 163, 184, 0.22);
+  --ring: #d97706;
+  --chart-1: #d97706;
+  --chart-2: #22c55e;
+  --chart-3: #f43f5e;
+  --chart-4: #78879b;
+  --chart-5: #f1f5f9;
+  --sidebar: #0e141b;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #d97706;
+  --sidebar-primary-foreground: #070a0e;
+  --sidebar-accent: rgba(217, 119, 6, 0.14);
+  --sidebar-accent-foreground: #fbbf24;
+  --sidebar-border: rgba(148, 163, 184, 0.16);
+  --sidebar-ring: #d97706;
+  --market-up: #22c55e;
+  --market-up-bg: rgba(34, 197, 94, 0.14);
+  --market-down: #f43f5e;
+  --market-down-bg: rgba(244, 63, 94, 0.14);
+  --surface-elevated: rgba(21, 28, 37, 0.92);
+  --report-paper: #eef2f6;
 }
 
 @theme inline {
@@ -119,18 +129,28 @@
   --color-market-up-bg: var(--market-up-bg);
   --color-market-down: var(--market-down);
   --color-market-down-bg: var(--market-down-bg);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Collapse all radius steps to rectangular */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+  /* Terminal type — 14px body (html root = 14px, base = 1rem) */
+  --text-xs: 0.7857rem; /* ~11px labels */
+  --text-sm: 0.9286rem; /* ~13px secondary */
+  --text-base: 1rem; /* 14px body */
+  --text-lg: 1.1429rem; /* ~16px */
+  --text-xl: 1.2857rem; /* ~18px headline */
+  --text-2xl: 1.5714rem; /* ~22px */
+  --text-3xl: 2rem; /* 28px quote */
+  --text-4xl: 2.2857rem; /* ~32px desk title */
 }
 
 @layer base {
@@ -140,11 +160,11 @@
 
   html {
     @apply font-sans antialiased;
-    font-size: 106.25%;
+    font-size: 14px;
   }
 
   body {
-    @apply bg-background text-foreground text-base;
+    @apply bg-background text-foreground text-base leading-relaxed;
   }
 
   h1,
@@ -152,5 +172,53 @@
   h3,
   h4 {
     @apply font-heading font-semibold tracking-tight text-foreground;
+  }
+
+  h1 {
+    @apply text-2xl leading-8;
+  }
+
+  h2 {
+    @apply text-xl leading-7;
+  }
+
+  h3,
+  h4 {
+    @apply text-lg leading-6;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Force rectangular chrome even when utilities hardcode rounded-* */
+  .rounded,
+  .rounded-sm,
+  .rounded-md,
+  .rounded-lg,
+  .rounded-xl,
+  .rounded-2xl,
+  .rounded-3xl,
+  .rounded-4xl {
+    border-radius: 0;
+  }
+}
+
+@layer utilities {
+  .font-label-caps {
+    @apply font-mono text-xs font-semibold leading-4 tracking-[0.06em] uppercase;
+  }
+
+  .font-data-sm {
+    @apply font-mono text-sm leading-5;
+  }
+
+  .font-data-md {
+    @apply font-mono text-base font-medium leading-6;
+  }
+
+  /* Soft corner exception — not zeroed by rectangular chrome reset */
+  .rounded-soft {
+    border-radius: 0.375rem; /* 6px */
   }
 }

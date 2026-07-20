@@ -1,0 +1,19 @@
+{
+  "projectId": "1569462075777471397",
+  "projectUrl": "https://stitch.withgoogle.com/projects/1569462075777471397",
+  "designSystemAssetId": "02eab4d5ab8846b3a979ff7033739af0",
+  "screens": {
+    "research_desk": {
+      "id": "183094128b664f2599250784e85bf443",
+      "title": "TG Web Research Desk"
+    },
+    "report_detail": {
+      "id": "b13e698481734e2aaaf5f9b4602cff43",
+      "title": "TG Web Report: Tencent Holdings (0700.HK)"
+    },
+    "tasks_center": {
+      "id": "c266b2a0039a4eac85a9f4b25b2ec4ea",
+      "title": "TG Web Tasks Center"
+    }
+  }
+}

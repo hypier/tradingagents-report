@@ -52,8 +52,8 @@ function instrumentLogo(
 
 function statusVariant(status: AnalysisJob['status']) {
   if (status === 'failed') return 'destructive';
-  if (status === 'running' || status === 'queued') return 'info';
-  if (status === 'succeeded') return 'default';
+  if (status === 'running' || status === 'queued') return 'running';
+  if (status === 'succeeded') return 'up';
   return 'secondary';
 }
 
@@ -66,6 +66,8 @@ type ReportsTableProps = {
   title: string;
   description: string;
   titleId: string;
+  /** full = complete columns; rail = dense ticker/status/date for desk sidebar */
+  density?: 'full' | 'rail';
 };
 
 export function ReportsTable({
@@ -77,8 +79,10 @@ export function ReportsTable({
   title,
   description,
   titleId,
+  density = 'full',
 }: ReportsTableProps) {
   const { t } = useTranslation(['reports', 'common']);
+  const isRail = density === 'rail';
 
   function formatAnalystTeam(analysts?: string[] | null) {
     if (!analysts?.length) return t('table.configuredTeam');
@@ -87,6 +91,94 @@ export function ReportsTable({
         t(`common:analysts.${analyst}`, { defaultValue: analyst }),
       )
       .join(', ');
+  }
+
+  if (isRail) {
+    return (
+      <div aria-labelledby={titleId} className="flex min-h-0 flex-col">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <h2
+            id={titleId}
+            className="font-label-caps text-muted-foreground"
+          >
+            {title}
+          </h2>
+          <Badge variant="outline" className="font-mono text-xs tabular-nums">
+            {t('table.runs', { count: jobs.length })}
+          </Badge>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="space-y-2.5 p-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : error ? (
+            <p className="p-4 text-center text-sm text-muted-foreground">
+              {t('table.unavailable')}
+            </p>
+          ) : jobs.length ? (
+            <ul className="divide-y divide-border">
+              {jobs.slice(0, 12).map((job) => {
+                const logoUrl = instrumentLogo(job, identities);
+                const name = instrumentName(job, identities);
+                const ticker = instrumentTicker(job, identities);
+                return (
+                  <li key={job.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                      onClick={() => onOpenReport(job.id)}
+                    >
+                      <Avatar
+                        className="size-10! shrink-0"
+                        data-logo-url={logoUrl}
+                      >
+                        <AvatarImage
+                          src={logoUrl}
+                          alt={t('table.logoAlt', { ticker: job.ticker })}
+                        />
+                        <AvatarFallback className="text-sm font-semibold">
+                          {ticker.slice(0, 1)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium tracking-tight">
+                          {name ?? ticker}
+                        </span>
+                        {name ? (
+                          <span className="mt-0.5 block truncate font-mono text-xs tracking-wide text-muted-foreground">
+                            {ticker}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <Badge variant={statusVariant(job.status)}>
+                          {t(`common:status.${job.status}`, {
+                            defaultValue: job.status,
+                          })}
+                        </Badge>
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {formatLocaleDateTime(
+                            job.updated_at ?? job.created_at,
+                            '—',
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="p-5 text-center text-sm text-muted-foreground">
+              {t('table.empty')}
+            </p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

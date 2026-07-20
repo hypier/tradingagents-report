@@ -228,21 +228,20 @@ export function TickerSearch({
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => selectHit(hit)}
                   >
-                    <Avatar className="size-10 rounded-full after:rounded-full">
+                    <Avatar className="size-11!">
                       <AvatarImage
-                        className="rounded-full"
                         src={hit.logo_url}
                         alt=""
                       />
-                      <AvatarFallback className="rounded-full text-sm font-semibold">
+                      <AvatarFallback className="text-sm font-semibold">
                         {hit.display_ticker.slice(0, 1)}
                       </AvatarFallback>
                     </Avatar>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
+                      <span className="block truncate text-base font-medium">
                         {hit.display_name}
                       </span>
-                      <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] tracking-wide text-muted-foreground">
+                      <span className="mt-0.5 flex items-center gap-1.5 font-mono text-xs tracking-wide text-muted-foreground">
                         <span>{hit.display_ticker}</span>
                         <span aria-hidden>·</span>
                         <span>{hit.exchange}</span>
@@ -259,8 +258,17 @@ export function TickerSearch({
 
   return (
     <div ref={rootRef} className={cn('relative', className)}>
-      <div ref={inputWrapRef} className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      <div
+        ref={inputWrapRef}
+        className={cn(
+          'relative flex items-center rounded-soft border border-border/80 bg-card shadow-sm ring-1 ring-border/60',
+          'focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30',
+        )}
+      >
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-4 z-10 size-5 -translate-y-1/2 text-primary/80"
+        />
         <Input
           id={id}
           role="combobox"
@@ -284,7 +292,7 @@ export function TickerSearch({
           }}
           onKeyDown={onInputKeyDown}
           placeholder={t('placeholder')}
-          className="pr-9 pl-9 font-mono text-base tracking-wide"
+          className="h-12 min-w-0 flex-1 border-0 bg-transparent pr-11 pl-12 font-mono text-base tracking-wide shadow-none ring-0 focus-visible:ring-0 dark:bg-transparent"
           autoComplete="off"
         />
         {value || query ? (
@@ -292,11 +300,11 @@ export function TickerSearch({
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="absolute top-1/2 right-1.5 size-7 -translate-y-1/2 text-muted-foreground"
+            className="absolute top-1/2 right-2 z-10 size-8 -translate-y-1/2 text-muted-foreground"
             aria-label={t('clear')}
             onClick={clearSelection}
           >
-            <X className="size-3.5" />
+            <X className="size-4" />
           </Button>
         ) : null}
       </div>
@@ -304,7 +312,7 @@ export function TickerSearch({
       {menu}
 
       {value ? (
-        <p className="mt-1.5 truncate text-xs text-muted-foreground">
+        <p className="mt-2 truncate text-sm text-muted-foreground">
           {value.display_name}
           <span className="text-muted-foreground/70">
             {' '}

@@ -55,8 +55,8 @@ function stageFromProgressMessage(value?: string | null) {
 
 function jobStatusVariant(status?: AnalysisJob['status']) {
   if (status === 'failed') return 'destructive';
-  if (status === 'running' || status === 'queued') return 'info';
-  if (status === 'succeeded') return 'default';
+  if (status === 'running' || status === 'queued') return 'running';
+  if (status === 'succeeded') return 'up';
   return 'secondary';
 }
 
@@ -64,10 +64,13 @@ export function PipelinePanel({
   job,
   events,
   loading,
+  variant = 'full',
 }: {
   job?: AnalysisJob;
   events?: AnalysisEvent[];
   loading?: boolean;
+  /** full = wide desk card; rail = compact right-column activity */
+  variant?: 'full' | 'rail';
 }) {
   const { t } = useTranslation(['home', 'common']);
   const stages = [...(job?.analysts ?? analystStages), ...finalStages];
@@ -92,6 +95,90 @@ export function PipelinePanel({
   const jobStatus = job?.status
     ? t(`common:status.${job.status}`, { defaultValue: job.status })
     : t('common:status.idle');
+  const isLive = job?.status === 'running' || job?.status === 'queued';
+
+  if (variant === 'rail') {
+    return (
+      <div className="flex min-h-0 flex-col border-b border-border">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <p className="inline-flex items-center gap-2 font-label-caps text-muted-foreground">
+            <span
+              className={cn(
+                'size-2 rounded-full',
+                isLive ? 'animate-pulse bg-primary' : 'bg-muted-foreground/50',
+              )}
+            />
+            {t('pipeline.eyebrow')}
+          </p>
+          <Badge variant={jobStatusVariant(job?.status)} className="font-mono">
+            {jobStatus}
+          </Badge>
+        </div>
+
+        {job ? (
+          <div className="space-y-3.5 px-4 py-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-mono text-base font-semibold tracking-wide">
+                  {job.ticker}
+                </p>
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {displayStage(activeStage ?? job.current_step)}
+                </p>
+              </div>
+              <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+                {job.progress_percent ?? 0}%
+              </span>
+            </div>
+            <Progress value={job.progress_percent ?? 0} className="h-1.5" />
+            {loading ? (
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            ) : events?.length ? (
+              <ol className="flex max-h-44 flex-col gap-2.5 overflow-y-auto border-l border-border pl-3.5">
+                {[...events].slice(-6).reverse().map((event, index) => (
+                  <li
+                    key={`${event.time ?? 'event'}-${index}`}
+                    className="relative text-sm leading-5 text-muted-foreground"
+                  >
+                    <span
+                      className={cn(
+                        'absolute top-1.5 -left-[15px] size-2 rounded-full',
+                        index === 0 ? 'bg-primary' : 'bg-muted-foreground/50',
+                      )}
+                    />
+                    <div className="flex items-baseline gap-2">
+                      {event.time ? (
+                        <time
+                          dateTime={event.time}
+                          className="shrink-0 font-mono text-xs tabular-nums"
+                        >
+                          {formatLocaleTime(event.time)}
+                        </time>
+                      ) : null}
+                      <span className="min-w-0 break-words">
+                        {localizeProgressMessage(event.message, t)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {t('pipeline.noEventsBody')}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            {t('pipeline.noEventsBody')}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <Card aria-labelledby="pipeline-title" className="@container/card">
@@ -111,7 +198,7 @@ export function PipelinePanel({
         <div className="@container/stages flex flex-col gap-5">
           <div className="flex items-end justify-between gap-3">
             <div className="flex min-w-0 items-start gap-2.5">
-              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <CurrentStageIcon className="size-4" />
               </span>
               <div className="min-w-0">
@@ -148,7 +235,7 @@ export function PipelinePanel({
                   data-stage-status={label}
                   title={stageName}
                   className={cn(
-                    'relative flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors',
+                    'relative flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-2 transition-colors',
                     complete && 'border-primary/30 bg-primary/5',
                     current &&
                       'border-primary bg-primary/10 shadow-[0_0_0_1px] shadow-primary/20',
@@ -201,7 +288,7 @@ export function PipelinePanel({
           </ol>
         </div>
 
-        <div className="min-w-0 rounded-xl border bg-muted/25 p-4">
+        <div className="min-w-0 rounded-md border bg-muted/25 p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="inline-flex items-center gap-1.5 text-sm font-medium">
               <ScrollText className="size-3.5 text-muted-foreground" />
