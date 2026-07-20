@@ -69,11 +69,13 @@ it('renders the standard dashboard navigation shell', () => {
 it('renders an injected account menu in the dashboard header', () => {
   render(
     <MemoryRouter initialEntries={['/']}>
-      <App accountMenu={<button type="button">Account</button>} />
+      <App accountMenu={<button type="button">Account menu</button>} />
     </MemoryRouter>,
   );
 
-  expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Account menu' }),
+  ).toBeInTheDocument();
 });
 
 it('does not expose unsupported research configuration controls', () => {

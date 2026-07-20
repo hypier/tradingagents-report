@@ -4,7 +4,7 @@
  * - 账户 / 计费 / 自选 / 报告元数据放在独立文件中。
  * - 分析任务、LLM 价格、定价来源、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
  */
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { analysisJobs, llmModelPrices, llmPricingSources } from './schema';
@@ -18,6 +18,18 @@ import {
   type BillingRepository,
 } from './billing-repository';
 import {
+  createAdminAuditRepository,
+  createCreditRulesRepository,
+  createMarketsRepository,
+  createProductSettingsRepository,
+  createShareLinksRepository,
+  type AdminAuditRepository,
+  type CreditRulesRepository,
+  type MarketsRepository,
+  type ProductSettingsRepository,
+  type ShareLinksRepository,
+} from './product-ops-repository';
+import {
   createReportMetaRepository,
   type ReportMetaRepository,
 } from './report-meta-repository';
@@ -28,6 +40,13 @@ import {
 
 export type { AccountRepository } from './account-repository';
 export type { BillingRepository } from './billing-repository';
+export type {
+  AdminAuditRepository,
+  CreditRulesRepository,
+  MarketsRepository,
+  ProductSettingsRepository,
+  ShareLinksRepository,
+} from './product-ops-repository';
 export type { ReportMetaRepository } from './report-meta-repository';
 export type { WatchlistRepository } from './watchlist-repository';
 
@@ -45,6 +64,42 @@ export type UserAnalysisListItem = {
   creditUnits: number | null;
   isFavorite: boolean;
   isArchived: boolean;
+};
+
+export type AdminAnalysisListItem = {
+  job: AnalysisJob;
+  clerkUserId: string;
+  creditUnits: number | null;
+};
+
+export type AdminOverviewMetrics = {
+  userCount: number;
+  activeSubscriptionCount: number;
+  period: {
+    from: string;
+    to: string;
+  };
+  analyses: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    queued: number;
+    running: number;
+    successRate: number | null;
+  };
+  credits: {
+    availableTotal: number;
+    reservedTotal: number;
+    spentTotal: number;
+    periodConsumed: number;
+  };
+  queue: {
+    queued: number;
+    running: number;
+  };
+  timing: {
+    averageSucceededDurationSeconds: number | null;
+  };
 };
 
 /** `analysis_jobs` 的只读访问，供管理/列表路径使用。 */
@@ -68,11 +123,20 @@ export type AnalysisJobsRepository = {
     limit: number;
     offset: number;
   }): Promise<UserAnalysisListItem[]>;
+  listAllForAdmin(input: {
+    clerkUserId?: string;
+    ticker?: string;
+    status?: AnalysisJob['status'];
+    limit: number;
+    offset: number;
+  }): Promise<AdminAnalysisListItem[]>;
+  getOwner(analysisJobId: string): Promise<string | null>;
   ownsJob(clerkUserId: string, analysisJobId: string): Promise<boolean>;
   getReservationUnits(
     clerkUserId: string,
     analysisJobId: string,
   ): Promise<number | null>;
+  getAdminOverview(input: { from: Date; to: Date }): Promise<AdminOverviewMetrics>;
 };
 
 /** `llm_model_prices` 的 upsert / 删除辅助。 */
@@ -115,12 +179,22 @@ export function createRepositories(database: Database): {
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
   reportMeta: ReportMetaRepository;
+  shareLinks: ShareLinksRepository;
+  settings: ProductSettingsRepository;
+  markets: MarketsRepository;
+  creditRules: CreditRulesRepository;
+  audit: AdminAuditRepository;
 } {
   return {
     account: createAccountRepository(database),
     billing: createBillingRepository(database),
     watchlist: createWatchlistRepository(database),
     reportMeta: createReportMetaRepository(database),
+    shareLinks: createShareLinksRepository(database),
+    settings: createProductSettingsRepository(database),
+    markets: createMarketsRepository(database),
+    creditRules: createCreditRulesRepository(database),
+    audit: createAdminAuditRepository(database),
     billingConfig: {
       async getStripe() {
         const [configuration] = await database
@@ -288,6 +362,176 @@ export function createRepositories(database: Database): {
           )
           .limit(1);
         return row?.units ?? null;
+      },
+      async listAllForAdmin(input) {
+        const conditions = [
+          sql`${schema.creditReservations.analysisJobId} is not null`,
+        ];
+        if (input.clerkUserId) {
+          conditions.push(
+            eq(schema.creditReservations.clerkUserId, input.clerkUserId),
+          );
+        }
+        if (input.ticker) {
+          conditions.push(
+            eq(analysisJobs.ticker, input.ticker.trim().toUpperCase()),
+          );
+        }
+        if (input.status) {
+          conditions.push(eq(analysisJobs.status, input.status));
+        }
+        const rows = await database
+          .select({
+            job: analysisJobs,
+            clerkUserId: schema.creditReservations.clerkUserId,
+            creditUnits: schema.creditReservations.units,
+          })
+          .from(schema.creditReservations)
+          .innerJoin(
+            analysisJobs,
+            eq(schema.creditReservations.analysisJobId, analysisJobs.id),
+          )
+          .where(and(...conditions))
+          .orderBy(desc(analysisJobs.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+        return rows.map((row) => ({
+          job: row.job,
+          clerkUserId: row.clerkUserId,
+          creditUnits: row.creditUnits,
+        }));
+      },
+      async getOwner(analysisJobId) {
+        const [row] = await database
+          .select({ clerkUserId: schema.creditReservations.clerkUserId })
+          .from(schema.creditReservations)
+          .where(eq(schema.creditReservations.analysisJobId, analysisJobId))
+          .limit(1);
+        return row?.clerkUserId ?? null;
+      },
+      async getAdminOverview(input) {
+        const [
+          userCountRow,
+          activeSubRow,
+          statusRows,
+          creditTotals,
+          periodConsumedRow,
+          avgDurationRow,
+        ] = await Promise.all([
+          database
+            .select({ count: sql<number>`count(*)::int` })
+            .from(schema.accountUsers)
+            .then((rows) => rows[0]),
+          database
+            .select({ count: sql<number>`count(*)::int` })
+            .from(schema.billingSubscriptions)
+            .where(
+              and(
+                inArray(schema.billingSubscriptions.status, [
+                  'active',
+                  'trialing',
+                ]),
+                gt(schema.billingSubscriptions.currentPeriodEnd, new Date()),
+              ),
+            )
+            .then((rows) => rows[0]),
+          database
+            .select({
+              status: analysisJobs.status,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(analysisJobs)
+            .where(
+              and(
+                gte(analysisJobs.createdAt, input.from),
+                lte(analysisJobs.createdAt, input.to),
+              ),
+            )
+            .groupBy(analysisJobs.status),
+          database
+            .select({
+              available: sql<number>`coalesce(sum(${schema.creditAccounts.availableCredits}), 0)::int`,
+              reserved: sql<number>`coalesce(sum(${schema.creditAccounts.reservedCredits}), 0)::int`,
+              spent: sql<number>`coalesce(sum(${schema.creditAccounts.spentCredits}), 0)::int`,
+            })
+            .from(schema.creditAccounts)
+            .then((rows) => rows[0]),
+          database
+            .select({
+              consumed: sql<number>`coalesce(sum(abs(${schema.creditLedgerEntries.spentDelta})), 0)::int`,
+            })
+            .from(schema.creditLedgerEntries)
+            .where(
+              and(
+                eq(schema.creditLedgerEntries.entryType, 'consume'),
+                gte(schema.creditLedgerEntries.createdAt, input.from),
+                lte(schema.creditLedgerEntries.createdAt, input.to),
+              ),
+            )
+            .then((rows) => rows[0]),
+          database
+            .select({
+              avgSeconds: sql<number | null>`avg(extract(epoch from (${analysisJobs.finishedAt} - ${analysisJobs.startedAt})))`,
+            })
+            .from(analysisJobs)
+            .where(
+              and(
+                eq(analysisJobs.status, 'succeeded'),
+                gte(analysisJobs.createdAt, input.from),
+                lte(analysisJobs.createdAt, input.to),
+                sql`${analysisJobs.startedAt} is not null`,
+                sql`${analysisJobs.finishedAt} is not null`,
+              ),
+            )
+            .then((rows) => rows[0]),
+        ]);
+
+        const counts = {
+          total: 0,
+          succeeded: 0,
+          failed: 0,
+          queued: 0,
+          running: 0,
+        };
+        for (const row of statusRows) {
+          counts.total += row.count;
+          if (row.status === 'succeeded') counts.succeeded = row.count;
+          if (row.status === 'failed') counts.failed = row.count;
+          if (row.status === 'queued') counts.queued = row.count;
+          if (row.status === 'running') counts.running = row.count;
+        }
+        const finished = counts.succeeded + counts.failed;
+        return {
+          userCount: userCountRow?.count ?? 0,
+          activeSubscriptionCount: activeSubRow?.count ?? 0,
+          period: {
+            from: input.from.toISOString(),
+            to: input.to.toISOString(),
+          },
+          analyses: {
+            ...counts,
+            successRate:
+              finished > 0
+                ? Number((counts.succeeded / finished).toFixed(4))
+                : null,
+          },
+          credits: {
+            availableTotal: creditTotals?.available ?? 0,
+            reservedTotal: creditTotals?.reserved ?? 0,
+            spentTotal: creditTotals?.spent ?? 0,
+            periodConsumed: periodConsumedRow?.consumed ?? 0,
+          },
+          queue: {
+            queued: counts.queued,
+            running: counts.running,
+          },
+          timing: {
+            averageSucceededDurationSeconds:
+              avgDurationRow?.avgSeconds == null
+                ? null
+                : Number(Number(avgDurationRow.avgSeconds).toFixed(1)),
+          },
+        };
       },
     },
     modelPrices: {

@@ -151,8 +151,17 @@ flowchart LR
 - 管理员可在 `/admin/billing` 查看 Stripe 连接与 Webhook 配置状态，创建带周期额度、支持市场和功能元数据的循环套餐并停用价格。配置 `BILLING_CONFIG_ENCRYPTION_KEY` 后，管理员可在页面验证、替换或清除 Stripe API Key 与 Webhook Secret；密钥使用 AES-GCM 加密后保存，API 仅返回掩码与配置来源。
 - 管理员可通过 Stripe API 幂等初始化每月 20、50、100 美元三档标准套餐，分别在有效支付周期发放 20、50、100 个分析额度；重复初始化不会创建重复 Product 或 Price，配置冲突会明确报错。
 - 分析列表与详情经 `credit_reservations` 按 Clerk 用户隔离；用户只能查看自己的任务与报告。
+- 管理员运营概览 `/admin`：展示注册用户数、有效订阅、周期内分析量/成功率、额度消耗与队列积压，以及 Stripe 连接健康摘要。
+- 管理员用户钻取 `/admin/users/:userId`：查看订阅/额度账本与近期任务，可停用或恢复账号（Clerk ban/unban），并可按幂等键手动调整额度（写入 `adjustment` 账本）。
+- 管理员任务列表 `/admin/analyses`：跨用户按状态/标的/用户筛选；对失败任务可发起受控重试——为原所有者预留额度并以新 `request_id` 提交替换 job（非 Core 原地重试）。
+- 报告受控分享：所有者可为成功报告创建带过期时间的令牌链接；公开页 `/shared/:token` 只读访问，不赋予 ownership；支持撤销与浏览次数上限。
+- 可变额度规则：按市场与分析师数量匹配 `credit_rules`，提交/重试/首页预览使用解析结果；无匹配时回退 1。
+- 产品设置：维护公告、功能开关（自选/分享）、免责声明版本与正文覆盖、告警 webhook URL（仅存储不发送）。
+- 市场元数据管理 `/admin/markets`；`/api/public-config` 返回已启用市场列表。
+- 管理员模型与数据源面板 `/admin/models`：只读展示 `llm_model_prices`、定价来源健康与依赖探针摘要。
+- 通用审计检索 `/admin/audit`：记录管理员写操作与报告分享创建/撤销；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
 
-当前尚未实现报告受控分享链接、管理后台运营概览/用户钻取/任务重试/模型与数据源面板/通用审计告警，以及报告 AI 对话。
+当前尚未实现报告 AI 对话，以及告警 webhook 的实际外发通知。
 
 分析 job 仍由 Core 统一持久化。产品额度预留通过 `request_id` 和 `analysis_job_id` 关联 Clerk 用户，Core 在 job 终态事务内结算额度；Core 的服务级 API 本身仍不提供终端用户鉴权。产品与计费表结构由 tg-web Drizzle 迁移维护，Core 不执行 DDL。
 

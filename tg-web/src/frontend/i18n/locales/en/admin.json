@@ -24,6 +24,7 @@
       "role": "Role"
     },
     "you": "You",
+    "banned": "Banned",
     "noEmail": "No email",
     "roleAria": "Role for {{name}}",
     "roleUser": "User",
@@ -149,6 +150,267 @@
     },
     "defaults": {
       "features": "Full analyst team, PDF reports"
+    }
+  },
+  "overview": {
+    "title": "Ops overview",
+    "heading": "Operations overview",
+    "subtitle": "Users, subscriptions, analysis outcomes, and queue health for the last 30 days.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to view operations."
+    },
+    "loadError": {
+      "title": "Unable to load overview",
+      "body": "Check database connectivity and retry."
+    },
+    "links": {
+      "users": "Users",
+      "analyses": "Jobs",
+      "billing": "Billing settings"
+    },
+    "metrics": {
+      "users": "Registered users",
+      "activeSubscriptions": "Active subscriptions",
+      "periodAnalyses": "Analyses this period",
+      "successRate": "Success rate {{rate}}",
+      "periodCredits": "Credits consumed",
+      "availableReserved": "{{available}} available · {{reserved}} reserved"
+    },
+    "queue": {
+      "title": "Queue health",
+      "description": "Current backlog and period failures",
+      "queued": "{{count}} queued",
+      "running": "{{count}} running",
+      "failed": "{{count}} failed this period",
+      "avgDuration": "Avg succeeded duration: {{seconds}}s"
+    },
+    "stripe": {
+      "title": "Stripe summary",
+      "description": "Connection health from billing settings",
+      "configured": "Configured",
+      "yes": "Yes",
+      "no": "No",
+      "health": "Connection",
+      "healthy": "Healthy",
+      "unhealthy": "Unhealthy",
+      "mode": "Mode"
+    }
+  },
+  "analyses": {
+    "title": "Analysis jobs",
+    "heading": "All analysis jobs",
+    "subtitle": "Cross-user job list with controlled retry for failed runs.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to manage analysis jobs."
+    },
+    "loadError": {
+      "title": "Unable to load jobs",
+      "body": "Check the database connection and retry."
+    },
+    "tickerPlaceholder": "Ticker",
+    "userPlaceholder": "Clerk user ID",
+    "columns": {
+      "ticker": "Ticker",
+      "user": "User",
+      "status": "Status",
+      "created": "Created",
+      "actions": "Actions"
+    },
+    "open": "Open",
+    "retry": "Retry",
+    "retrySuccess": "Replacement analysis submitted.",
+    "retryError": "Unable to retry this analysis."
+  },
+  "userDetail": {
+    "title": "User detail",
+    "back": "Back to users",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to view user details."
+    },
+    "loadError": {
+      "title": "Unable to load user",
+      "body": "The user may not exist or Clerk is unavailable."
+    },
+    "banned": "Banned",
+    "active": "Active",
+    "ban": "Ban account",
+    "unban": "Restore account",
+    "banUpdated": "Account status updated.",
+    "banError": "Unable to update account status.",
+    "creditAdjusted": "Credits adjusted.",
+    "creditError": "Unable to adjust credits.",
+    "credits": {
+      "title": "Credits and subscription",
+      "description": "Balances and admin adjustment",
+      "available": "Available",
+      "reserved": "Reserved",
+      "spent": "Spent",
+      "subscription": "Subscription",
+      "delta": "Delta (+/-)",
+      "reason": "Reason (required)",
+      "adjust": "Adjust credits"
+    },
+    "ledger": {
+      "title": "Recent ledger",
+      "type": "Type",
+      "delta": "Delta",
+      "when": "When"
+    },
+    "jobs": {
+      "title": "Recent analyses",
+      "ticker": "Ticker",
+      "status": "Status",
+      "created": "Created"
+    }
+  },
+  "models": {
+    "title": "Models & data",
+    "heading": "Models and datasources",
+    "subtitle": "LLM pricing, pricing sources, and dependency health.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to view models."
+    },
+    "loadError": {
+      "title": "Unable to load models",
+      "body": "Check database connectivity and retry."
+    },
+    "pricesTitle": "Model prices",
+    "pricesDescription": "Latest known input and output prices",
+    "sourcesTitle": "Pricing sources",
+    "sourcesDescription": "Upstream price feed status",
+    "healthTitle": "Datasource health",
+    "healthDescription": "Core dependencies and vendor status",
+    "emptyPrices": "No model prices recorded.",
+    "emptySources": "No pricing sources configured.",
+    "ok": "OK",
+    "fail": "Fail",
+    "columns": {
+      "provider": "Provider",
+      "model": "Model",
+      "input": "Input",
+      "output": "Output",
+      "updated": "Updated",
+      "source": "Source",
+      "models": "Models",
+      "lastSuccess": "Last success",
+      "error": "Error",
+      "vendor": "Vendor",
+      "status": "Status"
+    }
+  },
+  "settings": {
+    "title": "Product settings",
+    "heading": "Product settings",
+    "subtitle": "Maintenance, features, disclaimer, alerts, and credit rules.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to manage settings."
+    },
+    "loadError": {
+      "title": "Unable to load settings",
+      "body": "Check database connectivity and retry."
+    },
+    "maintenanceTitle": "Maintenance",
+    "maintenanceDescription": "Show a banner while maintenance is enabled.",
+    "maintenanceEnabled": "Maintenance mode enabled",
+    "messageEn": "Message (EN)",
+    "messageZh": "Message (ZH)",
+    "featuresTitle": "Feature flags",
+    "featureWatchlist": "Watchlist",
+    "featureShareLinks": "Report share links",
+    "disclaimerTitle": "Disclaimer",
+    "disclaimerVersion": "Version",
+    "disclaimerEn": "Markdown (EN)",
+    "disclaimerZh": "Markdown (ZH)",
+    "alertsTitle": "Alerts",
+    "webhookUrl": "Webhook URL",
+    "save": "Save settings",
+    "saved": "Settings saved.",
+    "saveError": "Unable to save settings.",
+    "creditRulesTitle": "Credit rules",
+    "creditRulesDescription": "Units charged by market and analyst count.",
+    "ruleLabel": "Label",
+    "ruleMarket": "Market (optional)",
+    "ruleMin": "Min analysts",
+    "ruleMax": "Max analysts",
+    "ruleUnits": "Units",
+    "addRule": "Add rule",
+    "deleteRule": "Delete rule",
+    "ruleCreated": "Credit rule created.",
+    "ruleCreateError": "Unable to create credit rule.",
+    "ruleDeleted": "Credit rule deleted.",
+    "ruleDeleteError": "Unable to delete credit rule.",
+    "yes": "Yes",
+    "no": "No",
+    "columns": {
+      "label": "Label",
+      "market": "Market",
+      "analysts": "Analysts",
+      "units": "Units",
+      "enabled": "Enabled"
+    }
+  },
+  "markets": {
+    "title": "Markets",
+    "heading": "Market metadata",
+    "subtitle": "Enable markets and edit display metadata.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to manage markets."
+    },
+    "loadError": {
+      "title": "Unable to load markets",
+      "body": "Check database connectivity and retry."
+    },
+    "listTitle": "Markets",
+    "listDescription": "Select a row to edit, or create a new market code.",
+    "createTitle": "Create or update market",
+    "editTitle": "Editing {{code}}",
+    "edit": "Edit",
+    "new": "New",
+    "save": "Save market",
+    "saved": "Market saved.",
+    "saveError": "Unable to save market.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "sortOrder": "Sort order",
+    "sessionNotes": "Session notes",
+    "disclaimer": "Disclaimer",
+    "columns": {
+      "code": "Code",
+      "name": "Name",
+      "timezone": "Timezone",
+      "currency": "Currency",
+      "enabled": "Status"
+    }
+  },
+  "audit": {
+    "title": "Audit log",
+    "heading": "Admin audit events",
+    "subtitle": "Filter recent administrator and product operations.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to view audit events."
+    },
+    "loadError": {
+      "title": "Unable to load audit log",
+      "body": "Check database connectivity and retry."
+    },
+    "filterTitle": "Filters",
+    "filterDescription": "Match by action name or actor Clerk user ID.",
+    "actionPlaceholder": "Action",
+    "actorPlaceholder": "Actor user ID",
+    "filter": "Apply",
+    "empty": "No audit events matched.",
+    "columns": {
+      "when": "When",
+      "actor": "Actor",
+      "action": "Action",
+      "target": "Target"
     }
   }
 }

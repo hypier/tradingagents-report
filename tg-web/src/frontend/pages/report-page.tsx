@@ -3,9 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   ArrowLeft,
+  Copy,
   Download,
   FileText,
+  Link2,
   Star,
+  Trash2,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +38,9 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { getAnalystIcon, getStageIcon } from '../components/icons/research-icons';
+import { formatLocaleDateTime } from '../lib/format-locale';
 import { formatOutputLanguage } from '../lib/format-output-language';
+import { fetchPublicConfig } from '../lib/public-config';
 import {
   loadReportReadingPreferences,
   saveReportReadingPreferences,
@@ -45,6 +50,11 @@ import {
   updateResearchMeta,
   type AnalysisDetail,
 } from '../lib/research';
+import {
+  createShare,
+  listShares,
+  revokeShare,
+} from '../lib/share';
 import { cn } from '../lib/utils';
 import { ANALYSIS_CREDIT_UNITS } from '@/shared/analysis-credits';
 import { formatDisplayTicker } from '@/shared/listing';
@@ -143,6 +153,21 @@ export function ReportPage() {
     queryFn: () => getResearch(id!),
     enabled: Boolean(id),
   });
+  const publicConfig = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => fetchPublicConfig(),
+    staleTime: 60_000,
+  });
+  const shareLinksEnabled =
+    publicConfig.isLoading ||
+    publicConfig.data?.features.shareLinks !== false;
+  const job = detail.data?.data;
+  const canShare = Boolean(id) && shareLinksEnabled && job?.status === 'succeeded';
+  const shares = useQuery({
+    queryKey: ['analysis-shares', id],
+    queryFn: () => listShares(id!),
+    enabled: canShare,
+  });
   const meta = useMutation({
     mutationFn: (input: { isFavorite?: boolean; isArchived?: boolean }) =>
       updateResearchMeta(id!, input),
@@ -153,7 +178,28 @@ export function ReportPage() {
     },
     onError: () => toast.error(t('metaError')),
   });
-  const job = detail.data?.data;
+  const createShareLink = useMutation({
+    mutationFn: () => createShare(id!, { expiresInDays: 7 }),
+    onSuccess: async (result) => {
+      void queryClient.invalidateQueries({ queryKey: ['analysis-shares', id] });
+      const url = `${window.location.origin}${result.data.path}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success(t('share.createdCopied'));
+      } catch {
+        toast.success(t('share.created'));
+      }
+    },
+    onError: () => toast.error(t('share.createError')),
+  });
+  const revokeShareLink = useMutation({
+    mutationFn: (shareId: string) => revokeShare(id!, shareId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['analysis-shares', id] });
+      toast.success(t('share.revoked'));
+    },
+    onError: () => toast.error(t('share.revokeError')),
+  });
   const entries = Object.entries(job?.reports ?? {});
   const tabKeys = entries.map(([key]) => key);
   const tabKeysKey = tabKeys.join('\0');
@@ -442,9 +488,74 @@ export function ReportPage() {
                 <Download data-icon="inline-start" />
                 {t('exportMarkdown')}
               </Button>
+              {canShare ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={createShareLink.isPending}
+                  onClick={() => createShareLink.mutate()}
+                >
+                  <Link2 data-icon="inline-start" />
+                  {t('share.create')}
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </div>
+
+        {canShare && (shares.data?.data.length ?? 0) > 0 ? (
+          <div className="rounded-xl border bg-muted/20 px-4 py-3">
+            <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {t('share.linksTitle')}
+            </p>
+            <ul className="flex flex-col gap-2">
+              {(shares.data?.data ?? [])
+                .filter((link) => !link.revokedAt)
+                .map((link) => {
+                  const url = `${window.location.origin}${link.path}`;
+                  return (
+                    <li
+                      key={link.id}
+                      className="flex flex-wrap items-center gap-2 text-sm"
+                    >
+                      <code className="max-w-[min(100%,28rem)] truncate rounded bg-background px-2 py-1 text-xs">
+                        {url}
+                      </code>
+                      <span className="text-xs text-muted-foreground">
+                        {t('share.expires', {
+                          date: formatLocaleDateTime(String(link.expiresAt)),
+                        })}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(url);
+                            toast.success(t('share.copied'));
+                          } catch {
+                            toast.error(t('share.copyError'));
+                          }
+                        }}
+                      >
+                        <Copy data-icon="inline-start" />
+                        {t('share.copy')}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={revokeShareLink.isPending}
+                        onClick={() => revokeShareLink.mutate(link.id)}
+                      >
+                        <Trash2 data-icon="inline-start" />
+                        {t('share.revoke')}
+                      </Button>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        ) : null}
 
         {!id ? (
           <Alert variant="destructive">

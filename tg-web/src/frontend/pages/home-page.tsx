@@ -51,11 +51,12 @@ import {
   formatLocaleNumber,
 } from '../lib/format-locale';
 import { OUTPUT_LANGUAGE_IDS } from '../lib/format-output-language';
+import { fetchCreditEstimate } from '../lib/public-config';
 import { snapshotFreshness } from '../lib/snapshot-freshness';
 import { cn } from '../lib/utils';
 import { todayInTimezone } from '../i18n/locales';
-import { ANALYSIS_CREDIT_UNITS } from '@/shared/analysis-credits';
 import { formatDisplayTicker, listingFromProviderSymbol } from '@/shared/listing';
+import { marketFromExchange } from '@/shared/market-codes';
 import {
   createResearch,
   getMarketIdentities,
@@ -189,9 +190,17 @@ export function HomePage() {
   const subscriptionStatus = billing.data?.data.subscription?.status;
   const hasActiveSubscription =
     subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
+  const selectedMarket = marketFromExchange(instrument?.exchange);
+  const creditEstimate = useQuery({
+    queryKey: ['credit-estimate', selectedMarket, analysts.length],
+    queryFn: () => fetchCreditEstimate(selectedMarket, analysts.length),
+    enabled: analysts.length > 0,
+    staleTime: 30_000,
+  });
+  const creditUnits = creditEstimate.data ?? 1;
   const insufficientCredits =
     billing.isSuccess &&
-    (!hasActiveSubscription || availableCredits < ANALYSIS_CREDIT_UNITS);
+    (!hasActiveSubscription || availableCredits < creditUnits);
   const maxTradeDate = todayInTimezone(
     profile.data?.data.profile.timezone ?? 'UTC',
   );
@@ -449,7 +458,7 @@ export function HomePage() {
                         {create.isPending
                           ? t('submit.submitting')
                           : t('submit.runWithCredit', {
-                              count: ANALYSIS_CREDIT_UNITS,
+                              count: creditUnits,
                             })}
                       </Button>
                     </div>

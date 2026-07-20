@@ -20,8 +20,18 @@ function fakeDependencies(
         imageUrl: 'https://img.example.test/user-1.png',
         role: 'user',
       }),
+      getManagedUser: vi.fn().mockResolvedValue({
+        id: 'user-1',
+        displayName: 'Test User',
+        email: 'test@example.test',
+        imageUrl: 'https://img.example.test/user-1.png',
+        role: 'user',
+        createdAt: 1,
+        banned: false,
+      }),
       listUsers: vi.fn().mockResolvedValue({ users: [], totalCount: 0 }),
       setUserRole: vi.fn(),
+      setUserBanned: vi.fn(),
       getBillingIdentity: vi.fn().mockResolvedValue({
         user: {
           id: 'user-1',
@@ -92,6 +102,13 @@ function fakeDependencies(
         reserveAnalysis: vi.fn().mockResolvedValue('created'),
         attachAnalysis: vi.fn().mockResolvedValue(undefined),
         releaseAnalysis: vi.fn().mockResolvedValue(undefined),
+        adjustCredits: vi.fn().mockResolvedValue({
+          availableCredits: 10,
+          reservedCredits: 0,
+          spentCredits: 0,
+          subscription: null,
+          ledger: [],
+        }),
         processStripeEvent: vi.fn().mockResolvedValue(true),
         recordStripeFailure: vi.fn().mockResolvedValue(undefined),
       },
@@ -99,8 +116,31 @@ function fakeDependencies(
         getById: vi.fn(),
         list: vi.fn().mockResolvedValue([]),
         listForUser: vi.fn().mockResolvedValue([]),
+        listAllForAdmin: vi.fn().mockResolvedValue([]),
+        getOwner: vi.fn().mockResolvedValue(null),
         ownsJob: vi.fn().mockResolvedValue(true),
         getReservationUnits: vi.fn().mockResolvedValue(1),
+        getAdminOverview: vi.fn().mockResolvedValue({
+          userCount: 0,
+          activeSubscriptionCount: 0,
+          period: { from: new Date(0).toISOString(), to: new Date().toISOString() },
+          analyses: {
+            total: 0,
+            succeeded: 0,
+            failed: 0,
+            queued: 0,
+            running: 0,
+            successRate: null,
+          },
+          credits: {
+            availableTotal: 0,
+            reservedTotal: 0,
+            spentTotal: 0,
+            periodConsumed: 0,
+          },
+          queue: { queued: 0, running: 0 },
+          timing: { averageSucceededDurationSeconds: null },
+        }),
       },
       watchlist: {
         getSnapshot: vi.fn().mockResolvedValue({ groups: [], tags: [] }),
@@ -120,6 +160,83 @@ function fakeDependencies(
         get: vi.fn(),
         listForUser: vi.fn().mockResolvedValue([]),
         upsert: vi.fn(),
+      },
+      shareLinks: {
+        create: vi.fn(),
+        listForJob: vi.fn().mockResolvedValue([]),
+        getById: vi.fn(),
+        getByToken: vi.fn(),
+        revoke: vi.fn(),
+        consumeView: vi.fn().mockResolvedValue(null),
+      },
+      settings: {
+        getAll: vi.fn().mockResolvedValue({
+          maintenance: { enabled: false, message: { en: '', zh: '' } },
+          features: { watchlist: true, shareLinks: true },
+          disclaimer: { version: null, markdown: { en: null, zh: null } },
+          alerts: { webhookUrl: '' },
+        }),
+        get: vi.fn().mockResolvedValue(null),
+        set: vi.fn(),
+        setMany: vi.fn().mockResolvedValue({}),
+      },
+      markets: {
+        list: vi.fn().mockResolvedValue([
+          {
+            code: 'US',
+            enabled: 1,
+            displayName: 'United States',
+            timezone: 'America/New_York',
+            currency: 'USD',
+            sessionNotes: null,
+            disclaimer: null,
+            sortOrder: 10,
+            updatedAt: new Date(),
+          },
+        ]),
+        get: vi.fn(),
+        upsert: vi.fn(),
+        setEnabled: vi.fn(),
+      },
+      creditRules: {
+        list: vi.fn().mockResolvedValue([]),
+        listEnabled: vi.fn().mockResolvedValue([
+          {
+            id: 'rule-1',
+            label: 'Default',
+            market: null,
+            minAnalysts: 1,
+            maxAnalysts: 99,
+            units: 1,
+            enabled: 1,
+            priority: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
+      audit: {
+        record: vi.fn().mockResolvedValue({
+          id: 'audit-1',
+          actorClerkUserId: 'user-1',
+          action: 'test',
+          targetType: null,
+          targetId: null,
+          metadata: {},
+          createdAt: new Date(),
+        }),
+        list: vi.fn().mockResolvedValue([]),
+      },
+      modelPrices: {
+        list: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn(),
+        delete: vi.fn(),
+      },
+      pricingSources: {
+        list: vi.fn().mockResolvedValue([]),
       },
     },
     cache: {
@@ -153,8 +270,10 @@ describe('createApp', () => {
       auth: {
         authenticate: vi.fn().mockResolvedValue(null),
         getUser: vi.fn(),
+        getManagedUser: vi.fn(),
         listUsers: vi.fn(),
         setUserRole: vi.fn(),
+        setUserBanned: vi.fn(),
         getBillingIdentity: vi.fn(),
         setStripeCustomerId: vi.fn(),
       },
@@ -168,6 +287,94 @@ describe('createApp', () => {
       error: { code: 'UNAUTHENTICATED' },
     });
     expect(dependencies.core.listAnalyses).not.toHaveBeenCalled();
+  });
+
+  it('exposes maintenance and markets on public config', async () => {
+    const dependencies = fakeDependencies();
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/public-config');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        clerkPublishableKey: 'pk_test_public',
+        maintenance: { enabled: false },
+        features: { watchlist: true, shareLinks: true },
+      },
+    });
+  });
+
+  it('serves a shared report by token without auth', async () => {
+    const dependencies = fakeDependencies({
+      auth: {
+        authenticate: vi.fn().mockResolvedValue(null),
+        getUser: vi.fn(),
+        getManagedUser: vi.fn(),
+        listUsers: vi.fn(),
+        setUserRole: vi.fn(),
+        setUserBanned: vi.fn(),
+        getBillingIdentity: vi.fn(),
+        setStripeCustomerId: vi.fn(),
+      },
+    });
+    const jobId = '44444444-4444-4444-8444-444444444444';
+    vi.mocked(dependencies.database.shareLinks.consumeView).mockResolvedValue({
+      id: 'share-1',
+      token: 'abc123',
+      analysisJobId: jobId,
+      clerkUserId: 'user-2',
+      expiresAt: new Date(Date.now() + 86_400_000),
+      revokedAt: null,
+      maxViews: null,
+      viewCount: 1,
+      createdAt: new Date(),
+    });
+    vi.mocked(dependencies.database.analysisJobs.getById).mockResolvedValue({
+      id: jobId,
+      status: 'succeeded',
+      ticker: 'AAPL',
+      tradeDate: '2026-07-18',
+      exchange: 'NASDAQ',
+      assetType: 'equity',
+      analysts: ['market'],
+      request: {},
+      config: {},
+      display: { display_name: 'Apple' },
+      decision: 'Buy',
+      error: null,
+      progressPercent: 100,
+      currentStep: null,
+      costUsd: '0',
+      requestId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      startedAt: null,
+      finishedAt: new Date(),
+      finalState: null,
+      reportPath: null,
+      tokensUsed: 0,
+      tokenUsage: {},
+      costBreakdown: {},
+      events: [],
+    } as never);
+    vi.mocked(dependencies.core.getAnalysis).mockResolvedValue({
+      id: jobId,
+      reports: { market_report: '# Market' },
+      decision: 'Buy',
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/shared/abc123');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        id: jobId,
+        ticker: 'AAPL',
+        reports: { market_report: '# Market' },
+      },
+    });
   });
 
   it('returns the authenticated Clerk session and normalized user', async () => {
@@ -260,6 +467,7 @@ describe('createApp', () => {
           imageUrl: '',
           role: 'admin',
           createdAt: 1,
+          banned: false,
         },
       ],
       totalCount: 1,
@@ -318,6 +526,7 @@ describe('createApp', () => {
       imageUrl: '',
       role: 'admin',
       createdAt: 2,
+      banned: false,
     });
     const app = createApp(dependencies);
 
@@ -334,6 +543,206 @@ describe('createApp', () => {
     expect(dependencies.auth.setUserRole).toHaveBeenCalledWith(
       'user-2',
       'admin',
+    );
+  });
+
+  it('lets administrators view the operations overview', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    vi.mocked(
+      dependencies.database.analysisJobs.getAdminOverview,
+    ).mockResolvedValue({
+      userCount: 3,
+      activeSubscriptionCount: 1,
+      period: {
+        from: '2026-06-20T00:00:00.000Z',
+        to: '2026-07-20T00:00:00.000Z',
+      },
+      analyses: {
+        total: 10,
+        succeeded: 8,
+        failed: 2,
+        queued: 0,
+        running: 0,
+        successRate: 0.8,
+      },
+      credits: {
+        availableTotal: 40,
+        reservedTotal: 2,
+        spentTotal: 8,
+        periodConsumed: 8,
+      },
+      queue: { queued: 0, running: 0 },
+      timing: { averageSucceededDurationSeconds: 12.5 },
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/admin/overview?days=30');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        userCount: 3,
+        analyses: { successRate: 0.8 },
+        stripe: { configured: true, connectionHealthy: true },
+      },
+    });
+  });
+
+  it('prevents an administrator from banning their own account', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/admin/users/user-1/ban', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ banned: true }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'SELF_BAN_NOT_ALLOWED' },
+    });
+    expect(dependencies.auth.setUserBanned).not.toHaveBeenCalled();
+  });
+
+  it('lets administrators ban another user and adjust credits', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    vi.mocked(dependencies.auth.setUserBanned).mockResolvedValue({
+      id: 'user-2',
+      displayName: 'Second User',
+      email: 'second@example.test',
+      imageUrl: '',
+      role: 'user',
+      createdAt: 2,
+      banned: true,
+    });
+    vi.mocked(dependencies.auth.getManagedUser).mockResolvedValue({
+      id: 'user-2',
+      displayName: 'Second User',
+      email: 'second@example.test',
+      imageUrl: '',
+      role: 'user',
+      createdAt: 2,
+      banned: false,
+    });
+    const app = createApp(dependencies);
+
+    const banResponse = await app.request('/api/admin/users/user-2/ban', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ banned: true }),
+    });
+    expect(banResponse.status).toBe(200);
+    expect(await banResponse.json()).toMatchObject({
+      data: { id: 'user-2', banned: true },
+    });
+
+    const adjustResponse = await app.request('/api/admin/credits/adjust', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clerkUserId: 'user-2',
+        delta: 5,
+        reason: 'manual top-up',
+        idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      }),
+    });
+    expect(adjustResponse.status).toBe(200);
+    expect(dependencies.database.billing.adjustCredits).toHaveBeenCalledWith({
+      clerkUserId: 'user-2',
+      delta: 5,
+      reason: 'manual top-up',
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      actorClerkUserId: 'user-1',
+    });
+  });
+
+  it('retries a failed analysis as a new job for the original owner', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    const originalJobId = '22222222-2222-4222-8222-222222222222';
+    const createdJobId = '33333333-3333-4333-8333-333333333333';
+    vi.mocked(dependencies.database.analysisJobs.getById).mockResolvedValue({
+      id: originalJobId,
+      status: 'failed',
+      ticker: 'AAPL',
+      tradeDate: '2026-07-18',
+      request: {
+        instrument: { exchange: 'NASDAQ', symbol: 'AAPL' },
+        output_language: 'en',
+      },
+      config: { deep_think_llm: 'gpt-5' },
+      display: { display_name: 'Apple' },
+      analysts: ['market', 'news'],
+      createdAt: new Date('2026-07-18T00:00:00.000Z'),
+      startedAt: null,
+      finishedAt: null,
+      progress: null,
+      result: null,
+      error: 'boom',
+      events: [],
+    } as never);
+    vi.mocked(dependencies.database.analysisJobs.getOwner).mockResolvedValue(
+      'user-2',
+    );
+    vi.mocked(dependencies.core.submitAnalysis).mockResolvedValue({
+      id: createdJobId,
+      status: 'queued',
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request(
+      `/api/admin/analyses/${originalJobId}/retry`,
+      { method: 'POST' },
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toMatchObject({
+      data: {
+        originalJobId,
+        ownerUserId: 'user-2',
+        job: { id: createdJobId },
+      },
+    });
+    expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clerkUserId: 'user-2',
+        units: 1,
+      }),
+    );
+    expect(dependencies.core.submitAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticker: 'AAPL',
+        trade_date: '2026-07-18',
+        request_id: expect.any(String),
+      }),
     );
   });
 
@@ -928,6 +1337,7 @@ describe('createApp', () => {
           reserveAnalysis: vi.fn(),
           attachAnalysis: vi.fn(),
           releaseAnalysis: vi.fn(),
+          adjustCredits: vi.fn(),
           processStripeEvent: vi.fn(),
           recordStripeFailure: vi.fn(),
         },
@@ -935,8 +1345,11 @@ describe('createApp', () => {
           getById: vi.fn(),
           list: vi.fn(),
           listForUser: vi.fn(),
+          listAllForAdmin: vi.fn(),
+          getOwner: vi.fn(),
           ownsJob: vi.fn(),
           getReservationUnits: vi.fn(),
+          getAdminOverview: vi.fn(),
         },
         watchlist: {
           getSnapshot: vi.fn(),
@@ -956,6 +1369,45 @@ describe('createApp', () => {
           get: vi.fn(),
           listForUser: vi.fn(),
           upsert: vi.fn(),
+        },
+        shareLinks: {
+          create: vi.fn(),
+          listForJob: vi.fn(),
+          getById: vi.fn(),
+          getByToken: vi.fn(),
+          revoke: vi.fn(),
+          consumeView: vi.fn(),
+        },
+        settings: {
+          getAll: vi.fn().mockResolvedValue({}),
+          get: vi.fn(),
+          set: vi.fn(),
+          setMany: vi.fn(),
+        },
+        markets: {
+          list: vi.fn().mockResolvedValue([]),
+          get: vi.fn(),
+          upsert: vi.fn(),
+          setEnabled: vi.fn(),
+        },
+        creditRules: {
+          list: vi.fn().mockResolvedValue([]),
+          listEnabled: vi.fn().mockResolvedValue([]),
+          create: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+        },
+        audit: {
+          record: vi.fn(),
+          list: vi.fn().mockResolvedValue([]),
+        },
+        modelPrices: {
+          list: vi.fn().mockResolvedValue([]),
+          upsert: vi.fn(),
+          delete: vi.fn(),
+        },
+        pricingSources: {
+          list: vi.fn().mockResolvedValue([]),
         },
       },
     });

@@ -59,6 +59,7 @@ beforeEach(() => {
           imageUrl: '',
           role: 'admin',
           createdAt: 1,
+          banned: false,
         },
         {
           id: 'user-2',
@@ -67,6 +68,7 @@ beforeEach(() => {
           imageUrl: '',
           role: 'user',
           createdAt: 2,
+          banned: false,
         },
       ],
       totalCount: 2,

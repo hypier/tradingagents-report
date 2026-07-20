@@ -15,6 +15,7 @@ export type AuthUser = {
 
 export type ManagedUser = AuthUser & {
   createdAt: number;
+  banned: boolean;
 };
 
 export type ManagedUserPage = {
@@ -30,12 +31,14 @@ export type BillingIdentity = {
 export interface AuthService {
   authenticate(request: Request): Promise<AuthSession | null>;
   getUser(userId: string): Promise<AuthUser>;
+  getManagedUser(userId: string): Promise<ManagedUser>;
   listUsers(input: {
     limit: number;
     offset: number;
     query?: string;
   }): Promise<ManagedUserPage>;
   setUserRole(userId: string, role: UserRole): Promise<ManagedUser>;
+  setUserBanned(userId: string, banned: boolean): Promise<ManagedUser>;
   getBillingIdentity(userId: string): Promise<BillingIdentity>;
   setStripeCustomerId(userId: string, customerId: string): Promise<void>;
 }

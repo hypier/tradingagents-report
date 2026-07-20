@@ -12,11 +12,16 @@ import {
   createRepositories,
   type AccountRepository,
   type AnalysisJobsRepository,
+  type AdminAuditRepository,
   type BillingConfigRepository,
   type BillingRepository,
+  type CreditRulesRepository,
+  type MarketsRepository,
   type ModelPricesRepository,
   type PricingSourcesRepository,
+  type ProductSettingsRepository,
   type ReportMetaRepository,
+  type ShareLinksRepository,
   type WatchlistRepository,
 } from './repositories';
 import * as schema from './schema';
@@ -32,6 +37,11 @@ export type DatabaseHealth = {
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
   reportMeta: ReportMetaRepository;
+  shareLinks: ShareLinksRepository;
+  settings: ProductSettingsRepository;
+  markets: MarketsRepository;
+  creditRules: CreditRulesRepository;
+  audit: AdminAuditRepository;
 };
 
 /** Node 运行时额外提供进程退出时关闭连接池的能力。 */

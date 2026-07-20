@@ -607,3 +607,101 @@ export const userReportMeta = pgTable(
     ),
   ],
 );
+
+/** 报告受控分享链接（令牌访问，不赋予 ownership）。 */
+export const reportShareLinks = pgTable(
+  'report_share_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    token: text('token').notNull(),
+    analysisJobId: uuid('analysis_job_id')
+      .notNull()
+      .references(() => analysisJobs.id, { onDelete: 'cascade' }),
+    clerkUserId: text('clerk_user_id')
+      .notNull()
+      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    maxViews: integer('max_views'),
+    viewCount: integer('view_count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('report_share_links_token_key').on(table.token),
+    index('report_share_links_job_idx').on(table.analysisJobId),
+  ],
+);
+
+/** 产品级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook）。 */
+export const productSettings = pgTable('product_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').$type<Record<string, unknown>>().notNull(),
+  updatedBy: text('updated_by'),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** 可管理的市场元数据。 */
+export const marketMetadata = pgTable('market_metadata', {
+  code: text('code').primaryKey(),
+  enabled: integer('enabled').notNull().default(1),
+  displayName: text('display_name').notNull(),
+  timezone: text('timezone').notNull(),
+  currency: text('currency').notNull(),
+  sessionNotes: text('session_notes'),
+  disclaimer: text('disclaimer'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** 按市场 / 分析师数量解析分析额度消耗。 */
+export const creditRules = pgTable(
+  'credit_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    label: text('label').notNull(),
+    /** null 表示匹配任意市场。 */
+    market: text('market'),
+    minAnalysts: integer('min_analysts').notNull().default(1),
+    maxAnalysts: integer('max_analysts').notNull().default(99),
+    units: integer('units').notNull(),
+    enabled: integer('enabled').notNull().default(1),
+    priority: integer('priority').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('credit_rules_priority_idx').on(table.priority)],
+);
+
+/** 管理员与关键产品操作的通用审计日志。 */
+export const adminAuditEvents = pgTable(
+  'admin_audit_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorClerkUserId: text('actor_clerk_user_id').notNull(),
+    action: text('action').notNull(),
+    targetType: text('target_type'),
+    targetId: text('target_id'),
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('admin_audit_events_created_idx').on(table.createdAt),
+    index('admin_audit_events_action_idx').on(table.action),
+    index('admin_audit_events_actor_idx').on(table.actorClerkUserId),
+  ],
+);

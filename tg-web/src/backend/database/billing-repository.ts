@@ -40,6 +40,17 @@ export interface BillingRepository {
   /** 释放仍处于 reserved 的预留，退回可用积分。 */
   releaseAnalysis(requestId: string, reason: string): Promise<void>;
   /**
+   * 管理员手动调整可用积分（可正可负），写入 adjustment 账本行。
+   * 负向调整不会使 availableCredits 低于 0。
+   */
+  adjustCredits(input: {
+    clerkUserId: string;
+    delta: number;
+    reason: string;
+    actorClerkUserId: string;
+    idempotencyKey: string;
+  }): Promise<CreditUsage>;
+  /**
    * 在事务内应用规范化后的 Stripe webhook。
    * 若事件已处理或已忽略则返回 false。
    */
@@ -247,6 +258,92 @@ export function createBillingRepository(database: Database): BillingRepository {
       });
     },
 
+    async adjustCredits(input) {
+      if (!Number.isInteger(input.delta) || input.delta === 0) {
+        throw new BillingRepositoryError(
+          'INVALID_ADJUSTMENT',
+          'Credit adjustment delta must be a non-zero integer',
+        );
+      }
+      const reason = input.reason.trim();
+      if (!reason) {
+        throw new BillingRepositoryError(
+          'INVALID_ADJUSTMENT',
+          'Credit adjustment reason is required',
+        );
+      }
+
+      await database.transaction(async (tx) => {
+        await tx
+          .insert(schema.creditAccounts)
+          .values({
+            clerkUserId: input.clerkUserId,
+            availableCredits: 0,
+            reservedCredits: 0,
+            spentCredits: 0,
+          })
+          .onConflictDoNothing();
+
+        if (input.delta < 0) {
+          const [updated] = await tx
+            .update(schema.creditAccounts)
+            .set({
+              availableCredits: sql`${schema.creditAccounts.availableCredits} + ${input.delta}`,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(schema.creditAccounts.clerkUserId, input.clerkUserId),
+                gte(schema.creditAccounts.availableCredits, -input.delta),
+              ),
+            )
+            .returning({ clerkUserId: schema.creditAccounts.clerkUserId });
+          if (!updated) {
+            throw new BillingRepositoryError(
+              'INSUFFICIENT_CREDITS',
+              'There are not enough available credits to debit',
+            );
+          }
+        } else {
+          await tx
+            .update(schema.creditAccounts)
+            .set({
+              availableCredits: sql`${schema.creditAccounts.availableCredits} + ${input.delta}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.creditAccounts.clerkUserId, input.clerkUserId));
+        }
+
+        try {
+          await tx.insert(schema.creditLedgerEntries).values({
+            clerkUserId: input.clerkUserId,
+            entryType: 'adjustment',
+            availableDelta: input.delta,
+            reservedDelta: 0,
+            spentDelta: 0,
+            idempotencyKey: input.idempotencyKey,
+            referenceType: 'admin_adjustment',
+            referenceId: input.idempotencyKey,
+            description: reason,
+            metadata: {
+              actorClerkUserId: input.actorClerkUserId,
+              reason,
+            },
+          });
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            throw new BillingRepositoryError(
+              'IDEMPOTENCY_CONFLICT',
+              'This credit adjustment was already applied',
+            );
+          }
+          throw error;
+        }
+      });
+
+      return this.getUsage(input.clerkUserId);
+    },
+
     async processStripeEvent(event) {
       return database.transaction(async (tx) => {
         const [accepted] = await tx
@@ -403,4 +500,13 @@ async function finishWebhook(
     .update(schema.stripeWebhookEvents)
     .set({ status, processedAt: new Date(), updatedAt: new Date() })
     .where(eq(schema.stripeWebhookEvents.stripeEventId, eventId));
+}
+
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === '23505'
+  );
 }

@@ -6,6 +6,8 @@ const clerkMocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   getUserList: vi.fn(),
   updateUserMetadata: vi.fn(),
+  banUser: vi.fn(),
+  unbanUser: vi.fn(),
 }));
 
 vi.mock('@clerk/backend', () => ({
@@ -23,6 +25,8 @@ describe('createClerkAuthService', () => {
         getUser: clerkMocks.getUser,
         getUserList: clerkMocks.getUserList,
         updateUserMetadata: clerkMocks.updateUserMetadata,
+        banUser: clerkMocks.banUser,
+        unbanUser: clerkMocks.unbanUser,
       },
     });
   });
@@ -234,5 +238,53 @@ describe('createClerkAuthService', () => {
     expect(clerkMocks.updateUserMetadata).toHaveBeenCalledWith('user-1', {
       privateMetadata: { stripeCustomerId: 'cus_test' },
     });
+  });
+
+  it('bans and unbans managed users through Clerk', async () => {
+    clerkMocks.banUser.mockResolvedValue({
+      id: 'user-2',
+      firstName: 'Banned',
+      lastName: 'User',
+      username: null,
+      imageUrl: '',
+      primaryEmailAddressId: 'email-2',
+      emailAddresses: [{ id: 'email-2', emailAddress: 'banned@example.test' }],
+      publicMetadata: { role: 'user' },
+      privateMetadata: {},
+      createdAt: 2,
+      banned: true,
+    });
+    clerkMocks.unbanUser.mockResolvedValue({
+      id: 'user-2',
+      firstName: 'Banned',
+      lastName: 'User',
+      username: null,
+      imageUrl: '',
+      primaryEmailAddressId: 'email-2',
+      emailAddresses: [{ id: 'email-2', emailAddress: 'banned@example.test' }],
+      publicMetadata: { role: 'user' },
+      privateMetadata: {},
+      createdAt: 2,
+      banned: false,
+    });
+    const service = createClerkAuthService({
+      secretKey: 'sk_test_secret',
+      publishableKey: 'pk_test_public',
+      authorizedParties: ['https://app.example.test'],
+    });
+
+    await expect(service.setUserBanned('user-2', true)).resolves.toMatchObject({
+      id: 'user-2',
+      banned: true,
+    });
+    expect(clerkMocks.banUser).toHaveBeenCalledWith('user-2');
+
+    await expect(service.setUserBanned('user-2', false)).resolves.toMatchObject(
+      {
+        id: 'user-2',
+        banned: false,
+      },
+    );
+    expect(clerkMocks.unbanUser).toHaveBeenCalledWith('user-2');
   });
 });

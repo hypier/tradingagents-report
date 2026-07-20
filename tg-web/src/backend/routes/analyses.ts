@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { ANALYSIS_CREDIT_UNITS } from '../../shared/analysis-credits';
+import { resolveCreditUnits } from '../../shared/analysis-credits';
+import { marketFromExchange } from '../../shared/market-codes';
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
@@ -25,13 +26,23 @@ export function analysisRoutes(dependencies: AppDependencies) {
       );
     }
     const requestId = input.requestId ?? crypto.randomUUID();
+    const market =
+      marketFromExchange(input.instrument?.exchange) ??
+      (input.display?.country
+        ? input.display.country.toUpperCase()
+        : null);
+    const creditRules = await dependencies.database.creditRules.listEnabled();
+    const creditUnits = resolveCreditUnits(
+      { market, analystCount: input.analysts.length },
+      creditRules,
+    );
     let reservation: 'created' | 'existing' | 'skipped' = 'skipped';
-    if (ANALYSIS_CREDIT_UNITS > 0) {
+    if (creditUnits > 0) {
       try {
         reservation = await dependencies.database.billing.reserveAnalysis({
           clerkUserId,
           requestId,
-          units: ANALYSIS_CREDIT_UNITS,
+          units: creditUnits,
         });
       } catch (error) {
         throw billingError(error);

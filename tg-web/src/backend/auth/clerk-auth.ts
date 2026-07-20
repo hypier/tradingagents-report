@@ -78,6 +78,10 @@ export function createClerkAuthService({
       return normalizeUser(await ensureAssignedRole(userId));
     },
 
+    async getManagedUser(userId): Promise<ManagedUser> {
+      return normalizeManagedUser(await ensureAssignedRole(userId));
+    },
+
     async listUsers(input) {
       const page = await clerk.users.getUserList({
         limit: input.limit,
@@ -96,6 +100,13 @@ export function createClerkAuthService({
       const user = await clerk.users.updateUserMetadata(userId, {
         publicMetadata: { role },
       });
+      return normalizeManagedUser(user);
+    },
+
+    async setUserBanned(userId, banned) {
+      const user = banned
+        ? await clerk.users.banUser(userId)
+        : await clerk.users.unbanUser(userId);
       return normalizeManagedUser(user);
     },
 
@@ -128,6 +139,7 @@ type ClerkUser = {
   publicMetadata: Record<string, unknown>;
   privateMetadata: Record<string, unknown>;
   createdAt: number;
+  banned?: boolean;
 };
 
 function normalizeUser(user: ClerkUser): AuthUser {
@@ -147,7 +159,11 @@ function normalizeUser(user: ClerkUser): AuthUser {
 }
 
 function normalizeManagedUser(user: ClerkUser): ManagedUser {
-  return { ...normalizeUser(user), createdAt: user.createdAt };
+  return {
+    ...normalizeUser(user),
+    createdAt: user.createdAt,
+    banned: Boolean(user.banned),
+  };
 }
 
 function normalizeRole(role: unknown): UserRole {

@@ -71,13 +71,14 @@ export function createAccountRepository(database: Database): AccountRepository {
       .where(eq(schema.userConsents.clerkUserId, clerkUserId))
       .orderBy(desc(schema.userConsents.acceptedAt));
 
+    const versions = await resolveLegalVersions(database);
     return {
       ...user,
       interfaceLanguage:
         user.interfaceLanguage as AccountProfile['interfaceLanguage'],
       defaultMarket: user.defaultMarket as AccountProfile['defaultMarket'],
       consents,
-      hasCurrentConsents: hasEveryCurrentConsent(consents),
+      hasCurrentConsents: hasEveryCurrentConsent(consents, versions),
     };
   };
 
@@ -126,13 +127,14 @@ export function createAccountRepository(database: Database): AccountRepository {
     },
 
     async recordConsents(input) {
+      const versions = await resolveLegalVersions(database);
       await database
         .insert(schema.userConsents)
         .values(
           input.documentTypes.map((documentType) => ({
             clerkUserId: input.clerkUserId,
             documentType,
-            documentVersion: LEGAL_DOCUMENT_VERSIONS[documentType],
+            documentVersion: versions[documentType],
             ipAddress: input.ipAddress,
             userAgent: input.userAgent,
           })),
@@ -149,19 +151,41 @@ export function createAccountRepository(database: Database): AccountRepository {
         })
         .from(schema.userConsents)
         .where(eq(schema.userConsents.clerkUserId, clerkUserId));
-      return hasEveryCurrentConsent(rows);
+      const versions = await resolveLegalVersions(database);
+      return hasEveryCurrentConsent(rows, versions);
     },
+  };
+}
+
+async function resolveLegalVersions(database: Database) {
+  const [row] = await database
+    .select()
+    .from(schema.productSettings)
+    .where(eq(schema.productSettings.key, 'disclaimer'))
+    .limit(1);
+  const value = row?.value;
+  const version =
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { version?: unknown }).version === 'string' &&
+    (value as { version: string }).version
+      ? (value as { version: string }).version
+      : LEGAL_DOCUMENT_VERSIONS.risk_disclaimer;
+  return {
+    ...LEGAL_DOCUMENT_VERSIONS,
+    risk_disclaimer: version,
   };
 }
 
 function hasEveryCurrentConsent(
   rows: Array<{ documentType: LegalDocumentType; documentVersion: string }>,
+  versions: Record<LegalDocumentType, string> = LEGAL_DOCUMENT_VERSIONS,
 ) {
-  return Object.entries(LEGAL_DOCUMENT_VERSIONS).every(
-    ([documentType, version]) =>
-      rows.some(
-        (row) =>
-          row.documentType === documentType && row.documentVersion === version,
-      ),
+  return (Object.keys(versions) as LegalDocumentType[]).every((documentType) =>
+    rows.some(
+      (row) =>
+        row.documentType === documentType &&
+        row.documentVersion === versions[documentType],
+    ),
   );
 }

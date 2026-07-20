@@ -8,10 +8,19 @@ import { SidebarTrigger } from '@/frontend/components/ui/sidebar';
 
 function headerTitleKey(pathname: string) {
   if (pathname.startsWith('/admin/billing')) return 'header.adminBilling' as const;
+  if (pathname.startsWith('/admin/analyses')) return 'header.adminAnalyses' as const;
+  if (pathname.startsWith('/admin/models')) return 'header.adminModels' as const;
+  if (pathname.startsWith('/admin/settings')) return 'header.adminSettings' as const;
+  if (pathname.startsWith('/admin/markets')) return 'header.adminMarkets' as const;
+  if (pathname.startsWith('/admin/audit')) return 'header.adminAudit' as const;
+  if (pathname.startsWith('/admin/users/')) return 'header.adminUser' as const;
   if (pathname.startsWith('/admin/users')) return 'header.adminUsers' as const;
+  if (pathname === '/admin' || pathname.startsWith('/admin/'))
+    return 'header.adminOverview' as const;
   if (pathname.startsWith('/billing')) return 'header.billing' as const;
   if (pathname.startsWith('/account')) return 'header.account' as const;
   if (pathname.startsWith('/legal')) return 'header.legal' as const;
+  if (pathname.startsWith('/shared/')) return 'header.sharedReport' as const;
   if (pathname.startsWith('/reports/')) return 'header.report' as const;
   if (pathname.startsWith('/reports')) return 'header.reports' as const;
   if (pathname.startsWith('/watchlist')) return 'header.watchlist' as const;

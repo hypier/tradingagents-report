@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
+import { ANALYSIS_CREDIT_UNITS, resolveCreditUnits } from '../../shared/analysis-credits';
+import { marketFromExchange } from '../../shared/market-codes';
 import { apiSuccess } from '../../shared/contracts';
-import type { AppEnvironment } from '../app';
-import type { AuthService } from '../auth/contract';
+import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
+import { BillingRepositoryError } from '../database/billing-repository';
+import type { AnalysisJob } from '../database/repositories';
+import { adminOpsRoutes } from './admin-ops';
+
 
 const listUsersSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -16,8 +21,63 @@ const updateRoleSchema = z.object({
   role: z.enum(['user', 'admin']),
 });
 
-export function adminRoutes(dependencies: { auth: AuthService }) {
+const banSchema = z.object({
+  banned: z.boolean(),
+});
+
+const adjustCreditsSchema = z.object({
+  clerkUserId: z.string().trim().min(1),
+  delta: z.number().int().refine((value) => value !== 0),
+  reason: z.string().trim().min(1).max(500),
+  idempotencyKey: z.string().uuid(),
+});
+
+const listAnalysesSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  status: z.enum(['queued', 'running', 'succeeded', 'failed']).optional(),
+  ticker: z.string().trim().min(1).max(32).optional(),
+  clerkUserId: z.string().trim().min(1).optional(),
+});
+
+const overviewSchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+});
+
+export function adminRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
+  app.route('/', adminOpsRoutes(dependencies));
+
+  app.get('/admin/overview', async (context) => {
+    const input = overviewSchema.safeParse(context.req.query());
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid overview query');
+    }
+    const to = new Date();
+    const from = new Date(to.getTime() - input.data.days * 24 * 60 * 60 * 1000);
+    const metrics = await dependencies.database.analysisJobs.getAdminOverview({
+      from,
+      to,
+    });
+    let stripe: {
+      configured: boolean;
+      connectionHealthy: boolean | null;
+      mode: string | null;
+    } | null = null;
+    try {
+      const settings = await dependencies.billing.getSettings();
+      stripe = {
+        configured: settings.configured,
+        connectionHealthy: settings.connectionHealthy,
+        mode: settings.mode,
+      };
+    } catch {
+      stripe = { configured: false, connectionHealthy: false, mode: null };
+    }
+    return context.json(
+      apiSuccess({ ...metrics, stripe }, context.get('requestId')),
+    );
+  });
 
   app.get('/admin/users', async (context) => {
     const input = listUsersSchema.safeParse(context.req.query());
@@ -28,6 +88,47 @@ export function adminRoutes(dependencies: { auth: AuthService }) {
     return context.json(
       apiSuccess(
         await dependencies.auth.listUsers(input.data),
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.get('/admin/users/:userId', async (context) => {
+    const userId = context.req.param('userId');
+    let user;
+    try {
+      user = await dependencies.auth.getManagedUser(userId);
+    } catch {
+      throw new AppError('NOT_FOUND', 404, 'User not found');
+    }
+    const [usage, jobs, profile] = await Promise.all([
+      dependencies.database.billing.getUsage(userId),
+      dependencies.database.analysisJobs.listForUser({
+        clerkUserId: userId,
+        limit: 20,
+        offset: 0,
+      }),
+      dependencies.database.account.getProfile(userId).catch(() => null),
+    ]);
+    return context.json(
+      apiSuccess(
+        {
+          user,
+          profile,
+          usage: {
+            availableCredits: usage.availableCredits,
+            reservedCredits: usage.reservedCredits,
+            spentCredits: usage.spentCredits,
+            subscription: usage.subscription,
+            ledger: usage.ledger.slice(0, 50),
+          },
+          recentJobs: jobs.map((row) =>
+            toPublicJob(row.job, {
+              clerkUserId: userId,
+              creditUnits: row.creditUnits,
+            }),
+          ),
+        },
         context.get('requestId'),
       ),
     );
@@ -50,13 +151,314 @@ export function adminRoutes(dependencies: { auth: AuthService }) {
       );
     }
 
+    const updated = await dependencies.auth.setUserRole(userId, input.data.role);
+    await dependencies.database.audit.record({
+      actorClerkUserId: currentUser.id,
+      action: 'users.set_role',
+      targetType: 'user',
+      targetId: userId,
+      metadata: { role: input.data.role },
+    });
+    return context.json(apiSuccess(updated, context.get('requestId')));
+  });
+
+  app.patch('/admin/users/:userId/ban', async (context) => {
+    const body = await context.req.json().catch(() => null);
+    const input = banSchema.safeParse(body);
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid ban payload');
+    }
+    const currentUser = context.get('authUser');
+    const userId = context.req.param('userId');
+    if (currentUser.id === userId && input.data.banned) {
+      throw new AppError(
+        'SELF_BAN_NOT_ALLOWED',
+        409,
+        'Administrators cannot ban their own account',
+      );
+    }
+    const updated = await dependencies.auth.setUserBanned(
+      userId,
+      input.data.banned,
+    );
+    await dependencies.database.audit.record({
+      actorClerkUserId: currentUser.id,
+      action: input.data.banned ? 'users.ban' : 'users.unban',
+      targetType: 'user',
+      targetId: userId,
+    });
+    return context.json(apiSuccess(updated, context.get('requestId')));
+  });
+
+  app.post('/admin/credits/adjust', async (context) => {
+    const input = adjustCreditsSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid credit adjustment');
+    }
+    try {
+      await dependencies.auth.getManagedUser(input.data.clerkUserId);
+    } catch {
+      throw new AppError('NOT_FOUND', 404, 'User not found');
+    }
+    try {
+      const usage = await dependencies.database.billing.adjustCredits({
+        ...input.data,
+        actorClerkUserId: context.get('auth').userId,
+      });
+      await dependencies.database.audit.record({
+        actorClerkUserId: context.get('auth').userId,
+        action: 'credits.adjust',
+        targetType: 'user',
+        targetId: input.data.clerkUserId,
+        metadata: {
+          delta: input.data.delta,
+          reason: input.data.reason,
+          idempotencyKey: input.data.idempotencyKey,
+        },
+      });
+      return context.json(apiSuccess(usage, context.get('requestId')));
+    } catch (error) {
+      throw billingError(error);
+    }
+  });
+
+  app.get('/admin/analyses', async (context) => {
+    const input = listAnalysesSchema.safeParse(context.req.query());
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid analysis list query');
+    }
+    const rows = await dependencies.database.analysisJobs.listAllForAdmin(
+      input.data,
+    );
     return context.json(
       apiSuccess(
-        await dependencies.auth.setUserRole(userId, input.data.role),
+        rows.map((row) =>
+          toPublicJob(row.job, {
+            clerkUserId: row.clerkUserId,
+            creditUnits: row.creditUnits,
+          }),
+        ),
         context.get('requestId'),
       ),
     );
   });
 
+  app.post('/admin/analyses/:id/retry', async (context) => {
+    const jobId = context.req.param('id');
+    const job = await dependencies.database.analysisJobs.getById(jobId);
+    if (!job) {
+      throw new AppError('NOT_FOUND', 404, 'Analysis job not found');
+    }
+    if (job.status !== 'failed') {
+      throw new AppError(
+        'RETRY_NOT_ALLOWED',
+        409,
+        'Only failed analysis jobs can be retried',
+      );
+    }
+    const ownerId =
+      await dependencies.database.analysisJobs.getOwner(jobId);
+    if (!ownerId) {
+      throw new AppError(
+        'OWNER_NOT_FOUND',
+        409,
+        'Unable to resolve the owning user for this analysis',
+      );
+    }
+
+    const request = isRecord(job.request) ? job.request : {};
+    const config = isRecord(job.config) ? job.config : {};
+    const instrument = isRecord(request.instrument)
+      ? request.instrument
+      : null;
+    const display = isRecord(job.display) ? job.display : {};
+    const analysts = Array.isArray(job.analysts) ? job.analysts : [];
+    const requestId = crypto.randomUUID();
+    const market =
+      marketFromExchange(
+        typeof instrument?.exchange === 'string' ? instrument.exchange : null,
+      ) ??
+      (typeof display.country === 'string'
+        ? display.country.toUpperCase()
+        : null) ??
+      job.exchange;
+    const creditRules = await dependencies.database.creditRules.listEnabled();
+    const creditUnits = resolveCreditUnits(
+      { market, analystCount: analysts.length },
+      creditRules,
+    );
+
+    let reservation: 'created' | 'existing';
+    try {
+      reservation = await dependencies.database.billing.reserveAnalysis({
+        clerkUserId: ownerId,
+        requestId,
+        units: creditUnits > 0 ? creditUnits : ANALYSIS_CREDIT_UNITS,
+      });
+    } catch (error) {
+      throw billingError(error);
+    }
+
+    let data: unknown;
+    try {
+      data = await dependencies.core.submitAnalysis({
+        ticker: job.ticker,
+        trade_date: job.tradeDate,
+        analysts,
+        config_overrides: {
+          ...config,
+          ...(typeof request.output_language === 'string'
+            ? { output_language: request.output_language }
+            : {}),
+        },
+        request_id: requestId,
+        ...(instrument &&
+        typeof instrument.exchange === 'string' &&
+        typeof instrument.symbol === 'string'
+          ? {
+              instrument: {
+                exchange: String(instrument.exchange).toUpperCase(),
+                symbol: String(instrument.symbol).toUpperCase(),
+                ...(typeof instrument.display_ticker === 'string'
+                  ? {
+                      display_ticker: String(
+                        instrument.display_ticker,
+                      ).toUpperCase(),
+                    }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(Object.keys(display).length
+          ? {
+              display: {
+                ...(typeof display.display_name === 'string'
+                  ? { display_name: display.display_name }
+                  : {}),
+                ...(typeof display.logo_url === 'string'
+                  ? { logo_url: display.logo_url }
+                  : {}),
+                ...(typeof display.country === 'string'
+                  ? { country: String(display.country).toUpperCase() }
+                  : {}),
+              },
+            }
+          : {}),
+      });
+    } catch (error) {
+      if (reservation === 'created') {
+        await dependencies.database.billing.releaseAnalysis(
+          requestId,
+          'admin_retry_request_rejected',
+        );
+      }
+      throw error;
+    }
+
+    const created = z
+      .object({ id: z.string().uuid() })
+      .passthrough()
+      .safeParse(data);
+    if (!created.success) {
+      throw new AppError(
+        'INVALID_CORE_RESPONSE',
+        502,
+        'Analysis service returned an invalid job response',
+      );
+    }
+    await dependencies.database.billing.attachAnalysis(
+      requestId,
+      created.data.id,
+    );
+
+    await dependencies.database.audit.record({
+      actorClerkUserId: context.get('auth').userId,
+      action: 'analyses.retry',
+      targetType: 'analysis_job',
+      targetId: jobId,
+      metadata: {
+        newJobId: created.data.id,
+        ownerUserId: ownerId,
+        requestId,
+      },
+    });
+
+    return context.json(
+      apiSuccess(
+        {
+          originalJobId: jobId,
+          job: created.data,
+          ownerUserId: ownerId,
+          requestId,
+        },
+        context.get('requestId'),
+      ),
+      202,
+    );
+  });
+
   return app;
+}
+
+function toPublicJob(
+  job: AnalysisJob,
+  extras: { clerkUserId?: string; creditUnits: number | null },
+) {
+  const request = isRecord(job.request) ? job.request : {};
+  const config = isRecord(job.config) ? job.config : {};
+  const display = isRecord(job.display) ? job.display : {};
+  return {
+    id: job.id,
+    request_id: job.requestId,
+    ticker: job.ticker,
+    exchange: job.exchange,
+    trade_date: job.tradeDate,
+    asset_type: job.assetType,
+    analysts: job.analysts,
+    status: job.status,
+    decision: job.decision,
+    error: job.error,
+    progress_percent: job.progressPercent,
+    current_step: job.currentStep,
+    cost_usd: job.costUsd,
+    display,
+    output_language:
+      (typeof request.output_language === 'string'
+        ? request.output_language
+        : null) ||
+      (typeof config.output_language === 'string'
+        ? config.output_language
+        : null),
+    created_at: job.createdAt,
+    updated_at: job.updatedAt,
+    started_at: job.startedAt,
+    finished_at: job.finishedAt,
+    credit_units: extras.creditUnits,
+    ...(extras.clerkUserId ? { clerk_user_id: extras.clerkUserId } : {}),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function billingError(error: unknown): AppError {
+  if (error instanceof BillingRepositoryError) {
+    const status =
+      error.code === 'INSUFFICIENT_CREDITS' ||
+      error.code === 'SUBSCRIPTION_REQUIRED'
+        ? 402
+        : error.code === 'IDEMPOTENCY_CONFLICT'
+          ? 409
+          : 400;
+    return new AppError(error.code, status, error.message, error);
+  }
+  return new AppError(
+    'CREDIT_OPERATION_FAILED',
+    500,
+    'Unable to complete the credit operation',
+    error,
+  );
 }

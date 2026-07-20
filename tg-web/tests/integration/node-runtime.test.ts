@@ -30,8 +30,10 @@ function fakeDependencies(): AppDependencies {
     auth: {
       authenticate: vi.fn().mockResolvedValue(null),
       getUser: vi.fn(),
+      getManagedUser: vi.fn(),
       listUsers: vi.fn(),
       setUserRole: vi.fn(),
+      setUserBanned: vi.fn(),
       getBillingIdentity: vi.fn(),
       setStripeCustomerId: vi.fn(),
     },
@@ -55,6 +57,19 @@ function fakeDependencies(): AppDependencies {
       analysisJobs: fakeAnalysisJobsRepository(),
       watchlist: fakeWatchlistRepository(),
       reportMeta: fakeReportMetaRepository(),
+      shareLinks: fakeShareLinksRepository(),
+      settings: fakeSettingsRepository(),
+      markets: fakeMarketsRepository(),
+      creditRules: fakeCreditRulesRepository(),
+      audit: fakeAuditRepository(),
+      modelPrices: {
+        list: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn(),
+        delete: vi.fn(),
+      },
+      pricingSources: {
+        list: vi.fn().mockResolvedValue([]),
+      },
     },
     cache: {
       get: vi.fn(),
@@ -98,6 +113,7 @@ function fakeBillingRepository() {
     reserveAnalysis: vi.fn(),
     attachAnalysis: vi.fn(),
     releaseAnalysis: vi.fn(),
+    adjustCredits: vi.fn(),
     processStripeEvent: vi.fn(),
     recordStripeFailure: vi.fn(),
   };
@@ -108,8 +124,11 @@ function fakeAnalysisJobsRepository() {
     getById: vi.fn(),
     list: vi.fn().mockResolvedValue([]),
     listForUser: vi.fn().mockResolvedValue([]),
+    listAllForAdmin: vi.fn().mockResolvedValue([]),
+    getOwner: vi.fn().mockResolvedValue(null),
     ownsJob: vi.fn().mockResolvedValue(true),
     getReservationUnits: vi.fn().mockResolvedValue(1),
+    getAdminOverview: vi.fn(),
   };
 }
 
@@ -135,6 +154,52 @@ function fakeReportMetaRepository() {
     get: vi.fn(),
     listForUser: vi.fn().mockResolvedValue([]),
     upsert: vi.fn(),
+  };
+}
+
+function fakeShareLinksRepository() {
+  return {
+    create: vi.fn(),
+    listForJob: vi.fn().mockResolvedValue([]),
+    getById: vi.fn(),
+    getByToken: vi.fn(),
+    revoke: vi.fn(),
+    consumeView: vi.fn().mockResolvedValue(null),
+  };
+}
+
+function fakeSettingsRepository() {
+  return {
+    getAll: vi.fn().mockResolvedValue({}),
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn(),
+    setMany: vi.fn().mockResolvedValue({}),
+  };
+}
+
+function fakeMarketsRepository() {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    get: vi.fn(),
+    upsert: vi.fn(),
+    setEnabled: vi.fn(),
+  };
+}
+
+function fakeCreditRulesRepository() {
+  return {
+    list: vi.fn().mockResolvedValue([]),
+    listEnabled: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+
+function fakeAuditRepository() {
+  return {
+    record: vi.fn(),
+    list: vi.fn().mockResolvedValue([]),
   };
 }
 

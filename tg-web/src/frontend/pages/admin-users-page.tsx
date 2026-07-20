@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, ShieldAlert, UsersRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import type { UserRole } from '@/backend/auth/contract';
@@ -209,9 +210,17 @@ export function AdminUsersPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex min-w-0 items-center gap-2">
-                              <span className="truncate font-medium">
+                              <Link
+                                className="truncate font-medium hover:underline"
+                                to={`/admin/users/${encodeURIComponent(user.id)}`}
+                              >
                                 {user.displayName}
-                              </span>
+                              </Link>
+                              {user.banned ? (
+                                <Badge variant="destructive">
+                                  {t('users.banned')}
+                                </Badge>
+                              ) : null}
                               {isCurrentUser && (
                                 <Badge variant="outline">{t('users.you')}</Badge>
                               )}
