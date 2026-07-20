@@ -14,7 +14,7 @@
   "portalError": "无法打开账单门户。",
   "usage": {
     "title": "用量",
-    "description": "每次成功完成的分析消耗 1 个额度",
+    "description": "按 AI token 实际成本换算积分并结算",
     "available": "可用",
     "reserved": "预留",
     "consumed": "已消耗",
@@ -46,13 +46,13 @@
       "scale": {
         "name": "专业版 100"
       },
-      "description": "每月续订，包含 {{count}} 次分析额度",
-      "credits": "每月 {{count}} 次分析额度",
+      "description": "每月续订，发放 {{count}} 积分",
+      "credits": "每月 {{count}} 积分",
       "markets": "支持全部市场"
     },
     "per": "每{{interval}}",
     "perCount": "每 {{count}} {{interval}}",
-    "analysesPerCycle": "每周期 {{count}} 次分析",
+    "analysesPerCycle": "每周期 {{count}} 积分",
     "subscribe": "订阅"
   },
   "ledger": {
@@ -62,6 +62,9 @@
     "activity": "活动",
     "reference": "关联",
     "available": "可用变动",
+    "spent": "已消费",
+    "actualCost": "AI 实际成本",
+    "finalPoints": "{{count}} 积分",
     "reserved": "预留变动",
     "emptyTitle": "暂无额度活动",
     "emptyBody": "周期发放与分析用量将显示在这里。"

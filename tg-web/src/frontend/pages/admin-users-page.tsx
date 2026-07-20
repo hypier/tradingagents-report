@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, ShieldAlert, UsersRound } from 'lucide-react';
+import {
+  Minus,
+  Plus,
+  Search,
+  ShieldAlert,
+  SlidersHorizontal,
+  UsersRound,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -33,8 +40,21 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/frontend/components/ui/empty';
-import { Field, FieldGroup, FieldLabel } from '@/frontend/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/frontend/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -52,14 +72,32 @@ import {
   TableHeader,
   TableRow,
 } from '@/frontend/components/ui/table';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/frontend/components/ui/toggle-group';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { formatLocaleDateTimeValue } from '@/frontend/lib/format-locale';
-import { listManagedUsers, updateManagedUserRole } from '@/frontend/lib/auth';
+import {
+  adjustManagedUserCredits,
+  listManagedUsers,
+  updateManagedUserRole,
+} from '@/frontend/lib/auth';
 
 export function AdminUsersPage() {
   const { t } = useTranslation('admin');
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState<string>();
+  const [selectedUser, setSelectedUser] = useState<{
+    id: string;
+    displayName: string;
+    availableCredits: number;
+  } | null>(null);
+  const [adjustmentMode, setAdjustmentMode] = useState<'increase' | 'decrease'>(
+    'increase',
+  );
+  const [adjustmentAmount, setAdjustmentAmount] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const users = useQuery({
@@ -75,6 +113,30 @@ export function AdminUsersPage() {
       toast.success(t('users.roleUpdated'));
     },
     onError: () => toast.error(t('users.roleUpdateError')),
+  });
+  const adjustCredits = useMutation({
+    mutationFn: ({
+      userId,
+      delta,
+      reason,
+    }: {
+      userId: string;
+      delta: number;
+      reason?: string;
+    }) =>
+      adjustManagedUserCredits(userId, {
+        adjustmentId: crypto.randomUUID(),
+        delta,
+        reason,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setSelectedUser(null);
+      setAdjustmentAmount('');
+      setAdjustmentReason('');
+      toast.success(t('users.credits.updated'));
+    },
+    onError: () => toast.error(t('users.credits.updateError')),
   });
 
   if (session.isLoading) {
@@ -154,9 +216,7 @@ export function AdminUsersPage() {
             {users.isError && (
               <Alert variant="destructive">
                 <AlertTitle>{t('users.loadError.title')}</AlertTitle>
-                <AlertDescription>
-                  {t('users.loadError.body')}
-                </AlertDescription>
+                <AlertDescription>{t('users.loadError.body')}</AlertDescription>
               </Alert>
             )}
 
@@ -186,6 +246,14 @@ export function AdminUsersPage() {
                     <TableHead className="w-36">
                       {t('users.columns.role')}
                     </TableHead>
+                    <TableHead className="text-right">
+                      {t('users.columns.credits')}
+                    </TableHead>
+                    <TableHead className="w-20">
+                      <span className="sr-only">
+                        {t('users.columns.actions')}
+                      </span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -213,7 +281,9 @@ export function AdminUsersPage() {
                                 {user.displayName}
                               </span>
                               {isCurrentUser && (
-                                <Badge variant="outline">{t('users.you')}</Badge>
+                                <Badge variant="outline">
+                                  {t('users.you')}
+                                </Badge>
                               )}
                             </div>
                           </div>
@@ -253,6 +323,34 @@ export function AdminUsersPage() {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {user.availableCredits}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            title={t('users.credits.adjustAria', {
+                              name: user.displayName,
+                            })}
+                            aria-label={t('users.credits.adjustAria', {
+                              name: user.displayName,
+                            })}
+                            onClick={() => {
+                              setSelectedUser({
+                                id: user.id,
+                                displayName: user.displayName,
+                                availableCredits: user.availableCredits,
+                              });
+                              setAdjustmentMode('increase');
+                              setAdjustmentAmount('');
+                              setAdjustmentReason('');
+                            }}
+                          >
+                            <SlidersHorizontal />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -261,6 +359,118 @@ export function AdminUsersPage() {
             )}
           </CardContent>
         </Card>
+        <Dialog
+          open={selectedUser !== null}
+          onOpenChange={(open) => !open && setSelectedUser(null)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('users.credits.title')}</DialogTitle>
+              <DialogDescription>
+                {t('users.credits.description', {
+                  name: selectedUser?.displayName,
+                })}
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!selectedUser) return;
+                const amount = Number(adjustmentAmount);
+                if (
+                  !Number.isSafeInteger(amount) ||
+                  amount < 1 ||
+                  amount > 1_000_000
+                )
+                  return;
+                adjustCredits.mutate({
+                  userId: selectedUser.id,
+                  delta: adjustmentMode === 'increase' ? amount : -amount,
+                  reason: adjustmentReason.trim() || undefined,
+                });
+              }}
+            >
+              <FieldGroup>
+                <Field>
+                  <FieldLabel>{t('users.credits.direction')}</FieldLabel>
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    value={adjustmentMode}
+                    onValueChange={(value) =>
+                      value &&
+                      setAdjustmentMode(value as 'increase' | 'decrease')
+                    }
+                  >
+                    <ToggleGroupItem value="increase">
+                      <Plus data-icon="inline-start" />{' '}
+                      {t('users.credits.increase')}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="decrease">
+                      <Minus data-icon="inline-start" />{' '}
+                      {t('users.credits.decrease')}
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="credit-adjustment-amount">
+                    {t('users.credits.points')}
+                  </FieldLabel>
+                  <Input
+                    id="credit-adjustment-amount"
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="1000000"
+                    step="1"
+                    required
+                    value={adjustmentAmount}
+                    onChange={(event) =>
+                      setAdjustmentAmount(event.target.value)
+                    }
+                  />
+                  {selectedUser && adjustmentAmount && (
+                    <FieldDescription>
+                      {t('users.credits.balancePreview', {
+                        count:
+                          selectedUser.availableCredits +
+                          (adjustmentMode === 'increase' ? 1 : -1) *
+                            Number(adjustmentAmount || 0),
+                      })}
+                    </FieldDescription>
+                  )}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="credit-adjustment-reason">
+                    {t('users.credits.note')}
+                  </FieldLabel>
+                  <Input
+                    id="credit-adjustment-reason"
+                    maxLength={500}
+                    value={adjustmentReason}
+                    onChange={(event) =>
+                      setAdjustmentReason(event.target.value)
+                    }
+                  />
+                </Field>
+              </FieldGroup>
+              <DialogFooter className="mt-4">
+                <Button
+                  type="submit"
+                  disabled={
+                    adjustCredits.isPending ||
+                    !adjustmentAmount ||
+                    (adjustmentMode === 'decrease' &&
+                      Number(adjustmentAmount) >
+                        (selectedUser?.availableCredits ?? 0))
+                  }
+                >
+                  {t('users.credits.apply')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </PageLayout>
     </AppShell>
   );

@@ -21,13 +21,29 @@
       "user": "用户",
       "email": "邮箱",
       "registered": "注册时间",
-      "role": "角色"
+      "role": "角色",
+      "credits": "积分",
+      "actions": "操作"
     },
     "you": "你",
     "noEmail": "无邮箱",
     "roleAria": "{{name}} 的角色",
     "roleUser": "用户",
     "roleAdmin": "管理员",
+    "credits": {
+      "title": "调整积分",
+      "description": "调整 {{name}} 的可用积分余额。",
+      "adjustAria": "调整 {{name}} 的积分",
+      "direction": "调整方向",
+      "increase": "增加",
+      "decrease": "扣减",
+      "points": "积分点数",
+      "note": "备注",
+      "balancePreview": "调整后余额：{{count}}",
+      "apply": "确认调整",
+      "updated": "积分余额已更新。",
+      "updateError": "无法更新积分余额。"
+    },
     "roleUpdated": "用户角色已更新。",
     "roleUpdateError": "无法更新用户角色。"
   },
@@ -45,7 +61,8 @@
     },
     "tabs": {
       "connection": "连接",
-      "plans": "套餐"
+      "plans": "套餐",
+      "credits": "积分计费"
     },
     "connection": {
       "title": "Stripe 连接",
@@ -127,11 +144,25 @@
         "scale": {
           "name": "专业版 100"
         },
-        "description": "每月续订，包含 {{count}} 次分析额度",
-        "credits": "每月 {{count}} 次分析额度",
+        "description": "每月续订，发放 {{count}} 积分",
+        "credits": "每月 {{count}} 积分",
         "markets": "支持全部市场"
       },
       "archive": "归档 {{name}}"
+    },
+    "credits": {
+      "title": "按用量积分计费",
+      "description": "将 AI token 的实际美元成本换算为产品积分。",
+      "pointsPerUsd": "每美元积分",
+      "markup": "成本加价（%）",
+      "reserveBuffer": "预扣缓冲（%）",
+      "defaultCost": "默认预估成本（美元）",
+      "preview": "{{count}} 积分",
+      "updated": "{{date}} 由 {{actor}} 更新",
+      "system": "系统",
+      "save": "保存积分设置",
+      "saved": "积分计费设置已保存。",
+      "saveError": "无法保存积分计费设置。"
     },
     "toasts": {
       "planCreated": "订阅套餐已创建。",

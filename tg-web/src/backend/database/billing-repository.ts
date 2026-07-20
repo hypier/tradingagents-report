@@ -8,6 +8,10 @@ import { and, desc, eq, gt, gte, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import type { StripeWebhookEvent } from '../billing/contract';
+import {
+  calculateReservedPoints,
+  discreteP90,
+} from '../billing/credit-pricing';
 import * as schema from './schema';
 
 /** 供 UI 聚合的积分钱包 + 最新订阅 + 近期流水。 */
@@ -19,6 +23,16 @@ export type CreditUsage = {
   ledger: Array<typeof schema.creditLedgerEntries.$inferSelect>;
 };
 
+export type CreditBillingSettings =
+  typeof schema.creditBillingSettings.$inferSelect;
+
+export type AnalysisCreditEstimate = {
+  estimatedCostUsd: string;
+  reservedPoints: number;
+  source: 'default' | 'history';
+  sampleCount: number;
+};
+
 export interface BillingRepository {
   /** 将 Stripe Customer ID 写入本地账户行。 */
   setStripeCustomerId(clerkUserId: string, customerId: string): Promise<void>;
@@ -26,6 +40,25 @@ export interface BillingRepository {
   getStripeCustomerId(clerkUserId: string): Promise<string | null>;
   /** 积分余额、最新订阅镜像与近期账本行。 */
   getUsage(clerkUserId: string): Promise<CreditUsage>;
+  getCreditSettings(): Promise<CreditBillingSettings>;
+  updateCreditSettings(input: {
+    pointsPerUsd: string;
+    markupBasisPoints: number;
+    reserveBufferBasisPoints: number;
+    defaultEstimatedCostUsd: string;
+    actorClerkUserId: string;
+  }): Promise<CreditBillingSettings>;
+  estimateAnalysis(input: {
+    billingSignature: string;
+  }): Promise<AnalysisCreditEstimate>;
+  getAvailableCredits(clerkUserIds: string[]): Promise<Record<string, number>>;
+  adjustCredits(input: {
+    adjustmentId: string;
+    clerkUserId: string;
+    actorClerkUserId: string;
+    delta: number;
+    reason?: string;
+  }): Promise<number>;
   /**
    * 为分析请求预留积分（按 requestId 幂等）。
    * 需要有效/试用中的订阅，且可用积分充足。
@@ -33,7 +66,7 @@ export interface BillingRepository {
   reserveAnalysis(input: {
     clerkUserId: string;
     requestId: string;
-    units: number;
+    billingSignature: string;
   }): Promise<'created' | 'existing'>;
   /** 提交成功后，将预留绑定到 Core 的 `analysis_jobs.id`。 */
   attachAnalysis(requestId: string, analysisJobId: string): Promise<void>;
@@ -59,6 +92,8 @@ export class BillingRepositoryError extends Error {
 }
 
 type Database = NodePgDatabase<typeof schema>;
+type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+type QueryDatabase = Database | Transaction;
 
 export function createBillingRepository(database: Database): BillingRepository {
   return {
@@ -106,14 +141,151 @@ export function createBillingRepository(database: Database): BillingRepository {
       };
     },
 
+    getCreditSettings() {
+      return ensureCreditSettings(database);
+    },
+
+    async updateCreditSettings(input) {
+      return database.transaction(async (tx) => {
+        await ensureCreditSettings(tx);
+        const [previous] = await tx
+          .select()
+          .from(schema.creditBillingSettings)
+          .where(eq(schema.creditBillingSettings.id, 'default'))
+          .for('update');
+        const [next] = await tx
+          .update(schema.creditBillingSettings)
+          .set({
+            pointsPerUsd: input.pointsPerUsd,
+            markupBasisPoints: input.markupBasisPoints,
+            reserveBufferBasisPoints: input.reserveBufferBasisPoints,
+            defaultEstimatedCostUsd: input.defaultEstimatedCostUsd,
+            updatedByClerkUserId: input.actorClerkUserId,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.creditBillingSettings.id, 'default'))
+          .returning();
+        await tx.insert(schema.creditBillingSettingEvents).values({
+          previousSettings: settingsSnapshot(previous),
+          nextSettings: settingsSnapshot(next!),
+          actorClerkUserId: input.actorClerkUserId,
+        });
+        return next!;
+      });
+    },
+
+    estimateAnalysis(input) {
+      return estimateAnalysis(database, input.billingSignature);
+    },
+
+    async getAvailableCredits(clerkUserIds) {
+      const result = Object.fromEntries(clerkUserIds.map((id) => [id, 0]));
+      if (clerkUserIds.length === 0) return result;
+      const rows = await database
+        .select({
+          clerkUserId: schema.creditAccounts.clerkUserId,
+          availableCredits: schema.creditAccounts.availableCredits,
+        })
+        .from(schema.creditAccounts)
+        .where(inArray(schema.creditAccounts.clerkUserId, clerkUserIds));
+      for (const row of rows) result[row.clerkUserId] = row.availableCredits;
+      return result;
+    },
+
+    async adjustCredits(input) {
+      return database.transaction(async (tx) => {
+        const idempotencyKey = `adjustment:${input.adjustmentId}`;
+        const [entry] = await tx
+          .insert(schema.creditLedgerEntries)
+          .values({
+            clerkUserId: input.clerkUserId,
+            entryType: 'adjustment',
+            availableDelta: input.delta,
+            idempotencyKey,
+            referenceType: 'admin_adjustment',
+            referenceId: input.adjustmentId,
+            description: 'Administrator credit adjustment',
+            metadata: {
+              actorClerkUserId: input.actorClerkUserId,
+              reason: input.reason ?? null,
+            },
+          })
+          .onConflictDoNothing()
+          .returning({ id: schema.creditLedgerEntries.id });
+        if (!entry) {
+          const [existing] = await tx
+            .select()
+            .from(schema.creditLedgerEntries)
+            .where(
+              eq(schema.creditLedgerEntries.idempotencyKey, idempotencyKey),
+            );
+          if (
+            existing?.clerkUserId !== input.clerkUserId ||
+            existing.availableDelta !== input.delta
+          ) {
+            throw new BillingRepositoryError(
+              'IDEMPOTENCY_CONFLICT',
+              'The adjustment ID was already used with different values',
+            );
+          }
+          const [account] = await tx
+            .select({
+              availableCredits: schema.creditAccounts.availableCredits,
+            })
+            .from(schema.creditAccounts)
+            .where(eq(schema.creditAccounts.clerkUserId, input.clerkUserId));
+          return account?.availableCredits ?? 0;
+        }
+
+        const minimumBalance = input.delta < 0 ? -input.delta : 0;
+        const [account] = await tx
+          .update(schema.creditAccounts)
+          .set({
+            availableCredits: sql`${schema.creditAccounts.availableCredits} + ${input.delta}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(schema.creditAccounts.clerkUserId, input.clerkUserId),
+              gte(schema.creditAccounts.availableCredits, minimumBalance),
+            ),
+          )
+          .returning({
+            availableCredits: schema.creditAccounts.availableCredits,
+          });
+        if (!account) {
+          throw new BillingRepositoryError(
+            'INSUFFICIENT_CREDITS',
+            'The adjustment would make the available balance negative',
+          );
+        }
+        return account.availableCredits;
+      });
+    },
+
     async reserveAnalysis(input) {
       return database.transaction(async (tx) => {
+        const settings = await ensureCreditSettings(tx);
+        const estimate = await estimateAnalysis(
+          tx,
+          input.billingSignature,
+          settings,
+        );
         const [created] = await tx
           .insert(schema.creditReservations)
           .values({
             requestId: input.requestId,
             clerkUserId: input.clerkUserId,
-            units: input.units,
+            units: estimate.reservedPoints,
+            estimatedCostUsd: estimate.estimatedCostUsd,
+            pricingSnapshot: {
+              points_per_usd: settings.pointsPerUsd,
+              markup_basis_points: settings.markupBasisPoints,
+              reserve_buffer_basis_points: settings.reserveBufferBasisPoints,
+              estimate_source: estimate.source,
+              sample_count: estimate.sampleCount,
+              billing_signature: input.billingSignature,
+            },
             status: 'reserved',
           })
           .onConflictDoNothing()
@@ -125,7 +297,8 @@ export function createBillingRepository(database: Database): BillingRepository {
             .where(eq(schema.creditReservations.requestId, input.requestId));
           if (
             existing?.clerkUserId === input.clerkUserId &&
-            existing.units === input.units &&
+            existing.pricingSnapshot?.billing_signature ===
+              input.billingSignature &&
             existing.status !== 'released'
           ) {
             return 'existing';
@@ -136,38 +309,20 @@ export function createBillingRepository(database: Database): BillingRepository {
           );
         }
 
-        const [subscription] = await tx
-          .select({ id: schema.billingSubscriptions.stripeSubscriptionId })
-          .from(schema.billingSubscriptions)
-          .where(
-            and(
-              eq(schema.billingSubscriptions.clerkUserId, input.clerkUserId),
-              inArray(schema.billingSubscriptions.status, [
-                'active',
-                'trialing',
-              ]),
-              gt(schema.billingSubscriptions.currentPeriodEnd, new Date()),
-            ),
-          )
-          .limit(1);
-        if (!subscription) {
-          throw new BillingRepositoryError(
-            'SUBSCRIPTION_REQUIRED',
-            'An active subscription is required to run an analysis',
-          );
-        }
-
         const [account] = await tx
           .update(schema.creditAccounts)
           .set({
-            availableCredits: sql`${schema.creditAccounts.availableCredits} - ${input.units}`,
-            reservedCredits: sql`${schema.creditAccounts.reservedCredits} + ${input.units}`,
+            availableCredits: sql`${schema.creditAccounts.availableCredits} - ${estimate.reservedPoints}`,
+            reservedCredits: sql`${schema.creditAccounts.reservedCredits} + ${estimate.reservedPoints}`,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(schema.creditAccounts.clerkUserId, input.clerkUserId),
-              gte(schema.creditAccounts.availableCredits, input.units),
+              gte(
+                schema.creditAccounts.availableCredits,
+                estimate.reservedPoints,
+              ),
             ),
           )
           .returning({ clerkUserId: schema.creditAccounts.clerkUserId });
@@ -180,12 +335,18 @@ export function createBillingRepository(database: Database): BillingRepository {
         await tx.insert(schema.creditLedgerEntries).values({
           clerkUserId: input.clerkUserId,
           entryType: 'reserve',
-          availableDelta: -input.units,
-          reservedDelta: input.units,
+          availableDelta: -estimate.reservedPoints,
+          reservedDelta: estimate.reservedPoints,
           idempotencyKey: `analysis:${input.requestId}:reserve`,
           referenceType: 'analysis_request',
           referenceId: input.requestId,
           description: 'Analysis credit reserved',
+          metadata: {
+            estimatedCostUsd: estimate.estimatedCostUsd,
+            reservedPoints: estimate.reservedPoints,
+            source: estimate.source,
+            sampleCount: estimate.sampleCount,
+          },
         });
         return 'created';
       });
@@ -403,4 +564,73 @@ async function finishWebhook(
     .update(schema.stripeWebhookEvents)
     .set({ status, processedAt: new Date(), updatedAt: new Date() })
     .where(eq(schema.stripeWebhookEvents.stripeEventId, eventId));
+}
+
+async function ensureCreditSettings(
+  database: QueryDatabase,
+): Promise<CreditBillingSettings> {
+  const [created] = await database
+    .insert(schema.creditBillingSettings)
+    .values({ id: 'default' })
+    .onConflictDoNothing()
+    .returning();
+  if (created) return created;
+  const [settings] = await database
+    .select()
+    .from(schema.creditBillingSettings)
+    .where(eq(schema.creditBillingSettings.id, 'default'));
+  return settings!;
+}
+
+async function estimateAnalysis(
+  database: QueryDatabase,
+  billingSignature: string,
+  currentSettings?: CreditBillingSettings,
+): Promise<AnalysisCreditEstimate> {
+  const settings = currentSettings ?? (await ensureCreditSettings(database));
+  const matchingCosts = await database
+    .select({
+      costUsd: schema.analysisJobs.costUsd,
+    })
+    .from(schema.creditReservations)
+    .innerJoin(
+      schema.analysisJobs,
+      eq(schema.creditReservations.analysisJobId, schema.analysisJobs.id),
+    )
+    .where(
+      and(
+        eq(schema.analysisJobs.status, 'succeeded'),
+        gt(schema.analysisJobs.costUsd, '0'),
+        sql`${schema.creditReservations.pricingSnapshot}->>'billing_signature' = ${billingSignature}`,
+      ),
+    )
+    .orderBy(desc(schema.analysisJobs.finishedAt))
+    .limit(100);
+  const historicalCost = discreteP90(
+    matchingCosts.map((job) => job.costUsd),
+  );
+  const estimatedCostUsd = historicalCost ?? settings.defaultEstimatedCostUsd;
+  return {
+    estimatedCostUsd,
+    reservedPoints: calculateReservedPoints(estimatedCostUsd, {
+      pointsPerUsd: settings.pointsPerUsd,
+      markupBasisPoints: settings.markupBasisPoints,
+      reserveBufferBasisPoints: settings.reserveBufferBasisPoints,
+    }),
+    source: historicalCost === undefined ? 'default' : 'history',
+    sampleCount: matchingCosts.length,
+  };
+}
+
+function settingsSnapshot(
+  settings: CreditBillingSettings,
+): Record<string, unknown> {
+  return {
+    pointsPerUsd: settings.pointsPerUsd,
+    markupBasisPoints: settings.markupBasisPoints,
+    reserveBufferBasisPoints: settings.reserveBufferBasisPoints,
+    defaultEstimatedCostUsd: settings.defaultEstimatedCostUsd,
+    updatedByClerkUserId: settings.updatedByClerkUserId,
+    updatedAt: settings.updatedAt.toISOString(),
+  };
 }

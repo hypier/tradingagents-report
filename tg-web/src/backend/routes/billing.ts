@@ -60,6 +60,22 @@ const stripeConfigurationSchema = z.object({
     .max(256),
 });
 
+const positiveDecimal = (maximumFractionDigits: number) =>
+  z
+    .string()
+    .trim()
+    .regex(
+      new RegExp(`^(?:0|[1-9]\\d*)(?:\\.\\d{1,${maximumFractionDigits}})?$`),
+    )
+    .refine((value) => Number(value) > 0 && Number(value) <= 1_000_000);
+
+const creditSettingsSchema = z.object({
+  pointsPerUsd: positiveDecimal(6),
+  markupBasisPoints: z.number().int().min(0).max(100_000),
+  reserveBufferBasisPoints: z.number().int().min(0).max(100_000),
+  defaultEstimatedCostUsd: positiveDecimal(8),
+});
+
 export function billingRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
@@ -138,6 +154,33 @@ export function billingRoutes(dependencies: AppDependencies) {
     const settings = await callBilling(() =>
       dependencies.billing.getSettings(),
     );
+    return context.json(apiSuccess(settings, context.get('requestId')));
+  });
+
+  app.get('/admin/billing/credit-settings', async (context) => {
+    return context.json(
+      apiSuccess(
+        await dependencies.database.billing.getCreditSettings(),
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.put('/admin/billing/credit-settings', async (context) => {
+    const input = creditSettingsSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!input.success) {
+      throw new AppError(
+        'INVALID_CREDIT_SETTINGS',
+        400,
+        'Invalid credit billing settings',
+      );
+    }
+    const settings = await dependencies.database.billing.updateCreditSettings({
+      ...input.data,
+      actorClerkUserId: context.get('auth').userId,
+    });
     return context.json(apiSuccess(settings, context.get('requestId')));
   });
 

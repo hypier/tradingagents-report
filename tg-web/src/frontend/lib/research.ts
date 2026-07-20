@@ -1,3 +1,5 @@
+import type { AnalysisCreditEstimate } from '@/backend/billing/contract';
+
 export type ResearchInstrumentInput = {
   exchange: string;
   symbol: string;
@@ -128,6 +130,27 @@ export async function createResearch(
   }
   return response.json() as Promise<{
     data: { id: string };
+    requestId: string;
+  }>;
+}
+
+export async function estimateResearch(
+  { outputLanguage, instrument, display, ...input }: ResearchInput,
+  fetchImplementation: FetchImplementation = fetch,
+) {
+  const response = await fetchImplementation('/api/analyses/estimate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...input,
+      ...(instrument ? { instrument } : {}),
+      ...(display ? { display } : {}),
+      configOverrides: { output_language: outputLanguage ?? 'English' },
+    }),
+  });
+  if (!response.ok) throw new Error('Unable to estimate research credits');
+  return response.json() as Promise<{
+    data: AnalysisCreditEstimate;
     requestId: string;
   }>;
 }

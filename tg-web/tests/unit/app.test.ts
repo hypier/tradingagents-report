@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp, type AppDependencies } from '../../src/backend/app';
+import { buildBillingSignature } from '../../src/backend/billing/credit-pricing';
 import { BillingRepositoryError } from '../../src/backend/database/billing-repository';
 import { AppError } from '../../src/backend/errors/app-error';
 import { Logger } from '../../src/backend/logging/logger';
@@ -89,6 +90,25 @@ function fakeDependencies(
           subscription: null,
           ledger: [],
         }),
+        getCreditSettings: vi.fn().mockResolvedValue({
+          id: 'default',
+          pointsPerUsd: '100.000000',
+          markupBasisPoints: 1000,
+          reserveBufferBasisPoints: 2000,
+          defaultEstimatedCostUsd: '1.00000000',
+          updatedByClerkUserId: null,
+          createdAt: new Date('2026-07-20T00:00:00Z'),
+          updatedAt: new Date('2026-07-20T00:00:00Z'),
+        }),
+        updateCreditSettings: vi.fn(),
+        estimateAnalysis: vi.fn().mockResolvedValue({
+          estimatedCostUsd: '1.00000000',
+          reservedPoints: 132,
+          source: 'default',
+          sampleCount: 0,
+        }),
+        getAvailableCredits: vi.fn().mockResolvedValue({}),
+        adjustCredits: vi.fn().mockResolvedValue(100),
         reserveAnalysis: vi.fn().mockResolvedValue('created'),
         attachAnalysis: vi.fn().mockResolvedValue(undefined),
         releaseAnalysis: vi.fn().mockResolvedValue(undefined),
@@ -238,18 +258,27 @@ describe('createApp', () => {
       ],
       totalCount: 1,
     });
+    vi.mocked(
+      dependencies.database.billing.getAvailableCredits,
+    ).mockResolvedValue({ 'user-1': 2400 });
     const app = createApp(dependencies);
 
     const response = await app.request('/api/admin/users?limit=20&offset=0');
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      data: { totalCount: 1, users: [{ role: 'admin' }] },
+      data: {
+        totalCount: 1,
+        users: [{ role: 'admin', availableCredits: 2400 }],
+      },
     });
     expect(dependencies.auth.listUsers).toHaveBeenCalledWith({
       limit: 20,
       offset: 0,
     });
+    expect(
+      dependencies.database.billing.getAvailableCredits,
+    ).toHaveBeenCalledWith(['user-1']);
   });
 
   it('prevents an administrator from removing their own role', async () => {
@@ -550,6 +579,150 @@ describe('createApp', () => {
     );
   });
 
+  it('estimates analysis credits without submitting a Core job', async () => {
+    const dependencies = fakeDependencies();
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses/estimate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: 'AAPL',
+        tradeDate: '2026-07-15',
+        analysts: ['news', 'market'],
+        configOverrides: { llm_provider: 'openai' },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { estimatedCostUsd: '1.00000000', reservedPoints: 132 },
+    });
+    expect(dependencies.database.billing.estimateAnalysis).toHaveBeenCalledWith(
+      {
+        billingSignature: buildBillingSignature({
+          analysts: ['news', 'market'],
+          configOverrides: { llm_provider: 'openai' },
+        }),
+      },
+    );
+    expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid analysis estimate request as a client error', async () => {
+    const dependencies = fakeDependencies();
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses/estimate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker: '', analysts: [] }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'INVALID_REQUEST' },
+    });
+    expect(
+      dependencies.database.billing.estimateAnalysis,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('lets an administrator read and update credit billing settings', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    vi.mocked(
+      dependencies.database.billing.updateCreditSettings,
+    ).mockResolvedValue(
+      await dependencies.database.billing.getCreditSettings(),
+    );
+    const app = createApp(dependencies);
+
+    const getResponse = await app.request('/api/admin/billing/credit-settings');
+    expect(getResponse.status).toBe(200);
+
+    const putResponse = await app.request(
+      '/api/admin/billing/credit-settings',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pointsPerUsd: '200',
+          markupBasisPoints: 1500,
+          reserveBufferBasisPoints: 2500,
+          defaultEstimatedCostUsd: '2.5',
+        }),
+      },
+    );
+    expect(putResponse.status).toBe(200);
+    expect(
+      dependencies.database.billing.updateCreditSettings,
+    ).toHaveBeenCalledWith({
+      pointsPerUsd: '200',
+      markupBasisPoints: 1500,
+      reserveBufferBasisPoints: 2500,
+      defaultEstimatedCostUsd: '2.5',
+      actorClerkUserId: 'user-1',
+    });
+  });
+
+  it('lets an administrator adjust a synchronized user credit balance', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser)
+      .mockResolvedValueOnce({
+        id: 'user-1',
+        displayName: 'Admin User',
+        email: 'admin@example.test',
+        imageUrl: '',
+        role: 'admin',
+      })
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        displayName: 'Second User',
+        email: 'second@example.test',
+        imageUrl: '',
+        role: 'user',
+      });
+    vi.mocked(dependencies.database.billing.adjustCredits).mockResolvedValue(
+      150,
+    );
+    const app = createApp(dependencies);
+
+    const response = await app.request(
+      '/api/admin/users/user-2/credit-adjustments',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adjustmentId: '00000000-0000-4000-8000-000000000400',
+          delta: 50,
+          reason: 'Service credit',
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(dependencies.database.account.syncUser).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-2' }),
+    );
+    expect(dependencies.database.billing.adjustCredits).toHaveBeenCalledWith({
+      adjustmentId: '00000000-0000-4000-8000-000000000400',
+      clerkUserId: 'user-2',
+      actorClerkUserId: 'user-1',
+      delta: 50,
+      reason: 'Service credit',
+    });
+    expect(await response.json()).toMatchObject({
+      data: { availableCredits: 150 },
+    });
+  });
+
   it('forwards a validated analysis request to Core', async () => {
     const dependencies = fakeDependencies({
       core: {
@@ -707,7 +880,10 @@ describe('createApp', () => {
     expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith({
       clerkUserId: 'user-1',
       requestId,
-      units: 1,
+      billingSignature: buildBillingSignature({
+        analysts: ['market'],
+        configOverrides: {},
+      }),
     });
     expect(dependencies.database.billing.releaseAnalysis).toHaveBeenCalledWith(
       requestId,
@@ -752,7 +928,10 @@ describe('createApp', () => {
     expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith({
       clerkUserId: 'user-1',
       requestId,
-      units: 1,
+      billingSignature: buildBillingSignature({
+        analysts: ['market'],
+        configOverrides: {},
+      }),
     });
     expect(dependencies.database.billing.attachAnalysis).toHaveBeenCalledWith(
       requestId,
@@ -760,12 +939,12 @@ describe('createApp', () => {
     );
   });
 
-  it('requires an active subscription before submitting an analysis', async () => {
+  it('returns 402 without submitting to Core when credits are insufficient', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.database.billing.reserveAnalysis).mockRejectedValue(
       new BillingRepositoryError(
-        'SUBSCRIPTION_REQUIRED',
-        'An active subscription is required to run an analysis',
+        'INSUFFICIENT_CREDITS',
+        'There are not enough analysis credits available',
       ),
     );
     const app = createApp(dependencies);
@@ -782,7 +961,7 @@ describe('createApp', () => {
 
     expect(response.status).toBe(402);
     expect(await response.json()).toMatchObject({
-      error: { code: 'SUBSCRIPTION_REQUIRED' },
+      error: { code: 'INSUFFICIENT_CREDITS' },
     });
     expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
   });
@@ -899,6 +1078,11 @@ describe('createApp', () => {
           setStripeCustomerId: vi.fn(),
           getStripeCustomerId: vi.fn(),
           getUsage: vi.fn(),
+          getCreditSettings: vi.fn(),
+          updateCreditSettings: vi.fn(),
+          estimateAnalysis: vi.fn(),
+          getAvailableCredits: vi.fn(),
+          adjustCredits: vi.fn(),
           reserveAnalysis: vi.fn(),
           attachAnalysis: vi.fn(),
           releaseAnalysis: vi.fn(),

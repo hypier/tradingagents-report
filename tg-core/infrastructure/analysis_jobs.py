@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime, timezone
+from decimal import ROUND_CEILING, Decimal
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
@@ -109,10 +110,19 @@ def recover_interrupted_jobs() -> int:
                     finished_at = now(),
                     updated_at = now()
                 WHERE status = 'running'
+                RETURNING id, cost_usd
                 """
             )
+            interrupted_jobs = cursor.fetchall()
+            for job in interrupted_jobs:
+                _settle_credit_reservation(
+                    conn,
+                    job_id=job["id"],
+                    outcome="released",
+                    actual_cost_usd=Decimal(str(job.get("cost_usd") or 0)),
+                )
             conn.commit()
-            return cursor.rowcount
+            return len(interrupted_jobs)
         finally:
             conn.execute("SELECT pg_advisory_unlock(%s)", (database.ANALYSIS_LOCK_KEY,))
 
@@ -206,7 +216,12 @@ def mark_succeeded(
             ),
         )
         if cursor.rowcount == 1:
-            _settle_credit_reservation(conn, job_id=job_id, outcome="consumed")
+            _settle_credit_reservation(
+                conn,
+                job_id=job_id,
+                outcome="consumed",
+                actual_cost_usd=Decimal(str(cost_breakdown["total_cost_usd"])),
+            )
     return cursor.rowcount == 1
 
 
@@ -237,48 +252,89 @@ def mark_failed(
             ),
         )
         if cursor.rowcount == 1:
-            _settle_credit_reservation(conn, job_id=job_id, outcome="released")
+            _settle_credit_reservation(
+                conn,
+                job_id=job_id,
+                outcome="released",
+                actual_cost_usd=Decimal(str(cost_breakdown["total_cost_usd"])),
+            )
     return cursor.rowcount == 1
 
 
-def _settle_credit_reservation(conn, *, job_id: UUID | str, outcome: str) -> None:
+def _settle_credit_reservation(
+    conn,
+    *,
+    job_id: UUID | str,
+    outcome: str,
+    actual_cost_usd: Decimal,
+) -> None:
     """Settle an optional product credit reservation with the job transition."""
     reason = "analysis_succeeded" if outcome == "consumed" else "analysis_failed"
     reservation = conn.execute(
         """
-        UPDATE credit_reservations AS reservation
-        SET status = %s, reason = %s, settled_at = now(), updated_at = now()
-        FROM analysis_jobs AS job
+        SELECT reservation.clerk_user_id, reservation.request_id,
+               reservation.units, reservation.estimated_cost_usd,
+               reservation.pricing_snapshot
+        FROM credit_reservations AS reservation
+        JOIN analysis_jobs AS job ON (
+          reservation.analysis_job_id = job.id
+          OR (
+            reservation.analysis_job_id IS NULL
+            AND reservation.request_id = job.request_id
+          )
+        )
         WHERE job.id = %s
           AND reservation.status = 'reserved'
-          AND (
-            reservation.analysis_job_id = job.id
-            OR (
-              reservation.analysis_job_id IS NULL
-              AND reservation.request_id = job.request_id
-            )
-          )
-        RETURNING reservation.clerk_user_id, reservation.request_id, reservation.units
+        FOR UPDATE OF reservation
         """,
-        (outcome, reason, job_id),
+        (job_id,),
     ).fetchone()
     if reservation is None:
         return
 
     units = int(reservation["units"])
+    pricing_snapshot = reservation.get("pricing_snapshot")
+    settled_units = (
+        _calculate_actual_credit_units(actual_cost_usd, pricing_snapshot)
+        if outcome == "consumed" and pricing_snapshot
+        else units if outcome == "consumed" else 0
+    )
+    conn.execute(
+        """
+        UPDATE credit_reservations
+        SET status = %s, reason = %s, settled_units = %s,
+            settled_cost_usd = %s, settled_at = now(), updated_at = now()
+        WHERE request_id = %s AND status = 'reserved'
+        """,
+        (
+            outcome,
+            reason,
+            settled_units,
+            actual_cost_usd,
+            reservation["request_id"],
+        ),
+    )
     if outcome == "consumed":
+        available_delta = units - settled_units
         account = conn.execute(
             """
             UPDATE credit_accounts
-            SET reserved_credits = reserved_credits - %s,
+            SET available_credits = available_credits + %s,
+                reserved_credits = reserved_credits - %s,
                 spent_credits = spent_credits + %s,
                 updated_at = now()
             WHERE clerk_user_id = %s AND reserved_credits >= %s
             RETURNING clerk_user_id
             """,
-            (units, units, reservation["clerk_user_id"], units),
+            (
+                available_delta,
+                units,
+                settled_units,
+                reservation["clerk_user_id"],
+                units,
+            ),
         ).fetchone()
-        deltas = (0, -units, units)
+        deltas = (available_delta, -units, settled_units)
         entry_type = "consume"
         description = "Analysis credit consumed"
     else:
@@ -315,9 +371,52 @@ def _settle_credit_reservation(conn, *, job_id: UUID | str, outcome: str) -> Non
             f"analysis:{reservation['request_id']}:{entry_type}",
             str(job_id),
             description,
-            Jsonb({"reason": reason}),
+            Jsonb(
+                {
+                    "reason": reason,
+                    "actualCostUsd": str(actual_cost_usd),
+                    "estimatedCostUsd": (
+                        str(reservation["estimated_cost_usd"])
+                        if reservation.get("estimated_cost_usd") is not None
+                        else None
+                    ),
+                    "reservedPoints": units,
+                    "finalPoints": settled_units,
+                    "pointsPerUsd": (
+                        pricing_snapshot.get("points_per_usd")
+                        if pricing_snapshot
+                        else None
+                    ),
+                    "markupBasisPoints": (
+                        pricing_snapshot.get("markup_basis_points")
+                        if pricing_snapshot
+                        else None
+                    ),
+                    "reserveBufferBasisPoints": (
+                        pricing_snapshot.get("reserve_buffer_basis_points")
+                        if pricing_snapshot
+                        else None
+                    ),
+                    "estimateSource": (
+                        pricing_snapshot.get("estimate_source")
+                        if pricing_snapshot
+                        else None
+                    ),
+                }
+            ),
         ),
     )
+
+
+def _calculate_actual_credit_units(actual_cost_usd: Decimal, pricing: dict) -> int:
+    if actual_cost_usd <= 0:
+        return 0
+    points_per_usd = Decimal(str(pricing["points_per_usd"]))
+    markup = Decimal(int(pricing["markup_basis_points"])) / Decimal(10_000)
+    units = (actual_cost_usd * (Decimal(1) + markup) * points_per_usd).to_integral_value(
+        rounding=ROUND_CEILING
+    )
+    return max(1, int(units))
 
 
 def total_tokens(token_usage: dict | None) -> int:

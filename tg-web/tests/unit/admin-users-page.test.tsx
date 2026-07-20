@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -14,6 +20,7 @@ const authState = vi.hoisted(() => ({
 const authMocks = vi.hoisted(() => ({
   listManagedUsers: vi.fn(),
   updateManagedUserRole: vi.fn(),
+  adjustManagedUserCredits: vi.fn(),
 }));
 
 vi.mock('../../src/frontend/hooks/use-auth-session', () => ({
@@ -59,6 +66,7 @@ beforeEach(() => {
           imageUrl: '',
           role: 'admin',
           createdAt: 1,
+          availableCredits: 500,
         },
         {
           id: 'user-2',
@@ -67,11 +75,16 @@ beforeEach(() => {
           imageUrl: '',
           role: 'user',
           createdAt: 2,
+          availableCredits: 100,
         },
       ],
       totalCount: 2,
     },
     requestId: 'request-1',
+  });
+  authMocks.adjustManagedUserCredits.mockResolvedValue({
+    data: { availableCredits: 75 },
+    requestId: 'request-2',
   });
 });
 
@@ -100,6 +113,36 @@ it('shows user management navigation and role controls to administrators', async
   expect(
     screen.getByRole('combobox', { name: 'Role for Admin User' }),
   ).toBeDisabled();
+});
+
+it('lets an administrator decrease user credits from the adjustment dialog', async () => {
+  render(
+    <MemoryRouter initialEntries={['/admin/users']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText('100')).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Adjust credits for Ada Lovelace' }),
+  );
+  fireEvent.click(screen.getByRole('radio', { name: 'Decrease' }));
+  fireEvent.change(screen.getByLabelText('Points'), {
+    target: { value: '25' },
+  });
+  fireEvent.change(screen.getByLabelText('Note'), {
+    target: { value: 'Correction' },
+  });
+  expect(screen.getByText('Balance after adjustment: 75')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply adjustment' }));
+
+  await waitFor(() =>
+    expect(authMocks.adjustManagedUserCredits).toHaveBeenCalledWith('user-2', {
+      adjustmentId: expect.any(String),
+      delta: -25,
+      reason: 'Correction',
+    }),
+  );
 });
 
 it('does not expose user data to a regular user on the admin route', () => {

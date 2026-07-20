@@ -21,13 +21,29 @@
       "user": "User",
       "email": "Email",
       "registered": "Registered",
-      "role": "Role"
+      "role": "Role",
+      "credits": "Credits",
+      "actions": "Actions"
     },
     "you": "You",
     "noEmail": "No email",
     "roleAria": "Role for {{name}}",
     "roleUser": "User",
     "roleAdmin": "Admin",
+    "credits": {
+      "title": "Adjust credits",
+      "description": "Change the available credit balance for {{name}}.",
+      "adjustAria": "Adjust credits for {{name}}",
+      "direction": "Direction",
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "points": "Points",
+      "note": "Note",
+      "balancePreview": "Balance after adjustment: {{count}}",
+      "apply": "Apply adjustment",
+      "updated": "Credit balance updated.",
+      "updateError": "Unable to update the credit balance."
+    },
     "roleUpdated": "User role updated.",
     "roleUpdateError": "Unable to update the user role."
   },
@@ -45,7 +61,8 @@
     },
     "tabs": {
       "connection": "Connection",
-      "plans": "Plans"
+      "plans": "Plans",
+      "credits": "Credit billing"
     },
     "connection": {
       "title": "Stripe connection",
@@ -127,11 +144,25 @@
         "scale": {
           "name": "Scale 100"
         },
-        "description": "{{count}} analysis credits, renewed monthly",
-        "credits": "{{count}} analysis credits per month",
+        "description": "{{count}} usage points, renewed monthly",
+        "credits": "{{count}} usage points per month",
         "markets": "All supported markets"
       },
       "archive": "Archive {{name}}"
+    },
+    "credits": {
+      "title": "Usage-based credit billing",
+      "description": "Convert actual AI token cost in USD into product credits.",
+      "pointsPerUsd": "Points per USD",
+      "markup": "Cost markup (%)",
+      "reserveBuffer": "Reserve buffer (%)",
+      "defaultCost": "Default estimated cost (USD)",
+      "preview": "{{count}} points",
+      "updated": "Updated {{date}} by {{actor}}",
+      "system": "system",
+      "save": "Save credit settings",
+      "saved": "Credit billing settings saved.",
+      "saveError": "Unable to save credit billing settings."
     },
     "toasts": {
       "planCreated": "Subscription plan created.",

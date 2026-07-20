@@ -122,19 +122,26 @@ describe('Node database', () => {
       ledger: [{ entryType: 'grant', availableDelta: 5 }],
     });
 
+    await database.billing.updateCreditSettings({
+      pointsPerUsd: '100',
+      markupBasisPoints: 1000,
+      reserveBufferBasisPoints: 2000,
+      defaultEstimatedCostUsd: '0.001',
+      actorClerkUserId: 'admin-1',
+    });
     const requestId = '00000000-0000-4000-8000-000000000020';
     await expect(
       database.billing.reserveAnalysis({
         clerkUserId: 'user-1',
         requestId,
-        units: 1,
+        billingSignature: 'test-signature',
       }),
     ).resolves.toBe('created');
     await expect(
       database.billing.reserveAnalysis({
         clerkUserId: 'user-1',
         requestId,
-        units: 1,
+        billingSignature: 'test-signature',
       }),
     ).resolves.toBe('existing');
     await expect(database.billing.getUsage('user-1')).resolves.toMatchObject({

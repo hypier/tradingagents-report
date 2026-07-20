@@ -15,6 +15,20 @@
       "when": 1784422585048,
       "tag": "0001_product_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784543364705,
+      "tag": "0002_broken_sentinels",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784561375657,
+      "tag": "0003_bitter_revanche",
+      "breakpoints": true
     }
   ]
 }

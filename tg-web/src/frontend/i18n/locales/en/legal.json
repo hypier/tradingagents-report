@@ -15,7 +15,7 @@
       "paragraphs": [
         "You may use the service only for lawful research purposes and must not attempt to bypass access controls, quotas, provider terms, or security safeguards.",
         "Subscriptions renew according to the billing cycle shown at checkout until canceled. Plan changes, cancellation, payment methods, invoices, and billing history are managed through Stripe Customer Portal.",
-        "Analysis credits are issued for the applicable billing period. A credit is reserved when a job is submitted, consumed when it succeeds, and released when it fails. Service availability is not guaranteed."
+        "Usage points are issued for the applicable billing period. Points are reserved when a job is submitted, settled from actual AI token cost when it succeeds, and fully released when it fails. Service availability is not guaranteed."
       ]
     },
     "privacy": {

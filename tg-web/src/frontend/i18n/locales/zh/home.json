@@ -12,6 +12,10 @@
     "customPlaceholder": "Turkish",
     "defaultSuffix": "默认"
   },
+  "runWithEstimate": "开始分析（预扣 {{count}} 积分）",
+  "estimating": "正在估算预扣积分...",
+  "estimate": "预计预扣 {{count}} 积分（AI 预估成本 ${{cost}}）。",
+  "estimateUnavailable": "暂时无法估价，提交时服务端会重新计算。",
   "analystTeam": "分析师团队",
   "submit": {
     "run": "开始分析",
