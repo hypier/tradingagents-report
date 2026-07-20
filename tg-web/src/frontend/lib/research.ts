@@ -74,8 +74,11 @@ export type MarketSnapshot = {
   logo_url?: string;
   last_price?: number;
   currency?: string;
+  change?: number;
   change_percent?: number;
   as_of?: string;
+  update_mode?: string;
+  delay_seconds?: number;
   source?: string;
   freshness?: 'as_of' | 'stale';
 };

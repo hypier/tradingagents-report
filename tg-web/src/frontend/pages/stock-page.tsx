@@ -23,7 +23,7 @@ import {
   formatLocaleDateTimeValue,
   formatLocaleNumber,
 } from '../lib/format-locale';
-import { snapshotFreshness } from '../lib/snapshot-freshness';
+import { formatSnapshotDelay, snapshotFreshness } from '../lib/snapshot-freshness';
 import { cn } from '../lib/utils';
 import {
   getMarketSnapshot,
@@ -93,8 +93,18 @@ export function StockPage() {
   });
 
   const quote = snapshot.data?.data;
-  const freshness = snapshotFreshness(quote?.as_of);
+  const freshness = snapshotFreshness({
+    asOf: quote?.as_of,
+    updateMode: quote?.update_mode,
+    delaySeconds: quote?.delay_seconds,
+  });
+  const delayLabel = formatSnapshotDelay({
+    asOf: quote?.as_of,
+    updateMode: quote?.update_mode,
+    delaySeconds: quote?.delay_seconds,
+  });
   const changePercent = quote?.change_percent;
+  const change = quote?.change;
   const isUp = changePercent !== undefined && changePercent > 0;
   const isDown = changePercent !== undefined && changePercent < 0;
 
@@ -142,7 +152,9 @@ export function StockPage() {
                 ) : null}
                 <Badge variant="outline">
                   {freshness === 'stale'
-                    ? t('home:snapshot.stale')
+                    ? delayLabel
+                      ? t('home:snapshot.staleWithAge', { age: delayLabel })
+                      : t('home:snapshot.stale')
                     : t('home:snapshot.asOf')}
                 </Badge>
               </div>
@@ -237,7 +249,9 @@ export function StockPage() {
                   {isDown ? <ArrowDownRight className="size-4" /> : null}
                   {changePercent === undefined
                     ? t('home:snapshot.changeUnavailable')
-                    : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`}
+                    : change !== undefined
+                      ? `${change >= 0 ? '+' : ''}${formatLocaleNumber(change)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`
+                      : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
                   {quote.source ?? 'TradingView'}

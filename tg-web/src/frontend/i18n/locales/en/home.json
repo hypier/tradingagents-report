@@ -8,8 +8,6 @@
   },
   "reportLanguage": {
     "label": "Report language",
-    "custom": "Custom language",
-    "customPlaceholder": "Turkish",
     "defaultSuffix": "default"
   },
   "tradeDate": {
@@ -56,6 +54,7 @@
     "title": "Market snapshot",
     "asOf": "As of",
     "stale": "Possibly delayed",
+    "staleWithAge": "Delayed {{age}}",
     "lastPrice": "Last price",
     "changeUnavailable": "Change unavailable",
     "emptyTitle": "Select an instrument",

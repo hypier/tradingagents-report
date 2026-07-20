@@ -21,8 +21,12 @@ export type MarketAssetIdentity = {
 export type MarketSnapshot = MarketAssetIdentity & {
   last_price: number;
   currency: string;
+  change?: number;
   change_percent: number;
   as_of?: string;
+  update_mode?: string;
+  /** Vendor feed delay in seconds from `update_mode` (0 = streaming). */
+  delay_seconds?: number;
   source: 'tradingview';
 };
 
@@ -109,6 +113,7 @@ export class TradingViewMarketClient implements MarketAssetClient {
     if (!response.ok) throw new Error('TradingView quote request failed');
     const quote = readQuote(await response.json());
     const lastPrice = numberValue(quote?.lp);
+    const change = numberValue(quote?.ch);
     const changePercent = numberValue(quote?.chp);
     if (lastPrice === undefined || changePercent === undefined) {
       throw new Error('TradingView quote is missing price data');
@@ -117,6 +122,8 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const description = stringValue(market.description);
     const logoid = stringValue(market.logo?.logoid);
     const quoteTime = numberValue(quote?.lp_time);
+    const updateMode = stringValue(quote?.update_mode) || undefined;
+    const delaySeconds = parseUpdateModeDelaySeconds(updateMode);
     return {
       ticker: listing.display_ticker,
       display_ticker: listing.display_ticker,
@@ -126,10 +133,13 @@ export class TradingViewMarketClient implements MarketAssetClient {
         : {}),
       last_price: lastPrice,
       currency: stringValue(quote?.currency_code).toUpperCase() || 'USD',
+      ...(change !== undefined ? { change } : {}),
       change_percent: changePercent,
       ...(quoteTime
         ? { as_of: new Date(quoteTime * 1_000).toISOString() }
         : {}),
+      ...(updateMode ? { update_mode: updateMode } : {}),
+      ...(delaySeconds !== null ? { delay_seconds: delaySeconds } : {}),
       source: 'tradingview',
     };
   }
@@ -309,6 +319,17 @@ function numberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value)
     ? value
     : undefined;
+}
+
+/** Parse TradingView `update_mode`, e.g. `delayed_streaming_900` → 900. */
+function parseUpdateModeDelaySeconds(updateMode?: string): number | null {
+  if (!updateMode) return null;
+  const normalized = updateMode.trim().toLowerCase();
+  if (normalized === 'streaming') return 0;
+  const match = /^delayed(?:_streaming)?_(\d+)$/u.exec(normalized);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) ? seconds : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

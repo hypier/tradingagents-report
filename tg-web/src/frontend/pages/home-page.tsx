@@ -78,7 +78,6 @@ export function HomePage() {
   });
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [outputLanguage, setOutputLanguage] = useState('English');
-  const [customLanguage, setCustomLanguage] = useState('');
   const [tradeDate, setTradeDate] = useState(() => todayInTimezone('UTC'));
   const [prefsReady, setPrefsReady] = useState(false);
   const navigate = useNavigate();
@@ -95,7 +94,12 @@ export function HomePage() {
   useEffect(() => {
     const current = profile.data?.data.profile;
     if (!current || prefsReady) return;
-    setOutputLanguage(current.reportLanguage || 'English');
+    const preferred = current.reportLanguage || 'English';
+    setOutputLanguage(
+      (OUTPUT_LANGUAGE_IDS as readonly string[]).includes(preferred)
+        ? preferred
+        : 'English',
+    );
     setTradeDate(todayInTimezone(current.timezone));
     setPrefsReady(true);
   }, [prefsReady, profile.data?.data.profile]);
@@ -158,8 +162,6 @@ export function HomePage() {
       identity,
     ]),
   );
-  const selectedOutputLanguage =
-    outputLanguage === 'custom' ? customLanguage.trim() : outputLanguage;
   const availableCredits = billing.data?.data.usage?.availableCredits ?? 0;
   const subscriptionStatus = billing.data?.data.subscription?.status;
   const hasActiveSubscription =
@@ -184,7 +186,7 @@ export function HomePage() {
     if (
       instrument &&
       analysts.length &&
-      selectedOutputLanguage &&
+      outputLanguage &&
       tradeDate &&
       !insufficientCredits
     ) {
@@ -192,7 +194,7 @@ export function HomePage() {
         ticker: instrument.display_ticker,
         tradeDate,
         analysts,
-        outputLanguage: selectedOutputLanguage,
+        outputLanguage,
         instrument: {
           exchange: instrument.exchange,
           symbol: instrument.symbol,
@@ -390,28 +392,10 @@ export function HomePage() {
                             : ''}
                         </SelectItem>
                       ))}
-                      <SelectItem value="custom">
-                        {t('reportLanguage.custom')}
-                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
               </FieldGroup>
-
-              {outputLanguage === 'custom' && (
-                <Field>
-                  <FieldLabel htmlFor="custom-language">
-                    {t('reportLanguage.custom')}
-                  </FieldLabel>
-                  <Input
-                    id="custom-language"
-                    value={customLanguage}
-                    onChange={(event) => setCustomLanguage(event.target.value)}
-                    placeholder={t('reportLanguage.customPlaceholder')}
-                    required
-                  />
-                </Field>
-              )}
 
               {insufficientCredits ? (
                 <Alert>
@@ -469,7 +453,7 @@ export function HomePage() {
                 disabled={
                   !instrument ||
                   !analysts.length ||
-                  !selectedOutputLanguage ||
+                  !outputLanguage ||
                   !tradeDate ||
                   insufficientCredits ||
                   create.isPending

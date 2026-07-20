@@ -32,9 +32,11 @@ describe('TradingViewMarketClient', () => {
               symbol: 'HKEX:700',
               data: {
                 lp: 481.8,
+                ch: 7.8,
                 chp: 1.65,
                 currency_code: 'HKD',
                 lp_time: 1784165400,
+                update_mode: 'delayed_streaming_900',
               },
             },
           }),
@@ -49,8 +51,11 @@ describe('TradingViewMarketClient', () => {
       logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
       last_price: 481.8,
       currency: 'HKD',
+      change: 7.8,
       change_percent: 1.65,
       as_of: '2026-07-16T01:30:00.000Z',
+      update_mode: 'delayed_streaming_900',
+      delay_seconds: 900,
       source: 'tradingview',
     });
     expect(fetchMock).toHaveBeenNthCalledWith(

@@ -10,7 +10,7 @@ import {
   formatLocaleDateTimeValue,
   formatLocaleNumber,
 } from '@/frontend/lib/format-locale';
-import { snapshotFreshness } from '@/frontend/lib/snapshot-freshness';
+import { snapshotFreshness, formatSnapshotDelay } from '@/frontend/lib/snapshot-freshness';
 import { cn } from '@/frontend/lib/utils';
 import { formatDisplayTicker } from '@/shared/listing';
 
@@ -19,10 +19,13 @@ export type QuoteStripData = {
   display_ticker?: string;
   display_name?: string;
   last_price?: number;
+  change?: number;
   change_percent?: number;
   currency?: string;
   source?: string;
   as_of?: string;
+  update_mode?: string;
+  delay_seconds?: number;
   logo_url?: string;
 };
 
@@ -46,11 +49,36 @@ export function QuoteStrip({
   variant?: 'strip' | 'panel';
 }) {
   const { t } = useTranslation('home');
-  const freshness = snapshotFreshness(quote?.as_of);
+  const freshness = snapshotFreshness({
+    asOf: quote?.as_of,
+    updateMode: quote?.update_mode,
+    delaySeconds: quote?.delay_seconds,
+  });
+  const delayLabel = formatSnapshotDelay({
+    asOf: quote?.as_of,
+    updateMode: quote?.update_mode,
+    delaySeconds: quote?.delay_seconds,
+  });
   const changePercent = quote?.change_percent;
+  const change = quote?.change;
   const isUp = changePercent !== undefined && changePercent > 0;
   const isDown = changePercent !== undefined && changePercent < 0;
   const isPanel = variant === 'panel';
+
+  const changeAmountLabel =
+    change !== undefined
+      ? `${change >= 0 ? '+' : ''}${formatLocaleNumber(change)}`
+      : null;
+  const changePercentLabel =
+    changePercent === undefined
+      ? null
+      : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
+  const moveLabel =
+    changePercentLabel === null
+      ? t('snapshot.changeUnavailable')
+      : changeAmountLabel
+        ? `${changeAmountLabel} (${changePercentLabel})`
+        : changePercentLabel;
 
   if (loading) {
     return (
@@ -139,7 +167,11 @@ export function QuoteStrip({
                     : 'bg-market-up',
               )}
             />
-            {freshness === 'stale' ? t('snapshot.stale') : t('snapshot.asOf')}
+            {freshness === 'stale'
+              ? delayLabel
+                ? t('snapshot.staleWithAge', { age: delayLabel })
+                : t('snapshot.stale')
+              : t('snapshot.asOf')}
             {quote.source ? ` · ${quote.source}` : ''}
             {quote.as_of ? ` · ${formatLocaleDateTimeValue(quote.as_of)}` : ''}
           </p>
@@ -179,9 +211,7 @@ export function QuoteStrip({
         >
           {isUp ? <ArrowUpRight className="size-3.5" /> : null}
           {isDown ? <ArrowDownRight className="size-3.5" /> : null}
-          {changePercent === undefined
-            ? t('snapshot.changeUnavailable')
-            : `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`}
+          {moveLabel}
         </Badge>
       </div>
 

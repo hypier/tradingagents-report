@@ -8,8 +8,6 @@
   },
   "reportLanguage": {
     "label": "报告语言",
-    "custom": "自定义语言",
-    "customPlaceholder": "Turkish",
     "defaultSuffix": "默认"
   },
   "tradeDate": {
@@ -56,6 +54,7 @@
     "title": "市场快照",
     "asOf": "截至",
     "stale": "可能延迟",
+    "staleWithAge": "延迟 {{age}}",
     "lastPrice": "最新价",
     "changeUnavailable": "涨跌幅不可用",
     "emptyTitle": "先选择标的",
