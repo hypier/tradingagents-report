@@ -3,6 +3,14 @@
   "title": "全部报告",
   "subtitle": "浏览所有已提交的研究任务，报告就绪后即可打开查看。",
   "statusFilter": "状态",
+  "tickerFilter": "代码",
+  "tickerPlaceholder": "AAPL",
+  "exchangeFilter": "交易所",
+  "exchangePlaceholder": "NASDAQ",
+  "dateFrom": "起始日期",
+  "dateTo": "结束日期",
+  "favoriteOnly": "仅收藏",
+  "includeArchived": "包含已归档",
   "library": {
     "title": "报告库",
     "description": "完整的研究历史记录。"

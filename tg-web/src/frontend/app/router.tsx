@@ -10,11 +10,17 @@ import { AdminBillingPage } from '../pages/admin-billing-page';
 import { BillingPage } from '../pages/billing-page';
 import { AccountPage } from '../pages/account-page';
 import { LegalPage } from '../pages/legal-page';
+import { WatchlistPage } from '../pages/watchlist-page';
+import { StockPage } from '../pages/stock-page';
+import { TasksPage } from '../pages/tasks-page';
 
 export function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/tasks" element={<TasksPage />} />
+      <Route path="/watchlist" element={<WatchlistPage />} />
+      <Route path="/stocks/:providerSymbol" element={<StockPage />} />
       <Route path="/admin/users" element={<AdminUsersPage />} />
       <Route path="/admin/billing" element={<AdminBillingPage />} />
       <Route path="/billing" element={<BillingPage />} />

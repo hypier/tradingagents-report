@@ -1,0 +1,40 @@
+{
+  "eyebrow": "Watchlist",
+  "title": "Saved instruments",
+  "subtitle": "Track listings, open quotes, and jump into analysis.",
+  "add": {
+    "title": "Add to watchlist",
+    "description": "Search a listing and save it to your default group.",
+    "action": "Add"
+  },
+  "groups": {
+    "title": "Groups",
+    "placeholder": "New group name",
+    "create": "Create",
+    "itemCount": "{{count}} instruments",
+    "empty": "No instruments in this group yet."
+  },
+  "tags": {
+    "title": "Tags",
+    "placeholder": "New tag",
+    "create": "Create"
+  },
+  "actions": {
+    "analyze": "Analyze",
+    "remove": "Remove"
+  },
+  "toasts": {
+    "added": "Added to watchlist",
+    "addError": "Unable to add instrument",
+    "removed": "Removed from watchlist",
+    "removeError": "Unable to remove instrument",
+    "groupCreated": "Group created",
+    "groupError": "Unable to create group",
+    "tagCreated": "Tag created",
+    "tagError": "Unable to create tag"
+  },
+  "loadError": {
+    "title": "Unable to load watchlist",
+    "body": "Refresh and try again."
+  }
+}

@@ -59,7 +59,7 @@ it('renders the standard dashboard navigation shell', () => {
     true,
   );
   const submitButtons = screen.getAllByRole('button', {
-    name: 'Run analysis (0 credits)',
+    name: /Run analysis \(1 credit/,
   });
   expect(
     submitButtons.every((button) => button.getAttribute('type') === 'submit'),

@@ -479,3 +479,131 @@ export const llmPricingSources = pgTable('llm_pricing_sources', {
     .notNull()
     .defaultNow(),
 });
+
+/** 用户自选股分组。 */
+export const watchlistGroups = pgTable(
+  'watchlist_groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clerkUserId: text('clerk_user_id')
+      .notNull()
+      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('watchlist_groups_user_sort_idx').on(
+      table.clerkUserId,
+      table.sortOrder,
+    ),
+  ],
+);
+
+/** 用户自选股条目（按 listing 字段去规范化）。 */
+export const watchlistItems = pgTable(
+  'watchlist_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => watchlistGroups.id, { onDelete: 'cascade' }),
+    clerkUserId: text('clerk_user_id')
+      .notNull()
+      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
+    exchange: text('exchange').notNull(),
+    symbol: text('symbol').notNull(),
+    displayTicker: text('display_ticker').notNull(),
+    providerSymbol: text('provider_symbol').notNull(),
+    displayName: text('display_name').notNull(),
+    logoUrl: text('logo_url'),
+    notes: text('notes'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('watchlist_items_group_provider_key').on(
+      table.groupId,
+      table.providerSymbol,
+    ),
+    index('watchlist_items_user_sort_idx').on(
+      table.clerkUserId,
+      table.sortOrder,
+    ),
+  ],
+);
+
+/** 用户自选股标签。 */
+export const watchlistTags = pgTable(
+  'watchlist_tags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clerkUserId: text('clerk_user_id')
+      .notNull()
+      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    color: text('color'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('watchlist_tags_user_name_key').on(
+      table.clerkUserId,
+      table.name,
+    ),
+  ],
+);
+
+export const watchlistItemTags = pgTable(
+  'watchlist_item_tags',
+  {
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => watchlistItems.id, { onDelete: 'cascade' }),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => watchlistTags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.itemId, table.tagId] }),
+  ],
+);
+
+/** 每用户报告元数据（收藏 / 归档）。 */
+export const userReportMeta = pgTable(
+  'user_report_meta',
+  {
+    clerkUserId: text('clerk_user_id')
+      .notNull()
+      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
+    analysisJobId: uuid('analysis_job_id').notNull(),
+    isFavorite: integer('is_favorite').notNull().default(0),
+    isArchived: integer('is_archived').notNull().default(0),
+    notes: text('notes'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.clerkUserId, table.analysisJobId] }),
+    index('user_report_meta_user_favorite_idx').on(
+      table.clerkUserId,
+      table.isFavorite,
+    ),
+    index('user_report_meta_user_archived_idx').on(
+      table.clerkUserId,
+      table.isArchived,
+    ),
+  ],
+);

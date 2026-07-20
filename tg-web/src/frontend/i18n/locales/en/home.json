@@ -12,10 +12,17 @@
     "customPlaceholder": "Turkish",
     "defaultSuffix": "default"
   },
+  "tradeDate": {
+    "label": "Analysis date",
+    "hint": "Uses your account timezone. Cannot be after today."
+  },
   "analystTeam": "Analyst team",
   "submit": {
     "run": "Run analysis",
-    "runWithCredit": "Run analysis (0 credits)",
+    "runWithCredit": "Run analysis ({{count}} credit)",
+    "runWithCredit_other": "Run analysis ({{count}} credits)",
+    "creditsAvailable": "{{count}} credits available",
+    "insufficientCredits": "Not enough credits — review subscription",
     "submitting": "Submitting...",
     "errorTitle": "Unable to submit this run",
     "errorBody": "Check the service connection and retry.",
@@ -27,12 +34,14 @@
   },
   "snapshot": {
     "title": "Market snapshot",
-    "live": "Live",
+    "asOf": "As of",
+    "stale": "Possibly delayed",
     "lastPrice": "Last price",
     "changeUnavailable": "Change unavailable",
     "emptyTitle": "No quote loaded",
     "emptyBody": "Search and select a stock to preview the latest snapshot before running analysis.",
-    "logoAlt": "{{name}} logo"
+    "logoAlt": "{{name}} logo",
+    "openDetail": "Open stock detail"
   },
   "pipeline": {
     "eyebrow": "Live pipeline",

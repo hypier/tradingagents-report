@@ -3,6 +3,8 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  ListChecks,
+  ListTodo,
   Settings2,
   Shield,
   UserRound,
@@ -30,7 +32,9 @@ import {
 
 const baseNavigation = [
   { titleKey: 'nav.desk' as const, icon: LayoutDashboard, href: '/' },
+  { titleKey: 'nav.tasks' as const, icon: ListTodo, href: '/tasks' },
   { titleKey: 'nav.reports' as const, icon: FileText, href: '/reports' },
+  { titleKey: 'nav.watchlist' as const, icon: ListChecks, href: '/watchlist' },
   { titleKey: 'nav.billing' as const, icon: CreditCard, href: '/billing' },
   { titleKey: 'nav.account' as const, icon: UserRound, href: '/account' },
 ];

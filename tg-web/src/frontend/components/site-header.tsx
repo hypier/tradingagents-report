@@ -14,6 +14,9 @@ function headerTitleKey(pathname: string) {
   if (pathname.startsWith('/legal')) return 'header.legal' as const;
   if (pathname.startsWith('/reports/')) return 'header.report' as const;
   if (pathname.startsWith('/reports')) return 'header.reports' as const;
+  if (pathname.startsWith('/watchlist')) return 'header.watchlist' as const;
+  if (pathname.startsWith('/stocks/')) return 'header.stock' as const;
+  if (pathname.startsWith('/tasks')) return 'header.tasks' as const;
   return 'header.desk' as const;
 }
 

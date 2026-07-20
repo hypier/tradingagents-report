@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownRight,
   ArrowUpRight,
+  CalendarDays,
   LineChart,
   Play,
   Search,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
@@ -43,13 +44,18 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
+import { getAccountProfile } from '../lib/account';
+import { getBillingOverview } from '../lib/billing';
 import {
   formatLocaleDateTimeValue,
   formatLocaleNumber,
 } from '../lib/format-locale';
 import { OUTPUT_LANGUAGE_IDS } from '../lib/format-output-language';
+import { snapshotFreshness } from '../lib/snapshot-freshness';
 import { cn } from '../lib/utils';
-import { formatDisplayTicker } from '@/shared/listing';
+import { todayInTimezone } from '../i18n/locales';
+import { ANALYSIS_CREDIT_UNITS } from '@/shared/analysis-credits';
+import { formatDisplayTicker, listingFromProviderSymbol } from '@/shared/listing';
 import {
   createResearch,
   getMarketIdentities,
@@ -66,14 +72,55 @@ function marketMoveVariant(changePercent?: number) {
   return changePercent > 0 ? 'up' : 'down';
 }
 
+function instrumentFromProviderSymbol(
+  providerSymbol: string,
+): SelectedInstrument | null {
+  try {
+    const listing = listingFromProviderSymbol(providerSymbol);
+    if (!listing.exchange || !listing.provider_symbol) return null;
+    return {
+      display_ticker: listing.display_ticker,
+      provider_symbol: listing.provider_symbol,
+      display_name: listing.display_ticker,
+      exchange: listing.exchange,
+      symbol: listing.symbol,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function HomePage() {
   const { t } = useTranslation(['home', 'common']);
-  const [instrument, setInstrument] = useState<SelectedInstrument | null>(null);
+  const [searchParams] = useSearchParams();
+  const [instrument, setInstrument] = useState<SelectedInstrument | null>(() => {
+    const symbol = searchParams.get('symbol');
+    return symbol ? instrumentFromProviderSymbol(symbol) : null;
+  });
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [outputLanguage, setOutputLanguage] = useState('English');
   const [customLanguage, setCustomLanguage] = useState('');
+  const [tradeDate, setTradeDate] = useState(() => todayInTimezone('UTC'));
+  const [prefsReady, setPrefsReady] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const profile = useQuery({
+    queryKey: ['account-profile'],
+    queryFn: getAccountProfile,
+  });
+  const billing = useQuery({
+    queryKey: ['billing-overview'],
+    queryFn: () => getBillingOverview(),
+  });
+
+  useEffect(() => {
+    const current = profile.data?.data.profile;
+    if (!current || prefsReady) return;
+    setOutputLanguage(current.reportLanguage || 'English');
+    setTradeDate(todayInTimezone(current.timezone));
+    setPrefsReady(true);
+  }, [prefsReady, profile.data?.data.profile]);
+
   const jobs = useQuery({
     queryKey: ['analyses'],
     queryFn: () => listResearch(),
@@ -114,6 +161,7 @@ export function HomePage() {
       createResearch(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
       toast.success(t('submit.toastSuccess'));
     },
   });
@@ -125,6 +173,7 @@ export function HomePage() {
       ? create.error.code
       : null;
   const quote = snapshot.data?.data;
+  const freshness = snapshotFreshness(quote?.as_of);
   const identitiesByTicker = Object.fromEntries(
     (identities.data?.data ?? []).map((identity) => [
       identity.ticker,
@@ -136,12 +185,29 @@ export function HomePage() {
   const changePercent = quote?.change_percent;
   const isUp = changePercent !== undefined && changePercent > 0;
   const isDown = changePercent !== undefined && changePercent < 0;
+  const availableCredits = billing.data?.data.usage?.availableCredits ?? 0;
+  const subscriptionStatus = billing.data?.data.subscription?.status;
+  const hasActiveSubscription =
+    subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
+  const insufficientCredits =
+    billing.isSuccess &&
+    (!hasActiveSubscription || availableCredits < ANALYSIS_CREDIT_UNITS);
+  const maxTradeDate = todayInTimezone(
+    profile.data?.data.profile.timezone ?? 'UTC',
+  );
+  const defaultMarket = profile.data?.data.profile.defaultMarket;
 
   function submit() {
-    if (instrument && analysts.length && selectedOutputLanguage) {
+    if (
+      instrument &&
+      analysts.length &&
+      selectedOutputLanguage &&
+      tradeDate &&
+      !insufficientCredits
+    ) {
       create.mutate({
         ticker: instrument.display_ticker,
-        tradeDate: new Date().toISOString().slice(0, 10),
+        tradeDate,
         analysts,
         outputLanguage: selectedOutputLanguage,
         instrument: {
@@ -201,6 +267,7 @@ export function HomePage() {
                         id="ticker"
                         value={instrument}
                         onChange={setInstrument}
+                        preferredMarket={defaultMarket}
                       />
                       {!instrument ? (
                         <FieldDescription>
@@ -210,6 +277,25 @@ export function HomePage() {
                     </Field>
 
                     <FieldGroup className="grid gap-5 sm:grid-cols-[minmax(180px,0.9fr)_minmax(0,1.4fr)]">
+                      <Field>
+                        <FieldLabel
+                          htmlFor="trade-date"
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <CalendarDays className="size-3.5 text-muted-foreground" />
+                          {t('tradeDate.label')}
+                        </FieldLabel>
+                        <Input
+                          id="trade-date"
+                          type="date"
+                          value={tradeDate}
+                          max={maxTradeDate}
+                          onChange={(event) => setTradeDate(event.target.value)}
+                          required
+                        />
+                        <FieldDescription>{t('tradeDate.hint')}</FieldDescription>
+                      </Field>
+
                       <Field>
                         <FieldLabel
                           htmlFor="output-language"
@@ -244,41 +330,41 @@ export function HomePage() {
                           </SelectContent>
                         </Select>
                       </Field>
-
-                      <Field>
-                        <FieldTitle
-                          id="analyst-team-label"
-                          className="inline-flex items-center gap-1.5"
-                        >
-                          {t('analystTeam')}
-                        </FieldTitle>
-                        <ToggleGroup
-                          type="multiple"
-                          variant="outline"
-                          size="sm"
-                          className="flex-wrap justify-start"
-                          aria-labelledby="analyst-team-label"
-                          value={analysts}
-                          onValueChange={setAnalysts}
-                        >
-                          {analystOptions.map((analyst) => {
-                            const Icon = getAnalystIcon(analyst);
-                            return (
-                              <ToggleGroupItem
-                                key={analyst}
-                                value={analyst}
-                                className="gap-1.5"
-                              >
-                                <Icon className="size-3.5" />
-                                {t(`common:analysts.${analyst}`, {
-                                  defaultValue: analyst,
-                                })}
-                              </ToggleGroupItem>
-                            );
-                          })}
-                        </ToggleGroup>
-                      </Field>
                     </FieldGroup>
+
+                    <Field>
+                      <FieldTitle
+                        id="analyst-team-label"
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        {t('analystTeam')}
+                      </FieldTitle>
+                      <ToggleGroup
+                        type="multiple"
+                        variant="outline"
+                        size="sm"
+                        className="flex-wrap justify-start"
+                        aria-labelledby="analyst-team-label"
+                        value={analysts}
+                        onValueChange={setAnalysts}
+                      >
+                        {analystOptions.map((analyst) => {
+                          const Icon = getAnalystIcon(analyst);
+                          return (
+                            <ToggleGroupItem
+                              key={analyst}
+                              value={analyst}
+                              className="gap-1.5"
+                            >
+                              <Icon className="size-3.5" />
+                              {t(`common:analysts.${analyst}`, {
+                                defaultValue: analyst,
+                              })}
+                            </ToggleGroupItem>
+                          );
+                        })}
+                      </ToggleGroup>
+                    </Field>
 
                     {outputLanguage === 'custom' && (
                       <Field>
@@ -296,6 +382,23 @@ export function HomePage() {
                         />
                       </Field>
                     )}
+
+                    {insufficientCredits ? (
+                      <Alert>
+                        <AlertTitle>{t('submit.creditsRequiredTitle')}</AlertTitle>
+                        <AlertDescription>
+                          <Link className="underline" to="/billing">
+                            {t('submit.insufficientCredits')}
+                          </Link>
+                        </AlertDescription>
+                      </Alert>
+                    ) : billing.isSuccess ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t('submit.creditsAvailable', {
+                          count: availableCredits,
+                        })}
+                      </p>
+                    ) : null}
 
                     {create.isError && (
                       <Alert variant="destructive">
@@ -333,6 +436,8 @@ export function HomePage() {
                           !instrument ||
                           !analysts.length ||
                           !selectedOutputLanguage ||
+                          !tradeDate ||
+                          insufficientCredits ||
                           create.isPending
                         }
                       >
@@ -343,7 +448,9 @@ export function HomePage() {
                         )}
                         {create.isPending
                           ? t('submit.submitting')
-                          : t('submit.runWithCredit')}
+                          : t('submit.runWithCredit', {
+                              count: ANALYSIS_CREDIT_UNITS,
+                            })}
                       </Button>
                     </div>
                   </form>
@@ -359,13 +466,19 @@ export function HomePage() {
                           className={cn(
                             'size-1.5 rounded-full',
                             quote
-                              ? isDown
-                                ? 'bg-market-down'
-                                : 'bg-market-up'
+                              ? freshness === 'stale'
+                                ? 'bg-amber-500'
+                                : isDown
+                                  ? 'bg-market-down'
+                                  : 'bg-market-up'
                               : 'bg-muted-foreground/50',
                           )}
                         />
-                        {t('snapshot.live')}
+                        {quote
+                          ? freshness === 'stale'
+                            ? t('snapshot.stale')
+                            : t('snapshot.asOf')
+                          : t('snapshot.asOf')}
                       </Badge>
                     </div>
 
@@ -466,12 +579,28 @@ export function HomePage() {
                           </Badge>
                         </div>
 
-                        <p className="border-t border-border/60 pt-3 text-[11px] leading-relaxed text-muted-foreground">
-                          {quote.source ?? 'TradingView'}
-                          {quote.as_of
-                            ? ` · ${formatLocaleDateTimeValue(quote.as_of)}`
-                            : ''}
-                        </p>
+                        <div className="space-y-2 border-t border-border/60 pt-3">
+                          <p className="text-[11px] leading-relaxed text-muted-foreground">
+                            {quote.source ?? 'TradingView'}
+                            {quote.as_of
+                              ? ` · ${formatLocaleDateTimeValue(quote.as_of)}`
+                              : ''}
+                          </p>
+                          {instrument?.provider_symbol ? (
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                            >
+                              <Link
+                                to={`/stocks/${encodeURIComponent(instrument.provider_symbol)}`}
+                              >
+                                {t('snapshot.openDetail')}
+                              </Link>
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     ) : (
                       <div className="flex min-h-44 flex-1 flex-col items-start justify-center gap-2 rounded-xl border border-dashed bg-card/60 px-4 py-6">

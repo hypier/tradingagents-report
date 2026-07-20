@@ -1,9 +1,16 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Archive,
+  ArrowLeft,
+  Download,
+  FileText,
+  Star,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { MarkdownReport } from '../components/report/markdown-report';
 import {
@@ -33,8 +40,13 @@ import {
   loadReportReadingPreferences,
   saveReportReadingPreferences,
 } from '../lib/report-reading-preferences';
-import { getResearch, type AnalysisDetail } from '../lib/research';
+import {
+  getResearch,
+  updateResearchMeta,
+  type AnalysisDetail,
+} from '../lib/research';
 import { cn } from '../lib/utils';
+import { ANALYSIS_CREDIT_UNITS } from '@/shared/analysis-credits';
 import { formatDisplayTicker } from '@/shared/listing';
 
 const reportFontSteps = [0.92, 1.0, 1.08, 1.18, 1.3] as const;
@@ -125,10 +137,21 @@ export function ReportPage() {
   const isDark = resolvedTheme === 'dark';
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const detail = useQuery({
     queryKey: ['analysis', id],
     queryFn: () => getResearch(id!),
     enabled: Boolean(id),
+  });
+  const meta = useMutation({
+    mutationFn: (input: { isFavorite?: boolean; isArchived?: boolean }) =>
+      updateResearchMeta(id!, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['analysis', id] });
+      void queryClient.invalidateQueries({ queryKey: ['report-library'] });
+      toast.success(t('metaUpdated'));
+    },
+    onError: () => toast.error(t('metaError')),
   });
   const job = detail.data?.data;
   const entries = Object.entries(job?.reports ?? {});
@@ -159,6 +182,16 @@ export function ReportPage() {
     : paperThemeConfig.highlightSoft;
   const decisionLabel = formatDecision(job?.decision);
   const identity = reportIdentity(job);
+  const isFavorite = Boolean(job?.is_favorite ?? job?.isFavorite);
+  const isArchived = Boolean(job?.is_archived ?? job?.isArchived);
+  const creditUnits = job?.credit_units ?? ANALYSIS_CREDIT_UNITS;
+  const tradeDate =
+    typeof job?.trade_date === 'string'
+      ? job.trade_date
+      : typeof (job as { tradeDate?: string } | undefined)?.tradeDate ===
+          'string'
+        ? (job as { tradeDate?: string }).tradeDate
+        : null;
   const title =
     identity.displayName ?? identity.ticker ?? t('fallbackTitle');
   const subtitle = decisionLabel
@@ -174,6 +207,39 @@ export function ReportPage() {
         .replaceAll('_', ' ')
         .replace(/\b\w/gu, (char) => char.toUpperCase()),
     });
+  }
+
+  function exportMarkdown() {
+    if (!job) return;
+    const sections = entries
+      .map(([key, value]) => {
+        const body =
+          typeof value === 'string'
+            ? value
+            : JSON.stringify(value, null, 2);
+        return `## ${reportTabLabel(key)}\n\n${body}`;
+      })
+      .join('\n\n');
+    const markdown = [
+      `# ${title}`,
+      '',
+      subtitle,
+      tradeDate ? t('tradeDate', { date: tradeDate }) : '',
+      t('creditCost', { count: creditUnits }),
+      t('dataAsOf'),
+      t('riskNotice'),
+      '',
+      sections,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${identity.ticker ?? 'report'}-${id}.md`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   useEffect(() => {
@@ -334,7 +400,50 @@ export function ReportPage() {
             <p className="mt-0.5 truncate text-sm text-muted-foreground">
               {subtitle}
             </p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {tradeDate ? (
+                <span>{t('tradeDate', { date: tradeDate })}</span>
+              ) : null}
+              <span>{t('creditCost', { count: creditUnits })}</span>
+            </div>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+              {t('dataAsOf')} {t('riskNotice')}
+            </p>
           </div>
+          {job ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={isFavorite ? 'default' : 'outline'}
+                size="sm"
+                disabled={meta.isPending}
+                onClick={() => meta.mutate({ isFavorite: !isFavorite })}
+              >
+                <Star
+                  data-icon="inline-start"
+                  className={isFavorite ? 'fill-current' : undefined}
+                />
+                {isFavorite ? t('unfavorite') : t('favorite')}
+              </Button>
+              <Button
+                variant={isArchived ? 'default' : 'outline'}
+                size="sm"
+                disabled={meta.isPending}
+                onClick={() => meta.mutate({ isArchived: !isArchived })}
+              >
+                <Archive data-icon="inline-start" />
+                {isArchived ? t('unarchive') : t('archive')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!entries.length}
+                onClick={exportMarkdown}
+              >
+                <Download data-icon="inline-start" />
+                {t('exportMarkdown')}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         {!id ? (

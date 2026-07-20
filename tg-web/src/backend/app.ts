@@ -23,6 +23,7 @@ import { authRoutes } from './routes/auth';
 import { accountRoutes } from './routes/account';
 import { adminRoutes } from './routes/admin';
 import { billingRoutes, stripeWebhookRoutes } from './routes/billing';
+import { watchlistRoutes } from './routes/watchlist';
 
 export type AppEnvironment = {
   Variables: RequestIdEnvironment['Variables'] & {
@@ -34,7 +35,10 @@ export type AppEnvironment = {
 export type AppDependencies = {
   auth: AuthService;
   billing: BillingService;
-  database: Pick<DatabaseHealth, 'healthcheck' | 'account' | 'billing'>;
+  database: Pick<
+    DatabaseHealth,
+    'healthcheck' | 'account' | 'billing' | 'analysisJobs' | 'watchlist' | 'reportMeta'
+  >;
   cache: Cache;
   core: CoreClientContract;
   marketAssets: MarketAssetClient;
@@ -58,6 +62,8 @@ export function createApp(dependencies: AppDependencies) {
   app.use('/api/admin/*', requireAdmin());
   app.use('/api/analyses', requireAuth(dependencies));
   app.use('/api/analyses/*', requireAuth(dependencies));
+  app.use('/api/watchlist', requireAuth(dependencies));
+  app.use('/api/watchlist/*', requireAuth(dependencies));
   app.use('/api/market-search', requireAuth(dependencies));
   app.use('/api/market-snapshot', requireAuth(dependencies));
   app.use('/api/market-identities', requireAuth(dependencies));
@@ -66,6 +72,7 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', adminRoutes(dependencies));
   app.route('/api', billingRoutes(dependencies));
   app.route('/api', analysisRoutes(dependencies));
+  app.route('/api', watchlistRoutes(dependencies));
   app.notFound((context) => {
     const requestId = context.get('requestId');
     const error = new AppError('NOT_FOUND', 404, 'Not found');

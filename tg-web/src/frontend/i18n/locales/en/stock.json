@@ -1,0 +1,26 @@
+{
+  "invalid": {
+    "title": "Invalid instrument",
+    "body": "This stock symbol could not be resolved."
+  },
+  "actions": {
+    "analyze": "Run analysis",
+    "addWatchlist": "Add to watchlist",
+    "removeWatchlist": "Remove from watchlist"
+  },
+  "watchlist": {
+    "added": "Added to watchlist",
+    "addError": "Unable to add to watchlist",
+    "removed": "Removed from watchlist",
+    "removeError": "Unable to remove from watchlist"
+  },
+  "quote": {
+    "title": "Latest quote",
+    "errorTitle": "Quote unavailable",
+    "errorBody": "Market data could not be loaded for this listing."
+  },
+  "reports": {
+    "title": "Your analyses",
+    "description": "Recent research runs for this instrument."
+  }
+}

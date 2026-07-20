@@ -1,10 +1,10 @@
 /**
  * 仓库组合入口。
  *
- * - 账户 / 计费领域逻辑放在独立文件中。
+ * - 账户 / 计费 / 自选 / 报告元数据放在独立文件中。
  * - 分析任务、LLM 价格、定价来源、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
  */
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { analysisJobs, llmModelPrices, llmPricingSources } from './schema';
@@ -17,9 +17,19 @@ import {
   createBillingRepository,
   type BillingRepository,
 } from './billing-repository';
+import {
+  createReportMetaRepository,
+  type ReportMetaRepository,
+} from './report-meta-repository';
+import {
+  createWatchlistRepository,
+  type WatchlistRepository,
+} from './watchlist-repository';
 
 export type { AccountRepository } from './account-repository';
 export type { BillingRepository } from './billing-repository';
+export type { ReportMetaRepository } from './report-meta-repository';
+export type { WatchlistRepository } from './watchlist-repository';
 
 export type AnalysisJob = typeof analysisJobs.$inferSelect;
 export type ModelPrice = typeof llmModelPrices.$inferSelect;
@@ -30,6 +40,13 @@ export type ModelPriceKey = Pick<
   'provider' | 'model' | 'billingMode' | 'contextTier'
 >;
 
+export type UserAnalysisListItem = {
+  job: AnalysisJob;
+  creditUnits: number | null;
+  isFavorite: boolean;
+  isArchived: boolean;
+};
+
 /** `analysis_jobs` 的只读访问，供管理/列表路径使用。 */
 export type AnalysisJobsRepository = {
   getById(id: string): Promise<AnalysisJob | undefined>;
@@ -39,6 +56,23 @@ export type AnalysisJobsRepository = {
     limit: number;
     offset: number;
   }): Promise<AnalysisJob[]>;
+  listForUser(input: {
+    clerkUserId: string;
+    ticker?: string;
+    exchange?: string;
+    status?: AnalysisJob['status'];
+    tradeDateFrom?: string;
+    tradeDateTo?: string;
+    favorite?: boolean;
+    archived?: boolean;
+    limit: number;
+    offset: number;
+  }): Promise<UserAnalysisListItem[]>;
+  ownsJob(clerkUserId: string, analysisJobId: string): Promise<boolean>;
+  getReservationUnits(
+    clerkUserId: string,
+    analysisJobId: string,
+  ): Promise<number | null>;
 };
 
 /** `llm_model_prices` 的 upsert / 删除辅助。 */
@@ -79,10 +113,14 @@ export function createRepositories(database: Database): {
   account: AccountRepository;
   billing: BillingRepository;
   billingConfig: BillingConfigRepository;
+  watchlist: WatchlistRepository;
+  reportMeta: ReportMetaRepository;
 } {
   return {
     account: createAccountRepository(database),
     billing: createBillingRepository(database),
+    watchlist: createWatchlistRepository(database),
+    reportMeta: createReportMetaRepository(database),
     billingConfig: {
       async getStripe() {
         const [configuration] = await database
@@ -158,6 +196,98 @@ export function createRepositories(database: Database): {
           .orderBy(desc(analysisJobs.createdAt))
           .limit(input.limit)
           .offset(input.offset);
+      },
+      async listForUser(input) {
+        const conditions = [
+          eq(schema.creditReservations.clerkUserId, input.clerkUserId),
+          sql`${schema.creditReservations.analysisJobId} is not null`,
+        ];
+        if (input.ticker) {
+          conditions.push(
+            eq(analysisJobs.ticker, input.ticker.trim().toUpperCase()),
+          );
+        }
+        if (input.exchange) {
+          conditions.push(
+            eq(analysisJobs.exchange, input.exchange.trim().toUpperCase()),
+          );
+        }
+        if (input.status) {
+          conditions.push(eq(analysisJobs.status, input.status));
+        }
+        if (input.tradeDateFrom) {
+          conditions.push(gte(analysisJobs.tradeDate, input.tradeDateFrom));
+        }
+        if (input.tradeDateTo) {
+          conditions.push(lte(analysisJobs.tradeDate, input.tradeDateTo));
+        }
+        if (input.favorite === true) {
+          conditions.push(eq(schema.userReportMeta.isFavorite, 1));
+        }
+        if (input.archived === true) {
+          conditions.push(eq(schema.userReportMeta.isArchived, 1));
+        } else if (input.archived === false) {
+          conditions.push(
+            sql`coalesce(${schema.userReportMeta.isArchived}, 0) = 0`,
+          );
+        }
+
+        const rows = await database
+          .select({
+            job: analysisJobs,
+            creditUnits: schema.creditReservations.units,
+            isFavorite: schema.userReportMeta.isFavorite,
+            isArchived: schema.userReportMeta.isArchived,
+          })
+          .from(schema.creditReservations)
+          .innerJoin(
+            analysisJobs,
+            eq(schema.creditReservations.analysisJobId, analysisJobs.id),
+          )
+          .leftJoin(
+            schema.userReportMeta,
+            and(
+              eq(schema.userReportMeta.clerkUserId, input.clerkUserId),
+              eq(schema.userReportMeta.analysisJobId, analysisJobs.id),
+            ),
+          )
+          .where(and(...conditions))
+          .orderBy(desc(analysisJobs.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+
+        return rows.map((row) => ({
+          job: row.job,
+          creditUnits: row.creditUnits,
+          isFavorite: Boolean(row.isFavorite),
+          isArchived: Boolean(row.isArchived),
+        }));
+      },
+      async ownsJob(clerkUserId, analysisJobId) {
+        const [row] = await database
+          .select({ id: schema.creditReservations.requestId })
+          .from(schema.creditReservations)
+          .where(
+            and(
+              eq(schema.creditReservations.clerkUserId, clerkUserId),
+              eq(schema.creditReservations.analysisJobId, analysisJobId),
+            ),
+          )
+          .limit(1);
+        return Boolean(row);
+      },
+      async getReservationUnits(clerkUserId, analysisJobId) {
+        const [row] = await database
+          .select({ units: schema.creditReservations.units })
+          .from(schema.creditReservations)
+          .where(
+            and(
+              eq(schema.creditReservations.clerkUserId, clerkUserId),
+              eq(schema.creditReservations.analysisJobId, analysisJobId),
+            ),
+          )
+          .limit(1);
+        return row?.units ?? null;
       },
     },
     modelPrices: {

@@ -1,0 +1,40 @@
+{
+  "eyebrow": "自选股",
+  "title": "已保存标的",
+  "subtitle": "跟踪上市标的，查看行情并进入分析。",
+  "add": {
+    "title": "添加到自选",
+    "description": "搜索上市标的并保存到默认分组。",
+    "action": "添加"
+  },
+  "groups": {
+    "title": "分组",
+    "placeholder": "新分组名称",
+    "create": "创建",
+    "itemCount": "{{count}} 个标的",
+    "empty": "该分组暂无标的。"
+  },
+  "tags": {
+    "title": "标签",
+    "placeholder": "新标签",
+    "create": "创建"
+  },
+  "actions": {
+    "analyze": "分析",
+    "remove": "移除"
+  },
+  "toasts": {
+    "added": "已加入自选",
+    "addError": "无法添加标的",
+    "removed": "已从自选移除",
+    "removeError": "无法移除标的",
+    "groupCreated": "分组已创建",
+    "groupError": "无法创建分组",
+    "tagCreated": "标签已创建",
+    "tagError": "无法创建标签"
+  },
+  "loadError": {
+    "title": "无法加载自选股",
+    "body": "请刷新后重试。"
+  }
+}

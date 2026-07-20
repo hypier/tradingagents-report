@@ -52,6 +52,9 @@ function fakeDependencies(): AppDependencies {
       healthcheck: vi.fn().mockResolvedValue(undefined),
       account: fakeAccountRepository(),
       billing: fakeBillingRepository(),
+      analysisJobs: fakeAnalysisJobsRepository(),
+      watchlist: fakeWatchlistRepository(),
+      reportMeta: fakeReportMetaRepository(),
     },
     cache: {
       get: vi.fn(),
@@ -97,6 +100,41 @@ function fakeBillingRepository() {
     releaseAnalysis: vi.fn(),
     processStripeEvent: vi.fn(),
     recordStripeFailure: vi.fn(),
+  };
+}
+
+function fakeAnalysisJobsRepository() {
+  return {
+    getById: vi.fn(),
+    list: vi.fn().mockResolvedValue([]),
+    listForUser: vi.fn().mockResolvedValue([]),
+    ownsJob: vi.fn().mockResolvedValue(true),
+    getReservationUnits: vi.fn().mockResolvedValue(1),
+  };
+}
+
+function fakeWatchlistRepository() {
+  return {
+    getSnapshot: vi.fn().mockResolvedValue({ groups: [], tags: [] }),
+    ensureDefaultGroup: vi.fn(),
+    createGroup: vi.fn(),
+    renameGroup: vi.fn(),
+    deleteGroup: vi.fn(),
+    addItem: vi.fn(),
+    removeItem: vi.fn(),
+    reorderItems: vi.fn(),
+    createTag: vi.fn(),
+    deleteTag: vi.fn(),
+    setItemTags: vi.fn(),
+    findItemByProviderSymbol: vi.fn(),
+  };
+}
+
+function fakeReportMetaRepository() {
+  return {
+    get: vi.fn(),
+    listForUser: vi.fn().mockResolvedValue([]),
+    upsert: vi.fn(),
   };
 }
 

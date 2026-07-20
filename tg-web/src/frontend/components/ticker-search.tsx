@@ -28,6 +28,18 @@ type TickerSearchProps = {
   value: SelectedInstrument | null;
   onChange: (instrument: SelectedInstrument | null) => void;
   className?: string;
+  /** Prefer listings from this product market when ranking search hits. */
+  preferredMarket?: 'US' | 'HK' | 'CN' | 'CRYPTO';
+};
+
+const MARKET_EXCHANGES: Record<
+  NonNullable<TickerSearchProps['preferredMarket']>,
+  string[]
+> = {
+  US: ['NASDAQ', 'NYSE', 'AMEX'],
+  HK: ['HKEX'],
+  CN: ['SSE', 'SZSE'],
+  CRYPTO: [],
 };
 
 function toInstrument(hit: MarketSearchHit): SelectedInstrument | null {
@@ -51,6 +63,7 @@ export function TickerSearch({
   value,
   onChange,
   className,
+  preferredMarket,
 }: TickerSearchProps) {
   const { t } = useTranslation('search');
   const listboxId = useId();
@@ -78,7 +91,7 @@ export function TickerSearch({
     enabled: showMenu,
   });
 
-  const hits = search.data?.data ?? [];
+  const hits = rankMarketHits(search.data?.data ?? [], preferredMarket);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -301,4 +314,18 @@ export function TickerSearch({
       ) : null}
     </div>
   );
+}
+
+function rankMarketHits(
+  hits: MarketSearchHit[],
+  preferredMarket?: TickerSearchProps['preferredMarket'],
+) {
+  if (!preferredMarket) return hits;
+  const preferred = new Set(MARKET_EXCHANGES[preferredMarket]);
+  if (preferred.size === 0) return hits;
+  return [...hits].sort((left, right) => {
+    const leftScore = left.exchange && preferred.has(left.exchange) ? 1 : 0;
+    const rightScore = right.exchange && preferred.has(right.exchange) ? 1 : 0;
+    return rightScore - leftScore;
+  });
 }

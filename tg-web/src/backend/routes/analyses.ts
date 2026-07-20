@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
+import { ANALYSIS_CREDIT_UNITS } from '../../shared/analysis-credits';
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import { BillingRepositoryError } from '../database/billing-repository';
-
-const ANALYSIS_CREDIT_UNITS = 1;
+import { metaFlags } from '../database/report-meta-repository';
+import type { AnalysisJob } from '../database/repositories';
 
 export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
@@ -121,29 +122,107 @@ export function analysisRoutes(dependencies: AppDependencies) {
   });
 
   app.get('/analyses', async (context) => {
-    const data = await dependencies.core.listAnalyses(
-      new URLSearchParams(context.req.query()),
+    const clerkUserId = context.get('auth').userId;
+    const query = context.req.query();
+    const limit = clampInt(query.limit, 50, 1, 200);
+    const offset = clampInt(query.offset, 0, 0, 10_000);
+    const status = parseStatus(query.status);
+    const favorite =
+      query.favorite === 'true'
+        ? true
+        : query.favorite === 'false'
+          ? false
+          : undefined;
+    const archived =
+      query.archived === 'true'
+        ? true
+        : query.archived === 'false'
+          ? false
+          : undefined;
+
+    const rows = await dependencies.database.analysisJobs.listForUser({
+      clerkUserId,
+      ticker: query.ticker?.trim() || undefined,
+      exchange: query.exchange?.trim() || undefined,
+      status,
+      tradeDateFrom: query.trade_date_from?.trim() || undefined,
+      tradeDateTo: query.trade_date_to?.trim() || undefined,
+      favorite: favorite === true ? true : undefined,
+      archived:
+        archived === true ? true : archived === false ? false : undefined,
+      limit,
+      offset,
+    });
+
+    return context.json(
+      apiSuccess(
+        rows.map((row) =>
+          toPublicJob(row.job, {
+            creditUnits: row.creditUnits,
+            isFavorite: row.isFavorite,
+            isArchived: row.isArchived,
+          }),
+        ),
+        context.get('requestId'),
+      ),
     );
-    return context.json(apiSuccess(data, context.get('requestId')));
   });
 
-  app.get('/analyses/:id', async (context) =>
-    context.json(
+  app.get('/analyses/:id', async (context) => {
+    const clerkUserId = context.get('auth').userId;
+    const id = context.req.param('id');
+    await requireOwnedAnalysis(dependencies, clerkUserId, id);
+    const data = await dependencies.core.getAnalysis(id);
+    const meta = await dependencies.database.reportMeta.get(clerkUserId, id);
+    const creditUnits =
+      await dependencies.database.analysisJobs.getReservationUnits(
+        clerkUserId,
+        id,
+      );
+    return context.json(
       apiSuccess(
-        await dependencies.core.getAnalysis(context.req.param('id')),
+        {
+          ...(isRecord(data) ? data : {}),
+          ...metaFlags(meta),
+          credit_units: creditUnits,
+        },
         context.get('requestId'),
       ),
-    ),
-  );
+    );
+  });
 
-  app.get('/analyses/:id/events', async (context) =>
-    context.json(
+  app.get('/analyses/:id/events', async (context) => {
+    const clerkUserId = context.get('auth').userId;
+    const id = context.req.param('id');
+    await requireOwnedAnalysis(dependencies, clerkUserId, id);
+    return context.json(
       apiSuccess(
-        await dependencies.core.getAnalysisEvents(context.req.param('id')),
+        await dependencies.core.getAnalysisEvents(id),
         context.get('requestId'),
       ),
-    ),
-  );
+    );
+  });
+
+  app.patch('/analyses/:id/meta', async (context) => {
+    const clerkUserId = context.get('auth').userId;
+    const id = context.req.param('id');
+    await requireOwnedAnalysis(dependencies, clerkUserId, id);
+    const input = z
+      .object({
+        isFavorite: z.boolean().optional(),
+        isArchived: z.boolean().optional(),
+        notes: z.string().trim().max(500).nullable().optional(),
+      })
+      .parse(await context.req.json());
+    const meta = await dependencies.database.reportMeta.upsert({
+      clerkUserId,
+      analysisJobId: id,
+      ...input,
+    });
+    return context.json(
+      apiSuccess(metaFlags(meta), context.get('requestId')),
+    );
+  });
 
   app.get('/market-search', async (context) => {
     const query = context.req.query('q') ?? '';
@@ -219,6 +298,90 @@ export function analysisRoutes(dependencies: AppDependencies) {
   });
 
   return app;
+}
+
+async function requireOwnedAnalysis(
+  dependencies: AppDependencies,
+  clerkUserId: string,
+  analysisJobId: string,
+) {
+  const owned = await dependencies.database.analysisJobs.ownsJob(
+    clerkUserId,
+    analysisJobId,
+  );
+  if (!owned) {
+    throw new AppError('NOT_FOUND', 404, 'Analysis job not found');
+  }
+}
+
+function toPublicJob(
+  job: AnalysisJob,
+  extras: {
+    creditUnits: number | null;
+    isFavorite: boolean;
+    isArchived: boolean;
+  },
+) {
+  const request = isRecord(job.request) ? job.request : {};
+  const config = isRecord(job.config) ? job.config : {};
+  const display = isRecord(job.display) ? job.display : {};
+  return {
+    id: job.id,
+    request_id: job.requestId,
+    ticker: job.ticker,
+    exchange: job.exchange,
+    trade_date: job.tradeDate,
+    asset_type: job.assetType,
+    analysts: job.analysts,
+    status: job.status,
+    decision: job.decision,
+    error: job.error,
+    progress_percent: job.progressPercent,
+    current_step: job.currentStep,
+    cost_usd: job.costUsd,
+    display,
+    output_language:
+      (typeof request.output_language === 'string'
+        ? request.output_language
+        : null) ||
+      (typeof config.output_language === 'string'
+        ? config.output_language
+        : null),
+    created_at: job.createdAt,
+    updated_at: job.updatedAt,
+    started_at: job.startedAt,
+    finished_at: job.finishedAt,
+    credit_units: extras.creditUnits,
+    is_favorite: extras.isFavorite,
+    is_archived: extras.isArchived,
+  };
+}
+
+function parseStatus(value?: string) {
+  if (
+    value === 'queued' ||
+    value === 'running' ||
+    value === 'succeeded' ||
+    value === 'failed'
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function clampInt(
+  value: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  const parsed = Number.parseInt(value ?? '', 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function billingError(error: unknown): AppError {

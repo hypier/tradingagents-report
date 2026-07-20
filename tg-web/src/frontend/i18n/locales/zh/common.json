@@ -6,7 +6,9 @@
   "nav": {
     "workspace": "工作区",
     "desk": "研究台",
+    "tasks": "任务中心",
     "reports": "报告库",
+    "watchlist": "自选股",
     "billing": "订阅",
     "account": "账户",
     "adminUsers": "用户管理",
@@ -14,8 +16,11 @@
   },
   "header": {
     "desk": "研究台",
+    "tasks": "任务中心",
     "reports": "报告库",
     "report": "报告",
+    "watchlist": "自选股",
+    "stock": "股票详情",
     "billing": "订阅",
     "account": "账户",
     "legal": "法律条款",

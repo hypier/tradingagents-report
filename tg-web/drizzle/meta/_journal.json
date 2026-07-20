@@ -15,6 +15,13 @@
       "when": 1784422585048,
       "tag": "0001_product_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784520000000,
+      "tag": "0002_watchlist_report_meta",
+      "breakpoints": true
     }
   ]
 }

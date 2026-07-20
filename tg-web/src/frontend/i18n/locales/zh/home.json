@@ -12,10 +12,17 @@
     "customPlaceholder": "Turkish",
     "defaultSuffix": "默认"
   },
+  "tradeDate": {
+    "label": "分析日期",
+    "hint": "按账户时区计算；不可晚于今天。"
+  },
   "analystTeam": "分析师团队",
   "submit": {
     "run": "开始分析",
-    "runWithCredit": "开始分析（消耗 0 额度）",
+    "runWithCredit": "开始分析（消耗 {{count}} 额度）",
+    "runWithCredit_other": "开始分析（消耗 {{count}} 额度）",
+    "creditsAvailable": "剩余 {{count}} 额度",
+    "insufficientCredits": "额度不足 — 查看订阅",
     "submitting": "提交中...",
     "errorTitle": "无法提交此次分析",
     "errorBody": "请检查服务连接后重试。",
@@ -27,12 +34,14 @@
   },
   "snapshot": {
     "title": "市场快照",
-    "live": "实时",
+    "asOf": "截至",
+    "stale": "可能延迟",
     "lastPrice": "最新价",
     "changeUnavailable": "涨跌幅不可用",
     "emptyTitle": "尚未加载行情",
     "emptyBody": "搜索并选择股票，可在运行分析前预览最新快照。",
-    "logoAlt": "{{name}} 标志"
+    "logoAlt": "{{name}} 标志",
+    "openDetail": "打开股票详情"
   },
   "pipeline": {
     "eyebrow": "实时流水线",

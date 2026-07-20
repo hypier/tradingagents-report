@@ -3,6 +3,14 @@
   "title": "All reports",
   "subtitle": "Browse every submitted research run and open its report when it is ready.",
   "statusFilter": "Status",
+  "tickerFilter": "Ticker",
+  "tickerPlaceholder": "AAPL",
+  "exchangeFilter": "Exchange",
+  "exchangePlaceholder": "NASDAQ",
+  "dateFrom": "From date",
+  "dateTo": "To date",
+  "favoriteOnly": "Favorites only",
+  "includeArchived": "Include archived",
   "library": {
     "title": "Report library",
     "description": "Your complete research history."

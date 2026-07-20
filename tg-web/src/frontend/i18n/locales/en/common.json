@@ -6,7 +6,9 @@
   "nav": {
     "workspace": "Workspace",
     "desk": "Desk",
+    "tasks": "Tasks",
     "reports": "Reports",
+    "watchlist": "Watchlist",
     "billing": "Subscription",
     "account": "Account",
     "adminUsers": "User management",
@@ -14,8 +16,11 @@
   },
   "header": {
     "desk": "Research desk",
+    "tasks": "Task center",
     "reports": "Reports",
     "report": "Report",
+    "watchlist": "Watchlist",
+    "stock": "Stock",
     "billing": "Subscription",
     "account": "Account",
     "legal": "Legal",

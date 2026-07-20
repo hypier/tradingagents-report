@@ -1,0 +1,26 @@
+{
+  "invalid": {
+    "title": "无效标的",
+    "body": "无法解析该股票代码。"
+  },
+  "actions": {
+    "analyze": "开始分析",
+    "addWatchlist": "加入自选",
+    "removeWatchlist": "移出自选"
+  },
+  "watchlist": {
+    "added": "已加入自选",
+    "addError": "无法加入自选",
+    "removed": "已移出自选",
+    "removeError": "无法移出自选"
+  },
+  "quote": {
+    "title": "最新行情",
+    "errorTitle": "行情不可用",
+    "errorBody": "无法加载该上市标的的行情数据。"
+  },
+  "reports": {
+    "title": "你的分析",
+    "description": "该标的的近期研究任务。"
+  }
+}

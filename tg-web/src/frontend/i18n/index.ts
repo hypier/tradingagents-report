@@ -19,6 +19,9 @@ import enAccount from './locales/en/account.json';
 import enBilling from './locales/en/billing.json';
 import enAdmin from './locales/en/admin.json';
 import enLegal from './locales/en/legal.json';
+import enWatchlist from './locales/en/watchlist.json';
+import enStock from './locales/en/stock.json';
+import enTasks from './locales/en/tasks.json';
 import zhCommon from './locales/zh/common.json';
 import zhHome from './locales/zh/home.json';
 import zhReports from './locales/zh/reports.json';
@@ -29,6 +32,9 @@ import zhAccount from './locales/zh/account.json';
 import zhBilling from './locales/zh/billing.json';
 import zhAdmin from './locales/zh/admin.json';
 import zhLegal from './locales/zh/legal.json';
+import zhWatchlist from './locales/zh/watchlist.json';
+import zhStock from './locales/zh/stock.json';
+import zhTasks from './locales/zh/tasks.json';
 
 export const i18nNamespaces = [
   'common',
@@ -41,6 +47,9 @@ export const i18nNamespaces = [
   'billing',
   'admin',
   'legal',
+  'watchlist',
+  'stock',
+  'tasks',
 ] as const;
 
 void i18n
@@ -59,6 +68,9 @@ void i18n
         billing: enBilling,
         admin: enAdmin,
         legal: enLegal,
+        watchlist: enWatchlist,
+        stock: enStock,
+        tasks: enTasks,
       },
       zh: {
         common: zhCommon,
@@ -71,6 +83,9 @@ void i18n
         billing: zhBilling,
         admin: zhAdmin,
         legal: zhLegal,
+        watchlist: zhWatchlist,
+        stock: zhStock,
+        tasks: zhTasks,
       },
     },
     fallbackLng: DEFAULT_UI_LOCALE,

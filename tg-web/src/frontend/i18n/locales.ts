@@ -1,3 +1,5 @@
+import type { InterfaceLanguage } from '@/backend/account/contract';
+
 export const UI_LOCALES = ['en', 'zh'] as const;
 
 export type UiLocale = (typeof UI_LOCALES)[number];
@@ -29,6 +31,18 @@ export function normalizeUiLocale(value?: string | null): UiLocale {
   return DEFAULT_UI_LOCALE;
 }
 
+export function uiLocaleToInterfaceLanguage(
+  locale: UiLocale,
+): InterfaceLanguage {
+  return locale === 'zh' ? 'zh-CN' : 'en';
+}
+
+export function interfaceLanguageToUiLocale(
+  language?: string | null,
+): UiLocale {
+  return normalizeUiLocale(language);
+}
+
 export function toIntlLocale(locale: string): string {
   return normalizeUiLocale(locale) === 'zh' ? 'zh-CN' : 'en-US';
 }
@@ -36,4 +50,18 @@ export function toIntlLocale(locale: string): string {
 export function syncDocumentLang(locale: string) {
   if (typeof document === 'undefined') return;
   document.documentElement.lang = normalizeUiLocale(locale);
+}
+
+/** Calendar date (YYYY-MM-DD) in the given IANA timezone. */
+export function todayInTimezone(timezone?: string | null): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone || 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
 }

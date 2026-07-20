@@ -16,6 +16,8 @@ import {
   type BillingRepository,
   type ModelPricesRepository,
   type PricingSourcesRepository,
+  type ReportMetaRepository,
+  type WatchlistRepository,
 } from './repositories';
 import * as schema from './schema';
 
@@ -28,6 +30,8 @@ export type DatabaseHealth = {
   account: AccountRepository;
   billing: BillingRepository;
   billingConfig: BillingConfigRepository;
+  watchlist: WatchlistRepository;
+  reportMeta: ReportMetaRepository;
 };
 
 /** Node 运行时额外提供进程退出时关闭连接池的能力。 */

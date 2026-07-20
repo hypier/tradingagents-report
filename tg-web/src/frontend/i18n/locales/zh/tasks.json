@@ -1,0 +1,11 @@
+{
+  "eyebrow": "任务中心",
+  "title": "你的分析任务",
+  "subtitle": "跟踪排队、运行、成功与失败的任务。",
+  "reportsLink": "打开报告库",
+  "statusFilter": "状态",
+  "library": {
+    "title": "任务历史",
+    "description": "这里只显示你提交的任务。"
+  }
+}

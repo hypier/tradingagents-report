@@ -47,6 +47,7 @@ import {
   getAccountProfile,
   updateAccountPreferences,
 } from '@/frontend/lib/account';
+import { interfaceLanguageToUiLocale } from '@/frontend/i18n/locales';
 
 const legalDocuments: Array<[LegalDocumentType, string]> = [
   ['risk_disclaimer', 'risk-disclaimer'],
@@ -55,7 +56,7 @@ const legalDocuments: Array<[LegalDocumentType, string]> = [
 ];
 
 export function AccountPage() {
-  const { t } = useTranslation('account');
+  const { t, i18n } = useTranslation('account');
   const queryClient = useQueryClient();
   const profile = useQuery({
     queryKey: ['account-profile'],
@@ -89,8 +90,11 @@ export function AccountPage() {
     queryClient.invalidateQueries({ queryKey: ['account-profile'] });
   const save = useMutation({
     mutationFn: updateAccountPreferences,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void refresh();
+      void i18n.changeLanguage(
+        interfaceLanguageToUiLocale(variables.interfaceLanguage),
+      );
       toast.success(t('preferences.saved'));
     },
     onError: () => toast.error(t('preferences.saveError')),

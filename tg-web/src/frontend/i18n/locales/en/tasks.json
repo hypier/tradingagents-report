@@ -1,0 +1,11 @@
+{
+  "eyebrow": "Task center",
+  "title": "Your analysis jobs",
+  "subtitle": "Track queued, running, succeeded, and failed runs.",
+  "reportsLink": "Open report library",
+  "statusFilter": "Status",
+  "library": {
+    "title": "Job history",
+    "description": "Only jobs you submitted appear here."
+  }
+}

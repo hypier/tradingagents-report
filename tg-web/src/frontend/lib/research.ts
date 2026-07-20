@@ -32,16 +32,21 @@ export type AnalysisJob = {
   id: string;
   ticker: string;
   exchange?: string | null;
+  trade_date?: string | null;
   status: AnalysisStatus;
   current_step?: string | null;
   progress_percent?: number | null;
   decision?: string | null;
+  error?: string | null;
   cost_usd?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
   analysts?: string[] | null;
   display?: InstrumentDisplay | null;
   output_language?: string | null;
+  credit_units?: number | null;
+  is_favorite?: boolean;
+  is_archived?: boolean;
 };
 
 export type AnalysisEvent = {
@@ -55,6 +60,11 @@ export type AnalysisDetail = AnalysisJob & {
   reports?: Record<string, unknown> | null;
   usage?: Record<string, unknown> | null;
   result?: Record<string, unknown> | null;
+  credit_units?: number | null;
+  isFavorite?: boolean;
+  isArchived?: boolean;
+  is_favorite?: boolean;
+  is_archived?: boolean;
 };
 
 export type MarketSnapshot = {
@@ -67,6 +77,7 @@ export type MarketSnapshot = {
   change_percent?: number;
   as_of?: string;
   source?: string;
+  freshness?: 'as_of' | 'stale';
 };
 
 export type AssetIdentity = {
@@ -142,19 +153,65 @@ async function read<T>(
 }
 
 export const listResearch = (
-  params: { limit?: number; offset?: number; status?: AnalysisStatus } = {},
+  params: {
+    limit?: number;
+    offset?: number;
+    status?: AnalysisStatus;
+    ticker?: string;
+    exchange?: string;
+    tradeDateFrom?: string;
+    tradeDateTo?: string;
+    favorite?: boolean;
+    archived?: boolean;
+  } = {},
   fetchImplementation?: FetchImplementation,
 ) => {
   const search = new URLSearchParams();
   if (params.limit !== undefined) search.set('limit', String(params.limit));
   if (params.offset !== undefined) search.set('offset', String(params.offset));
   if (params.status !== undefined) search.set('status', params.status);
+  if (params.ticker) search.set('ticker', params.ticker);
+  if (params.exchange) search.set('exchange', params.exchange);
+  if (params.tradeDateFrom) search.set('trade_date_from', params.tradeDateFrom);
+  if (params.tradeDateTo) search.set('trade_date_to', params.tradeDateTo);
+  if (params.favorite !== undefined) {
+    search.set('favorite', String(params.favorite));
+  }
+  if (params.archived !== undefined) {
+    search.set('archived', String(params.archived));
+  }
 
   return read<AnalysisJob[]>(
     `/api/analyses${search.size ? `?${search}` : ''}`,
     fetchImplementation,
   );
 };
+
+export const updateResearchMeta = (
+  id: string,
+  input: {
+    isFavorite?: boolean;
+    isArchived?: boolean;
+    notes?: string | null;
+  },
+  fetchImplementation: FetchImplementation = fetch,
+) =>
+  fetchImplementation(`/api/analyses/${encodeURIComponent(id)}/meta`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then(async (response) => {
+    if (!response.ok) throw new Error('Unable to update report meta');
+    return response.json() as Promise<{
+      data: {
+        isFavorite: boolean;
+        isArchived: boolean;
+        notes: string | null;
+      };
+      requestId: string;
+    }>;
+  });
+
 
 export const getResearch = (
   id: string,

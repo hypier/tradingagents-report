@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { ReportsTable } from '../components/dashboard/recent-reports';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
+import { Checkbox } from '../components/ui/checkbox';
+import { Input } from '../components/ui/input';
 import {
   Select,
   SelectContent,
@@ -35,14 +37,29 @@ export function ReportsPage() {
   const { t } = useTranslation(['reports', 'common']);
   const navigate = useNavigate();
   const [status, setStatus] = useState<AnalysisStatus | 'all'>('all');
+  const [ticker, setTicker] = useState('');
+  const [exchange, setExchange] = useState('');
+  const [tradeDateFrom, setTradeDateFrom] = useState('');
+  const [tradeDateTo, setTradeDateTo] = useState('');
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [includeArchived, setIncludeArchived] = useState(false);
   const statusFilter = status === 'all' ? undefined : status;
+  const filters = {
+    status: statusFilter,
+    ticker: ticker.trim() || undefined,
+    exchange: exchange.trim() || undefined,
+    tradeDateFrom: tradeDateFrom || undefined,
+    tradeDateTo: tradeDateTo || undefined,
+    favorite: favoriteOnly || undefined,
+    archived: includeArchived ? undefined : false,
+  };
   const reports = useInfiniteQuery({
-    queryKey: ['report-library', statusFilter],
+    queryKey: ['report-library', filters],
     queryFn: ({ pageParam }) =>
       listResearch({
         limit: pageSize,
         offset: pageParam,
-        status: statusFilter,
+        ...filters,
       }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) =>
@@ -84,23 +101,18 @@ export function ReportsPage() {
                 </p>
               </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span
-                id="report-status-filter-label"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                {t('statusFilter')}
-              </span>
+          </section>
+
+          <section className="grid gap-3 rounded-xl border bg-card/60 p-4 md:grid-cols-2 xl:grid-cols-4">
+            <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+              {t('statusFilter')}
               <Select
                 value={status}
                 onValueChange={(value) =>
                   setStatus(value as AnalysisStatus | 'all')
                 }
               >
-                <SelectTrigger
-                  aria-labelledby="report-status-filter-label"
-                  className="w-40"
-                >
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -115,7 +127,59 @@ export function ReportsPage() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+              {t('tickerFilter')}
+              <Input
+                value={ticker}
+                onChange={(event) => setTicker(event.target.value)}
+                placeholder={t('tickerPlaceholder')}
+                className="font-mono"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+              {t('exchangeFilter')}
+              <Input
+                value={exchange}
+                onChange={(event) => setExchange(event.target.value)}
+                placeholder={t('exchangePlaceholder')}
+                className="font-mono uppercase"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+                {t('dateFrom')}
+                <Input
+                  type="date"
+                  value={tradeDateFrom}
+                  onChange={(event) => setTradeDateFrom(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+                {t('dateTo')}
+                <Input
+                  type="date"
+                  value={tradeDateTo}
+                  onChange={(event) => setTradeDateTo(event.target.value)}
+                />
+              </label>
             </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={favoriteOnly}
+                onCheckedChange={(checked) => setFavoriteOnly(checked === true)}
+              />
+              {t('favoriteOnly')}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={includeArchived}
+                onCheckedChange={(checked) =>
+                  setIncludeArchived(checked === true)
+                }
+              />
+              {t('includeArchived')}
+            </label>
           </section>
 
           <ReportsTable
