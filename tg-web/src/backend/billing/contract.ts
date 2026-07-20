@@ -61,9 +61,36 @@ export type BillingOverview = {
       spentDelta: number;
       description: string;
       referenceId: string;
+      metadata: Record<string, unknown>;
       createdAt: Date;
     }>;
   };
+};
+
+export type CreditBillingSettings = {
+  id: string;
+  pointsPerUsd: string;
+  markupBasisPoints: number;
+  reserveBufferBasisPoints: number;
+  defaultEstimatedCostUsd: string;
+  updatedByClerkUserId: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+};
+
+export type UpdateCreditBillingSettingsInput = Pick<
+  CreditBillingSettings,
+  | 'pointsPerUsd'
+  | 'markupBasisPoints'
+  | 'reserveBufferBasisPoints'
+  | 'defaultEstimatedCostUsd'
+>;
+
+export type AnalysisCreditEstimate = {
+  estimatedCostUsd: string;
+  reservedPoints: number;
+  source: 'default' | 'history';
+  sampleCount: number;
 };
 
 export type BillingSettings = {

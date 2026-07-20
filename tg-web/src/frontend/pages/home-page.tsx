@@ -52,6 +52,7 @@ import { cn } from '../lib/utils';
 import { formatDisplayTicker } from '@/shared/listing';
 import {
   createResearch,
+  estimateResearch,
   getMarketIdentities,
   getMarketSnapshot,
   getResearchEvents,
@@ -72,6 +73,26 @@ export function HomePage() {
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [outputLanguage, setOutputLanguage] = useState('English');
   const [customLanguage, setCustomLanguage] = useState('');
+  const selectedOutputLanguage =
+    outputLanguage === 'custom' ? customLanguage.trim() : outputLanguage;
+  const pendingResearchInput =
+    instrument && analysts.length && selectedOutputLanguage
+      ? {
+          ticker: instrument.display_ticker,
+          tradeDate: new Date().toISOString().slice(0, 10),
+          analysts,
+          outputLanguage: selectedOutputLanguage,
+          instrument: {
+            exchange: instrument.exchange,
+            symbol: instrument.symbol,
+            display_ticker: instrument.display_ticker,
+          },
+          display: {
+            display_name: instrument.display_name,
+            ...(instrument.logo_url ? { logo_url: instrument.logo_url } : {}),
+          },
+        }
+      : null;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const jobs = useQuery({
@@ -109,6 +130,17 @@ export function HomePage() {
     queryFn: () => getMarketSnapshot(instrument!.provider_symbol),
     enabled: Boolean(instrument?.provider_symbol),
   });
+  const estimate = useQuery({
+    queryKey: [
+      'analysis-credit-estimate',
+      instrument?.display_ticker,
+      analysts,
+      selectedOutputLanguage,
+    ],
+    queryFn: () => estimateResearch(pendingResearchInput!),
+    enabled: pendingResearchInput !== null,
+    staleTime: 30_000,
+  });
   const create = useMutation({
     mutationFn: (input: Parameters<typeof createResearch>[0]) =>
       createResearch(input),
@@ -131,30 +163,12 @@ export function HomePage() {
       identity,
     ]),
   );
-  const selectedOutputLanguage =
-    outputLanguage === 'custom' ? customLanguage.trim() : outputLanguage;
   const changePercent = quote?.change_percent;
   const isUp = changePercent !== undefined && changePercent > 0;
   const isDown = changePercent !== undefined && changePercent < 0;
 
   function submit() {
-    if (instrument && analysts.length && selectedOutputLanguage) {
-      create.mutate({
-        ticker: instrument.display_ticker,
-        tradeDate: new Date().toISOString().slice(0, 10),
-        analysts,
-        outputLanguage: selectedOutputLanguage,
-        instrument: {
-          exchange: instrument.exchange,
-          symbol: instrument.symbol,
-          display_ticker: instrument.display_ticker,
-        },
-        display: {
-          display_name: instrument.display_name,
-          ...(instrument.logo_url ? { logo_url: instrument.logo_url } : {}),
-        },
-      });
-    }
+    if (pendingResearchInput) create.mutate(pendingResearchInput);
   }
 
   return (
@@ -324,6 +338,24 @@ export function HomePage() {
                       </Alert>
                     )}
 
+                    {pendingResearchInput && (
+                      <p
+                        className="text-sm text-muted-foreground"
+                        aria-live="polite"
+                      >
+                        {estimate.isLoading
+                          ? t('submit.estimating')
+                          : estimate.isError
+                            ? t('submit.estimateUnavailable')
+                            : estimate.data
+                              ? t('submit.estimate', {
+                                  count: estimate.data.data.reservedPoints,
+                                  cost: estimate.data.data.estimatedCostUsd,
+                                })
+                              : null}
+                      </p>
+                    )}
+
                     <div className="flex justify-end border-t border-border/60 pt-4">
                       <Button
                         type="submit"
@@ -343,7 +375,11 @@ export function HomePage() {
                         )}
                         {create.isPending
                           ? t('submit.submitting')
-                          : t('submit.runWithCredit')}
+                          : estimate.data
+                            ? t('submit.runWithEstimate', {
+                                count: estimate.data.data.reservedPoints,
+                              })
+                            : t('submit.runWithCredit')}
                       </Button>
                     </div>
                   </form>
@@ -454,9 +490,7 @@ export function HomePage() {
                             variant={marketMoveVariant(changePercent)}
                             className="h-8 gap-1 rounded-lg px-2.5 text-sm font-semibold tabular-nums"
                           >
-                            {isUp ? (
-                              <ArrowUpRight className="size-4" />
-                            ) : null}
+                            {isUp ? <ArrowUpRight className="size-4" /> : null}
                             {isDown ? (
                               <ArrowDownRight className="size-4" />
                             ) : null}

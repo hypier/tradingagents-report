@@ -58,7 +58,9 @@ screen and can search users or change other users' roles.
 The BFF enforces these permissions on `GET /api/admin/users` and
 `PATCH /api/admin/users/:userId/role`; hiding the frontend navigation is not
 treated as an authorization boundary. Administrators cannot demote their own
-account.
+account. The same screen shows available points and lets administrators apply
+idempotent positive or negative adjustments. Manual deductions cannot make a
+balance negative.
 
 Authenticated users see subscription plans, their current Stripe subscription,
 credit balance, credit activity, and invoices at `/billing`. New subscriptions use Stripe Checkout. Renewal,
@@ -78,8 +80,20 @@ create recurring Stripe Products and Prices, and archive active Prices. When
 `BILLING_CONFIG_ENCRYPTION_KEY` is configured, administrators can validate,
 replace, or clear encrypted Stripe credentials without a service restart.
 The plans tab can idempotently provision the standard USD 20, 50, and 100
-monthly plans, which grant 20, 50, and 100 analysis credits per paid billing
-cycle. Each accepted analysis reserves one credit; rejected jobs release it.
+monthly plans, which grant 2,000, 5,000, and 10,000 points per paid billing
+cycle. Provisioning upgrades the metadata on legacy 20/50/100-credit prices,
+so existing subscriptions receive the new point grants on later paid cycles.
+The credit billing tab controls points per USD, cost markup, reserve buffer,
+and the cold-start estimated cost.
+
+For matching successful jobs, the server uses the latest 100 samples and a
+discrete P90 cost estimate. Matching uses the billing signature stored with
+each reservation and an indexed PostgreSQL query. A request reserves
+`ceil(estimated_cost * (1 + buffer) * (1 + markup) * points_per_usd)` points.
+Successful jobs settle against Core's actual AI token cost and refund or charge
+the difference; failed jobs refund the full reserve. An overrun may make the
+available balance negative, which prevents the user from starting another job.
+An active subscription is not required when the account already has points.
 
 ## Product documentation
 
@@ -116,8 +130,17 @@ dependencies.
 ## Docker deployment
 
 ```bash
-docker compose --env-file tg-core/.env --profile web -f docker/docker-compose.yml up --build
+docker compose --env-file tg-core/.env -f docker/docker-compose.yml up -d postgres
+cd tg-web
+pnpm db:migrate
+cd ..
+docker compose --env-file tg-core/.env --profile web -f docker/docker-compose.yml up -d --build
 ```
+
+The Web runtime image includes `drizzle/`, so an image-based deployment can
+alternatively run `node dist/backend/migrate-cli.js` with `DATABASE_URL` set.
+Migrations must complete before the new Core and Web containers accept jobs.
+Neither application service runs migrations automatically.
 
 Compose starts `tg-web`, Redis, the Core API, and PostgreSQL on one internal
 network. `tg-web` connects to the Core services by their Compose service names.
@@ -131,12 +154,14 @@ Migrations do not run on Compose, `./start.sh`, or Web process startup. Core
 connects with `TRADINGAGENTS_DATABASE_URL` and uses the same tables through SQL;
 it does not create or alter them.
 
-Core startup also idempotently creates the shared product tables used by the
-BFF: `product_users`, `user_consents`, `billing_subscriptions`,
-`credit_accounts`, `credit_reservations`, `credit_ledger_entries`, and
-`stripe_webhook_events`. TG-web owns product writes to these tables. The only
-Core-side product write is settlement of an optional credit reservation in the
-same transaction that marks an analysis job succeeded or failed.
+The same Drizzle migrations own the shared product tables used by the BFF,
+including users, consents, subscriptions, credit billing settings and audit
+events, accounts, reservations, ledger entries, and Stripe webhook state.
+Core validates required tables and credit-settlement columns at startup but
+does not execute DDL. TG-web owns product writes except for settlement of an
+optional credit reservation, which Core performs in the same transaction that
+marks an analysis job succeeded or failed. Restart recovery also releases
+reservations for interrupted jobs in the same recovery transaction.
 
 Redis is the Node runtime cache. Cloudflare Workers use KV for their cache
 instead. These are separate backends with different consistency and eviction

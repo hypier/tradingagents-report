@@ -13,9 +13,9 @@ describe('createStripeBillingService', () => {
         analysisCredits: plan.analysisCredits,
       })),
     ).toEqual([
-      { unitAmount: 2_000, interval: 'month', analysisCredits: 20 },
-      { unitAmount: 5_000, interval: 'month', analysisCredits: 50 },
-      { unitAmount: 10_000, interval: 'month', analysisCredits: 100 },
+      { unitAmount: 2_000, interval: 'month', analysisCredits: 2_000 },
+      { unitAmount: 5_000, interval: 'month', analysisCredits: 5_000 },
+      { unitAmount: 10_000, interval: 'month', analysisCredits: 10_000 },
     ]);
   });
 

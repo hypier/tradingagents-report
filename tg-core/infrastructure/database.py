@@ -10,6 +10,12 @@ from psycopg.rows import dict_row
 DATABASE_URL_ENV_VAR = "TRADINGAGENTS_DATABASE_URL"
 ANALYSIS_LOCK_KEY = 8_724_631_904
 _REQUIRED_TABLES = ("analysis_jobs", "llm_model_prices", "llm_pricing_sources")
+_REQUIRED_CREDIT_RESERVATION_COLUMNS = (
+    "estimated_cost_usd",
+    "pricing_snapshot",
+    "settled_units",
+    "settled_cost_usd",
+)
 
 
 def database_url() -> str:
@@ -35,8 +41,22 @@ def require_schema() -> None:
             """,
             (list(_REQUIRED_TABLES),),
         ).fetchone()
+        column_row = conn.execute(
+            """
+            SELECT COUNT(*)::int AS n
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'credit_reservations'
+              AND column_name = ANY(%s)
+            """,
+            (list(_REQUIRED_CREDIT_RESERVATION_COLUMNS),),
+        ).fetchone()
     found = int((row or {}).get("n") or 0)
-    if found < len(_REQUIRED_TABLES):
+    found_columns = int((column_row or {}).get("n") or 0)
+    if (
+        found < len(_REQUIRED_TABLES)
+        or found_columns < len(_REQUIRED_CREDIT_RESERVATION_COLUMNS)
+    ):
         raise RuntimeError(
             "PostgreSQL schema is missing required tables. "
             "Run tg-web migrations first: cd tg-web && pnpm db:migrate"

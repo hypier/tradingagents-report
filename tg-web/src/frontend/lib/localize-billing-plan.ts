@@ -6,6 +6,9 @@ const DEFAULT_PLAN_KEYS = {
   'starter-usd-monthly-20-v1': 'starter',
   'growth-usd-monthly-50-v1': 'growth',
   'scale-usd-monthly-100-v1': 'scale',
+  'starter-usd-monthly-2000-v2': 'starter',
+  'growth-usd-monthly-5000-v2': 'growth',
+  'scale-usd-monthly-10000-v2': 'scale',
 } as const;
 
 const LEGACY_PLAN_NAMES = {

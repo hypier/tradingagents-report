@@ -1,10 +1,11 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   CheckCircle2,
   CircleDollarSign,
   Clipboard,
+  Coins,
   CreditCard,
   PackagePlus,
   Save,
@@ -18,6 +19,7 @@ import { toast } from 'sonner';
 import type {
   BillingInterval,
   BillingPlan,
+  CreditBillingSettings,
   CreateBillingPlanInput,
 } from '@/backend/billing/contract';
 import { AppShell } from '@/frontend/components/app-shell';
@@ -84,7 +86,9 @@ import {
   clearStripeConfiguration,
   createBillingPlan,
   getBillingSettings,
+  getCreditBillingSettings,
   provisionDefaultBillingPlans,
+  updateCreditBillingSettings,
   updateStripeConfiguration,
 } from '@/frontend/lib/billing';
 
@@ -97,6 +101,13 @@ type PlanForm = {
   analysisCredits: string;
   supportedMarkets: string[];
   features: string;
+};
+
+type CreditSettingsForm = {
+  pointsPerUsd: string;
+  markupPercent: string;
+  reserveBufferPercent: string;
+  defaultEstimatedCostUsd: string;
 };
 
 function createInitialPlan(features: string): PlanForm {
@@ -121,6 +132,12 @@ export function AdminBillingPage() {
     secretKey: '',
     webhookSecret: '',
   });
+  const [creditForm, setCreditForm] = useState<CreditSettingsForm>({
+    pointsPerUsd: '100',
+    markupPercent: '10',
+    reserveBufferPercent: '20',
+    defaultEstimatedCostUsd: '1',
+  });
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const isAdmin = session.data?.data.user.role === 'admin';
@@ -129,9 +146,28 @@ export function AdminBillingPage() {
     queryFn: () => getBillingSettings(),
     enabled: isAdmin,
   });
+  const creditSettings = useQuery({
+    queryKey: ['admin-credit-billing-settings'],
+    queryFn: () => getCreditBillingSettings(),
+    enabled: isAdmin,
+  });
+
+  useEffect(() => {
+    const value = creditSettings.data?.data;
+    if (!value) return;
+    setCreditForm({
+      pointsPerUsd: value.pointsPerUsd,
+      markupPercent: String(value.markupBasisPoints / 100),
+      reserveBufferPercent: String(value.reserveBufferBasisPoints / 100),
+      defaultEstimatedCostUsd: value.defaultEstimatedCostUsd,
+    });
+  }, [creditSettings.data]);
   const refresh = () => {
     void queryClient.invalidateQueries({
       queryKey: ['admin-billing-settings'],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ['admin-credit-billing-settings'],
     });
     void queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
   };
@@ -176,6 +212,22 @@ export function AdminBillingPage() {
       toast.success(t('billing.toasts.configCleared'));
     },
     onError: () => toast.error(t('billing.toasts.configClearError')),
+  });
+  const saveCreditSettings = useMutation({
+    mutationFn: () =>
+      updateCreditBillingSettings({
+        pointsPerUsd: creditForm.pointsPerUsd,
+        markupBasisPoints: Math.round(Number(creditForm.markupPercent) * 100),
+        reserveBufferBasisPoints: Math.round(
+          Number(creditForm.reserveBufferPercent) * 100,
+        ),
+        defaultEstimatedCostUsd: creditForm.defaultEstimatedCostUsd,
+      }),
+    onSuccess: () => {
+      refresh();
+      toast.success(t('billing.credits.saved'));
+    },
+    onError: () => toast.error(t('billing.credits.saveError')),
   });
 
   if (session.isLoading) {
@@ -252,6 +304,9 @@ export function AdminBillingPage() {
             <TabsTrigger value="plans">
               <CircleDollarSign data-icon="inline-start" />{' '}
               {t('billing.tabs.plans')}
+            </TabsTrigger>
+            <TabsTrigger value="credits">
+              <Coins data-icon="inline-start" /> {t('billing.tabs.credits')}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="connection" className="pt-3">
@@ -462,9 +517,163 @@ export function AdminBillingPage() {
               onArchive={(priceId) => archivePlan.mutate(priceId)}
             />
           </TabsContent>
+          <TabsContent value="credits" className="pt-3">
+            <CreditSettingsEditor
+              value={creditForm}
+              settings={creditSettings.data?.data}
+              loading={creditSettings.isLoading}
+              pending={saveCreditSettings.isPending}
+              onChange={(values) =>
+                setCreditForm((current) => ({ ...current, ...values }))
+              }
+              onSubmit={() => saveCreditSettings.mutate()}
+            />
+          </TabsContent>
         </Tabs>
       ) : null}
     </Shell>
+  );
+}
+
+function CreditSettingsEditor({
+  value,
+  settings,
+  loading,
+  pending,
+  onChange,
+  onSubmit,
+}: {
+  value: CreditSettingsForm;
+  settings?: CreditBillingSettings;
+  loading: boolean;
+  pending: boolean;
+  onChange(values: Partial<CreditSettingsForm>): void;
+  onSubmit(): void;
+}) {
+  const { t } = useTranslation('admin');
+  const pointsPerUsd = Number(value.pointsPerUsd);
+  const markup = Number(value.markupPercent) / 100;
+  const buffer = Number(value.reserveBufferPercent) / 100;
+  const cost = Number(value.defaultEstimatedCostUsd);
+  const preview =
+    [pointsPerUsd, markup, buffer, cost].every(Number.isFinite) &&
+    pointsPerUsd > 0 &&
+    cost > 0
+      ? Math.ceil(cost * (1 + markup) * (1 + buffer) * pointsPerUsd)
+      : 0;
+
+  if (loading) return <Skeleton className="h-72 w-full" />;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h3>{t('billing.credits.title')}</h3>
+        </CardTitle>
+        <CardDescription>{t('billing.credits.description')}</CardDescription>
+        <CardAction>
+          <Badge variant="secondary">
+            {t('billing.credits.preview', { count: preview })}
+          </Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <FieldGroup className="grid gap-4 md:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="points-per-usd">
+                {t('billing.credits.pointsPerUsd')}
+              </FieldLabel>
+              <Input
+                id="points-per-usd"
+                type="number"
+                min="0.000001"
+                step="0.000001"
+                required
+                value={value.pointsPerUsd}
+                onChange={(event) =>
+                  onChange({ pointsPerUsd: event.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="markup-percent">
+                {t('billing.credits.markup')}
+              </FieldLabel>
+              <Input
+                id="markup-percent"
+                type="number"
+                min="0"
+                max="1000"
+                step="0.01"
+                required
+                value={value.markupPercent}
+                onChange={(event) =>
+                  onChange({ markupPercent: event.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="reserve-buffer-percent">
+                {t('billing.credits.reserveBuffer')}
+              </FieldLabel>
+              <Input
+                id="reserve-buffer-percent"
+                type="number"
+                min="0"
+                max="1000"
+                step="0.01"
+                required
+                value={value.reserveBufferPercent}
+                onChange={(event) =>
+                  onChange({ reserveBufferPercent: event.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="default-estimated-cost">
+                {t('billing.credits.defaultCost')}
+              </FieldLabel>
+              <Input
+                id="default-estimated-cost"
+                type="number"
+                min="0.00000001"
+                step="0.00000001"
+                required
+                value={value.defaultEstimatedCostUsd}
+                onChange={(event) =>
+                  onChange({ defaultEstimatedCostUsd: event.target.value })
+                }
+              />
+            </Field>
+            <Field className="justify-end md:col-span-2 md:items-end">
+              {settings && (
+                <p className="text-sm text-muted-foreground">
+                  {t('billing.credits.updated', {
+                    date: new Date(settings.updatedAt).toLocaleString(),
+                    actor:
+                      settings.updatedByClerkUserId ??
+                      t('billing.credits.system'),
+                  })}
+                </p>
+              )}
+              <Button type="submit" disabled={pending || preview < 1}>
+                {pending ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <Save data-icon="inline-start" />
+                )}
+                {t('billing.credits.save')}
+              </Button>
+            </Field>
+          </FieldGroup>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

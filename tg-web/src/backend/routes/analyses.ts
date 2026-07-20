@@ -3,16 +3,38 @@ import { z } from 'zod';
 
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
-import { AppError } from '../errors/app-error';
+import { buildBillingSignature } from '../billing/credit-pricing';
 import { BillingRepositoryError } from '../database/billing-repository';
-
-const ANALYSIS_CREDIT_UNITS = 1;
+import { AppError } from '../errors/app-error';
 
 export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
+  app.post('/analyses/estimate', async (context) => {
+    const parsed = createAnalysisSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid analysis request');
+    }
+    const input = parsed.data;
+    const data = await dependencies.database.billing.estimateAnalysis({
+      billingSignature: buildBillingSignature({
+        analysts: input.analysts,
+        configOverrides: input.configOverrides,
+      }),
+    });
+    return context.json(apiSuccess(data, context.get('requestId')));
+  });
+
   app.post('/analyses', async (context) => {
-    const input = createAnalysisSchema.parse(await context.req.json());
+    const parsed = createAnalysisSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid analysis request');
+    }
+    const input = parsed.data;
     const clerkUserId = context.get('auth').userId;
     if (
       !(await dependencies.database.account.hasCurrentConsents(clerkUserId))
@@ -24,17 +46,18 @@ export function analysisRoutes(dependencies: AppDependencies) {
       );
     }
     const requestId = input.requestId ?? crypto.randomUUID();
-    let reservation: 'created' | 'existing' | 'skipped' = 'skipped';
-    if (ANALYSIS_CREDIT_UNITS > 0) {
-      try {
-        reservation = await dependencies.database.billing.reserveAnalysis({
-          clerkUserId,
-          requestId,
-          units: ANALYSIS_CREDIT_UNITS,
-        });
-      } catch (error) {
-        throw billingError(error);
-      }
+    let reservation: 'created' | 'existing';
+    try {
+      reservation = await dependencies.database.billing.reserveAnalysis({
+        clerkUserId,
+        requestId,
+        billingSignature: buildBillingSignature({
+          analysts: input.analysts,
+          configOverrides: input.configOverrides,
+        }),
+      });
+    } catch (error) {
+      throw billingError(error);
     }
 
     let data: unknown;
@@ -100,22 +123,17 @@ export function analysisRoutes(dependencies: AppDependencies) {
         'Analysis service returned an invalid job response',
       );
     }
-    if (reservation !== 'skipped') {
-      try {
-        await dependencies.database.billing.attachAnalysis(
-          requestId,
-          result.data.id,
-        );
-      } catch (error) {
-        dependencies.logger.warn(
-          'Unable to attach analysis credit reservation',
-          {
-            requestId,
-            analysisJobId: result.data.id,
-            error: String(error),
-          },
-        );
-      }
+    try {
+      await dependencies.database.billing.attachAnalysis(
+        requestId,
+        result.data.id,
+      );
+    } catch (error) {
+      dependencies.logger.warn('Unable to attach analysis credit reservation', {
+        requestId,
+        analysisJobId: result.data.id,
+        error: String(error),
+      });
     }
     return context.json(apiSuccess(data, context.get('requestId')), 202);
   });
@@ -223,11 +241,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
 
 function billingError(error: unknown): AppError {
   if (error instanceof BillingRepositoryError) {
-    const status =
-      error.code === 'INSUFFICIENT_CREDITS' ||
-      error.code === 'SUBSCRIPTION_REQUIRED'
-        ? 402
-        : 409;
+    const status = error.code === 'INSUFFICIENT_CREDITS' ? 402 : 409;
     return new AppError(error.code, status, error.message, error);
   }
   return new AppError(

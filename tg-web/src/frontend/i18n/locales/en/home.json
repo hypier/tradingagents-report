@@ -16,6 +16,10 @@
   "submit": {
     "run": "Run analysis",
     "runWithCredit": "Run analysis (0 credits)",
+    "runWithEstimate": "Run analysis (reserve {{count}} points)",
+    "estimating": "Estimating credit reserve...",
+    "estimate": "Estimated reserve: {{count}} points (estimated AI cost ${{cost}}).",
+    "estimateUnavailable": "Credit estimate is temporarily unavailable. The server will calculate it again when submitted.",
     "submitting": "Submitting...",
     "errorTitle": "Unable to submit this run",
     "errorBody": "Check the service connection and retry.",
