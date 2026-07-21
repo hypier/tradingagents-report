@@ -9,10 +9,6 @@ import { App } from '../../src/frontend/app/app';
 
 vi.mock('../../src/frontend/lib/research', () => ({
   createResearch: vi.fn(),
-  getMarketIdentities: vi.fn().mockResolvedValue({
-    data: [],
-    requestId: 'request-1',
-  }),
   getMarketSnapshot: vi.fn(),
   getResearch: vi.fn().mockResolvedValue({
     data: { ticker: 'AAPL', status: 'succeeded', reports: {} },
@@ -58,12 +54,16 @@ it('opens a report action on the report detail page', async () => {
 
   fireEvent.click(
     await within(container).findByRole('button', {
-      name: 'View report for AAPL',
+      name: /AAPL/,
     }),
   );
 
   expect(
     await within(container).findByRole('heading', { name: 'AAPL' }),
   ).toBeInTheDocument();
-  expect(within(container).getByText('Research report')).toBeInTheDocument();
+  expect(
+    within(container).getByText(
+      'This job does not have report content yet.',
+    ),
+  ).toBeInTheDocument();
 });

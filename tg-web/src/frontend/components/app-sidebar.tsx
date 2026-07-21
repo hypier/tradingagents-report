@@ -56,10 +56,13 @@ type NavLeaf = {
   href: string;
 };
 
-const researchNavigationBase: NavLeaf[] = [
+const researchNavigation: NavLeaf[] = [
   { titleKey: 'nav.desk', icon: LayoutDashboard, href: '/' },
   { titleKey: 'nav.tasks', icon: ListTodo, href: '/tasks' },
   { titleKey: 'nav.reports', icon: FileText, href: '/reports' },
+];
+
+const marketNavigation: NavLeaf[] = [
   { titleKey: 'nav.watchlist', icon: ListChecks, href: '/watchlist' },
 ];
 
@@ -115,9 +118,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   });
   const showWatchlist =
     publicConfig.isLoading || publicConfig.data?.features.watchlist !== false;
-  const researchNavigation = showWatchlist
-    ? researchNavigationBase
-    : researchNavigationBase.filter((item) => item.href !== '/watchlist');
   const availableCredits = billing.data?.data.usage?.availableCredits;
   const periodEnd = billing.data?.data.usage?.periodEnd;
 
@@ -164,6 +164,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {showWatchlist ? (
+          <>
+            <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
+            <SidebarGroup className="gap-1 p-0">
+              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+                {t('nav.marketGroup')}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5 px-0">
+                  {marketNavigation.map((item) => (
+                    <FlatNavItem
+                      key={item.href}
+                      item={item}
+                      pathname={location.pathname}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        ) : null}
 
         <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
 

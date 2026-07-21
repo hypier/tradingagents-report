@@ -42,11 +42,9 @@ import { listingFromProviderSymbol } from '@/shared/listing';
 import { marketFromExchange } from '@/shared/market-codes';
 import {
   createResearch,
-  getMarketIdentities,
   getMarketSnapshot,
   getResearchEvents,
   listResearch,
-  tickersNeedingMarketIdentity,
   type SelectedInstrument,
 } from '../lib/research';
 
@@ -124,14 +122,7 @@ export function HomePage() {
     enabled: Boolean(active),
     refetchInterval: active ? 5_000 : false,
   });
-  // Prefer job.display written at submit; only backfill legacy rows via TradingView.
-  const assetTickers = tickersNeedingMarketIdentity(jobs.data?.data ?? []);
-  const identities = useQuery({
-    queryKey: ['market-identities', assetTickers],
-    queryFn: () => getMarketIdentities(assetTickers),
-    enabled: assetTickers.length > 0,
-    staleTime: 5 * 60_000,
-  });
+  // Prefer job.display written at submit; legacy rows should be backfilled in DB.
   const snapshot = useQuery({
     queryKey: ['snapshot', instrument?.provider_symbol],
     queryFn: () => getMarketSnapshot(instrument!.provider_symbol),
@@ -154,12 +145,6 @@ export function HomePage() {
       ? create.error.code
       : null;
   const quote = snapshot.data?.data;
-  const identitiesByTicker = Object.fromEntries(
-    (identities.data?.data ?? []).map((identity) => [
-      identity.ticker,
-      identity,
-    ]),
-  );
   const availableCredits = billing.data?.data.usage?.availableCredits ?? 0;
   const subscriptionStatus = billing.data?.data.subscription?.status;
   const hasActiveSubscription =
@@ -189,12 +174,9 @@ export function HomePage() {
       !insufficientCredits
     ) {
       const displayName =
-        quote?.display_name?.trim() ||
-        identitiesByTicker[instrument.display_ticker]?.display_name?.trim() ||
-        instrument.display_name;
+        quote?.display_name?.trim() || instrument.display_name;
       const logoUrl =
         quote?.logo_url?.trim() ||
-        identitiesByTicker[instrument.display_ticker]?.logo_url?.trim() ||
         instrument.logo_url?.trim() ||
         undefined;
       create.mutate({
@@ -218,18 +200,9 @@ export function HomePage() {
   const quoteForStrip = quote
     ? {
         ...quote,
-        logo_url:
-          quote.logo_url ??
-          identitiesByTicker[quote.ticker]?.logo_url ??
-          instrument?.logo_url,
-        display_name:
-          quote.display_name ??
-          identitiesByTicker[quote.ticker]?.display_name ??
-          instrument?.display_name,
-        display_ticker:
-          quote.display_ticker ??
-          identitiesByTicker[quote.ticker]?.display_ticker ??
-          instrument?.display_ticker,
+        logo_url: quote.logo_url ?? instrument?.logo_url,
+        display_name: quote.display_name ?? instrument?.display_name,
+        display_ticker: quote.display_ticker ?? instrument?.display_ticker,
       }
     : null;
 
@@ -497,7 +470,6 @@ export function HomePage() {
               jobs={jobs.data?.data ?? []}
               loading={jobs.isLoading}
               error={jobs.isError}
-              identities={identitiesByTicker}
               onOpenReport={(id) => navigate(`/reports/${id}`)}
             />
           </div>

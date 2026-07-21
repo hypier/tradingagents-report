@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ChevronDown, Layers, List, LoaderCircle, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -21,12 +21,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Spinner } from '../components/ui/spinner';
-import {
-  getMarketIdentities,
-  listResearch,
-  tickersNeedingMarketIdentity,
-  type AnalysisStatus,
-} from '../lib/research';
+import { listResearch, type AnalysisStatus } from '../lib/research';
 import { cn } from '../lib/utils';
 
 const pageSize = 50;
@@ -84,19 +79,6 @@ export function ReportsPage() {
         : undefined,
   });
   const jobs = reports.data?.pages.flatMap((page) => page.data) ?? [];
-  const missingIdentityTickers = tickersNeedingMarketIdentity(jobs);
-  const identities = useQuery({
-    queryKey: ['report-library-identities', missingIdentityTickers],
-    queryFn: () => getMarketIdentities(missingIdentityTickers),
-    enabled: missingIdentityTickers.length > 0,
-    staleTime: 5 * 60_000,
-  });
-  const identitiesByTicker = Object.fromEntries(
-    (identities.data?.data ?? []).map((identity) => [
-      identity.ticker,
-      identity,
-    ]),
-  );
 
   return (
     <PageFrame
@@ -256,7 +238,6 @@ export function ReportsPage() {
           jobs={jobs}
           loading={reports.isLoading}
           error={reports.isError && jobs.length === 0}
-          identities={identitiesByTicker}
           onOpenReport={(id) => navigate(`/reports/${id}`)}
           title={t('library.title')}
           description={t('library.description')}
@@ -269,7 +250,6 @@ export function ReportsPage() {
           jobs={jobs}
           loading={reports.isLoading}
           error={reports.isError && jobs.length === 0}
-          identities={identitiesByTicker}
           onOpenReport={(id) => navigate(`/reports/${id}`)}
         />
       )}

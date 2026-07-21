@@ -38,16 +38,6 @@ vi.mock('../../src/frontend/lib/research', () => ({
     },
     requestId: 'request-1',
   }),
-  getMarketIdentities: vi.fn().mockResolvedValue({
-    data: [
-      {
-        ticker: 'AAPL',
-        display_name: 'Apple Inc.',
-        logo_url: 'https://tv-logo.tradingviewapi.com/logo/apple.svg',
-      },
-    ],
-    requestId: 'request-1',
-  }),
   getResearchEvents: vi.fn(),
   listResearch: vi.fn().mockResolvedValue({ data: [], requestId: 'request-1' }),
 }));

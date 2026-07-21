@@ -7,10 +7,8 @@ import { AppShell } from '../components/app-shell';
 import { PipelinePanel } from '../components/dashboard/pipeline-panel';
 import { ReportsTable } from '../components/dashboard/recent-reports';
 import {
-  getMarketIdentities,
   getResearchEvents,
   listResearch,
-  tickersNeedingMarketIdentity,
   type AnalysisJob,
   type AnalysisStatus,
 } from '../lib/research';
@@ -85,20 +83,6 @@ export function TasksPage() {
     enabled: showPipeline,
     refetchInterval: showPipeline ? 5_000 : false,
   });
-  const missingIdentityTickers = tickersNeedingMarketIdentity(sortedJobs);
-  const identities = useQuery({
-    queryKey: ['task-identities', missingIdentityTickers],
-    queryFn: () => getMarketIdentities(missingIdentityTickers),
-    enabled: missingIdentityTickers.length > 0,
-    staleTime: 5 * 60_000,
-  });
-  const identitiesByTicker = Object.fromEntries(
-    (identities.data?.data ?? []).map((identity) => [
-      identity.ticker,
-      identity,
-    ]),
-  );
-
   return (
     <AppShell>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -158,7 +142,6 @@ export function TasksPage() {
               jobs={sortedJobs}
               loading={jobs.isLoading}
               error={jobs.isError}
-              identities={identitiesByTicker}
               onOpenReport={(id) => navigate(`/reports/${id}`)}
               title={t('library.title')}
               description={t('library.description')}

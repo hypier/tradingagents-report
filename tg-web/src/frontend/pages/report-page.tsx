@@ -55,7 +55,6 @@ import {
   saveReportReadingPreferences,
 } from '../lib/report-reading-preferences';
 import {
-  getMarketIdentities,
   getResearch,
   updateResearchMeta,
   type AnalysisDetail,
@@ -165,15 +164,6 @@ export function ReportPage() {
     queryFn: () => listShares(id!),
     enabled: canShare,
   });
-  const needsMarketIdentity = Boolean(
-    job?.ticker && !job.display?.display_name?.trim(),
-  );
-  const marketIdentity = useQuery({
-    queryKey: ['market-identities', job?.ticker],
-    queryFn: () => getMarketIdentities([job!.ticker]),
-    enabled: needsMarketIdentity,
-    staleTime: 5 * 60_000,
-  });
   const meta = useMutation({
     mutationFn: (input: { isFavorite?: boolean; isArchived?: boolean }) =>
       updateResearchMeta(id!, input),
@@ -235,20 +225,7 @@ export function ReportPage() {
   const decisionLabel = formatDecisionLabel(job?.decision, (key, options) =>
     t(`common:${key}`, options),
   );
-  const storedIdentity = reportIdentity(job);
-  const resolvedMarket = marketIdentity.data?.data?.[0];
-  const identity = {
-    ticker: storedIdentity.ticker,
-    exchange: storedIdentity.exchange,
-    country: storedIdentity.country,
-    language: storedIdentity.language,
-    displayName:
-      storedIdentity.displayName ||
-      resolvedMarket?.display_name?.trim() ||
-      null,
-    logoUrl:
-      storedIdentity.logoUrl || resolvedMarket?.logo_url?.trim() || null,
-  };
+  const identity = reportIdentity(job);
   const isFavorite = Boolean(job?.is_favorite ?? job?.isFavorite);
   const isArchived = Boolean(job?.is_archived ?? job?.isArchived);
   const creditUnits = job?.credit_units ?? ANALYSIS_CREDIT_UNITS;

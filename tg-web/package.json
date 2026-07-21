@@ -16,6 +16,7 @@
     "dev:web": "vite",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/backend/database/migrate-cli.ts",
+    "db:backfill-display": "tsx src/backend/database/backfill-job-display.ts",
     "build": "vite build",
     "build:node": "tsup --format esm --out-dir dist/backend --entry.node=src/runtimes/node.ts --entry.migrate-cli=src/backend/database/migrate-cli.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
