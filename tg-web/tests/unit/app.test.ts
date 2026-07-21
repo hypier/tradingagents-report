@@ -1511,7 +1511,7 @@ describe('createApp', () => {
             price: 5000,
             change_percent: 0.2,
             currency: 'USD',
-            linkable: false,
+            linkable: true,
           },
         ],
         tape: [],

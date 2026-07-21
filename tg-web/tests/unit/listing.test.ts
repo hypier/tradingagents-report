@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatDisplayTicker,
+  listingForQuoteView,
   listingFromParts,
   listingFromProviderSymbol,
   resolveListingTicker,
@@ -32,6 +33,21 @@ describe('listing helpers', () => {
       display_ticker: 'AAPL',
       provider_symbol: null,
     });
+  });
+
+  it('resolves unsupported index exchanges for quote viewing only', () => {
+    expect(listingForQuoteView('SP:SPX')).toEqual({
+      ticker: 'SP:SPX',
+      exchange: 'SP',
+      symbol: 'SPX',
+      display_ticker: 'SP:SPX',
+      provider_symbol: 'SP:SPX',
+    });
+    expect(listingForQuoteView('CBOE:VIX').provider_symbol).toBe('CBOE:VIX');
+    expect(listingForQuoteView('NASDAQ:AAPL').display_ticker).toBe('AAPL');
+    expect(() => listingFromProviderSymbol('SP:SPX')).toThrow(
+      /unsupported exchange/i,
+    );
   });
 
   it('falls back to POINT when quote currency is missing', () => {

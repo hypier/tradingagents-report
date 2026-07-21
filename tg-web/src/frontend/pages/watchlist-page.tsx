@@ -6,9 +6,11 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
+import { InstrumentIdentity } from '../components/instrument-identity';
 import { PageFrame, SectionPanel } from '../components/page-chrome';
 import { TickerSearch } from '../components/ticker-search';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -201,62 +203,66 @@ export function WatchlistPage() {
                         key={item.id}
                         className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
                       >
-                        <div className="min-w-0">
-                          <Link
-                            className="block min-w-0 hover:underline"
-                            to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}
-                          >
-                            <span className="block truncate text-sm font-medium tracking-tight text-foreground">
-                              {item.displayName || item.displayTicker}
-                            </span>
-                            {item.displayName ? (
-                              <span className="mt-0.5 block truncate font-mono text-xs tracking-wide text-muted-foreground">
-                                {item.displayTicker}
-                                <span className="text-muted-foreground/80">
-                                  {' '}
-                                  · {item.providerSymbol}
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="mt-0.5 block truncate font-mono text-xs tracking-wide text-muted-foreground">
-                                {item.providerSymbol}
-                              </span>
-                            )}
-                          </Link>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {tags.map((tag) => {
-                              const active = item.tags.some(
-                                (itemTag) => itemTag.id === tag.id,
-                              );
-                              return (
-                                <Button
-                                  key={tag.id}
-                                  size="sm"
-                                  variant={active ? 'default' : 'outline'}
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => {
-                                    const next = active
-                                      ? item.tags
-                                          .filter(
-                                            (itemTag) => itemTag.id !== tag.id,
-                                          )
-                                          .map((itemTag) => itemTag.id)
-                                      : [
-                                          ...item.tags.map(
-                                            (itemTag) => itemTag.id,
-                                          ),
-                                          tag.id,
-                                        ];
-                                    assignTag.mutate({
-                                      itemId: item.id,
-                                      tagIds: next,
-                                    });
-                                  }}
-                                >
-                                  {tag.name}
-                                </Button>
-                              );
-                            })}
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <Avatar className="size-8 shrink-0 !rounded-none after:hidden">
+                            <AvatarImage
+                              key={item.logoUrl ?? 'missing'}
+                              className="!rounded-none object-contain"
+                              src={item.logoUrl ?? undefined}
+                              alt={item.displayName || item.displayTicker}
+                            />
+                            <AvatarFallback className="!rounded-none text-xs font-semibold">
+                              {(item.symbol || item.displayTicker).slice(0, 1)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <Link
+                              className="block min-w-0 hover:underline"
+                              to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}
+                            >
+                              <InstrumentIdentity
+                                density="row"
+                                name={item.displayName || item.displayTicker}
+                                ticker={item.displayTicker}
+                                tickerSuffix={` · ${item.providerSymbol}`}
+                              />
+                            </Link>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {tags.map((tag) => {
+                                const active = item.tags.some(
+                                  (itemTag) => itemTag.id === tag.id,
+                                );
+                                return (
+                                  <Button
+                                    key={tag.id}
+                                    size="sm"
+                                    variant={active ? 'default' : 'outline'}
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => {
+                                      const next = active
+                                        ? item.tags
+                                            .filter(
+                                              (itemTag) =>
+                                                itemTag.id !== tag.id,
+                                            )
+                                            .map((itemTag) => itemTag.id)
+                                        : [
+                                            ...item.tags.map(
+                                              (itemTag) => itemTag.id,
+                                            ),
+                                            tag.id,
+                                          ];
+                                      assignTag.mutate({
+                                        itemId: item.id,
+                                        tagIds: next,
+                                      });
+                                    }}
+                                  >
+                                    {tag.name}
+                                  </Button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-2">

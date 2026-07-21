@@ -8,7 +8,7 @@ export type MarketTapeQuote = {
   price: number;
   change_percent: number;
   currency: string;
-  /** When true, UI may deep-link to /stocks/:symbol */
+  /** When true, UI may deep-link to /stocks/:symbol for quote viewing */
   linkable: boolean;
 };
 
@@ -32,6 +32,7 @@ export type MarketBoardItem = {
   relative_volume?: number;
   market_cap?: number;
   analyst_rating?: string;
+  /** When true, UI may deep-link to /stocks/:symbol for quote viewing */
   linkable: boolean;
 };
 

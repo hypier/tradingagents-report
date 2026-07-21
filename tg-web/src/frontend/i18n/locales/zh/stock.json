@@ -6,6 +6,7 @@
   "backToQuotes": "市场行情",
   "actions": {
     "analyze": "开始分析",
+    "analyzeUnsupported": "该交易所暂不支持分析。",
     "addWatchlist": "加入自选",
     "removeWatchlist": "移出自选"
   },

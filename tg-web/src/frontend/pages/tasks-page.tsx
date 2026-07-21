@@ -12,6 +12,7 @@ import {
   type AnalysisJob,
   type AnalysisStatus,
 } from '../lib/research';
+import { useJobMarketIdentities } from '../hooks/use-market-identities';
 import { cn } from '../lib/utils';
 
 const statusValues: Array<AnalysisStatus | 'all'> = [
@@ -53,6 +54,7 @@ export function TasksPage() {
     () => sortJobsForTasks(jobs.data?.data ?? []),
     [jobs.data?.data],
   );
+  const { identities } = useJobMarketIdentities(sortedJobs);
   const activeInView = sortedJobs.find(
     (job) => job.status === 'queued' || job.status === 'running',
   );
@@ -142,6 +144,7 @@ export function TasksPage() {
               jobs={sortedJobs}
               loading={jobs.isLoading}
               error={jobs.isError}
+              identities={identities}
               onOpenReport={(id) => navigate(`/reports/${id}`)}
               title={t('library.title')}
               description={t('library.description')}

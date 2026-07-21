@@ -10,6 +10,7 @@ import { parseWorkerConfig } from '../backend/config/worker-config';
 import { CoreClient } from '../backend/core/client';
 import { createWorkerDatabase } from '../backend/database/client';
 import { Logger } from '../backend/logging/logger';
+import { CachingMarketAssetClient } from '../backend/market-assets/caching-market-client';
 import { TradingViewMarketClient } from '../backend/market-assets/tradingview-market-client';
 
 export interface WorkerEnv {
@@ -39,6 +40,7 @@ function createDependencies(env: WorkerEnv): AppDependencies {
   const logger = new Logger();
   const database = createWorkerDatabase(env.HYPERDRIVE.connectionString);
   const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
+  const cache = new FailOpenCache(new KvCache(env.CACHE_KV, logger), logger);
 
   return {
     auth: createClerkAuthService(config.clerkAuth),
@@ -50,9 +52,12 @@ function createDependencies(env: WorkerEnv): AppDependencies {
       ),
     }),
     database,
-    cache: new FailOpenCache(new KvCache(env.CACHE_KV, logger), logger),
+    cache,
     core,
-    marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
+    marketAssets: new CachingMarketAssetClient(
+      new TradingViewMarketClient(config.tradingViewRapidApiKey),
+      cache,
+    ),
     logger,
     clerkPublishableKey: config.clerkAuth.publishableKey,
   };

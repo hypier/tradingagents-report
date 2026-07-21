@@ -22,8 +22,9 @@ function instrumentTicker(
   job: AnalysisJob,
   identities: Record<string, AssetIdentity>,
 ) {
+  const key = job.ticker.trim().toUpperCase();
   return (
-    identities[job.ticker]?.display_ticker ?? formatDisplayTicker(job.ticker)
+    identities[key]?.display_ticker ?? formatDisplayTicker(job.ticker)
   );
 }
 
@@ -31,14 +32,16 @@ function instrumentName(
   job: AnalysisJob,
   identities: Record<string, AssetIdentity>,
 ) {
-  return job.display?.display_name ?? identities[job.ticker]?.display_name;
+  const key = job.ticker.trim().toUpperCase();
+  return job.display?.display_name ?? identities[key]?.display_name;
 }
 
 function instrumentLogo(
   job: AnalysisJob,
   identities: Record<string, AssetIdentity>,
 ) {
-  return job.display?.logo_url ?? identities[job.ticker]?.logo_url;
+  const key = job.ticker.trim().toUpperCase();
+  return job.display?.logo_url ?? identities[key]?.logo_url;
 }
 
 function jobSortTime(job: AnalysisJob) {

@@ -22,6 +22,7 @@ import {
 } from '../components/ui/select';
 import { Spinner } from '../components/ui/spinner';
 import { listResearch, type AnalysisStatus } from '../lib/research';
+import { useJobMarketIdentities } from '../hooks/use-market-identities';
 import { cn } from '../lib/utils';
 
 const pageSize = 50;
@@ -79,6 +80,7 @@ export function ReportsPage() {
         : undefined,
   });
   const jobs = reports.data?.pages.flatMap((page) => page.data) ?? [];
+  const { identities } = useJobMarketIdentities(jobs);
 
   return (
     <PageFrame
@@ -238,6 +240,7 @@ export function ReportsPage() {
           jobs={jobs}
           loading={reports.isLoading}
           error={reports.isError && jobs.length === 0}
+          identities={identities}
           onOpenReport={(id) => navigate(`/reports/${id}`)}
           title={t('library.title')}
           description={t('library.description')}
@@ -250,6 +253,7 @@ export function ReportsPage() {
           jobs={jobs}
           loading={reports.isLoading}
           error={reports.isError && jobs.length === 0}
+          identities={identities}
           onOpenReport={(id) => navigate(`/reports/${id}`)}
         />
       )}

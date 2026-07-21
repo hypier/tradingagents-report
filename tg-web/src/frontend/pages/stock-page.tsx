@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from '../components/ui/tooltip';
 import { useLiveQuote } from '../hooks/use-live-quote';
+import { useJobMarketIdentities } from '../hooks/use-market-identities';
 import { formatLocaleDateTimeValue } from '../lib/format-locale';
 import { cn } from '../lib/utils';
 import { listResearch } from '../lib/research';
@@ -29,7 +30,7 @@ import {
   getWatchlist,
   removeWatchlistItem,
 } from '../lib/watchlist';
-import { listingFromProviderSymbol } from '@/shared/listing';
+import { isSupportedExchange, listingForQuoteView } from '@/shared/listing';
 
 export function StockPage() {
   const { t } = useTranslation(['stock', 'common']);
@@ -38,12 +39,15 @@ export function StockPage() {
   const { providerSymbol: rawSymbol = '' } = useParams();
   const providerSymbol = decodeURIComponent(rawSymbol).toUpperCase();
 
-  let listing: ReturnType<typeof listingFromProviderSymbol> | null = null;
+  let listing: ReturnType<typeof listingForQuoteView> | null = null;
   try {
-    listing = listingFromProviderSymbol(providerSymbol);
+    listing = listingForQuoteView(providerSymbol);
   } catch {
     listing = null;
   }
+  const analyzable = Boolean(
+    listing?.exchange && isSupportedExchange(listing.exchange),
+  );
 
   const {
     quote,
@@ -67,6 +71,7 @@ export function StockPage() {
     enabled: Boolean(listing?.display_ticker),
     staleTime: 30_000,
   });
+  const { identities } = useJobMarketIdentities(reports.data?.data ?? []);
   const watchlist = useQuery({
     queryKey: ['watchlist'],
     queryFn: () => getWatchlist(),
@@ -251,12 +256,28 @@ export function StockPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm">
-                <Link to={`/?symbol=${encodeURIComponent(providerSymbol)}`}>
-                  <Play data-icon="inline-start" />
-                  {t('actions.analyze')}
-                </Link>
-              </Button>
+              {analyzable ? (
+                <Button asChild size="sm">
+                  <Link to={`/?symbol=${encodeURIComponent(providerSymbol)}`}>
+                    <Play data-icon="inline-start" />
+                    {t('actions.analyze')}
+                  </Link>
+                </Button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button size="sm" disabled>
+                        <Play data-icon="inline-start" />
+                        {t('actions.analyze')}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    {t('actions.analyzeUnsupported')}
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {existingItem ? (
                 <Button
                   variant="outline"
@@ -319,7 +340,7 @@ export function StockPage() {
             jobs={reports.data?.data ?? []}
             loading={reports.isLoading}
             error={reports.isError}
-            identities={{}}
+            identities={identities}
             onOpenReport={(id) => navigate(`/reports/${id}`)}
             title={t('reports.title')}
             description={t('reports.description')}

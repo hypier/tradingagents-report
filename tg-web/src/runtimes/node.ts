@@ -19,6 +19,7 @@ import { parseNodeConfig } from '../backend/config/node-config';
 import { CoreClient } from '../backend/core/client';
 import { createNodeDatabase } from '../backend/database/client';
 import { Logger } from '../backend/logging/logger';
+import { CachingMarketAssetClient } from '../backend/market-assets/caching-market-client';
 import { TradingViewMarketClient } from '../backend/market-assets/tradingview-market-client';
 
 type RuntimeOptions = {
@@ -165,6 +166,7 @@ async function run(): Promise<void> {
     config.billingConfigEncryptionKey,
   );
   const redis = createRedisClient(config.redisUrl.toString(), logger);
+  const cache = new FailOpenCache(new RedisCache(redis, logger), logger);
   const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
   const dependencies: AppDependencies = {
     auth: createClerkAuthService(config.clerkAuth),
@@ -173,9 +175,12 @@ async function run(): Promise<void> {
       configurationStore: billingConfigurationStore,
     }),
     database,
-    cache: new FailOpenCache(new RedisCache(redis, logger), logger),
+    cache,
     core,
-    marketAssets: new TradingViewMarketClient(config.tradingViewRapidApiKey),
+    marketAssets: new CachingMarketAssetClient(
+      new TradingViewMarketClient(config.tradingViewRapidApiKey),
+      cache,
+    ),
     logger,
     clerkPublishableKey: config.clerkAuth.publishableKey,
   };

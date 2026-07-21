@@ -6,6 +6,7 @@
   "backToQuotes": "Market Quotes",
   "actions": {
     "analyze": "Run analysis",
+    "analyzeUnsupported": "This exchange is not available for analysis yet.",
     "addWatchlist": "Add to watchlist",
     "removeWatchlist": "Remove from watchlist"
   },

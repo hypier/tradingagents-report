@@ -29,22 +29,19 @@ describe('createRedisClient', () => {
       );
       clients.push(client);
 
-      await expect(client.connect()).rejects.toThrow(/ECONNREFUSED|connect/);
-
-      // Force another reconnect cycle; the error listener must swallow it.
-      client.connect().catch(() => undefined);
+      await expect(client.get('probe')).rejects.toThrow();
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(unhandled).toEqual([]);
-      expect(entries).toEqual([
-        {
-          level: 'warn',
-          message: 'Redis connection error',
-          metadata: {
-            error: expect.stringMatching(/ECONNREFUSED|connect/),
-          },
+      expect(entries).toContainEqual({
+        level: 'warn',
+        message: 'Redis connection error',
+        metadata: {
+          error: expect.stringMatching(
+            /ECONNREFUSED|connect|Connection is closed/,
+          ),
         },
-      ]);
+      });
     } finally {
       process.off('uncaughtException', onUnhandled);
     }

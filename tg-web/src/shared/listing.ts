@@ -61,6 +61,31 @@ export function isSupportedExchange(exchange: string): boolean {
 }
 
 /**
+ * Resolve `EXCHANGE:SYMBOL` for quote / chart pages.
+ * Unsupported exchanges still resolve so users can view market data;
+ * analysis submission continues to require `isSupportedExchange()`.
+ */
+export function listingForQuoteView(providerSymbol: string): ResolvedListing {
+  const value = providerSymbol.trim().toUpperCase();
+  const [exchange, symbol] = value.split(':', 2);
+  if (!exchange || !symbol) {
+    throw new Error(`invalid provider symbol: ${providerSymbol}`);
+  }
+  const normalizedExchange = normalizeExchange(exchange);
+  if (isSupportedExchange(normalizedExchange)) {
+    return listingFromParts(normalizedExchange, symbol);
+  }
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  return {
+    ticker: value,
+    exchange: normalizedExchange,
+    symbol: normalizedSymbol,
+    display_ticker: value,
+    provider_symbol: `${normalizedExchange}:${normalizedSymbol}`,
+  };
+}
+
+/**
  * Use vendor currency when present; otherwise show index points as `POINT`.
  * Do not invent FX codes from exchange maps.
  */

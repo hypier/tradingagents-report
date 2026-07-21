@@ -47,6 +47,7 @@ import {
   listResearch,
   type SelectedInstrument,
 } from '../lib/research';
+import { useJobMarketIdentities } from '../hooks/use-market-identities';
 
 const analystOptions = ['market', 'fundamentals', 'news', 'social'];
 
@@ -113,6 +114,7 @@ export function HomePage() {
         ? 5_000
         : false,
   });
+  const { identities } = useJobMarketIdentities(jobs.data?.data ?? []);
   const active = jobs.data?.data.find(
     (job) => job.status === 'queued' || job.status === 'running',
   );
@@ -470,6 +472,7 @@ export function HomePage() {
               jobs={jobs.data?.data ?? []}
               loading={jobs.isLoading}
               error={jobs.isError}
+              identities={identities}
               onOpenReport={(id) => navigate(`/reports/${id}`)}
             />
           </div>

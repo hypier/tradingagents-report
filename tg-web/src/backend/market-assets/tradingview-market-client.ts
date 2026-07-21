@@ -633,7 +633,8 @@ function toBoardItem(
     ...(relativeVolume !== undefined ? { relative_volume: relativeVolume } : {}),
     ...(marketCap !== undefined ? { market_cap: marketCap } : {}),
     ...(analyst ? { analyst_rating: analyst } : {}),
-    linkable: Boolean(exchange) && isSupportedExchange(exchange),
+    // Any EXCHANGE:SYMBOL can open the quote page; analysis is gated separately.
+    linkable: Boolean(exchange),
   };
 }
 
@@ -687,7 +688,8 @@ function quoteRecordToTape(
     price,
     change_percent: changePercent,
     currency: resolveMarketCurrency(stringValue(data.currency_code)),
-    linkable: Boolean(exchange) && isSupportedExchange(exchange),
+    // Any EXCHANGE:SYMBOL can open the quote page; analysis is gated separately.
+    linkable: Boolean(exchange),
   };
 }
 
