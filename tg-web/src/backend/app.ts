@@ -17,6 +17,7 @@ import {
 } from './logging/request-id';
 import { healthRoutes } from './routes/health';
 import { readyRoutes } from './routes/ready';
+import { referralRoutes } from './routes/referrals';
 import { analysisRoutes } from './routes/analyses';
 import { authRoutes } from './routes/auth';
 import { accountRoutes } from './routes/account';
@@ -33,7 +34,10 @@ export type AppEnvironment = {
 export type AppDependencies = {
   auth: AuthService;
   billing: BillingService;
-  database: Pick<DatabaseHealth, 'healthcheck' | 'account' | 'billing'>;
+  database: Pick<
+    DatabaseHealth,
+    'healthcheck' | 'account' | 'billing' | 'referrals'
+  >;
   cache: Cache;
   core: CoreClientContract;
   marketAssets: MarketAssetClient;
@@ -43,6 +47,7 @@ export type AppDependencies = {
 export function createApp(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
+  app.route('/', referralRoutes(dependencies));
   app.use('/api/*', createRequestIdMiddleware());
   app.route('/api', healthRoutes());
   app.route('/api', readyRoutes(dependencies));

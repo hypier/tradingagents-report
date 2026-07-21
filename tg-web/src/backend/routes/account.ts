@@ -28,6 +28,17 @@ const consentSchema = z.object({
 export function accountRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
+  app.get('/account/referral', async (context) =>
+    context.json(
+      apiSuccess(
+        await dependencies.database.referrals.getSummary(
+          context.get('auth').userId,
+        ),
+        context.get('requestId'),
+      ),
+    ),
+  );
+
   app.get('/account/profile', async (context) =>
     context.json(
       apiSuccess(

@@ -249,7 +249,11 @@ export function BillingPage() {
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">
-                              {entry.description}
+                              {entry.referenceType === 'signup_grant'
+                                ? t('ledger.signupGrant')
+                                : entry.referenceType === 'referral_reward'
+                                  ? t('ledger.referralReward')
+                                  : entry.description}
                             </div>
                             <Badge variant="outline">
                               {formatStatus(entry.entryType)}

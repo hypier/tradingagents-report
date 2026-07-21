@@ -16,6 +16,7 @@ import {
   type BillingRepository,
   type ModelPricesRepository,
   type PricingSourcesRepository,
+  type ReferralRepository,
 } from './repositories';
 import * as schema from './schema';
 
@@ -27,6 +28,7 @@ export type DatabaseHealth = {
   pricingSources: PricingSourcesRepository;
   account: AccountRepository;
   billing: BillingRepository;
+  referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
 };
 

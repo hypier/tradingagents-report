@@ -52,7 +52,11 @@ export async function startNodeRuntime(
       `http://${request.headers.host ?? 'localhost'}`,
     );
 
-    if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
+    if (
+      url.pathname === '/api' ||
+      url.pathname.startsWith('/api/') ||
+      url.pathname.startsWith('/invite/')
+    ) {
       await sendFetchResponse(
         response,
         await app.fetch(toFetchRequest(request, url)),

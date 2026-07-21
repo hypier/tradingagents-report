@@ -65,7 +65,11 @@ export function createWorkerHandler(
   return {
     fetch(request, env, ctx) {
       const pathname = new URL(request.url).pathname;
-      if (pathname === '/api' || pathname.startsWith('/api/')) {
+      if (
+        pathname === '/api' ||
+        pathname.startsWith('/api/') ||
+        pathname.startsWith('/invite/')
+      ) {
         let app = apps.get(env);
         if (app === undefined) {
           app = createApp(dependencyFactory(env));

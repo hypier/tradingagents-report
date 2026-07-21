@@ -2,6 +2,17 @@
   "title": "Account",
   "heading": "Profile and preferences",
   "subtitle": "Identity, research defaults, and legal consent",
+  "referral": {
+    "title": "Invite rewards",
+    "description": "Share your personal link and earn credits when a new user joins.",
+    "link": "Invitation link",
+    "copy": "Copy invitation link",
+    "copied": "Invitation link copied.",
+    "copyError": "Unable to copy the invitation link.",
+    "successful": "Successful invitations",
+    "earned": "Credits earned",
+    "loadError": "Unable to load invitation details."
+  },
   "loadError": {
     "title": "Unable to load account",
     "body": "Retry after checking the service connection."

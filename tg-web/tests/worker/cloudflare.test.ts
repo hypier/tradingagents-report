@@ -35,6 +35,26 @@ function workerEnv(): WorkerEnv {
 }
 
 describe('Cloudflare Worker runtime', () => {
+  it('routes invite links to Hono before static assets', async () => {
+    const dependencies = {
+      database: {
+        referrals: {
+          isValidCode: vi.fn().mockResolvedValue(true),
+        },
+      },
+    } as unknown as AppDependencies;
+    const handler = createWorkerHandler(() => dependencies);
+
+    const response = await handler.fetch(
+      new Request(`https://example.test/invite/${'a'.repeat(32)}`) as never,
+      workerEnv(),
+      {} as ExecutionContext,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/sign-up');
+  });
+
   it('routes API requests to Hono before static assets', async () => {
     const response = await worker.fetch(
       new Request('https://example.test/api/unknown') as never,
@@ -105,6 +125,11 @@ describe('Cloudflare Worker runtime', () => {
           releaseAnalysis: vi.fn(),
           processStripeEvent: vi.fn(),
           recordStripeFailure: vi.fn(),
+        },
+        referrals: {
+          isValidCode: vi.fn(),
+          completeFirstAccess: vi.fn(),
+          getSummary: vi.fn(),
         },
       },
       cache: {

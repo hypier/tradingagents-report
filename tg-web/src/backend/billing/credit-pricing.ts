@@ -49,6 +49,20 @@ export function calculateActualPoints(
   return safePointNumber(result > 0n ? result : 1n);
 }
 
+export function calculateGrantPoints(
+  amountUsd: string,
+  pointsPerUsd: string,
+): number {
+  const amount = decimalFraction(amountUsd);
+  const ratio = decimalFraction(pointsPerUsd);
+  return safePointNumber(
+    ceilFraction(
+      amount.numerator * ratio.numerator,
+      amount.denominator * ratio.denominator,
+    ),
+  );
+}
+
 export function discreteP90(costs: string[]): string | undefined {
   if (costs.length === 0) return undefined;
   const sorted = [...costs].sort(compareDecimals);

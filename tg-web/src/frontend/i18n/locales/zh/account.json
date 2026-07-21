@@ -2,6 +2,17 @@
   "title": "账户",
   "heading": "个人资料与偏好",
   "subtitle": "身份信息、研究默认项与法律同意",
+  "referral": {
+    "title": "邀请奖励",
+    "description": "分享你的专属链接，新用户成功注册后即可获得积分。",
+    "link": "邀请链接",
+    "copy": "复制邀请链接",
+    "copied": "邀请链接已复制。",
+    "copyError": "无法复制邀请链接。",
+    "successful": "成功邀请",
+    "earned": "累计奖励积分",
+    "loadError": "无法加载邀请信息。"
+  },
   "loadError": {
     "title": "无法加载账户",
     "body": "请检查服务连接后重试。"

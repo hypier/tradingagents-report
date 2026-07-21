@@ -14,6 +14,7 @@ import {
   type LegalDocumentType,
 } from '../account/contract';
 import type { AuthUser } from '../auth/contract';
+import { createReferralCode } from './referral-code';
 import * as schema from './schema';
 
 export interface AccountRepository {
@@ -91,6 +92,7 @@ export function createAccountRepository(database: Database): AccountRepository {
             displayName: user.displayName,
             email: user.email,
             avatarUrl: user.imageUrl,
+            referralCode: createReferralCode(),
           })
           .onConflictDoUpdate({
             target: schema.accountUsers.clerkUserId,

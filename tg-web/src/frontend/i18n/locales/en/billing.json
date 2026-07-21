@@ -66,6 +66,8 @@
     "spent": "Spent",
     "actualCost": "Actual AI cost",
     "finalPoints": "{{count}} points",
+    "signupGrant": "New user signup credit",
+    "referralReward": "Referral signup reward",
     "emptyTitle": "No credit activity",
     "emptyBody": "Cycle grants and analysis usage will appear here."
   },

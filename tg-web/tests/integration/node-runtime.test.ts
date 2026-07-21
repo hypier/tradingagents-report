@@ -52,6 +52,11 @@ function fakeDependencies(): AppDependencies {
       healthcheck: vi.fn().mockResolvedValue(undefined),
       account: fakeAccountRepository(),
       billing: fakeBillingRepository(),
+      referrals: {
+        isValidCode: vi.fn().mockResolvedValue(true),
+        completeFirstAccess: vi.fn(),
+        getSummary: vi.fn(),
+      },
     },
     cache: {
       get: vi.fn(),
@@ -120,6 +125,24 @@ afterEach(async () => {
 });
 
 describe('Node runtime', () => {
+  it('routes invite links to Hono before static assets', async () => {
+    const server = await startNodeRuntime(fakeDependencies(), {
+      port: 0,
+      assetsDirectory: await createAssetsDirectory(),
+    });
+
+    try {
+      const response = await fetch(`${server.url}/invite/${'a'.repeat(32)}`, {
+        redirect: 'manual',
+      });
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get('location')).toBe('/sign-up');
+    } finally {
+      await server.stop();
+    }
+  });
+
   it('keeps unknown API paths in the BFF response format', async () => {
     const server = await startNodeRuntime(fakeDependencies(), {
       port: 0,

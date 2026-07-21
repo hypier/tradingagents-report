@@ -65,6 +65,8 @@
     "spent": "已消费",
     "actualCost": "AI 实际成本",
     "finalPoints": "{{count}} 积分",
+    "signupGrant": "新用户注册赠送",
+    "referralReward": "邀请注册奖励",
     "reserved": "预留变动",
     "emptyTitle": "暂无额度活动",
     "emptyBody": "周期发放与分析用量将显示在这里。"

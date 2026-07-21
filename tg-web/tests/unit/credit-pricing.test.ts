@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBillingSignature,
   calculateActualPoints,
+  calculateGrantPoints,
   calculateReservedPoints,
   discreteP90,
 } from '../../src/backend/billing/credit-pricing';
@@ -28,6 +29,19 @@ describe('credit pricing', () => {
 
   it('charges at least one point for any positive cost', () => {
     expect(calculateActualPoints('0.00000001', settings)).toBe(1);
+  });
+
+  it('converts USD grants to points without analysis markups', () => {
+    expect(calculateGrantPoints('5.00', '100.000000')).toBe(500);
+    expect(calculateGrantPoints('0.011', '100')).toBe(2);
+    expect(calculateGrantPoints('0', '100')).toBe(0);
+  });
+
+  it('rejects invalid or unsafe grant values', () => {
+    expect(() => calculateGrantPoints('-1', '100')).toThrow(RangeError);
+    expect(() =>
+      calculateGrantPoints(String(Number.MAX_SAFE_INTEGER), '2'),
+    ).toThrow(RangeError);
   });
 
   it('selects the discrete p90 from sorted decimal costs', () => {

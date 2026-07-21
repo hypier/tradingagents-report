@@ -22,6 +22,7 @@ import type {
   CreditBillingSettings,
   CreateBillingPlanInput,
 } from '@/backend/billing/contract';
+import { calculateGrantPoints } from '@/backend/billing/credit-pricing';
 import { AppShell } from '@/frontend/components/app-shell';
 import {
   Alert,
@@ -108,6 +109,8 @@ type CreditSettingsForm = {
   markupPercent: string;
   reserveBufferPercent: string;
   defaultEstimatedCostUsd: string;
+  signupGrantUsd: string;
+  referralRewardUsd: string;
 };
 
 function createInitialPlan(features: string): PlanForm {
@@ -137,6 +140,8 @@ export function AdminBillingPage() {
     markupPercent: '10',
     reserveBufferPercent: '20',
     defaultEstimatedCostUsd: '1',
+    signupGrantUsd: '5',
+    referralRewardUsd: '2',
   });
   const session = useAuthSession();
   const queryClient = useQueryClient();
@@ -160,6 +165,8 @@ export function AdminBillingPage() {
       markupPercent: String(value.markupBasisPoints / 100),
       reserveBufferPercent: String(value.reserveBufferBasisPoints / 100),
       defaultEstimatedCostUsd: value.defaultEstimatedCostUsd,
+      signupGrantUsd: value.signupGrantUsd,
+      referralRewardUsd: value.referralRewardUsd,
     });
   }, [creditSettings.data]);
   const refresh = () => {
@@ -222,6 +229,8 @@ export function AdminBillingPage() {
           Number(creditForm.reserveBufferPercent) * 100,
         ),
         defaultEstimatedCostUsd: creditForm.defaultEstimatedCostUsd,
+        signupGrantUsd: creditForm.signupGrantUsd,
+        referralRewardUsd: creditForm.referralRewardUsd,
       }),
     onSuccess: () => {
       refresh();
@@ -561,6 +570,15 @@ function CreditSettingsEditor({
     cost > 0
       ? Math.ceil(cost * (1 + markup) * (1 + buffer) * pointsPerUsd)
       : 0;
+  const grantPreview = (amountUsd: string) => {
+    try {
+      return calculateGrantPoints(amountUsd, value.pointsPerUsd);
+    } catch {
+      return 0;
+    }
+  };
+  const signupPreview = grantPreview(value.signupGrantUsd);
+  const referralPreview = grantPreview(value.referralRewardUsd);
 
   if (loading) return <Skeleton className="h-72 w-full" />;
   return (
@@ -571,9 +589,19 @@ function CreditSettingsEditor({
         </CardTitle>
         <CardDescription>{t('billing.credits.description')}</CardDescription>
         <CardAction>
-          <Badge variant="secondary">
-            {t('billing.credits.preview', { count: preview })}
-          </Badge>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Badge variant="secondary">
+              {t('billing.credits.preview', { count: preview })}
+            </Badge>
+            <Badge variant="outline">
+              {t('billing.credits.signupPreview', { count: signupPreview })}
+            </Badge>
+            <Badge variant="outline">
+              {t('billing.credits.referralPreview', {
+                count: referralPreview,
+              })}
+            </Badge>
+          </div>
         </CardAction>
       </CardHeader>
       <CardContent>
@@ -647,6 +675,40 @@ function CreditSettingsEditor({
                 value={value.defaultEstimatedCostUsd}
                 onChange={(event) =>
                   onChange({ defaultEstimatedCostUsd: event.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="signup-grant-usd">
+                {t('billing.credits.signupGrantUsd')}
+              </FieldLabel>
+              <Input
+                id="signup-grant-usd"
+                type="number"
+                min="0"
+                max="1000000"
+                step="0.01"
+                required
+                value={value.signupGrantUsd}
+                onChange={(event) =>
+                  onChange({ signupGrantUsd: event.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="referral-reward-usd">
+                {t('billing.credits.referralRewardUsd')}
+              </FieldLabel>
+              <Input
+                id="referral-reward-usd"
+                type="number"
+                min="0"
+                max="1000000"
+                step="0.01"
+                required
+                value={value.referralRewardUsd}
+                onChange={(event) =>
+                  onChange({ referralRewardUsd: event.target.value })
                 }
               />
             </Field>

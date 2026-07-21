@@ -17,9 +17,14 @@ import {
   createBillingRepository,
   type BillingRepository,
 } from './billing-repository';
+import {
+  createReferralRepository,
+  type ReferralRepository,
+} from './referral-repository';
 
 export type { AccountRepository } from './account-repository';
 export type { BillingRepository } from './billing-repository';
+export type { ReferralRepository } from './referral-repository';
 
 export type AnalysisJob = typeof analysisJobs.$inferSelect;
 export type ModelPrice = typeof llmModelPrices.$inferSelect;
@@ -78,11 +83,13 @@ export function createRepositories(database: Database): {
   pricingSources: PricingSourcesRepository;
   account: AccountRepository;
   billing: BillingRepository;
+  referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
 } {
   return {
     account: createAccountRepository(database),
     billing: createBillingRepository(database),
+    referrals: createReferralRepository(database),
     billingConfig: {
       async getStripe() {
         const [configuration] = await database

@@ -69,11 +69,22 @@ const positiveDecimal = (maximumFractionDigits: number) =>
     )
     .refine((value) => Number(value) > 0 && Number(value) <= 1_000_000);
 
+const nonNegativeDecimal = (maximumFractionDigits: number) =>
+  z
+    .string()
+    .trim()
+    .regex(
+      new RegExp(`^(?:0|[1-9]\\d*)(?:\\.\\d{1,${maximumFractionDigits}})?$`),
+    )
+    .refine((value) => Number(value) <= 1_000_000);
+
 const creditSettingsSchema = z.object({
   pointsPerUsd: positiveDecimal(6),
   markupBasisPoints: z.number().int().min(0).max(100_000),
   reserveBufferBasisPoints: z.number().int().min(0).max(100_000),
   defaultEstimatedCostUsd: positiveDecimal(8),
+  signupGrantUsd: nonNegativeDecimal(2),
+  referralRewardUsd: nonNegativeDecimal(2),
 });
 
 export function billingRoutes(dependencies: AppDependencies) {

@@ -52,6 +52,10 @@ export const accountUsers = pgTable(
     defaultMarket: text('default_market').notNull().default('US'),
     /** 关联的 Stripe Customer ID（`cus_...`）；创建前为 null。 */
     stripeCustomerId: text('stripe_customer_id'),
+    referralCode: text('referral_code').notNull(),
+    onboardingCompletedAt: timestamp('onboarding_completed_at', {
+      withTimezone: true,
+    }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -63,6 +67,7 @@ export const accountUsers = pgTable(
     uniqueIndex('product_users_stripe_customer_key')
       .on(table.stripeCustomerId)
       .where(sql`${table.stripeCustomerId} is not null`),
+    uniqueIndex('product_users_referral_code_key').on(table.referralCode),
   ],
 );
 
@@ -179,6 +184,15 @@ export const creditBillingSettings = pgTable('credit_billing_settings', {
   })
     .notNull()
     .default('1.00000000'),
+  signupGrantUsd: numeric('signup_grant_usd', { precision: 18, scale: 2 })
+    .notNull()
+    .default('5.00'),
+  referralRewardUsd: numeric('referral_reward_usd', {
+    precision: 18,
+    scale: 2,
+  })
+    .notNull()
+    .default('2.00'),
   updatedByClerkUserId: text('updated_by_clerk_user_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
@@ -211,6 +225,50 @@ export const creditBillingSettingEvents = pgTable(
  * 单次分析请求的幂等积分预留。
  * 主键为客户端/API 的 `requestId`。
  */
+export const referralRelationships = pgTable(
+  'referral_relationships',
+  {
+    inviteeClerkUserId: text('invitee_clerk_user_id')
+      .primaryKey()
+      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
+    inviterClerkUserId: text('inviter_clerk_user_id')
+      .notNull()
+      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
+    referralCode: text('referral_code').notNull(),
+    pointsPerUsd: numeric('points_per_usd', {
+      precision: 18,
+      scale: 6,
+    }).notNull(),
+    signupGrantUsd: numeric('signup_grant_usd', {
+      precision: 18,
+      scale: 2,
+    }).notNull(),
+    signupGrantPoints: bigint('signup_grant_points', {
+      mode: 'number',
+    }).notNull(),
+    referralRewardUsd: numeric('referral_reward_usd', {
+      precision: 18,
+      scale: 2,
+    }).notNull(),
+    referralRewardPoints: bigint('referral_reward_points', {
+      mode: 'number',
+    }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('referral_relationships_inviter_created_idx').on(
+      table.inviterClerkUserId,
+      desc(table.createdAt),
+    ),
+    check(
+      'referral_relationships_distinct_users_check',
+      sql`${table.inviteeClerkUserId} <> ${table.inviterClerkUserId}`,
+    ),
+  ],
+);
+
 export const creditReservations = pgTable(
   'credit_reservations',
   {
@@ -283,9 +341,7 @@ export const creditLedgerEntries = pgTable(
       .notNull()
       .default(0),
     /** 对 spent_credits 的有符号增量。 */
-    spentDelta: bigint('spent_delta', { mode: 'number' })
-      .notNull()
-      .default(0),
+    spentDelta: bigint('spent_delta', { mode: 'number' }).notNull().default(0),
     /** 防止重复入账的唯一键。 */
     idempotencyKey: text('idempotency_key').notNull(),
     /** 外部引用类别（如 analysis_request、stripe_invoice）。 */
