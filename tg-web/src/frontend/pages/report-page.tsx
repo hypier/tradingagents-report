@@ -25,8 +25,8 @@ import {
 } from '../components/report/report-reading-toolbar';
 import { ReportTabsNav } from '../components/report/report-tabs-nav';
 import { InstrumentIdentity } from '../components/instrument-identity';
+import { InstrumentLogo } from '../components/instrument-logo';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -392,26 +392,18 @@ export function ReportPage() {
           >
             <ArrowLeft />
           </Button>
-          <Avatar
-            size="lg"
-            className="size-11 !rounded-none after:hidden"
-            data-logo-url={identity.logoUrl ?? undefined}
-          >
-            <AvatarImage
-              key={identity.logoUrl ?? 'missing'}
-              src={identity.logoUrl ?? undefined}
-              alt={t('logoAlt', {
-                name:
-                  identity.displayName ??
-                  identity.ticker ??
-                  t('instrumentFallback'),
-              })}
-              className="!rounded-none object-contain"
-            />
-            <AvatarFallback className="!rounded-none bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
-              {(identity.ticker ?? 'R').slice(0, 1)}
-            </AvatarFallback>
-          </Avatar>
+          <InstrumentLogo
+            symbol={identity.ticker ?? 'R'}
+            logoUrl={identity.logoUrl}
+            alt={t('logoAlt', {
+              name:
+                identity.displayName ??
+                identity.ticker ??
+                t('instrumentFallback'),
+            })}
+            size="xl"
+            tone="accent"
+          />
           <div className="min-w-0 flex-1">
             <InstrumentIdentity
               density="header"

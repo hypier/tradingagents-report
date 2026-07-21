@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { InstrumentLogo } from './instrument-logo';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Spinner } from './ui/spinner';
@@ -228,17 +228,11 @@ export function TickerSearch({
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => selectHit(hit)}
                   >
-                    <Avatar className="size-10! shrink-0 !rounded-none after:hidden">
-                      <AvatarImage
-                        key={hit.logo_url ?? 'missing'}
-                        src={hit.logo_url}
-                        alt=""
-                        className="!rounded-none object-contain"
-                      />
-                      <AvatarFallback className="!rounded-none text-sm font-semibold">
-                        {hit.display_ticker.slice(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <InstrumentLogo
+                      symbol={hit.provider_symbol ?? hit.display_ticker}
+                      logoUrl={hit.logo_url}
+                      size="lg"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-base font-medium">
                         {hit.display_name}

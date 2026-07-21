@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { InstrumentIdentity } from '@/frontend/components/instrument-identity';
-import { Avatar, AvatarFallback, AvatarImage } from '@/frontend/components/ui/avatar';
+import { InstrumentLogo } from '@/frontend/components/instrument-logo';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
 import { Skeleton } from '@/frontend/components/ui/skeleton';
@@ -126,25 +126,14 @@ export function QuoteStrip({
       )}
     >
       <div className={cn('flex min-w-0 items-center gap-3', isPanel && 'w-full items-start')}>
-        <Avatar
-          className={cn(
-            'shrink-0 !rounded-none after:hidden',
-            isPanel ? 'size-14!' : 'size-10!',
-          )}
-          data-logo-url={quote.logo_url}
-        >
-          <AvatarImage
-            key={quote.logo_url ?? 'missing'}
-            src={quote.logo_url}
-            alt={t('snapshot.logoAlt', {
-              name: quote.display_name ?? quote.ticker,
-            })}
-            className="!rounded-none object-contain"
-          />
-          <AvatarFallback className="!rounded-none text-sm font-semibold">
-            {quote.ticker.slice(0, 1)}
-          </AvatarFallback>
-        </Avatar>
+        <InstrumentLogo
+          symbol={quote.display_ticker ?? quote.ticker}
+          logoUrl={quote.logo_url}
+          alt={t('snapshot.logoAlt', {
+            name: quote.display_name ?? quote.ticker,
+          })}
+          size={isPanel ? '2xl' : 'lg'}
+        />
 
         <div className="min-w-0 flex-1">
           <InstrumentIdentity
@@ -171,7 +160,6 @@ export function QuoteStrip({
                 ? t('snapshot.staleWithAge', { age: delayLabel })
                 : t('snapshot.stale')
               : t('snapshot.asOf')}
-            {quote.source ? ` · ${quote.source}` : ''}
             {quote.as_of ? ` · ${formatLocaleDateTimeValue(quote.as_of)}` : ''}
           </p>
         </div>

@@ -47,6 +47,45 @@ describe('TradingViewMarketClient', () => {
     );
   });
 
+  it('quotes unsupported index exchanges for quote pages', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            symbol: 'SP:SPX',
+            data: {
+              lp: 7443.28,
+              ch: -14.2,
+              chp: -0.19,
+              currency_code: '',
+              lp_time: 1784165400,
+              update_mode: 'delayed_streaming_900',
+              short_name: 'SPX',
+              description: 'S&P 500',
+              logoid: 'indices/spx',
+            },
+          },
+        }),
+      ),
+    );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.getSnapshot('SP:SPX')).resolves.toMatchObject({
+      ticker: 'SP:SPX',
+      display_ticker: 'SP:SPX',
+      display_name: 'S&P 500',
+      last_price: 7443.28,
+      change_percent: -0.19,
+      currency: 'POINT',
+      source: 'tradingview',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://tradingview-data1.p.rapidapi.com/api/quote/SP%3ASPX?session=regular&fields=all',
+      expect.anything(),
+    );
+  });
+
   it('prefers company description over ticker-like short_name', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       new Response(

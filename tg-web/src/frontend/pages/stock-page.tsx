@@ -7,12 +7,12 @@ import { toast } from 'sonner';
 import { AppShell } from '../components/app-shell';
 import { ReportsTable } from '../components/dashboard/recent-reports';
 import { InstrumentIdentity } from '../components/instrument-identity';
+import { InstrumentLogo } from '../components/instrument-logo';
 import { SessionStatsRow } from '../components/market/session-stats-row';
 import { StockQuoteMetrics } from '../components/market/stock-quote-metrics';
 import { TradingViewAdvancedChart } from '../components/market/tradingview-advanced-chart';
 import { PageBody } from '../components/page-chrome';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
 import {
@@ -157,17 +157,12 @@ export function StockPage() {
                   </Link>
                 </Button>
 
-                <Avatar className="size-16 shrink-0 !rounded-none after:hidden">
-                  <AvatarImage
-                    key={logoUrl ?? 'missing'}
-                    className="!rounded-none object-contain"
-                    src={logoUrl}
-                    alt={displayName || listing.display_ticker}
-                  />
-                  <AvatarFallback className="!rounded-none text-xl font-semibold">
-                    {listing.symbol.slice(0, 1)}
-                  </AvatarFallback>
-                </Avatar>
+                <InstrumentLogo
+                  symbol={listing.provider_symbol ?? listing.display_ticker}
+                  logoUrl={logoUrl}
+                  alt={displayName || listing.display_ticker}
+                  size="3xl"
+                />
 
                 <div className="min-w-0">
                   <InstrumentIdentity

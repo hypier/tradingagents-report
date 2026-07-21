@@ -15,9 +15,9 @@ import {
   type ReportPaperThemeId,
 } from '../components/report/report-reading-toolbar';
 import { ReportTabsNav } from '../components/report/report-tabs-nav';
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { InstrumentIdentity } from '../components/instrument-identity';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { InstrumentLogo } from '../components/instrument-logo';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -239,23 +239,15 @@ export function SharedReportPage({
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-5 px-5 py-3.5 md:gap-5 lg:px-6">
         <div className="flex items-center gap-3 border-b border-border pb-3.5">
-          <Avatar
-            size="lg"
-            className="size-11 !rounded-none after:hidden"
-            data-logo-url={logoUrl ?? undefined}
-          >
-            <AvatarImage
-              key={logoUrl ?? 'missing'}
-              src={logoUrl ?? undefined}
-              alt={t('logoAlt', {
-                name: displayName ?? ticker ?? t('instrumentFallback'),
-              })}
-              className="!rounded-none object-contain"
-            />
-            <AvatarFallback className="!rounded-none bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
-              {(ticker ?? 'R').slice(0, 1)}
-            </AvatarFallback>
-          </Avatar>
+          <InstrumentLogo
+            symbol={ticker ?? 'R'}
+            logoUrl={logoUrl}
+            alt={t('logoAlt', {
+              name: displayName ?? ticker ?? t('instrumentFallback'),
+            })}
+            size="xl"
+            tone="accent"
+          />
           <div className="min-w-0 flex-1">
             <InstrumentIdentity
               density="header"

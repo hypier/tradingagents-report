@@ -2,7 +2,7 @@ import { ChevronRight, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { InstrumentIdentity } from '../instrument-identity';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { InstrumentLogo } from '../instrument-logo';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import {
@@ -122,20 +122,12 @@ export function ReportsByTicker({
             className="min-w-0 border border-border bg-card"
           >
             <header className="flex items-center gap-2.5 px-3 py-2.5">
-              <Avatar
-                className="size-7! shrink-0 !rounded-none after:hidden"
-                data-logo-url={logoUrl}
-              >
-                <AvatarImage
-                  key={logoUrl ?? 'missing'}
-                  src={logoUrl}
-                  alt={t('table.logoAlt', { ticker: head.ticker })}
-                  className="!rounded-none object-contain"
-                />
-                <AvatarFallback className="!rounded-none text-[11px] font-semibold">
-                  {ticker.slice(0, 1)}
-                </AvatarFallback>
-              </Avatar>
+              <InstrumentLogo
+                symbol={ticker}
+                logoUrl={logoUrl}
+                alt={t('table.logoAlt', { ticker: head.ticker })}
+                size="sm"
+              />
               <InstrumentIdentity
                 className="min-w-0 flex-1"
                 density="compact"

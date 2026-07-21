@@ -14,6 +14,7 @@ import {
 import {
   formatDisplayTicker,
   isSupportedExchange,
+  listingForQuoteView,
   listingFromProviderSymbol,
   resolveListingTicker,
   resolveMarketCurrency,
@@ -277,8 +278,10 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
     let listing: ResolvedListing;
     try {
+      // Quote pages accept any EXCHANGE:SYMBOL; analysis still uses
+      // listingFromProviderSymbol / isSupportedExchange elsewhere.
       listing = normalized.includes(':')
-        ? listingFromProviderSymbol(normalized)
+        ? listingForQuoteView(normalized)
         : resolveListingTicker(normalized);
     } catch {
       throw new Error('TradingView could not resolve this ticker');

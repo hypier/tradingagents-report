@@ -11,10 +11,10 @@ import {
 } from '@/frontend/components/market/ticker-tape';
 import { AppShell } from '@/frontend/components/app-shell';
 import { InstrumentIdentity } from '@/frontend/components/instrument-identity';
+import { InstrumentLogo } from '@/frontend/components/instrument-logo';
 import { PageFrame, PageToolbar } from '@/frontend/components/page-chrome';
 import { TickerSearch } from '@/frontend/components/ticker-search';
 import { Alert, AlertDescription, AlertTitle } from '@/frontend/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/frontend/components/ui/avatar';
 import { Skeleton } from '@/frontend/components/ui/skeleton';
 import {
   Table,
@@ -326,14 +326,11 @@ export function QuotesPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex min-w-0 items-center gap-2.5">
-                            <Avatar className="size-8 rounded-none">
-                              {item.logo_url ? (
-                                <AvatarImage src={item.logo_url} alt="" />
-                              ) : null}
-                              <AvatarFallback className="rounded-none bg-muted text-xs font-semibold">
-                                {(item.name || item.symbol).slice(0, 1)}
-                              </AvatarFallback>
-                            </Avatar>
+                            <InstrumentLogo
+                              symbol={item.symbol}
+                              logoUrl={item.logo_url}
+                              size="md"
+                            />
                             <InstrumentIdentity
                               name={item.description}
                               ticker={item.name}

@@ -8,8 +8,8 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { InstrumentIdentity } from '../instrument-identity';
+import { InstrumentLogo } from '../instrument-logo';
 import { Badge } from '../ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 import { Skeleton } from '../ui/skeleton';
@@ -204,20 +204,12 @@ export function ReportsTable({
                       className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-muted/35"
                       onClick={() => onOpenReport(job.id)}
                     >
-                      <Avatar
-                        className="size-8! shrink-0 !rounded-none after:hidden"
-                        data-logo-url={logoUrl}
-                      >
-                        <AvatarImage
-                          key={logoUrl ?? 'missing'}
-                          src={logoUrl}
-                          alt={t('table.logoAlt', { ticker: job.ticker })}
-                          className="!rounded-none object-contain"
-                        />
-                        <AvatarFallback className="!rounded-none text-xs font-semibold">
-                          {ticker.slice(0, 1)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <InstrumentLogo
+                        symbol={ticker}
+                        logoUrl={logoUrl}
+                        alt={t('table.logoAlt', { ticker: job.ticker })}
+                        size="md"
+                      />
                       <InstrumentIdentity
                         className="min-w-0 flex-1"
                         density="compact"
@@ -366,20 +358,12 @@ export function ReportsTable({
                     </TableCell>
                     <TableCell className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <Avatar
-                          className="size-8! shrink-0 !rounded-none after:hidden"
-                          data-logo-url={instrumentLogo(job, identities)}
-                        >
-                          <AvatarImage
-                            key={instrumentLogo(job, identities) ?? 'missing'}
-                            src={instrumentLogo(job, identities)}
-                            alt={t('table.logoAlt', { ticker: job.ticker })}
-                            className="!rounded-none object-contain"
-                          />
-                          <AvatarFallback className="!rounded-none text-xs font-semibold">
-                            {job.ticker.slice(0, 1)}
-                          </AvatarFallback>
-                        </Avatar>
+                        <InstrumentLogo
+                          symbol={instrumentTicker(job, identities)}
+                          logoUrl={instrumentLogo(job, identities)}
+                          alt={t('table.logoAlt', { ticker: job.ticker })}
+                          size="md"
+                        />
                         <InstrumentIdentity
                           className="min-w-0"
                           density="row"
@@ -492,20 +476,12 @@ export function ReportsTable({
                 >
                   <TableCell className="pl-5 lg:pl-6">
                     <div className="flex items-center gap-2.5">
-                      <Avatar
-                        className="size-8! shrink-0 !rounded-none after:hidden"
-                        data-logo-url={instrumentLogo(job, identities)}
-                      >
-                        <AvatarImage
-                          key={instrumentLogo(job, identities) ?? 'missing'}
-                          src={instrumentLogo(job, identities)}
-                          alt={t('table.logoAlt', { ticker: job.ticker })}
-                          className="!rounded-none object-contain"
-                        />
-                        <AvatarFallback className="!rounded-none text-xs font-semibold">
-                          {job.ticker.slice(0, 1)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <InstrumentLogo
+                        symbol={instrumentTicker(job, identities)}
+                        logoUrl={instrumentLogo(job, identities)}
+                        alt={t('table.logoAlt', { ticker: job.ticker })}
+                        size="md"
+                      />
                       <div className="flex min-w-0 items-start gap-1.5">
                         <InstrumentIdentity
                           density="row"

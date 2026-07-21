@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/frontend/components/ui/avatar';
+import { InstrumentLogo } from '@/frontend/components/instrument-logo';
 import { cn } from '@/frontend/lib/utils';
 import { formatLocaleNumber } from '@/frontend/lib/format-locale';
 import type { MarketTapeQuote } from '@/shared/market-board';
@@ -14,32 +14,6 @@ function changeClass(changePercent: number) {
 
 function symbolLabel(symbol: string) {
   return symbol.includes(':') ? symbol.split(':', 2)[1]! : symbol;
-}
-
-/** Square mark for pinned indices (28×28). */
-function QuoteLogo({ quote }: { quote: MarketTapeQuote }) {
-  const label = symbolLabel(quote.symbol);
-  return (
-    <Avatar className="size-8 shrink-0 rounded-none">
-      {quote.logo_url ? <AvatarImage src={quote.logo_url} alt="" /> : null}
-      <AvatarFallback className="rounded-none bg-muted text-xs font-semibold">
-        {label.slice(0, 1)}
-      </AvatarFallback>
-    </Avatar>
-  );
-}
-
-/** Thin tape mark — slightly denser than list logos. */
-function TapeLogo({ quote }: { quote: MarketTapeQuote }) {
-  const label = symbolLabel(quote.symbol);
-  return (
-    <Avatar className="size-5 shrink-0 rounded-none">
-      {quote.logo_url ? <AvatarImage src={quote.logo_url} alt="" /> : null}
-      <AvatarFallback className="rounded-none bg-muted text-[10px] font-semibold leading-none">
-        {label.slice(0, 1)}
-      </AvatarFallback>
-    </Avatar>
-  );
 }
 
 /** Single-line ticker unit — no cell borders; continuous floor scroll. */
@@ -60,7 +34,11 @@ function TapeChip({
         'quote-flash',
       )}
     >
-      <TapeLogo quote={quote} />
+      <InstrumentLogo
+        symbol={quote.symbol}
+        logoUrl={quote.logo_url}
+        size="xs"
+      />
       <span className="font-mono text-xs font-medium tracking-wide text-foreground">
         {ticker}
       </span>
@@ -164,7 +142,11 @@ export function PinnedIndices({
               isDown && 'bg-market-down-bg',
             )}
           >
-            <QuoteLogo quote={quote} />
+            <InstrumentLogo
+              symbol={quote.symbol}
+              logoUrl={quote.logo_url}
+              size="md"
+            />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium tracking-tight text-foreground">
                 {quote.name || label}

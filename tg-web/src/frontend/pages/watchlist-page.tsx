@@ -7,10 +7,10 @@ import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
 import { InstrumentIdentity } from '../components/instrument-identity';
+import { InstrumentLogo } from '../components/instrument-logo';
 import { PageFrame, SectionPanel } from '../components/page-chrome';
 import { TickerSearch } from '../components/ticker-search';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -204,17 +204,12 @@ export function WatchlistPage() {
                         className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
                       >
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <Avatar className="size-8 shrink-0 !rounded-none after:hidden">
-                            <AvatarImage
-                              key={item.logoUrl ?? 'missing'}
-                              className="!rounded-none object-contain"
-                              src={item.logoUrl ?? undefined}
-                              alt={item.displayName || item.displayTicker}
-                            />
-                            <AvatarFallback className="!rounded-none text-xs font-semibold">
-                              {(item.symbol || item.displayTicker).slice(0, 1)}
-                            </AvatarFallback>
-                          </Avatar>
+                          <InstrumentLogo
+                            symbol={item.providerSymbol || item.displayTicker}
+                            logoUrl={item.logoUrl}
+                            alt={item.displayName || item.displayTicker}
+                            size="md"
+                          />
                           <div className="min-w-0">
                             <Link
                               className="block min-w-0 hover:underline"
