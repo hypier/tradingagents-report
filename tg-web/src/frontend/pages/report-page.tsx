@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   ArrowLeft,
+  BookmarkPlus,
+  CandlestickChart,
   Copy,
   Download,
   FileText,
@@ -64,9 +66,19 @@ import {
   listShares,
   revokeShare,
 } from '../lib/share';
+import {
+  addWatchlistItem,
+  getWatchlist,
+  removeWatchlistItem,
+} from '../lib/watchlist';
 import { cn } from '../lib/utils';
 import { ANALYSIS_CREDIT_UNITS } from '@/shared/analysis-credits';
-import { formatDisplayTicker } from '@/shared/listing';
+import {
+  formatDisplayTicker,
+  listingFromParts,
+  resolveListingTicker,
+  type ResolvedListing,
+} from '@/shared/listing';
 
 const reportFontSteps = [0.92, 1.0, 1.08, 1.18, 1.3] as const;
 const defaultFontStep = 1;
@@ -135,6 +147,25 @@ function reportIdentity(job: AnalysisDetail | undefined) {
   };
 }
 
+/** Resolve listing identity for quote / watchlist actions. */
+function listingForJob(job: AnalysisDetail | undefined): ResolvedListing | null {
+  if (!job?.ticker?.trim()) return null;
+  try {
+    const displaySymbol = job.display?.symbol?.trim();
+    if (job.exchange?.trim() && displaySymbol) {
+      return listingFromParts(job.exchange, displaySymbol);
+    }
+    const listing = resolveListingTicker(job.ticker);
+    if (listing.provider_symbol) return listing;
+    if (job.exchange?.trim()) {
+      return listingFromParts(job.exchange, listing.symbol);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function getReportScrollParent() {
   return document.querySelector<HTMLElement>('[data-slot="sidebar-inset"]');
 }
@@ -166,6 +197,9 @@ export function ReportPage() {
   const shareLinksEnabled =
     publicConfig.isLoading ||
     publicConfig.data?.features.shareLinks !== false;
+  const watchlistEnabled =
+    publicConfig.isLoading ||
+    publicConfig.data?.features.watchlist !== false;
   const job = detail.data?.data;
   const canShare = Boolean(id) && shareLinksEnabled && job?.status === 'succeeded';
   const shares = useQuery({
@@ -173,8 +207,14 @@ export function ReportPage() {
     queryFn: () => listShares(id!),
     enabled: canShare,
   });
+  const watchlist = useQuery({
+    queryKey: ['watchlist'],
+    queryFn: () => getWatchlist(),
+    enabled: watchlistEnabled,
+    staleTime: 60_000,
+  });
   const meta = useMutation({
-    mutationFn: (input: { isFavorite?: boolean; isArchived?: boolean }) =>
+    mutationFn: (input: { isArchived?: boolean }) =>
       updateResearchMeta(id!, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['analysis', id] });
@@ -182,6 +222,23 @@ export function ReportPage() {
       toast.success(t('metaUpdated'));
     },
     onError: () => toast.error(t('metaError')),
+  });
+  const addWatchlist = useMutation({
+    mutationFn: (input: Parameters<typeof addWatchlistItem>[0]) =>
+      addWatchlistItem(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+      toast.success(t('watchlist.added'));
+    },
+    onError: () => toast.error(t('watchlist.addError')),
+  });
+  const removeWatchlist = useMutation({
+    mutationFn: (itemId: string) => removeWatchlistItem(itemId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+      toast.success(t('watchlist.removed'));
+    },
+    onError: () => toast.error(t('watchlist.removeError')),
   });
   const createShareLink = useMutation({
     mutationFn: () => createShare(id!, { expiresInDays: 7 }),
@@ -235,7 +292,12 @@ export function ReportPage() {
     t(`common:${key}`, options),
   );
   const identity = reportIdentity(job);
-  const isFavorite = Boolean(job?.is_favorite ?? job?.isFavorite);
+  const listing = listingForJob(job);
+  const providerSymbol = listing?.provider_symbol ?? null;
+  const defaultGroupId = watchlist.data?.data.groups[0]?.id;
+  const watchlistItem = watchlist.data?.data.groups
+    .flatMap((group) => group.items)
+    .find((item) => item.providerSymbol === providerSymbol);
   const isArchived = Boolean(job?.is_archived ?? job?.isArchived);
   const creditUnits = job?.credit_units ?? ANALYSIS_CREDIT_UNITS;
   const tradeDate =
@@ -449,22 +511,76 @@ export function ReportPage() {
           </div>
           {job ? (
             <div className="flex shrink-0 items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isFavorite ? 'default' : 'outline'}
-                    size="icon-sm"
-                    disabled={meta.isPending}
-                    aria-label={isFavorite ? t('unfavorite') : t('favorite')}
-                    onClick={() => meta.mutate({ isFavorite: !isFavorite })}
-                  >
-                    <Star className={isFavorite ? 'fill-current' : undefined} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>
-                  {isFavorite ? t('unfavorite') : t('favorite')}
-                </TooltipContent>
-              </Tooltip>
+              {providerSymbol ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      className="border-primary text-primary hover:bg-primary/10 hover:text-primary"
+                      aria-label={t('openLiveQuote')}
+                      onClick={() =>
+                        navigate(
+                          `/stocks/${encodeURIComponent(providerSymbol)}`,
+                        )
+                      }
+                    >
+                      <CandlestickChart />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    {t('openLiveQuote')}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+              {watchlistEnabled && listing?.provider_symbol ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={watchlistItem ? 'default' : 'outline'}
+                      size="icon-sm"
+                      disabled={
+                        addWatchlist.isPending ||
+                        removeWatchlist.isPending ||
+                        (!watchlistItem && !defaultGroupId)
+                      }
+                      aria-label={
+                        watchlistItem
+                          ? t('watchlist.remove')
+                          : t('watchlist.add')
+                      }
+                      onClick={() => {
+                        if (watchlistItem) {
+                          removeWatchlist.mutate(watchlistItem.id);
+                          return;
+                        }
+                        if (!defaultGroupId || !listing.provider_symbol) return;
+                        addWatchlist.mutate({
+                          groupId: defaultGroupId,
+                          exchange: listing.exchange ?? '',
+                          symbol: listing.symbol,
+                          displayTicker: listing.display_ticker,
+                          providerSymbol: listing.provider_symbol,
+                          displayName:
+                            identity.displayName || listing.display_ticker,
+                          logoUrl: identity.logoUrl,
+                        });
+                      }}
+                    >
+                      {watchlistItem ? (
+                        <Star className="fill-current" />
+                      ) : (
+                        <BookmarkPlus />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    {watchlistItem
+                      ? t('watchlist.remove')
+                      : t('watchlist.add')}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

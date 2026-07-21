@@ -176,7 +176,7 @@ export const listResearch = (
     exchange?: string;
     tradeDateFrom?: string;
     tradeDateTo?: string;
-    favorite?: boolean;
+    watchlist?: boolean;
     archived?: boolean;
   } = {},
   fetchImplementation?: FetchImplementation,
@@ -189,8 +189,8 @@ export const listResearch = (
   if (params.exchange) search.set('exchange', params.exchange);
   if (params.tradeDateFrom) search.set('trade_date_from', params.tradeDateFrom);
   if (params.tradeDateTo) search.set('trade_date_to', params.tradeDateTo);
-  if (params.favorite !== undefined) {
-    search.set('favorite', String(params.favorite));
+  if (params.watchlist !== undefined) {
+    search.set('watchlist', String(params.watchlist));
   }
   if (params.archived !== undefined) {
     search.set('archived', String(params.archived));

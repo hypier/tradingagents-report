@@ -44,7 +44,7 @@ export function ReportsPage() {
   const [exchange, setExchange] = useState('');
   const [tradeDateFrom, setTradeDateFrom] = useState('');
   const [tradeDateTo, setTradeDateTo] = useState('');
-  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
   const statusFilter = status === 'all' ? undefined : status;
   const filters = {
@@ -53,7 +53,7 @@ export function ReportsPage() {
     exchange: exchange.trim() || undefined,
     tradeDateFrom: tradeDateFrom || undefined,
     tradeDateTo: tradeDateTo || undefined,
-    favorite: favoriteOnly || undefined,
+    watchlist: watchlistOnly || undefined,
     archived: includeArchived ? undefined : false,
   };
   const activeFilterCount = [
@@ -62,7 +62,7 @@ export function ReportsPage() {
     Boolean(exchange.trim()),
     Boolean(tradeDateFrom),
     Boolean(tradeDateTo),
-    favoriteOnly,
+    watchlistOnly,
     includeArchived,
   ].filter(Boolean).length;
   const reports = useInfiniteQuery({
@@ -217,10 +217,12 @@ export function ReportsPage() {
             </div>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
-                checked={favoriteOnly}
-                onCheckedChange={(checked) => setFavoriteOnly(checked === true)}
+                checked={watchlistOnly}
+                onCheckedChange={(checked) =>
+                  setWatchlistOnly(checked === true)
+                }
               />
-              {t('favoriteOnly')}
+              {t('watchlistOnly')}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox

@@ -47,7 +47,6 @@ it('shows library columns for decision and trade date', async () => {
             status: 'succeeded',
             decision: 'Buy',
             trade_date: '2026-07-21',
-            is_favorite: true,
           },
         ]}
         loading={false}
@@ -64,7 +63,6 @@ it('shows library columns for decision and trade date', async () => {
     screen.getByRole('columnheader', { name: 'Trade date' }),
   ).toBeInTheDocument();
   expect(screen.getByText('Buy')).toHaveAttribute('data-variant', 'up');
-  expect(screen.getByLabelText('Favorite')).toBeInTheDocument();
 
   await i18n.changeLanguage('zh');
   expect(await screen.findByText('买入')).toHaveAttribute('data-variant', 'up');

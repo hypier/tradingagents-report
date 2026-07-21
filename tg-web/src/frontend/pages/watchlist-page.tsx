@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LoaderCircle, Plus, Trash2 } from 'lucide-react';
+import {
+  CandlestickChart,
+  LoaderCircle,
+  Play,
+  Plus,
+  Star,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -8,22 +15,30 @@ import { toast } from 'sonner';
 import { AppShell } from '../components/app-shell';
 import { InstrumentIdentity } from '../components/instrument-identity';
 import { InstrumentLogo } from '../components/instrument-logo';
-import { PageFrame, SectionPanel } from '../components/page-chrome';
+import { PageFrame, PageToolbar } from '../components/page-chrome';
 import { TickerSearch } from '../components/ticker-search';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '../components/ui/empty';
 import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../components/ui/tooltip';
 import type { SelectedInstrument } from '../lib/research';
 import {
   addWatchlistItem,
-  createWatchlistGroup,
-  createWatchlistTag,
   getWatchlist,
   removeWatchlistItem,
-  setWatchlistItemTags,
+  type WatchlistItem,
 } from '../lib/watchlist';
 
 export function WatchlistPage() {
@@ -31,8 +46,6 @@ export function WatchlistPage() {
   const queryClient = useQueryClient();
   const [pendingInstrument, setPendingInstrument] =
     useState<SelectedInstrument | null>(null);
-  const [groupName, setGroupName] = useState('');
-  const [tagName, setTagName] = useState('');
   const watchlist = useQuery({
     queryKey: ['watchlist'],
     queryFn: () => getWatchlist(),
@@ -58,47 +71,39 @@ export function WatchlistPage() {
     },
     onError: () => toast.error(t('toasts.removeError')),
   });
-  const createGroup = useMutation({
-    mutationFn: (name: string) => createWatchlistGroup(name),
-    onSuccess: () => {
-      setGroupName('');
-      void refresh();
-      toast.success(t('toasts.groupCreated'));
-    },
-    onError: () => toast.error(t('toasts.groupError')),
-  });
-  const createTag = useMutation({
-    mutationFn: () => createWatchlistTag({ name: tagName }),
-    onSuccess: () => {
-      setTagName('');
-      void refresh();
-      toast.success(t('toasts.tagCreated'));
-    },
-    onError: () => toast.error(t('toasts.tagError')),
-  });
-  const assignTag = useMutation({
-    mutationFn: ({
-      itemId,
-      tagIds,
-    }: {
-      itemId: string;
-      tagIds: string[];
-    }) => setWatchlistItemTags(itemId, tagIds),
-    onSuccess: () => void refresh(),
-  });
 
   const groups = watchlist.data?.data.groups ?? [];
-  const tags = watchlist.data?.data.tags ?? [];
   const defaultGroupId = groups[0]?.id;
+  const items = groups.flatMap((group) => group.items);
+  const alreadySaved = Boolean(
+    pendingInstrument &&
+      items.some(
+        (item) => item.providerSymbol === pendingInstrument.provider_symbol,
+      ),
+  );
+
+  function handleAdd() {
+    if (!pendingInstrument || !defaultGroupId || alreadySaved) return;
+    addItem.mutate({
+      groupId: defaultGroupId,
+      exchange: pendingInstrument.exchange,
+      symbol: pendingInstrument.symbol,
+      displayTicker: pendingInstrument.display_ticker,
+      providerSymbol: pendingInstrument.provider_symbol,
+      displayName: pendingInstrument.display_name,
+      logoUrl: pendingInstrument.logo_url ?? null,
+    });
+  }
 
   return (
     <AppShell>
-      <PageFrame title={t('title')} description={t('subtitle')}>
-          <SectionPanel
-            title={t('add.title')}
-            description={t('add.description')}
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <PageFrame
+        title={t('title')}
+        description={t('subtitle')}
+        bodyClassName="gap-0 p-0"
+        toolbar={
+          <PageToolbar>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="min-w-0 flex-1">
                 <TickerSearch
                   value={pendingInstrument}
@@ -106,191 +111,136 @@ export function WatchlistPage() {
                 />
               </div>
               <Button
+                className="shrink-0 sm:self-stretch"
                 disabled={
-                  !pendingInstrument || !defaultGroupId || addItem.isPending
+                  !pendingInstrument ||
+                  !defaultGroupId ||
+                  alreadySaved ||
+                  addItem.isPending
                 }
-                onClick={() => {
-                  if (!pendingInstrument || !defaultGroupId) return;
-                  addItem.mutate({
-                    groupId: defaultGroupId,
-                    exchange: pendingInstrument.exchange,
-                    symbol: pendingInstrument.symbol,
-                    displayTicker: pendingInstrument.display_ticker,
-                    providerSymbol: pendingInstrument.provider_symbol,
-                    displayName: pendingInstrument.display_name,
-                    logoUrl: pendingInstrument.logo_url ?? null,
-                  });
-                }}
+                onClick={handleAdd}
               >
                 {addItem.isPending ? (
                   <Spinner data-icon="inline-start" />
                 ) : (
                   <Plus data-icon="inline-start" />
                 )}
-                {t('add.action')}
+                {alreadySaved ? t('add.already') : t('add.action')}
               </Button>
             </div>
-          </SectionPanel>
-
-          <div className="grid gap-5 md:grid-cols-2">
-            <SectionPanel title={t('groups.title')}>
-              <div className="flex gap-2">
-                <Input
-                  value={groupName}
-                  onChange={(event) => setGroupName(event.target.value)}
-                  placeholder={t('groups.placeholder')}
-                />
-                <Button
-                  variant="outline"
-                  disabled={!groupName.trim() || createGroup.isPending}
-                  onClick={() => createGroup.mutate(groupName.trim())}
-                >
-                  {t('groups.create')}
-                </Button>
-              </div>
-            </SectionPanel>
-            <SectionPanel title={t('tags.title')}>
-              <div className="flex flex-col gap-3">
-                <div className="flex gap-2">
-                  <Input
-                    value={tagName}
-                    onChange={(event) => setTagName(event.target.value)}
-                    placeholder={t('tags.placeholder')}
-                  />
-                  <Button
-                    variant="outline"
-                    disabled={!tagName.trim() || createTag.isPending}
-                    onClick={() => createTag.mutate()}
-                  >
-                    {t('tags.create')}
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <Badge key={tag.id} variant="secondary">
-                      {tag.name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </SectionPanel>
-          </div>
-
+          </PageToolbar>
+        }
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
           {watchlist.isLoading ? (
-            <Skeleton className="h-64 w-full" />
+            <div className="flex flex-col gap-0 border-t border-border">
+              {Array.from({ length: 6 }, (_, index) => (
+                <Skeleton key={index} className="h-14 w-full rounded-none" />
+              ))}
+            </div>
           ) : watchlist.isError ? (
-            <Alert variant="destructive">
-              <AlertTitle>{t('loadError.title')}</AlertTitle>
-              <AlertDescription>{t('loadError.body')}</AlertDescription>
-            </Alert>
+            <div className="px-5 py-5 lg:px-6">
+              <Alert variant="destructive">
+                <AlertTitle>{t('loadError.title')}</AlertTitle>
+                <AlertDescription>{t('loadError.body')}</AlertDescription>
+              </Alert>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="px-5 py-10 lg:px-6">
+              <Empty className="border border-border py-12">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Star />
+                  </EmptyMedia>
+                  <EmptyTitle>{t('empty.title')}</EmptyTitle>
+                  <EmptyDescription>{t('empty.body')}</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            </div>
           ) : (
-            groups.map((group) => (
-              <SectionPanel
-                key={group.id}
-                title={group.name}
-                description={t('groups.itemCount', {
-                  count: group.items.length,
-                })}
-              >
-                {group.items.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t('groups.empty')}
-                  </p>
-                ) : (
-                  <div className="divide-y divide-border border border-border">
-                    {group.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
-                      >
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <InstrumentLogo
-                            symbol={item.providerSymbol || item.displayTicker}
-                            logoUrl={item.logoUrl}
-                            alt={item.displayName || item.displayTicker}
-                            size="md"
-                          />
-                          <div className="min-w-0">
-                            <Link
-                              className="block min-w-0 hover:underline"
-                              to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}
-                            >
-                              <InstrumentIdentity
-                                density="row"
-                                name={item.displayName || item.displayTicker}
-                                ticker={item.displayTicker}
-                                tickerSuffix={` · ${item.providerSymbol}`}
-                              />
-                            </Link>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {tags.map((tag) => {
-                                const active = item.tags.some(
-                                  (itemTag) => itemTag.id === tag.id,
-                                );
-                                return (
-                                  <Button
-                                    key={tag.id}
-                                    size="sm"
-                                    variant={active ? 'default' : 'outline'}
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => {
-                                      const next = active
-                                        ? item.tags
-                                            .filter(
-                                              (itemTag) =>
-                                                itemTag.id !== tag.id,
-                                            )
-                                            .map((itemTag) => itemTag.id)
-                                        : [
-                                            ...item.tags.map(
-                                              (itemTag) => itemTag.id,
-                                            ),
-                                            tag.id,
-                                          ];
-                                      assignTag.mutate({
-                                        itemId: item.id,
-                                        tagIds: next,
-                                      });
-                                    }}
-                                  >
-                                    {tag.name}
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button asChild size="sm" variant="outline">
-                            <Link
-                              to={`/?symbol=${encodeURIComponent(item.providerSymbol)}`}
-                            >
-                              {t('actions.analyze')}
-                            </Link>
-                          </Button>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={t('actions.remove')}
-                            onClick={() => removeItem.mutate(item.id)}
-                            disabled={removeItem.isPending}
-                          >
-                            {removeItem.isPending &&
-                            removeItem.variables === item.id ? (
-                              <LoaderCircle className="size-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="size-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </SectionPanel>
-            ))
+            <ul className="divide-y divide-border border-t border-border">
+              {items.map((item) => (
+                <WatchlistRow
+                  key={item.id}
+                  item={item}
+                  removing={
+                    removeItem.isPending && removeItem.variables === item.id
+                  }
+                  onRemove={() => removeItem.mutate(item.id)}
+                />
+              ))}
+            </ul>
           )}
+        </div>
       </PageFrame>
     </AppShell>
+  );
+}
+
+function WatchlistRow({
+  item,
+  removing,
+  onRemove,
+}: {
+  item: WatchlistItem;
+  removing: boolean;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation('watchlist');
+
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 lg:px-6">
+      <Link
+        to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}
+        className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-90"
+      >
+        <InstrumentLogo
+          symbol={item.providerSymbol || item.displayTicker}
+          logoUrl={item.logoUrl}
+          alt={item.displayName || item.displayTicker}
+          size="md"
+        />
+        <InstrumentIdentity
+          density="row"
+          name={item.displayName || item.displayTicker}
+          ticker={item.displayTicker}
+        />
+      </Link>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Button asChild size="sm" variant="outline">
+          <Link to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}>
+            <CandlestickChart data-icon="inline-start" />
+            {t('actions.quote')}
+          </Link>
+        </Button>
+        <Button asChild size="sm">
+          <Link to={`/?symbol=${encodeURIComponent(item.providerSymbol)}`}>
+            <Play data-icon="inline-start" />
+            {t('actions.analyze')}
+          </Link>
+        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={t('actions.remove')}
+              onClick={onRemove}
+              disabled={removing}
+            >
+              {removing ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            {t('actions.remove')}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </li>
   );
 }

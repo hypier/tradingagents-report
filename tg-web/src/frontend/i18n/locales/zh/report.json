@@ -18,8 +18,15 @@
   "keyboardHint": "左右键切换章节，上下键滚动报告",
   "riskNotice": "仅供研究。输出内容仅供参考，不会执行真实交易。",
   "dataAsOf": "基于分析日期可用的市场与研究数据生成。",
-  "favorite": "收藏",
-  "unfavorite": "取消收藏",
+  "openLiveQuote": "实时行情",
+  "watchlist": {
+    "add": "加入自选",
+    "remove": "移出自选",
+    "added": "已加入自选",
+    "addError": "无法加入自选",
+    "removed": "已移出自选",
+    "removeError": "无法移出自选"
+  },
   "archive": "归档",
   "unarchive": "取消归档",
   "exportMarkdown": "导出 Markdown",

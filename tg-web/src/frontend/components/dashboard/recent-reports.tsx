@@ -3,7 +3,6 @@ import {
   ClipboardList,
   FileText,
   ListTodo,
-  Star,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -484,12 +483,6 @@ export function ReportsTable({
                           name={instrumentName(job, identities)}
                           ticker={instrumentTicker(job, identities)}
                         />
-                        {job.is_favorite ? (
-                          <Star
-                            className="mt-0.5 size-3.5 shrink-0 fill-primary text-primary"
-                            aria-label={t('table.favorite')}
-                          />
-                        ) : null}
                       </div>
                     </div>
                   </TableCell>

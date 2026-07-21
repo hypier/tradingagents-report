@@ -144,10 +144,10 @@ export function analysisRoutes(dependencies: AppDependencies) {
     const limit = clampInt(query.limit, 50, 1, 200);
     const offset = clampInt(query.offset, 0, 0, 10_000);
     const status = parseStatus(query.status);
-    const favorite =
-      query.favorite === 'true'
+    const watchlist =
+      query.watchlist === 'true'
         ? true
-        : query.favorite === 'false'
+        : query.watchlist === 'false'
           ? false
           : undefined;
     const archived =
@@ -164,7 +164,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
       status,
       tradeDateFrom: query.trade_date_from?.trim() || undefined,
       tradeDateTo: query.trade_date_to?.trim() || undefined,
-      favorite: favorite === true ? true : undefined,
+      watchlist: watchlist === true ? true : undefined,
       archived:
         archived === true ? true : archived === false ? false : undefined,
       limit,

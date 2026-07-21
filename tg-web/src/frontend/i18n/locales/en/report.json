@@ -18,8 +18,15 @@
   "keyboardHint": "← → switch sections · ↑ ↓ scroll the report",
   "riskNotice": "Research only. Outputs are informational and do not place trades.",
   "dataAsOf": "Generated from available market and research data as of the analysis date.",
-  "favorite": "Favorite",
-  "unfavorite": "Unfavorite",
+  "openLiveQuote": "Live quote",
+  "watchlist": {
+    "add": "Add to watchlist",
+    "remove": "Remove from watchlist",
+    "added": "Added to watchlist",
+    "addError": "Unable to add to watchlist",
+    "removed": "Removed from watchlist",
+    "removeError": "Unable to remove from watchlist"
+  },
   "archive": "Archive",
   "unarchive": "Unarchive",
   "exportMarkdown": "Export Markdown",

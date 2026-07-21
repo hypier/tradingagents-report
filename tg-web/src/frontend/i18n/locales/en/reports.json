@@ -1,7 +1,7 @@
 {
   "eyebrow": "Research library",
   "title": "Reports",
-  "subtitle": "Search and read finished research reports — filter by ticker, date, and favorites.",
+  "subtitle": "Search and read finished research reports — filter by ticker, date, and watchlist.",
   "filtersShow": "Filters",
   "filtersHide": "Hide filters",
   "view": {
@@ -19,7 +19,7 @@
   "exchangePlaceholder": "NASDAQ",
   "dateFrom": "From date",
   "dateTo": "To date",
-  "favoriteOnly": "Favorites only",
+  "watchlistOnly": "Watchlist only",
   "includeArchived": "Include archived",
   "library": {
     "title": "Research archive",
@@ -38,7 +38,6 @@
     "language": "Language",
     "updated": "Updated",
     "report": "Report",
-    "favorite": "Favorite",
     "runs": "{{count}} reports",
     "unavailable": "Research history is temporarily unavailable.",
     "empty": "Finish an analysis and the report will appear here.",

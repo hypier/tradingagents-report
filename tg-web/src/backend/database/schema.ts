@@ -580,7 +580,7 @@ export const watchlistItemTags = pgTable(
   ],
 );
 
-/** 每用户报告元数据（收藏 / 归档）。 */
+/** 每用户报告元数据（归档等）。收藏语义已统一到自选股。 */
 export const userReportMeta = pgTable(
   'user_report_meta',
   {

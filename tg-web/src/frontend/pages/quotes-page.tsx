@@ -28,6 +28,7 @@ import {
 import { getAccountProfile } from '@/frontend/lib/account';
 import { getMarketBoard, getMarketTape } from '@/frontend/lib/market-board';
 import {
+  formatLocaleCompactNumber,
   formatLocaleDateTimeValue,
   formatLocaleNumber,
 } from '@/frontend/lib/format-locale';
@@ -49,14 +50,6 @@ function initialQuotesMarketCode() {
 }
 
 const BOARD_TABS = STOCK_LEADERBOARD_TABS;
-
-function formatCompact(value?: number) {
-  if (value === undefined) return '—';
-  return new Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 function changeClass(changePercent: number) {
   if (changePercent > 0) return 'text-market-up';
@@ -345,7 +338,7 @@ export function QuotesPage() {
                       <TableRow
                         key={item.symbol}
                         className={cn(
-                          'h-11',
+                          'group/row h-11',
                           item.linkable && 'cursor-pointer',
                           zebra,
                         )}
@@ -362,7 +355,7 @@ export function QuotesPage() {
                       >
                         <TableCell
                           className={cn(
-                            'sticky left-0 z-10 pl-3 font-mono text-xs tabular-nums text-muted-foreground sm:pl-5 lg:pl-6',
+                            'sticky left-0 z-10 pl-3 font-mono text-xs tabular-nums text-muted-foreground transition-colors group-hover/row:bg-muted/50 sm:pl-5 lg:pl-6',
                             zebra,
                           )}
                         >
@@ -370,7 +363,7 @@ export function QuotesPage() {
                         </TableCell>
                         <TableCell
                           className={cn(
-                            'sticky left-12 z-10 w-[8rem] max-w-[8rem] sm:left-14 sm:w-[13rem] sm:max-w-[13rem] md:w-[15rem] md:max-w-[15rem]',
+                            'sticky left-12 z-10 w-[8rem] max-w-[8rem] transition-colors group-hover/row:bg-muted/50 sm:left-14 sm:w-[13rem] sm:max-w-[13rem] md:w-[15rem] md:max-w-[15rem]',
                             zebra,
                           )}
                         >
@@ -409,7 +402,7 @@ export function QuotesPage() {
                           {changeLabel}
                         </TableCell>
                         <TableCell className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground md:table-cell">
-                          {formatCompact(item.volume)}
+                          {formatLocaleCompactNumber(item.volume)}
                         </TableCell>
                         <TableCell className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground md:table-cell">
                           {item.relative_volume !== undefined
@@ -417,7 +410,7 @@ export function QuotesPage() {
                             : '—'}
                         </TableCell>
                         <TableCell className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground lg:table-cell">
-                          {formatCompact(item.market_cap)}
+                          {formatLocaleCompactNumber(item.market_cap)}
                         </TableCell>
                         <TableCell className="hidden text-right font-mono text-xs tabular-nums text-muted-foreground lg:table-cell">
                           {formatRatio(item.pe_ratio)}

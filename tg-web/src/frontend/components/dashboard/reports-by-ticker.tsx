@@ -1,4 +1,4 @@
-import { ChevronRight, Star } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { InstrumentIdentity } from '../instrument-identity';
@@ -186,12 +186,6 @@ export function ReportsByTicker({
                             {t('table.noConclusion')}
                           </span>
                         )}
-                        {job.is_favorite ? (
-                          <Star
-                            className="size-3 shrink-0 fill-primary text-primary"
-                            aria-label={t('table.favorite')}
-                          />
-                        ) : null}
                       </span>
                       <ChevronRight
                         className="size-3.5 shrink-0 text-muted-foreground/70"

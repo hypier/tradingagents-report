@@ -134,6 +134,18 @@ export function formatLocaleNumber(value: number) {
   return value.toLocaleString(toIntlLocale(i18n.language));
 }
 
+/** Compact notation (e.g. 1.2M / 1.2亿) following the active UI locale. */
+export function formatLocaleCompactNumber(
+  value?: number,
+  fallback = '—',
+) {
+  if (value === undefined) return fallback;
+  return new Intl.NumberFormat(toIntlLocale(i18n.language), {
+    notation: 'compact',
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export function formatLocaleDateTimeValue(value: string | number | Date) {
   const date = parseLocaleDateInput(value);
   if (Number.isNaN(date.getTime())) return '';

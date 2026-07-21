@@ -118,7 +118,8 @@ export type AnalysisJobsRepository = {
     status?: AnalysisJob['status'];
     tradeDateFrom?: string;
     tradeDateTo?: string;
-    favorite?: boolean;
+    /** Prefer reports whose ticker is on the user's watchlist. */
+    watchlist?: boolean;
     archived?: boolean;
     limit: number;
     offset: number;
@@ -295,8 +296,25 @@ export function createRepositories(database: Database): {
         if (input.tradeDateTo) {
           conditions.push(lte(analysisJobs.tradeDate, input.tradeDateTo));
         }
-        if (input.favorite === true) {
-          conditions.push(eq(schema.userReportMeta.isFavorite, 1));
+        if (input.watchlist === true) {
+          const watchlistTickers = await database
+            .selectDistinct({
+              displayTicker: schema.watchlistItems.displayTicker,
+            })
+            .from(schema.watchlistItems)
+            .where(eq(schema.watchlistItems.clerkUserId, input.clerkUserId));
+          const tickers = [
+            ...new Set(
+              watchlistTickers
+                .map((row) => row.displayTicker.trim().toUpperCase())
+                .filter(Boolean),
+            ),
+          ];
+          if (tickers.length === 0) {
+            conditions.push(sql`false`);
+          } else {
+            conditions.push(inArray(analysisJobs.ticker, tickers));
+          }
         }
         if (input.archived === true) {
           conditions.push(eq(schema.userReportMeta.isArchived, 1));

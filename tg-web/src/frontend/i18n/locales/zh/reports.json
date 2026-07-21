@@ -1,7 +1,7 @@
 {
   "eyebrow": "研究报告库",
   "title": "报告库",
-  "subtitle": "检索与阅读已完成的研究报告；按标的、日期与收藏筛选。",
+  "subtitle": "检索与阅读已完成的研究报告；可按标的、日期与自选筛选。",
   "filtersShow": "筛选",
   "filtersHide": "收起筛选",
   "view": {
@@ -19,7 +19,7 @@
   "exchangePlaceholder": "NASDAQ",
   "dateFrom": "起始日期",
   "dateTo": "结束日期",
-  "favoriteOnly": "仅收藏",
+  "watchlistOnly": "仅自选",
   "includeArchived": "包含已归档",
   "library": {
     "title": "研究档案",
@@ -38,7 +38,6 @@
     "language": "语言",
     "updated": "更新时间",
     "report": "报告",
-    "favorite": "已收藏",
     "runs": "{{count}} 份报告",
     "unavailable": "研究历史暂时不可用。",
     "empty": "完成一次分析后，报告会出现在这里。",
