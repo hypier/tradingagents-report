@@ -315,10 +315,19 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
     const quoteLogo =
       quote?.logo && isRecord(quote.logo) ? quote.logo : undefined;
+    const shortName = stringValue(quote?.short_name);
+    const quoteDescription =
+      stringValue(quote?.local_description) || stringValue(quote?.description);
+    // short_name is often the ticker code (e.g. AAPL); prefer company description.
+    const shortLooksLikeCode =
+      !shortName ||
+      shortName.toUpperCase() === listing.symbol.toUpperCase() ||
+      shortName.toUpperCase() === listing.display_ticker.toUpperCase();
     const description =
       stringValue(market?.description) ||
-      stringValue(quote?.short_name) ||
-      stringValue(quote?.description) ||
+      (shortLooksLikeCode
+        ? quoteDescription || shortName
+        : shortName || quoteDescription) ||
       listing.display_ticker;
     const logoid =
       stringValue(market?.logo?.logoid) ||

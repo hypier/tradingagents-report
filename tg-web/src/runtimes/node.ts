@@ -8,12 +8,11 @@ import { extname, relative, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 
-import Redis from 'ioredis';
-
 import { createApp, type AppDependencies } from '../backend/app';
 import { createClerkAuthService } from '../backend/auth/clerk-auth';
 import { createBillingConfigurationStore } from '../backend/billing/configuration-store';
 import { createManagedStripeBillingService } from '../backend/billing/managed-stripe-billing';
+import { createRedisClient } from '../backend/cache/create-redis-client';
 import { FailOpenCache } from '../backend/cache/fail-open-cache';
 import { RedisCache } from '../backend/cache/redis-cache';
 import { parseNodeConfig } from '../backend/config/node-config';
@@ -165,7 +164,7 @@ async function run(): Promise<void> {
     database.billingConfig,
     config.billingConfigEncryptionKey,
   );
-  const redis = new Redis(config.redisUrl.toString(), { lazyConnect: true });
+  const redis = createRedisClient(config.redisUrl.toString(), logger);
   const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
   const dependencies: AppDependencies = {
     auth: createClerkAuthService(config.clerkAuth),

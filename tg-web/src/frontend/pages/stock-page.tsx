@@ -1,22 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BookmarkPlus, Play, Star } from 'lucide-react';
+import { ArrowLeft, BookmarkPlus, Play, RefreshCw, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
 import { ReportsTable } from '../components/dashboard/recent-reports';
-import { QuoteStrip } from '../components/dashboard/quote-strip';
 import { InstrumentIdentity } from '../components/instrument-identity';
 import { SessionStatsRow } from '../components/market/session-stats-row';
+import { StockQuoteMetrics } from '../components/market/stock-quote-metrics';
 import { TradingViewAdvancedChart } from '../components/market/tradingview-advanced-chart';
 import { PageBody } from '../components/page-chrome';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../components/ui/tooltip';
 import { useLiveQuote } from '../hooks/use-live-quote';
+import { formatLocaleDateTimeValue } from '../lib/format-locale';
+import { cn } from '../lib/utils';
 import { listResearch } from '../lib/research';
 import {
   addWatchlistItem,
@@ -44,6 +50,8 @@ export function StockPage() {
     sessionStats,
     streamStatus,
     loading: quoteLoading,
+    refreshing: quoteRefreshing,
+    refresh: refreshQuote,
     error: quoteError,
   } = useLiveQuote(listing ? providerSymbol : '');
 
@@ -116,154 +124,187 @@ export function StockPage() {
     );
   }
 
+  const statusLabel =
+    streamStatus === 'live'
+      ? t('quote.live')
+      : streamStatus === 'connecting'
+        ? t('quote.connecting')
+        : null;
+  const asOfLabel = quote?.as_of
+    ? t('quote.asOf', { time: formatLocaleDateTimeValue(quote.as_of) })
+    : null;
+
   return (
     <AppShell>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="shrink-0 border-b border-border">
-          <div className="space-y-3 px-5 py-3.5 lg:px-6">
-            <Link
-              to="/quotes"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="size-3.5" />
-              {t('backToQuotes')}
-            </Link>
-
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <Avatar
-                  size="lg"
-                  className="size-12 !rounded-none after:hidden"
+        <header className="shrink-0 border-b border-border">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 px-5 py-2.5 lg:px-6">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 text-muted-foreground"
                 >
+                  <Link to="/quotes" aria-label={t('backToQuotes')}>
+                    <ArrowLeft className="size-4" />
+                  </Link>
+                </Button>
+
+                <Avatar className="size-16 shrink-0 !rounded-none after:hidden">
                   <AvatarImage
                     key={logoUrl ?? 'missing'}
                     className="!rounded-none object-contain"
                     src={logoUrl}
                     alt={displayName || listing.display_ticker}
                   />
-                  <AvatarFallback className="!rounded-none text-lg font-semibold">
+                  <AvatarFallback className="!rounded-none text-xl font-semibold">
                     {listing.symbol.slice(0, 1)}
                   </AvatarFallback>
                 </Avatar>
+
                 <div className="min-w-0">
                   <InstrumentIdentity
                     density="header"
                     nameAs="h1"
                     name={displayName}
-                    ticker={listing.display_ticker}
-                    tickerSuffix={` · ${listing.provider_symbol}`}
+                    ticker={listing.provider_symbol ?? listing.display_ticker}
+                    nameClassName="text-lg"
+                    tickerClassName="mt-0.5 text-xs"
                   />
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {listing.exchange ? (
-                      <Badge variant="secondary">{listing.exchange}</Badge>
-                    ) : null}
-                    {streamStatus === 'live' ? (
-                      <Badge variant="outline" className="gap-1.5">
-                        <span className="size-1.5 bg-accent" />
-                        {t('quote.live')}
-                      </Badge>
-                    ) : null}
-                    {streamStatus === 'connecting' ? (
-                      <Badge variant="outline">{t('quote.connecting')}</Badge>
-                    ) : null}
-                  </div>
+                  {statusLabel || asOfLabel ? (
+                    <p className="mt-0.5 flex min-w-0 items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {streamStatus === 'live' ? (
+                        <span
+                          className="size-1.5 shrink-0 bg-accent"
+                          aria-hidden
+                        />
+                      ) : null}
+                      {statusLabel ? (
+                        <span className="shrink-0">{statusLabel}</span>
+                      ) : null}
+                      {statusLabel && asOfLabel ? (
+                        <span aria-hidden>·</span>
+                      ) : null}
+                      {asOfLabel ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="truncate border-b border-dotted border-muted-foreground/50 text-left hover:text-foreground"
+                            >
+                              {asOfLabel}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={6}>
+                            {t('quote.asOfTip')}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
+                    </p>
+                  ) : null}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild>
-                  <Link to={`/?symbol=${encodeURIComponent(providerSymbol)}`}>
-                    <Play data-icon="inline-start" />
-                    {t('actions.analyze')}
-                  </Link>
+
+              <div className="hidden h-8 w-px shrink-0 bg-border sm:block" />
+
+              {quoteError ? (
+                <p className="max-w-[16rem] text-xs text-destructive">
+                  {t('quote.errorBody')}
+                </p>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <StockQuoteMetrics
+                    quote={quote}
+                    loading={quoteLoading}
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 text-muted-foreground"
+                        disabled={quoteLoading || quoteRefreshing}
+                        aria-label={t('quote.refresh')}
+                        onClick={() => {
+                          void refreshQuote().catch(() => {
+                            toast.error(t('quote.refreshError'));
+                          });
+                        }}
+                      >
+                        <RefreshCw
+                          className={cn(
+                            'size-3.5',
+                            quoteRefreshing && 'animate-spin',
+                          )}
+                        />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      {t('quote.refresh')}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link to={`/?symbol=${encodeURIComponent(providerSymbol)}`}>
+                  <Play data-icon="inline-start" />
+                  {t('actions.analyze')}
+                </Link>
+              </Button>
+              {existingItem ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={removeItem.isPending}
+                  onClick={() => removeItem.mutate(existingItem.id)}
+                >
+                  {removeItem.isPending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <Star data-icon="inline-start" className="fill-current" />
+                  )}
+                  {t('actions.removeWatchlist')}
                 </Button>
-                {existingItem ? (
-                  <Button
-                    variant="outline"
-                    disabled={removeItem.isPending}
-                    onClick={() => removeItem.mutate(existingItem.id)}
-                  >
-                    {removeItem.isPending ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : (
-                      <Star data-icon="inline-start" className="fill-current" />
-                    )}
-                    {t('actions.removeWatchlist')}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    disabled={!defaultGroupId || addItem.isPending}
-                    onClick={() => {
-                      if (!defaultGroupId || !listing) return;
-                      addItem.mutate({
-                        groupId: defaultGroupId,
-                        exchange: listing.exchange ?? '',
-                        symbol: listing.symbol,
-                        displayTicker: listing.display_ticker,
-                        providerSymbol:
-                          listing.provider_symbol ?? providerSymbol,
-                        displayName: displayName || listing.display_ticker,
-                        logoUrl: logoUrl ?? null,
-                      });
-                    }}
-                  >
-                    {addItem.isPending ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : (
-                      <BookmarkPlus data-icon="inline-start" />
-                    )}
-                    {t('actions.addWatchlist')}
-                  </Button>
-                )}
-              </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!defaultGroupId || addItem.isPending}
+                  onClick={() => {
+                    if (!defaultGroupId || !listing) return;
+                    addItem.mutate({
+                      groupId: defaultGroupId,
+                      exchange: listing.exchange ?? '',
+                      symbol: listing.symbol,
+                      displayTicker: listing.display_ticker,
+                      providerSymbol:
+                        listing.provider_symbol ?? providerSymbol,
+                      displayName: displayName || listing.display_ticker,
+                      logoUrl: logoUrl ?? null,
+                    });
+                  }}
+                >
+                  {addItem.isPending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <BookmarkPlus data-icon="inline-start" />
+                  )}
+                  {t('actions.addWatchlist')}
+                </Button>
+              )}
             </div>
           </div>
-        </div>
+
+          {!quoteError ? <SessionStatsRow stats={sessionStats} /> : null}
+        </header>
 
         <PageBody>
-          <section className="space-y-3" aria-labelledby="stock-quote-title">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2
-                id="stock-quote-title"
-                className="text-sm font-semibold tracking-tight"
-              >
-                {t('quote.title')}
-              </h2>
-            </div>
-            {quoteError ? (
-              <Alert variant="destructive">
-                <AlertTitle>{t('quote.errorTitle')}</AlertTitle>
-                <AlertDescription>{t('quote.errorBody')}</AlertDescription>
-              </Alert>
-            ) : (
-              <>
-                <QuoteStrip
-                  variant="strip"
-                  quote={
-                    quote
-                      ? {
-                          ticker: quote.ticker,
-                          display_ticker: quote.display_ticker,
-                          display_name: quote.display_name ?? displayName,
-                          last_price: quote.last_price,
-                          change: quote.change,
-                          change_percent: quote.change_percent,
-                          currency: quote.currency,
-                          source: quote.source,
-                          as_of: quote.as_of,
-                          update_mode: quote.update_mode,
-                          delay_seconds: quote.delay_seconds,
-                          logo_url: logoUrl,
-                        }
-                      : null
-                  }
-                  loading={quoteLoading}
-                />
-                <SessionStatsRow stats={sessionStats} />
-              </>
-            )}
-          </section>
-
           <section className="space-y-3" aria-labelledby="stock-chart-title">
             <h2
               id="stock-chart-title"
@@ -271,10 +312,7 @@ export function StockPage() {
             >
               {t('chart.title')}
             </h2>
-            <TradingViewAdvancedChart
-              symbol={providerSymbol}
-              height={480}
-            />
+            <TradingViewAdvancedChart symbol={providerSymbol} height={420} />
           </section>
 
           <ReportsTable

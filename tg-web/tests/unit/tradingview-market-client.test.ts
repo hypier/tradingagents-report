@@ -47,6 +47,37 @@ describe('TradingViewMarketClient', () => {
     );
   });
 
+  it('prefers company description over ticker-like short_name', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            symbol: 'NASDAQ:AAPL',
+            data: {
+              lp: 326.59,
+              ch: -7.15,
+              chp: -2.14,
+              currency_code: 'USD',
+              lp_time: 1784165400,
+              update_mode: 'streaming',
+              short_name: 'AAPL',
+              description: 'Apple Inc.',
+              logoid: 'apple',
+            },
+          },
+        }),
+      ),
+    );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.getSnapshot('NASDAQ:AAPL')).resolves.toMatchObject({
+      display_ticker: 'AAPL',
+      display_name: 'Apple Inc.',
+      last_price: 326.59,
+    });
+  });
+
   it('resolves Yahoo-suffixed tickers locally without Core', async () => {
     const fetchMock = vi
       .fn()

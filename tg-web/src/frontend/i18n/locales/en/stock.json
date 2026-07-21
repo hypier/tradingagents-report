@@ -19,6 +19,10 @@
     "title": "Latest quote",
     "live": "Live",
     "connecting": "Connecting…",
+    "asOf": "As of {{time}}",
+    "asOfTip": "Last price update from the market feed — when the quote last changed, not your device clock.",
+    "refresh": "Refresh quote",
+    "refreshError": "Unable to refresh quote",
     "errorTitle": "Quote unavailable",
     "errorBody": "Market data could not be loaded for this listing."
   },
@@ -29,7 +33,8 @@
     "volume": "Volume"
   },
   "chart": {
-    "title": "Trend chart"
+    "title": "Trend chart",
+    "unavailable": "TradingView chart unavailable"
   },
   "reports": {
     "title": "Research reports",

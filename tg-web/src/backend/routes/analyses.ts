@@ -275,12 +275,34 @@ export function analysisRoutes(dependencies: AppDependencies) {
         400,
       );
     }
-    return context.json(
-      apiSuccess(
-        await dependencies.marketAssets.getSnapshot(providerSymbol),
-        context.get('requestId'),
-      ),
-    );
+    const normalized = providerSymbol.trim().toUpperCase();
+    const cacheKey = `market-snapshot:v1:${normalized}`;
+    const forceRefresh = context.req.query('refresh') === '1';
+    if (!forceRefresh) {
+      const cached = await dependencies.cache.get(cacheKey);
+      if (cached) {
+        try {
+          return context.json(
+            apiSuccess(JSON.parse(cached), context.get('requestId')),
+          );
+        } catch {
+          // fall through to refresh
+        }
+      }
+    }
+
+    try {
+      const snapshot = await dependencies.marketAssets.getSnapshot(normalized);
+      await dependencies.cache.set(cacheKey, JSON.stringify(snapshot), 20);
+      return context.json(apiSuccess(snapshot, context.get('requestId')));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to load market snapshot';
+      if (message.includes('not configured')) {
+        throw new AppError('SERVICE_UNAVAILABLE', 503, message, error);
+      }
+      throw new AppError('BAD_GATEWAY', 502, message, error);
+    }
   });
 
   app.get('/market-identities', async (context) => {

@@ -242,12 +242,17 @@ export const getResearchEvents = (
 
 export const getMarketSnapshot = (
   providerSymbol: string,
-  fetchImplementation?: FetchImplementation,
-) =>
-  read<MarketSnapshot>(
-    `/api/market-snapshot?symbol=${encodeURIComponent(providerSymbol)}`,
-    fetchImplementation,
+  options?: { refresh?: boolean; fetchImplementation?: FetchImplementation },
+) => {
+  const params = new URLSearchParams({
+    symbol: providerSymbol,
+  });
+  if (options?.refresh) params.set('refresh', '1');
+  return read<MarketSnapshot>(
+    `/api/market-snapshot?${params.toString()}`,
+    options?.fetchImplementation,
   );
+};
 
 export type MarketStreamToken = {
   token: string;

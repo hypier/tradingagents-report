@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   createMarketStreamToken,
@@ -24,6 +24,9 @@ type QuoteUpdatePayload = {
   data?: Record<string, unknown>;
   timestamp?: number;
 };
+
+/** UI paint cadence for SSE ticks — keeps last payload, drops intermediates. */
+const LIVE_UI_MIN_INTERVAL_MS = 250;
 
 function numberField(
   record: Record<string, unknown>,
@@ -81,9 +84,10 @@ function applyQuoteUpdate(
 
 /**
  * Snapshot for logo/identity + TradingView SSE quote updates via BFF JWT.
- * RapidAPI key never leaves the server; browser opens EventSource to sseUrl.
+ * Snapshot + stream token are cached; SSE paints are throttled.
  */
 export function useLiveQuote(providerSymbol: string) {
+  const queryClient = useQueryClient();
   const snapshot = useQuery({
     queryKey: ['market-snapshot', providerSymbol],
     queryFn: async () => {
@@ -91,7 +95,21 @@ export function useLiveQuote(providerSymbol: string) {
       return response.data;
     },
     enabled: Boolean(providerSymbol),
-    staleTime: 30_000,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+  });
+
+  const streamToken = useQuery({
+    queryKey: ['market-stream-token'],
+    queryFn: async () => {
+      const response = await createMarketStreamToken();
+      return response.data;
+    },
+    enabled: Boolean(providerSymbol),
+    // Token TTL is ~30m; refresh a few minutes early via staleTime.
+    staleTime: 20 * 60_000,
+    gcTime: 25 * 60_000,
     retry: 1,
   });
 
@@ -102,20 +120,75 @@ export function useLiveQuote(providerSymbol: string) {
     null,
   );
   const [streamStatus, setStreamStatus] = useState<QuoteStreamStatus>('idle');
+  const [refreshing, setRefreshing] = useState(false);
+  const pendingRef = useRef<{
+    patch: Partial<MarketSnapshot>;
+    stats: SessionQuoteStats;
+  } | null>(null);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const lastFlushAtRef = useRef(0);
 
   useEffect(() => {
     setLivePatch(null);
     setSessionStats(null);
     setStreamStatus('idle');
+    pendingRef.current = null;
+    if (flushTimerRef.current !== undefined) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = undefined;
+    }
   }, [providerSymbol]);
 
   useEffect(() => {
-    if (!providerSymbol) return;
+    if (!providerSymbol || !streamToken.data) return;
 
     let cancelled = false;
     let source: EventSource | null = null;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const flushPending = () => {
+      const pending = pendingRef.current;
+      if (!pending) return;
+      pendingRef.current = null;
+      lastFlushAtRef.current = Date.now();
+      setLivePatch((previous) => ({ ...(previous ?? {}), ...pending.patch }));
+      setSessionStats((previous) => ({
+        ...(previous ?? {}),
+        ...Object.fromEntries(
+          Object.entries(pending.stats).filter(
+            ([, value]) => value !== undefined,
+          ),
+        ),
+      }));
+      setStreamStatus('live');
+    };
+
+    const scheduleFlush = (next: {
+      patch: Partial<MarketSnapshot>;
+      stats: SessionQuoteStats;
+    }) => {
+      pendingRef.current = {
+        patch: { ...(pendingRef.current?.patch ?? {}), ...next.patch },
+        stats: { ...(pendingRef.current?.stats ?? {}), ...next.stats },
+      };
+      const elapsed = Date.now() - lastFlushAtRef.current;
+      if (elapsed >= LIVE_UI_MIN_INTERVAL_MS) {
+        if (flushTimerRef.current !== undefined) {
+          clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = undefined;
+        }
+        flushPending();
+        return;
+      }
+      if (flushTimerRef.current !== undefined) return;
+      flushTimerRef.current = setTimeout(() => {
+        flushTimerRef.current = undefined;
+        flushPending();
+      }, LIVE_UI_MIN_INTERVAL_MS - elapsed);
+    };
 
     const disconnect = () => {
       source?.close();
@@ -126,88 +199,81 @@ export function useLiveQuote(providerSymbol: string) {
       retryTimer = undefined;
     };
 
-    const connect = async () => {
+    const connect = (token: {
+      token: string;
+      sseUrl: string;
+      expiresAt: number;
+    }) => {
       disconnect();
       if (cancelled) return;
       setStreamStatus('connecting');
 
-      try {
-        const { data } = await createMarketStreamToken();
-        if (cancelled) return;
+      const url = new URL(token.sseUrl);
+      url.searchParams.set('token', token.token);
+      url.searchParams.set('symbols', providerSymbol);
+      url.searchParams.set('type', 'quote');
 
-        const url = new URL(data.sseUrl);
-        url.searchParams.set('token', data.token);
-        url.searchParams.set('symbols', providerSymbol);
-        url.searchParams.set('type', 'quote');
+      source = new EventSource(url.toString());
 
-        source = new EventSource(url.toString());
+      source.onmessage = (event) => {
+        let payload: QuoteUpdatePayload;
+        try {
+          payload = JSON.parse(event.data) as QuoteUpdatePayload;
+        } catch {
+          return;
+        }
 
-        source.onmessage = (event) => {
-          let payload: QuoteUpdatePayload;
-          try {
-            payload = JSON.parse(event.data) as QuoteUpdatePayload;
-          } catch {
-            return;
-          }
-
-          if (payload.type === 'connected') {
-            setStreamStatus('live');
-            return;
-          }
-          if (payload.type === 'error') {
-            setStreamStatus('error');
-            return;
-          }
-
-          const applied = applyQuoteUpdate(snapshot.data, payload);
-          if (!applied) return;
-          setLivePatch((previous) => ({ ...(previous ?? {}), ...applied.patch }));
-          setSessionStats((previous) => ({
-            ...(previous ?? {}),
-            ...Object.fromEntries(
-              Object.entries(applied.stats).filter(
-                ([, value]) => value !== undefined,
-              ),
-            ),
-          }));
+        if (payload.type === 'connected') {
           setStreamStatus('live');
-        };
-
-        source.onerror = () => {
-          if (cancelled) return;
+          return;
+        }
+        if (payload.type === 'error') {
           setStreamStatus('error');
-          source?.close();
-          source = null;
-          retryTimer = setTimeout(() => {
-            void connect();
-          }, 5_000);
-        };
+          return;
+        }
 
-        const refreshInMs = Math.max(
-          data.expiresAt - Date.now() - 60_000,
-          30_000,
-        );
-        refreshTimer = setTimeout(() => {
-          void connect();
-        }, refreshInMs);
-      } catch {
+        const applied = applyQuoteUpdate(snapshot.data, payload);
+        if (!applied) return;
+        scheduleFlush(applied);
+      };
+
+      source.onerror = () => {
         if (cancelled) return;
         setStreamStatus('error');
+        source?.close();
+        source = null;
         retryTimer = setTimeout(() => {
-          void connect();
-        }, 8_000);
-      }
+          void streamToken.refetch().then((result) => {
+            if (result.data) connect(result.data);
+          });
+        }, 5_000);
+      };
+
+      const refreshInMs = Math.max(
+        token.expiresAt - Date.now() - 60_000,
+        30_000,
+      );
+      refreshTimer = setTimeout(() => {
+        void streamToken.refetch().then((result) => {
+          if (result.data) connect(result.data);
+        });
+      }, refreshInMs);
     };
 
-    void connect();
+    connect(streamToken.data);
 
     return () => {
       cancelled = true;
       disconnect();
+      if (flushTimerRef.current !== undefined) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = undefined;
+      }
+      pendingRef.current = null;
     };
-    // snapshot.data intentionally omitted — only used as identity fallback in apply
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reconnect only on symbol
-  }, [providerSymbol]);
+    // snapshot.data / streamToken.refetch intentionally omitted from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reconnect on symbol/token payload
+  }, [providerSymbol, streamToken.data?.token, streamToken.data?.sseUrl]);
 
   const quote: MarketSnapshot | null | undefined = snapshot.data
     ? { ...snapshot.data, ...(livePatch ?? {}) }
@@ -235,11 +301,36 @@ export function useLiveQuote(providerSymbol: string) {
         }
       : null;
 
+  const refresh = useCallback(async () => {
+    if (!providerSymbol || refreshing) return;
+    setRefreshing(true);
+    try {
+      const response = await getMarketSnapshot(providerSymbol, {
+        refresh: true,
+      });
+      queryClient.setQueryData(
+        ['market-snapshot', providerSymbol],
+        response.data,
+      );
+      setLivePatch(null);
+      setSessionStats({
+        open: response.data.open,
+        high: response.data.high,
+        low: response.data.low,
+        volume: response.data.volume,
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [providerSymbol, queryClient, refreshing]);
+
   return {
     quote,
     sessionStats: mergedStats,
     streamStatus,
     loading: snapshot.isLoading && !quote,
+    refreshing,
+    refresh,
     error: snapshot.isError && !quote,
   };
 }

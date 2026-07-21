@@ -50,16 +50,16 @@ if [[ -f "$WEB_ROOT/.env" ]]; then
 fi
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  echo "Starting PostgreSQL via Docker Compose ..."
-  # Compose interpolates all services' ${VAR:?} even for postgres-only up.
+  echo "Starting PostgreSQL and Redis via Docker Compose ..."
+  # Compose interpolates all services' ${VAR:?} even for postgres/redis-only up.
   export VITE_CLERK_PUBLISHABLE_KEY="${VITE_CLERK_PUBLISHABLE_KEY:-pk_test_placeholder}"
   export CLERK_SECRET_KEY="${CLERK_SECRET_KEY:-sk_test_placeholder}"
   export CLERK_AUTHORIZED_PARTIES="${CLERK_AUTHORIZED_PARTIES:-http://localhost:5173,http://127.0.0.1:5173}"
   export TRADINGAGENTS_API_KEY="${TRADINGAGENTS_API_KEY:-dev-api-key}"
   export TRADINGAGENTS_POSTGRES_PASSWORD="${TRADINGAGENTS_POSTGRES_PASSWORD:-dev-postgres-password}"
-  docker compose --env-file "$CORE_ROOT/.env" -f "$COMPOSE_FILE" up -d postgres
+  docker compose --env-file "$CORE_ROOT/.env" -f "$COMPOSE_FILE" up -d postgres redis
 else
-  echo "Docker is not running; assuming PostgreSQL is already available on localhost:5432."
+  echo "Docker is not running; assuming PostgreSQL (localhost:5432) and Redis (localhost:6379) are already available."
 fi
 
 echo "Starting tg-core on http://127.0.0.1:8000 ..."

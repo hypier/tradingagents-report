@@ -19,6 +19,10 @@
     "title": "最新行情",
     "live": "实时",
     "connecting": "连接中…",
+    "asOf": "截至 {{time}}",
+    "asOfTip": "行情最新价的更新时间（数据源最后报价时刻），不是本机当前时间。",
+    "refresh": "刷新行情",
+    "refreshError": "刷新行情失败",
     "errorTitle": "行情不可用",
     "errorBody": "无法加载该上市标的的行情数据。"
   },
@@ -29,7 +33,8 @@
     "volume": "成交量"
   },
   "chart": {
-    "title": "趋势图"
+    "title": "趋势图",
+    "unavailable": "趋势图暂不可用"
   },
   "reports": {
     "title": "研究报告",

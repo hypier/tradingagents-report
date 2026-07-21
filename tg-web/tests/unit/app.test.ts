@@ -1312,7 +1312,13 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
     };
-    const app = createApp(fakeDependencies({ marketAssets }));
+    const cache = {
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn(),
+      healthcheck: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets, cache }));
 
     const response = await app.request(
       '/api/market-snapshot?symbol=HKEX%3A700',
@@ -1323,6 +1329,92 @@ describe('createApp', () => {
       data: { ticker: '0700.HK', last_price: 481.8 },
     });
     expect(marketAssets.getSnapshot).toHaveBeenCalledWith('HKEX:700');
+    expect(cache.set).toHaveBeenCalledWith(
+      'market-snapshot:v1:HKEX:700',
+      expect.any(String),
+      20,
+    );
+  });
+
+  it('serves a cached TradingView market snapshot without upstream', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
+    };
+    const cache = {
+      get: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          ticker: 'AAPL',
+          last_price: 326.59,
+          currency: 'USD',
+          change_percent: -2.14,
+          source: 'tradingview',
+        }),
+      ),
+      set: vi.fn(),
+      delete: vi.fn(),
+      healthcheck: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets, cache }));
+
+    const response = await app.request(
+      '/api/market-snapshot?symbol=NASDAQ%3AAAPL',
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { ticker: 'AAPL', last_price: 326.59 },
+    });
+    expect(marketAssets.getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('bypasses market snapshot cache when refresh=1', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn().mockResolvedValue({
+        ticker: 'AAPL',
+        last_price: 330,
+        currency: 'USD',
+        change_percent: 0.5,
+        source: 'tradingview',
+      }),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
+    };
+    const cache = {
+      get: vi.fn().mockResolvedValue(
+        JSON.stringify({
+          ticker: 'AAPL',
+          last_price: 326.59,
+          currency: 'USD',
+          change_percent: -2.14,
+          source: 'tradingview',
+        }),
+      ),
+      set: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn(),
+      healthcheck: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets, cache }));
+
+    const response = await app.request(
+      '/api/market-snapshot?symbol=NASDAQ%3AAAPL&refresh=1',
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { ticker: 'AAPL', last_price: 330 },
+    });
+    expect(cache.get).not.toHaveBeenCalled();
+    expect(marketAssets.getSnapshot).toHaveBeenCalledWith('NASDAQ:AAPL');
   });
 
   it('returns TradingView market codes for the quotes desk', async () => {

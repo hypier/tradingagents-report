@@ -36,13 +36,13 @@ function loadTradingViewScript(): Promise<void> {
 }
 
 /**
- * Official TradingView Advanced Chart widget (embed).
+ * Slim TradingView Advanced Chart — candle chart without chrome toolbars.
  * Symbol must be EXCHANGE:TICKER (e.g. NASDAQ:MU).
  */
 export function TradingViewAdvancedChart({
   symbol,
   className,
-  height = 480,
+  height = 420,
 }: {
   symbol: string;
   className?: string;
@@ -50,7 +50,7 @@ export function TradingViewAdvancedChart({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { resolvedTheme } = useTheme();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation('stock');
   const isDark = resolvedTheme === 'dark';
   const locale = i18n.language.toLowerCase().startsWith('zh') ? 'zh_CN' : 'en';
 
@@ -82,10 +82,33 @@ export function TradingViewAdvancedChart({
           toolbar_bg: isDark ? '#0E141B' : '#ffffff',
           enable_publishing: false,
           allow_symbol_change: false,
-          hide_top_toolbar: false,
+          hide_top_toolbar: true,
+          hide_side_toolbar: true,
           hide_legend: false,
           save_image: false,
+          withdateranges: false,
+          details: false,
+          hotlist: false,
+          calendar: false,
           container_id: widgetId,
+          disabled_features: [
+            'header_widget',
+            'header_symbol_search',
+            'header_resolutions',
+            'header_chart_type',
+            'header_compare',
+            'header_indicators',
+            'header_undo_redo',
+            'header_screenshot',
+            'header_fullscreen_button',
+            'header_settings',
+            'left_toolbar',
+            'context_menus',
+            'control_bar',
+            'timeframes_toolbar',
+            'edit_buttons_in_legend',
+            'border_around_the_chart',
+          ],
         });
       })
       .catch(() => {
@@ -94,7 +117,7 @@ export function TradingViewAdvancedChart({
         const fallback = document.createElement('p');
         fallback.className =
           'flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground';
-        fallback.textContent = 'TradingView chart unavailable';
+        fallback.textContent = t('chart.unavailable');
         host.appendChild(fallback);
       });
 
@@ -102,7 +125,7 @@ export function TradingViewAdvancedChart({
       cancelled = true;
       host.replaceChildren();
     };
-  }, [symbol, isDark, locale]);
+  }, [symbol, isDark, locale, t]);
 
   return (
     <div
