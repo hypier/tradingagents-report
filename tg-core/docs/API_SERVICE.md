@@ -125,7 +125,20 @@ TRADINGAGENTS_DATABASE_URL=postgresql://user:password@host:5432/db
 - `(ticker, created_at DESC)`
 - `(status, created_at DESC)`
 
-同一 PostgreSQL 中还包含 TG-web 产品表：`product_users`、`user_consents`、`billing_subscriptions`、`credit_billing_settings`、`credit_billing_setting_events`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时校验所需表及积分结算列存在，但不执行 DDL。身份档案、Stripe Webhook、计费配置、人工调点和预扣由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。
+同一 PostgreSQL 中还包含 TG-web 产品表：`product_users`、`user_consents`、`billing_subscriptions`、`credit_billing_settings`、`credit_billing_setting_events`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`referral_relationships`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。`product_users.referral_code` 保存稳定邀请码，`product_users.onboarding_completed_at` 标识一次性首访结算；`credit_billing_settings.signup_grant_usd` 和 `referral_reward_usd` 分别保存新用户赠送及邀请奖励金额。`referral_relationships` 以被邀请用户为主键，保存邀请双方、邀请码及结算时金额、汇率和积分快照。
+
+这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时校验所需表及积分结算列存在，但不执行 DDL。身份档案、Stripe Webhook、计费配置、人工调点、邀请结算和预扣由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。部署包含新版本 TG-web 前，必须先执行 Drizzle 迁移，再启动接收业务流量的容器。迁移为历史用户回填邀请码并设置 `onboarding_completed_at`，不会追溯发放新用户积分。
+
+TG-web BFF 提供以下邀请与赠送接口（不属于 Core API）：
+
+- `GET /invite/:code`：公开入口。有效邀请码写入 30 天有效的 `HttpOnly`、`SameSite=Lax` 归因 Cookie 并跳转 `/sign-up`；无效邀请码不写 Cookie，跳转 `/sign-up?invite=invalid`。
+- `GET /api/account/referral`：需要 Clerk 会话，返回 `referralPath`、`successfulReferrals` 和 `earnedCredits`。
+- `GET /api/admin/billing/credit-settings`：管理员读取积分汇率及赠送配置。
+- `PUT /api/admin/billing/credit-settings`：管理员整体更新积分配置；请求和响应均包含 `signupGrantUsd` 与 `referralRewardUsd`。两者必须是 0 到 1,000,000 之间、最多两位小数的美元金额。
+
+Clerk 用户首次发起已认证请求时，TG-web 在单个 PostgreSQL 事务中同步本地用户、创建积分账户、锁定首访状态、读取当前配置、发放新用户积分、绑定有效邀请关系、奖励邀请人并设置 `onboarding_completed_at`。积分按 `ceil(amount_usd * points_per_usd)` 换算，不叠加分析任务的 markup 或 reserve buffer。新用户和邀请奖励账本分别使用 `signup:<userId>:grant` 与 `referral:<inviteeId>:reward` 幂等键；事务失败时归因 Cookie 保留以便下次请求重试，成功后清除。
+
+这里的“免费额度”是一次性注册赠送：积分用完即止，不按月刷新，也不创建 Stripe Customer、Checkout、Invoice 或 Subscription。
 
 TG-web BFF 另提供仅管理员可调用的 `POST /api/admin/billing/plans/defaults`，通过 Stripe API 幂等创建或恢复每月 20、50、100 美元三档套餐，分别发放 2,000、5,000、10,000 积分。该操作同时升级旧版套餐的积分 metadata，使存量订阅在后续付款周期发放新积分。该端点不属于 Core API；Stripe 仍是产品、价格和订阅状态的数据源。
 

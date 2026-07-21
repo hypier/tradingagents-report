@@ -3,6 +3,7 @@ import type {
   LegalDocumentType,
   AccountPreferences,
   AccountProfile,
+  ReferralSummary,
 } from '@/backend/account/contract';
 
 type AccountPayload = {
@@ -18,6 +19,9 @@ async function request<T>(path: string, init?: RequestInit) {
 
 export const getAccountProfile = () =>
   request<AccountPayload>('/api/account/profile');
+
+export const getReferralSummary = () =>
+  request<ReferralSummary>('/api/account/referral');
 
 export const updateAccountPreferences = (preferences: AccountPreferences) =>
   request<AccountProfile>('/api/account/profile', {

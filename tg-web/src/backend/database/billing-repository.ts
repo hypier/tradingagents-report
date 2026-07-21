@@ -46,6 +46,8 @@ export interface BillingRepository {
     markupBasisPoints: number;
     reserveBufferBasisPoints: number;
     defaultEstimatedCostUsd: string;
+    signupGrantUsd: string;
+    referralRewardUsd: string;
     actorClerkUserId: string;
   }): Promise<CreditBillingSettings>;
   estimateAnalysis(input: {
@@ -160,6 +162,8 @@ export function createBillingRepository(database: Database): BillingRepository {
             markupBasisPoints: input.markupBasisPoints,
             reserveBufferBasisPoints: input.reserveBufferBasisPoints,
             defaultEstimatedCostUsd: input.defaultEstimatedCostUsd,
+            signupGrantUsd: input.signupGrantUsd,
+            referralRewardUsd: input.referralRewardUsd,
             updatedByClerkUserId: input.actorClerkUserId,
             updatedAt: new Date(),
           })
@@ -606,9 +610,7 @@ async function estimateAnalysis(
     )
     .orderBy(desc(schema.analysisJobs.finishedAt))
     .limit(100);
-  const historicalCost = discreteP90(
-    matchingCosts.map((job) => job.costUsd),
-  );
+  const historicalCost = discreteP90(matchingCosts.map((job) => job.costUsd));
   const estimatedCostUsd = historicalCost ?? settings.defaultEstimatedCostUsd;
   return {
     estimatedCostUsd,
@@ -630,6 +632,8 @@ function settingsSnapshot(
     markupBasisPoints: settings.markupBasisPoints,
     reserveBufferBasisPoints: settings.reserveBufferBasisPoints,
     defaultEstimatedCostUsd: settings.defaultEstimatedCostUsd,
+    signupGrantUsd: settings.signupGrantUsd,
+    referralRewardUsd: settings.referralRewardUsd,
     updatedByClerkUserId: settings.updatedByClerkUserId,
     updatedAt: settings.updatedAt.toISOString(),
   };

@@ -30,3 +30,9 @@ export type AccountPreferences = Pick<
   AccountProfile,
   'interfaceLanguage' | 'reportLanguage' | 'timezone' | 'defaultMarket'
 >;
+
+export type ReferralSummary = {
+  referralPath: string;
+  successfulReferrals: number;
+  earnedCredits: number;
+};

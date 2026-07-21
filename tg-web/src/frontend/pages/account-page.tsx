@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { UserProfile } from '@clerk/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, ShieldCheck } from 'lucide-react';
+import { Copy, Save, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import type {
   LegalDocumentType,
   AccountPreferences,
+  ReferralSummary,
 } from '@/backend/account/contract';
 import { AppShell } from '@/frontend/components/app-shell';
 import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
@@ -39,6 +40,7 @@ import { Spinner } from '@/frontend/components/ui/spinner';
 import {
   acceptLegalDocuments,
   getAccountProfile,
+  getReferralSummary,
   updateAccountPreferences,
 } from '@/frontend/lib/account';
 import { setDisplayTimezone } from '@/frontend/lib/display-timezone';
@@ -58,6 +60,10 @@ export function AccountPage() {
   const profile = useQuery({
     queryKey: ['account-profile'],
     queryFn: getAccountProfile,
+  });
+  const referral = useQuery({
+    queryKey: ['account-referral'],
+    queryFn: getReferralSummary,
   });
   const [preferences, setPreferences] = useState<AccountPreferences | null>(
     null,
@@ -233,6 +239,11 @@ export function AccountPage() {
                   </FieldGroup>
                 </form>
             </SectionPanel>
+            <ReferralCard
+              isError={referral.isError}
+              isLoading={referral.isLoading}
+              summary={referral.data?.data}
+            />
             <SectionPanel
               title={t('legal.title')}
               description={t('legal.description')}
@@ -302,6 +313,83 @@ export function AccountPage() {
         )}
       </PageFrame>
     </AppShell>
+  );
+}
+
+export function ReferralCard({
+  isError,
+  isLoading,
+  summary,
+}: {
+  isError: boolean;
+  isLoading: boolean;
+  summary?: ReferralSummary;
+}) {
+  const { t } = useTranslation('account');
+  const referralUrl = summary
+    ? new URL(summary.referralPath, window.location.origin).toString()
+    : '';
+  const copyReferral = async () => {
+    try {
+      await navigator.clipboard.writeText(referralUrl);
+      toast.success(t('referral.copied'));
+    } catch {
+      toast.error(t('referral.copyError'));
+    }
+  };
+
+  return (
+    <SectionPanel
+      title={t('referral.title')}
+      description={t('referral.description')}
+    >
+      {isLoading ? (
+        <Skeleton className="h-20 w-full" />
+      ) : isError || !summary ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t('referral.loadError')}</AlertTitle>
+        </Alert>
+      ) : (
+        <div className="flex flex-col gap-5">
+          <Field>
+            <FieldLabel htmlFor="referral-link">{t('referral.link')}</FieldLabel>
+            <div className="flex min-w-0 gap-2">
+              <Input
+                className="min-w-0"
+                id="referral-link"
+                readOnly
+                value={referralUrl}
+              />
+              <Button
+                aria-label={t('referral.copy')}
+                onClick={() => void copyReferral()}
+                size="icon"
+                type="button"
+                variant="outline"
+              >
+                <Copy />
+              </Button>
+            </div>
+          </Field>
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <dt className="text-sm text-muted-foreground">
+                {t('referral.successful')}
+              </dt>
+              <dd className="text-2xl font-semibold">
+                {summary.successfulReferrals}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-1">
+              <dt className="text-sm text-muted-foreground">
+                {t('referral.earned')}
+              </dt>
+              <dd className="text-2xl font-semibold">{summary.earnedCredits}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
+    </SectionPanel>
   );
 }
 

@@ -60,6 +60,7 @@ export type BillingOverview = {
       reservedDelta: number;
       spentDelta: number;
       description: string;
+      referenceType: string;
       referenceId: string;
       metadata: Record<string, unknown>;
       createdAt: Date;
@@ -73,6 +74,8 @@ export type CreditBillingSettings = {
   markupBasisPoints: number;
   reserveBufferBasisPoints: number;
   defaultEstimatedCostUsd: string;
+  signupGrantUsd: string;
+  referralRewardUsd: string;
   updatedByClerkUserId: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -84,6 +87,8 @@ export type UpdateCreditBillingSettingsInput = Pick<
   | 'markupBasisPoints'
   | 'reserveBufferBasisPoints'
   | 'defaultEstimatedCostUsd'
+  | 'signupGrantUsd'
+  | 'referralRewardUsd'
 >;
 
 export type AnalysisCreditEstimate = {

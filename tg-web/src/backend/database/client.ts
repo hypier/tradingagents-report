@@ -20,6 +20,7 @@ import {
   type ModelPricesRepository,
   type PricingSourcesRepository,
   type ProductSettingsRepository,
+  type ReferralRepository,
   type ReportMetaRepository,
   type ShareLinksRepository,
   type WatchlistRepository,
@@ -34,6 +35,7 @@ export type DatabaseHealth = {
   pricingSources: PricingSourcesRepository;
   account: AccountRepository;
   billing: BillingRepository;
+  referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
   reportMeta: ReportMetaRepository;

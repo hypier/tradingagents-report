@@ -104,6 +104,8 @@ beforeEach(() => {
       markupBasisPoints: 1000,
       reserveBufferBasisPoints: 2000,
       defaultEstimatedCostUsd: '1.00000000',
+      signupGrantUsd: '5.00',
+      referralRewardUsd: '2.00',
       updatedByClerkUserId: 'admin-1',
       createdAt: '2026-07-20T00:00:00.000Z',
       updatedAt: '2026-07-20T00:00:00.000Z',
@@ -204,6 +206,61 @@ it('shows actual USD cost and final points in credit activity', async () => {
 
   expect(await screen.findByText('$0.123')).toBeInTheDocument();
   expect(screen.getByText('14 points')).toBeInTheDocument();
+});
+
+it('localizes signup and referral credit activity', async () => {
+  await i18n.changeLanguage('en');
+  billing.getBillingOverview.mockResolvedValue({
+    data: {
+      configured: true,
+      plans: [],
+      subscription: null,
+      invoices: [],
+      usage: {
+        availableCredits: 700,
+        reservedCredits: 0,
+        spentCredits: 0,
+        periodEnd: null,
+        ledger: [
+          {
+            id: 'signup-entry',
+            entryType: 'grant',
+            referenceType: 'signup_grant',
+            referenceId: 'user-1',
+            description: 'raw signup description',
+            availableDelta: 500,
+            reservedDelta: 0,
+            spentDelta: 0,
+            metadata: {},
+            createdAt: new Date('2026-07-21T00:00:00Z'),
+          },
+          {
+            id: 'referral-entry',
+            entryType: 'grant',
+            referenceType: 'referral_reward',
+            referenceId: 'user-2',
+            description: 'raw referral description',
+            availableDelta: 200,
+            reservedDelta: 0,
+            spentDelta: 0,
+            metadata: {},
+            createdAt: new Date('2026-07-21T00:00:00Z'),
+          },
+        ],
+      },
+    },
+    requestId: 'request-1',
+  });
+
+  render(
+    <MemoryRouter initialEntries={['/billing']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText('New user signup credit')).toBeInTheDocument();
+  expect(screen.getByText('Referral signup reward')).toBeInTheDocument();
+  expect(screen.queryByText('raw signup description')).toBeNull();
 });
 
 it('localizes the default subscription catalog in Chinese', async () => {
@@ -391,6 +448,12 @@ it('lets an administrator preview and save credit billing settings', async () =>
   fireEvent.change(screen.getByLabelText('Default estimated cost (USD)'), {
     target: { value: '2.5' },
   });
+  fireEvent.change(screen.getByLabelText('New user grant (USD)'), {
+    target: { value: '7.5' },
+  });
+  fireEvent.change(screen.getByLabelText('Referral reward (USD)'), {
+    target: { value: '3.25' },
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Save credit settings' }));
 
   await waitFor(() =>
@@ -399,6 +462,8 @@ it('lets an administrator preview and save credit billing settings', async () =>
       markupBasisPoints: 1500,
       reserveBufferBasisPoints: 2500,
       defaultEstimatedCostUsd: '2.5',
+      signupGrantUsd: '7.5',
+      referralRewardUsd: '3.25',
     }),
   );
 });

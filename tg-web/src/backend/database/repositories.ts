@@ -30,6 +30,10 @@ import {
   type ShareLinksRepository,
 } from './product-ops-repository';
 import {
+  createReferralRepository,
+  type ReferralRepository,
+} from './referral-repository';
+import {
   createReportMetaRepository,
   type ReportMetaRepository,
 } from './report-meta-repository';
@@ -47,6 +51,7 @@ export type {
   ProductSettingsRepository,
   ShareLinksRepository,
 } from './product-ops-repository';
+export type { ReferralRepository } from './referral-repository';
 export type { ReportMetaRepository } from './report-meta-repository';
 export type { WatchlistRepository } from './watchlist-repository';
 
@@ -177,6 +182,7 @@ export function createRepositories(database: Database): {
   pricingSources: PricingSourcesRepository;
   account: AccountRepository;
   billing: BillingRepository;
+  referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
   reportMeta: ReportMetaRepository;
@@ -189,6 +195,7 @@ export function createRepositories(database: Database): {
   return {
     account: createAccountRepository(database),
     billing: createBillingRepository(database),
+    referrals: createReferralRepository(database),
     watchlist: createWatchlistRepository(database),
     reportMeta: createReportMetaRepository(database),
     shareLinks: createShareLinksRepository(database),

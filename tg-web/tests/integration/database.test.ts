@@ -127,6 +127,8 @@ describe('Node database', () => {
       markupBasisPoints: 1000,
       reserveBufferBasisPoints: 2000,
       defaultEstimatedCostUsd: '0.001',
+      signupGrantUsd: '5',
+      referralRewardUsd: '2',
       actorClerkUserId: 'admin-1',
     });
     const requestId = '00000000-0000-4000-8000-000000000020';
@@ -159,6 +161,97 @@ describe('Node database', () => {
         { entryType: 'grant' },
       ],
     });
+  });
+
+  it('settles welcome and referral credits exactly once', async () => {
+    const inviter = {
+      id: 'referral-inviter',
+      displayName: 'Inviter',
+      email: 'inviter@example.test',
+      imageUrl: '',
+      role: 'user' as const,
+    };
+    await database.account.syncUser(inviter);
+    const inviterRow = await connection!.query<{ referral_code: string }>(
+      'SELECT referral_code FROM product_users WHERE clerk_user_id = $1',
+      [inviter.id],
+    );
+    const invitee = {
+      id: 'referral-invitee',
+      displayName: 'Invitee',
+      email: 'invitee@example.test',
+      imageUrl: '',
+      role: 'user' as const,
+    };
+
+    await database.referrals.completeFirstAccess(
+      invitee,
+      inviterRow.rows[0]!.referral_code,
+    );
+    await database.referrals.completeFirstAccess(
+      invitee,
+      inviterRow.rows[0]!.referral_code,
+    );
+
+    await expect(
+      database.billing.getAvailableCredits([inviter.id, invitee.id]),
+    ).resolves.toEqual({
+      [inviter.id]: 200,
+      [invitee.id]: 500,
+    });
+    await expect(database.referrals.getSummary(inviter.id)).resolves.toEqual({
+      referralPath: `/invite/${inviterRow.rows[0]!.referral_code}`,
+      successfulReferrals: 1,
+      earnedCredits: 200,
+    });
+    const ledger = await connection!.query(
+      `SELECT clerk_user_id, idempotency_key, available_delta
+       FROM credit_ledger_entries
+       WHERE clerk_user_id IN ($1, $2)
+       ORDER BY idempotency_key`,
+      [inviter.id, invitee.id],
+    );
+    expect(ledger.rows).toEqual([
+      {
+        clerk_user_id: inviter.id,
+        idempotency_key: `referral:${invitee.id}:reward`,
+        available_delta: '200',
+      },
+      {
+        clerk_user_id: invitee.id,
+        idempotency_key: `signup:${invitee.id}:grant`,
+        available_delta: '500',
+      },
+    ]);
+    const relationships = await connection!.query(
+      'SELECT * FROM referral_relationships WHERE invitee_clerk_user_id = $1',
+      [invitee.id],
+    );
+    expect(relationships.rows).toHaveLength(1);
+    expect(relationships.rows[0]).toMatchObject({
+      inviter_clerk_user_id: inviter.id,
+      signup_grant_usd: '5.00',
+      signup_grant_points: '500',
+      referral_reward_usd: '2.00',
+      referral_reward_points: '200',
+    });
+  });
+
+  it('grants welcome credits without an invitation', async () => {
+    const user = {
+      id: 'welcome-only-user',
+      displayName: 'Welcome User',
+      email: 'welcome@example.test',
+      imageUrl: '',
+      role: 'user' as const,
+    };
+
+    await database.referrals.completeFirstAccess(user, null);
+    await database.referrals.completeFirstAccess(user, null);
+
+    await expect(
+      database.billing.getAvailableCredits([user.id]),
+    ).resolves.toEqual({ [user.id]: 500 });
   });
 
   it('stores Stripe configuration ciphertext and audits changes', async () => {

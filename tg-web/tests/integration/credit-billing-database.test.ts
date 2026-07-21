@@ -49,6 +49,8 @@ describe('usage-based credit billing repository', () => {
       markupBasisPoints: 1000,
       reserveBufferBasisPoints: 2000,
       defaultEstimatedCostUsd: '1.00000000',
+      signupGrantUsd: '5.00',
+      referralRewardUsd: '2.00',
     });
 
     await database.billing.updateCreditSettings({
@@ -56,6 +58,8 @@ describe('usage-based credit billing repository', () => {
       markupBasisPoints: 1500,
       reserveBufferBasisPoints: 2500,
       defaultEstimatedCostUsd: '2.5',
+      signupGrantUsd: '7.5',
+      referralRewardUsd: '0',
       actorClerkUserId: 'admin-1',
     });
 
@@ -64,6 +68,8 @@ describe('usage-based credit billing repository', () => {
       markupBasisPoints: 1500,
       reserveBufferBasisPoints: 2500,
       defaultEstimatedCostUsd: '2.50000000',
+      signupGrantUsd: '7.50',
+      referralRewardUsd: '0.00',
       updatedByClerkUserId: 'admin-1',
     });
     const audit = await connection!.query(
@@ -79,6 +85,8 @@ describe('usage-based credit billing repository', () => {
       markupBasisPoints: 1000,
       reserveBufferBasisPoints: 2000,
       defaultEstimatedCostUsd: '1',
+      signupGrantUsd: '5',
+      referralRewardUsd: '2',
       actorClerkUserId: 'admin-1',
     });
     const signature = buildBillingSignature({

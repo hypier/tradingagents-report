@@ -113,6 +113,8 @@ function fakeDependencies(
           markupBasisPoints: 1000,
           reserveBufferBasisPoints: 2000,
           defaultEstimatedCostUsd: '1.00000000',
+          signupGrantUsd: '5.00',
+          referralRewardUsd: '2.00',
           updatedByClerkUserId: null,
           createdAt: new Date('2026-07-20T00:00:00Z'),
           updatedAt: new Date('2026-07-20T00:00:00Z'),
@@ -124,6 +126,15 @@ function fakeDependencies(
         releaseAnalysis: vi.fn().mockResolvedValue(undefined),
         processStripeEvent: vi.fn().mockResolvedValue(true),
         recordStripeFailure: vi.fn().mockResolvedValue(undefined),
+      },
+      referrals: {
+        isValidCode: vi.fn().mockResolvedValue(true),
+        completeFirstAccess: vi.fn().mockResolvedValue(undefined),
+        getSummary: vi.fn().mockResolvedValue({
+          referralPath: '/invite/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          successfulReferrals: 0,
+          earnedCredits: 0,
+        }),
       },
       analysisJobs: {
         getById: vi.fn(),
@@ -284,6 +295,58 @@ function fakeDependencies(
 }
 
 describe('createApp', () => {
+  it('captures a valid referral code in an HttpOnly cookie', async () => {
+    const dependencies = fakeDependencies();
+    const response = await createApp(dependencies).request(
+      `/invite/${'a'.repeat(32)}`,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/sign-up');
+    expect(response.headers.get('set-cookie')).toContain(
+      `tradingagents_referral=${'a'.repeat(32)}`,
+    );
+    expect(response.headers.get('set-cookie')).toContain('HttpOnly');
+    expect(response.headers.get('set-cookie')).toContain('SameSite=Lax');
+  });
+
+  it('redirects invalid referral codes without setting a cookie', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.database.referrals.isValidCode).mockResolvedValue(
+      false,
+    );
+
+    const response = await createApp(dependencies).request(
+      `/invite/${'b'.repeat(32)}`,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/sign-up?invite=invalid');
+    expect(response.headers.has('set-cookie')).toBe(false);
+  });
+
+  it('settles and clears referral attribution on an authenticated request', async () => {
+    const dependencies = fakeDependencies();
+    const response = await createApp(dependencies).request(
+      '/api/auth/session',
+      {
+        headers: {
+          cookie: `tradingagents_referral=${'c'.repeat(32)}`,
+        },
+      },
+    );
+
+    expect(
+      dependencies.database.referrals.completeFirstAccess,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-1' }),
+      'c'.repeat(32),
+    );
+    expect(response.headers.get('set-cookie')).toContain(
+      'tradingagents_referral=;',
+    );
+  });
+
   it('rejects protected API requests without a Clerk session', async () => {
     const dependencies = fakeDependencies({
       auth: {
@@ -453,6 +516,31 @@ describe('createApp', () => {
       ipAddress: null,
       userAgent: 'test-agent',
     });
+  });
+
+  it('returns the current user referral summary', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.database.referrals.getSummary).mockResolvedValue({
+      referralPath: `/invite/${'d'.repeat(32)}`,
+      successfulReferrals: 3,
+      earnedCredits: 600,
+    });
+
+    const response = await createApp(dependencies).request(
+      '/api/account/referral',
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        referralPath: `/invite/${'d'.repeat(32)}`,
+        successfulReferrals: 3,
+        earnedCredits: 600,
+      },
+    });
+    expect(dependencies.database.referrals.getSummary).toHaveBeenCalledWith(
+      'user-1',
+    );
   });
 
   it('rejects the admin API for a regular user', async () => {
@@ -1091,6 +1179,8 @@ describe('createApp', () => {
           markupBasisPoints: 1500,
           reserveBufferBasisPoints: 2500,
           defaultEstimatedCostUsd: '2.5',
+          signupGrantUsd: '5.25',
+          referralRewardUsd: '0',
         }),
       },
     );
@@ -1102,8 +1192,42 @@ describe('createApp', () => {
       markupBasisPoints: 1500,
       reserveBufferBasisPoints: 2500,
       defaultEstimatedCostUsd: '2.5',
+      signupGrantUsd: '5.25',
+      referralRewardUsd: '0',
       actorClerkUserId: 'user-1',
     });
+  });
+
+  it('rejects reward settings with more than two decimal places', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+
+    const response = await createApp(dependencies).request(
+      '/api/admin/billing/credit-settings',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pointsPerUsd: '100',
+          markupBasisPoints: 1000,
+          reserveBufferBasisPoints: 2000,
+          defaultEstimatedCostUsd: '1',
+          signupGrantUsd: '5.001',
+          referralRewardUsd: '2',
+        }),
+      },
+    );
+
+    expect(response.status).toBe(400);
+    expect(
+      dependencies.database.billing.updateCreditSettings,
+    ).not.toHaveBeenCalled();
   });
 
   it('lets an administrator adjust a synchronized user credit balance', async () => {
@@ -1891,11 +2015,7 @@ describe('createApp', () => {
       database: {
         healthcheck: vi.fn().mockResolvedValue(undefined),
         account: {
-          syncUser: vi
-            .fn()
-            .mockRejectedValue(
-              new Error('connect ECONNREFUSED 127.0.0.1:5432'),
-            ),
+          syncUser: vi.fn(),
           getProfile: vi.fn(),
           updatePreferences: vi.fn(),
           recordConsents: vi.fn(),
@@ -1915,6 +2035,15 @@ describe('createApp', () => {
           releaseAnalysis: vi.fn(),
           processStripeEvent: vi.fn(),
           recordStripeFailure: vi.fn(),
+        },
+        referrals: {
+          isValidCode: vi.fn(),
+          completeFirstAccess: vi
+            .fn()
+            .mockRejectedValue(
+              new Error('connect ECONNREFUSED 127.0.0.1:5432'),
+            ),
+          getSummary: vi.fn(),
         },
         analysisJobs: {
           getById: vi.fn(),

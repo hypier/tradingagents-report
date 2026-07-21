@@ -1,13 +1,19 @@
 import type { MiddlewareHandler } from 'hono';
+import { deleteCookie, getCookie } from 'hono/cookie';
 
 import type { AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import type { AuthService } from './contract';
 import type { AccountRepository } from '../database/repositories';
+import type { ReferralRepository } from '../database/referral-repository';
+import { REFERRAL_COOKIE } from '../routes/referrals';
 
 export function requireAuth(dependencies: {
   auth: AuthService;
-  database: { account: Pick<AccountRepository, 'syncUser'> };
+  database: {
+    account: Pick<AccountRepository, 'syncUser'>;
+    referrals: Pick<ReferralRepository, 'completeFirstAccess'>;
+  };
 }): MiddlewareHandler<AppEnvironment> {
   return async (context, next) => {
     const session = await dependencies.auth.authenticate(context.req.raw);
@@ -21,9 +27,16 @@ export function requireAuth(dependencies: {
 
     context.set('auth', session);
     const user = await dependencies.auth.getUser(session.userId);
-    await dependencies.database.account.syncUser(user);
+    const referralCode = getCookie(context, REFERRAL_COOKIE) ?? null;
+    await dependencies.database.referrals.completeFirstAccess(
+      user,
+      referralCode,
+    );
     context.set('authUser', user);
     await next();
+    if (referralCode) {
+      deleteCookie(context, REFERRAL_COOKIE, { path: '/' });
+    }
   };
 }
 

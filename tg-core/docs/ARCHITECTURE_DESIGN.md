@@ -190,7 +190,7 @@ uvicorn api.app:app --host 0.0.0.0 --port 8000
 
 `api/app.py` 在服务生命周期中初始化 PostgreSQL、写入 fallback 模型价格、恢复中断 job、启动 `api/job_worker.py` 并回灌已排队 job。它直接调用基础设施的任务列表/详情查询和健康检查；提交与执行 job、进度、报告和成本则委托给 `application/`。worker 只从队列取得 job ID 后调用 `application.jobs.run_job()`，不承载 job 业务逻辑。
 
-共享 PostgreSQL 还包含 TG-web 的本地用户档案、法律同意、订阅快照和额度账本。TG-web 在调用 Core 前以客户端 UUID 原子预留 1 个分析额度，并将同一 UUID 作为 `request_id`；`infrastructure.analysis_jobs` 只在 job 成功或失败状态迁移的同一事务内核销或释放已有预留。没有预留的 CLI、程序化图和服务调用不受影响。Stripe 支付、Webhook 验签和 Clerk 身份仍属于 TG-web 边界，Core 不承担这些职责。
+共享 PostgreSQL 还包含 TG-web 的本地用户档案、法律同意、订阅快照、邀请关系和额度账本。TG-web 在调用 Core 前以客户端 UUID 原子预留 1 个分析额度，并将同一 UUID 作为 `request_id`；`infrastructure.analysis_jobs` 只在 job 成功或失败状态迁移的同一事务内核销或释放已有预留。没有预留的 CLI、程序化图和服务调用不受影响。新用户一次性赠送、邀请归因与奖励、Stripe 支付、Webhook 验签和 Clerk 身份都属于 TG-web 边界，Core 不承担这些职责。
 
 ### 6.3 程序化图入口
 
@@ -491,6 +491,10 @@ actual   = max(1, ceil(cost_usd * (1 + markup) * points_per_usd))  其他情况
 
 管理员配置更新在锁定 singleton 设置行后与 `credit_billing_setting_events` 审计同事务写入；人工调点只修改可用积分并写入幂等 `adjustment` 账本，不允许人工扣成负数。积分余额与账本增量使用 PostgreSQL `bigint`。所有共享表结构仍由 TG-web Drizzle 迁移维护，Core 只校验结算所需表和列，不执行 DDL。
 
+新用户赠送和邀请奖励复用同一积分账户与账本，不创建虚构的免费订阅。`product_users.referral_code` 是长期稳定的邀请码，`onboarding_completed_at` 是首访结算完成标记；`referral_relationships` 以 invitee 为唯一身份，保存 inviter、邀请码以及结算时的 `points_per_usd`、美元金额和积分快照。`credit_billing_settings.signup_grant_usd` 与 `referral_reward_usd` 默认分别为 `5.00` 和 `2.00`，管理员可设置为非负、最多两位小数的金额。
+
+公开 `GET /invite/:code` 只校验邀请码并写入 30 天的 HttpOnly 归因 Cookie。Clerk 用户首次已认证请求在一个 PostgreSQL 事务中完成用户同步、积分账户创建、用户行锁定、新用户赠送、有效邀请关系写入、邀请人奖励和 onboarding 标记。换算公式为 `ceil(amount_usd * points_per_usd)`，不使用分析预扣的 markup 或 buffer；账本幂等键分别为 `signup:<userId>:grant` 和 `referral:<inviteeId>:reward`。数据库事务或后续请求处理失败时保留 Cookie，完整请求成功后才清除，因此可安全重试。历史用户由迁移统一回填邀请码并标记 onboarding 完成，不补发积分。
+
 ## 13. 部署方式
 
 ### 13.1 本地安装
@@ -508,6 +512,8 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml up --build p
 ```
 
 Docker 镜像使用 Python 3.12 slim，多阶段构建，运行阶段使用非 root 用户 `appuser`。Compose 以 `uvicorn api.app:app` 启动 HTTP API。
+
+部署 TG-web 邀请与赠送功能时，必须先运行 `cd tg-web && pnpm db:migrate`，再启动新版本应用容器；Core 和 TG-web 启动流程都不会自动执行共享 schema 迁移。
 
 ## 14. 配置优先级
 

@@ -43,6 +43,13 @@
       "when": 1784561375657,
       "tag": "0005_credit_bigint",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784613698048,
+      "tag": "0006_signup_referral_credits",
+      "breakpoints": true
     }
   ]
 }
