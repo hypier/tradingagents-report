@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Play, Search } from 'lucide-react';
+import { CalendarDays, PanelRightOpen, Play, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -32,6 +32,11 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Spinner } from '../components/ui/spinner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../components/ui/tooltip';
 import { getAccountProfile } from '../lib/account';
 import { getBillingOverview } from '../lib/billing';
 import { OUTPUT_LANGUAGE_IDS, formatOutputLanguage } from '../lib/format-output-language';
@@ -57,6 +62,28 @@ import {
 import { useJobMarketIdentities } from '../hooks/use-market-identities';
 
 const analystOptions = ['market', 'fundamentals', 'news', 'social'];
+const REPORTS_RAIL_OPEN_KEY = 'tg-web.home-reports-rail-open';
+
+function loadReportsRailOpen(defaultOpen = true): boolean {
+  if (typeof window === 'undefined') return defaultOpen;
+  try {
+    const raw = window.localStorage.getItem(REPORTS_RAIL_OPEN_KEY);
+    if (raw === '0' || raw === 'false') return false;
+    if (raw === '1' || raw === 'true') return true;
+  } catch {
+    // Ignore quota / privacy mode failures.
+  }
+  return defaultOpen;
+}
+
+function saveReportsRailOpen(open: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(REPORTS_RAIL_OPEN_KEY, open ? '1' : '0');
+  } catch {
+    // Ignore quota / privacy mode failures.
+  }
+}
 
 function instrumentFromProviderSymbol(
   providerSymbol: string,
@@ -89,6 +116,7 @@ export function HomePage() {
     todayInTimezone(guessBrowserTimezone()),
   );
   const [prefsReady, setPrefsReady] = useState(false);
+  const [reportsRailOpen, setReportsRailOpen] = useState(loadReportsRailOpen);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const profile = useQuery({
@@ -620,17 +648,57 @@ export function HomePage() {
           )}
         </section>
 
-        <aside className="flex w-full min-h-0 shrink-0 flex-col border-t border-border bg-muted/15 lg:w-[min(100%,22rem)] lg:border-t-0 xl:w-[24rem]">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <RecentReports
-              density="rail"
-              jobs={jobs.data?.data ?? []}
-              loading={jobs.isLoading}
-              error={jobs.isError}
-              identities={identities}
-              onOpenReport={(id) => navigate(`/reports/${id}`)}
-            />
-          </div>
+        <aside
+          className={cn(
+            'flex min-h-0 shrink-0 flex-col border-border bg-muted/15 transition-[width] duration-200',
+            reportsRailOpen
+              ? 'w-full border-t lg:w-[min(100%,22rem)] lg:border-t-0 xl:w-[24rem]'
+              : 'w-full border-t lg:w-12 lg:border-t-0 lg:border-l',
+          )}
+        >
+          {reportsRailOpen ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <RecentReports
+                density="rail"
+                jobs={jobs.data?.data ?? []}
+                loading={jobs.isLoading}
+                error={jobs.isError}
+                identities={identities}
+                onOpenReport={(id) => navigate(`/reports/${id}`)}
+                onCollapseRail={() => {
+                  setReportsRailOpen(false);
+                  saveReportsRailOpen(false);
+                }}
+              />
+            </div>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-label={t('recent.expand')}
+                  className="h-11 w-full justify-start gap-2 rounded-none px-4 text-muted-foreground hover:text-foreground lg:h-auto lg:flex-1 lg:flex-col lg:justify-start lg:gap-3 lg:px-0 lg:py-3"
+                  onClick={() => {
+                    setReportsRailOpen(true);
+                    saveReportsRailOpen(true);
+                  }}
+                >
+                  <PanelRightOpen className="size-4 shrink-0" />
+                  <span className="text-sm font-medium lg:hidden">
+                    {t('recent.title')}
+                  </span>
+                  <span
+                    className="hidden font-label-caps tracking-wide lg:inline"
+                    style={{ writingMode: 'vertical-rl' }}
+                  >
+                    {t('recent.title')}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">{t('recent.expand')}</TooltipContent>
+            </Tooltip>
+          )}
         </aside>
       </div>
     </AppShell>

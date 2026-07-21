@@ -96,6 +96,12 @@
     "toastStopping": "已请求停止，将在下一个安全检查点结束。",
     "toastStopFailed": "无法停止该分析。",
     "stageStatus": "{{stage}}：{{status}}",
+    "stageDescriptions": {
+      "research_debate": "多空研究员辩论交锋。",
+      "trader": "综合研判并拟定交易计划。",
+      "risk_review": "激进、中性与保守风控辩论。",
+      "final_synthesis": "组合经理汇总最终建议。"
+    },
     "events": {
       "runningAnalystTeam": "正在运行分析师团队",
       "runningActor": "正在运行{{actor}}",
@@ -119,6 +125,8 @@
   },
   "recent": {
     "title": "最近报告",
-    "description": "已完成与进行中的研究任务。"
+    "description": "已完成与进行中的研究任务。",
+    "expand": "展开最近报告侧栏",
+    "collapse": "收起最近报告侧栏"
   }
 }

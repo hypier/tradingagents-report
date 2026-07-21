@@ -102,6 +102,13 @@ export function PipelinePanel({
     return localizeProgressMessage(value, t);
   }
 
+  function stageDescription(stage: string) {
+    if (analystStages.includes(stage)) {
+      return t(`analysts.${stage}.description`);
+    }
+    return t(`pipeline.stageDescriptions.${stage}`, { defaultValue: '' });
+  }
+
   function statusLabel(complete: boolean, current: boolean) {
     if (complete) return t('pipeline.complete');
     if (current) return t('pipeline.inProgress');
@@ -304,6 +311,7 @@ export function PipelinePanel({
                   activeIndex > index || job?.status === 'succeeded';
                 const label = statusLabel(complete, current);
                 const stageName = displayStage(stage);
+                const description = stageDescription(stage);
                 const StageIcon = getStageIcon(stage);
                 return (
                   <li
@@ -313,7 +321,7 @@ export function PipelinePanel({
                       status: label,
                     })}
                     data-stage-status={label}
-                    title={stageName}
+                    title={description ? `${stageName} — ${description}` : stageName}
                     className={cn(
                       'relative flex min-w-0 items-center gap-2 rounded-none border px-2.5 py-2.5 transition-colors',
                       complete && 'border-primary/30 bg-primary/5',
@@ -341,9 +349,15 @@ export function PipelinePanel({
                       >
                         {stageName}
                       </p>
-                      <p className="mt-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                        {String(index + 1).padStart(2, '0')}
-                      </p>
+                      {description ? (
+                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                          {description}
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                          {String(index + 1).padStart(2, '0')}
+                        </p>
+                      )}
                     </div>
                     {complete ? (
                       <Check
@@ -384,7 +398,7 @@ export function PipelinePanel({
                 <Skeleton className="h-3 w-3/4" />
               </div>
             ) : events?.length ? (
-              <ScrollArea className="h-[7.5rem]">
+              <ScrollArea className="h-[11rem]">
                 <ol className="flex flex-col gap-2 px-3 py-2.5">
                   {[...events].reverse().map((event, index) => (
                     <li

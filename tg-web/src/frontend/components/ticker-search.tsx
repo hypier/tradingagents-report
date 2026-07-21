@@ -314,26 +314,6 @@ export function TickerSearch({
       </div>
 
       {menu}
-
-      {value ? (
-        <div className="mt-2 min-w-0">
-          <p className="truncate text-sm font-medium tracking-tight text-foreground">
-            {value.display_name || value.display_ticker}
-            {value.english_name ? (
-              <span className="ml-1.5 font-normal text-xs text-muted-foreground">
-                {value.english_name}
-              </span>
-            ) : null}
-          </p>
-          <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
-            {value.display_ticker}
-            <span className="text-muted-foreground/80">
-              {' '}
-              · {value.provider_symbol}
-            </span>
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }

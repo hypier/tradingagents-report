@@ -28,6 +28,14 @@ it('marks the Core sentiment step as in progress', () => {
   expect(
     within(container).getByLabelText('Sentiment: In progress'),
   ).toHaveAttribute('data-stage-status', 'In progress');
+  expect(
+    within(container).getByText(
+      'Social buzz, crowd positioning, and narrative shift.',
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(container).getByText('Bull vs bear research debate.'),
+  ).toBeInTheDocument();
 });
 
 it('shows the full event history with timestamps in a scrollable log', () => {

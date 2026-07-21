@@ -3,6 +3,7 @@ import {
   ClipboardList,
   FileText,
   ListTodo,
+  PanelRightClose,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -117,6 +118,8 @@ type ReportsTableProps = {
   variant?: 'tasks' | 'library';
   /** Hide the ruled section title block (page already owns the h1). */
   hideSectionHeader?: boolean;
+  /** When set, rail header shows a control to collapse the parent sidebar. */
+  onCollapseRail?: () => void;
 };
 
 export function ReportsTable({
@@ -131,6 +134,7 @@ export function ReportsTable({
   density = 'full',
   variant = 'library',
   hideSectionHeader = false,
+  onCollapseRail,
 }: ReportsTableProps) {
   const { t } = useTranslation(['reports', 'tasks', 'common', 'home']);
   const isRail = density === 'rail';
@@ -168,9 +172,26 @@ export function ReportsTable({
     return (
       <div aria-labelledby={titleId} className="flex min-h-0 flex-col">
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 id={titleId} className="font-label-caps text-muted-foreground">
-            {title}
-          </h2>
+          <div className="flex min-w-0 items-center gap-1.5">
+            {onCollapseRail ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0 text-muted-foreground"
+                aria-label={t('home:recent.collapse')}
+                onClick={onCollapseRail}
+              >
+                <PanelRightClose className="size-4" />
+              </Button>
+            ) : null}
+            <h2
+              id={titleId}
+              className="truncate font-label-caps text-muted-foreground"
+            >
+              {title}
+            </h2>
+          </div>
           <Badge variant="outline" className="font-mono text-xs tabular-nums">
             {t('table.runs', { count: jobs.length })}
           </Badge>

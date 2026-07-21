@@ -96,6 +96,12 @@
     "toastStopping": "Stop requested. The run will end at the next safe checkpoint.",
     "toastStopFailed": "Unable to stop this analysis.",
     "stageStatus": "{{stage}}: {{status}}",
+    "stageDescriptions": {
+      "research_debate": "Bull vs bear research debate.",
+      "trader": "Form a trade plan from the research.",
+      "risk_review": "Aggressive, neutral, and conservative risk debate.",
+      "final_synthesis": "Portfolio manager final recommendation."
+    },
     "events": {
       "runningAnalystTeam": "Running analyst team",
       "runningActor": "Running {{actor}}",
@@ -119,6 +125,8 @@
   },
   "recent": {
     "title": "Recent reports",
-    "description": "Completed and in-progress research runs."
+    "description": "Completed and in-progress research runs.",
+    "expand": "Expand recent reports sidebar",
+    "collapse": "Collapse recent reports sidebar"
   }
 }

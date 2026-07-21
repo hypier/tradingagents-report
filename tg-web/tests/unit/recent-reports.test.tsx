@@ -271,6 +271,28 @@ it('shows logo and company name in the rail density list', () => {
   ).toBeTruthy();
 });
 
+it('exposes a collapse control when onCollapseRail is provided', () => {
+  const onCollapseRail = vi.fn();
+
+  render(
+    <TooltipProvider>
+      <RecentReports
+        density="rail"
+        jobs={[{ id: 'job-1', ticker: 'AAPL', status: 'succeeded' }]}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+        onCollapseRail={onCollapseRail}
+      />
+    </TooltipProvider>,
+  );
+
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Collapse recent reports sidebar' }),
+  );
+  expect(onCollapseRail).toHaveBeenCalledTimes(1);
+});
+
 it('renders Yahoo-style display tickers for multi-market instruments', () => {
   render(
     <TooltipProvider>
