@@ -172,6 +172,17 @@ export function StockPage() {
                     ticker={listing.provider_symbol ?? listing.display_ticker}
                     nameClassName="text-lg"
                     tickerClassName="mt-0.5 text-xs"
+                    tickerAriaLabel={t('quote.copyTicker')}
+                    onTickerClick={() => {
+                      const ticker =
+                        listing.provider_symbol ?? listing.display_ticker;
+                      void navigator.clipboard
+                        .writeText(ticker)
+                        .then(() =>
+                          toast.success(t('quote.tickerCopied', { ticker })),
+                        )
+                        .catch(() => toast.error(t('quote.tickerCopyError')));
+                    }}
                   />
                   {statusLabel || asOfLabel ? (
                     <p className="mt-0.5 flex min-w-0 items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -321,15 +332,7 @@ export function StockPage() {
         </header>
 
         <PageBody>
-          <section className="space-y-3" aria-labelledby="stock-chart-title">
-            <h2
-              id="stock-chart-title"
-              className="text-sm font-semibold tracking-tight"
-            >
-              {t('chart.title')}
-            </h2>
-            <TradingViewAdvancedChart symbol={providerSymbol} height={420} />
-          </section>
+          <TradingViewAdvancedChart symbol={providerSymbol} height={420} />
 
           <ReportsTable
             jobs={reports.data?.data ?? []}

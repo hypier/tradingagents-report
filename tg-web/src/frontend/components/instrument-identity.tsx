@@ -31,6 +31,8 @@ export function InstrumentIdentity({
   tickerClassName,
   trailing,
   tickerSuffix,
+  onTickerClick,
+  tickerAriaLabel,
 }: {
   name?: string | null;
   ticker: string;
@@ -43,6 +45,9 @@ export function InstrumentIdentity({
   trailing?: ReactNode;
   /** Extra mono meta after the ticker (e.g. provider symbol). */
   tickerSuffix?: ReactNode;
+  /** When set, the ticker becomes a clickable control (e.g. copy). */
+  onTickerClick?: () => void;
+  tickerAriaLabel?: string;
 }) {
   const code = ticker.trim();
   const normalizedName = name?.trim() || '';
@@ -51,7 +56,17 @@ export function InstrumentIdentity({
   const showTickerLine =
     Boolean(code) &&
     ((Boolean(normalizedName) && normalizedName !== code) ||
-      tickerSuffix != null);
+      tickerSuffix != null ||
+      onTickerClick != null);
+
+  const tickerContent = (
+    <>
+      {code}
+      {tickerSuffix ? (
+        <span className="text-muted-foreground/80">{tickerSuffix}</span>
+      ) : null}
+    </>
+  );
 
   return (
     <div className={cn('min-w-0', className)}>
@@ -62,12 +77,25 @@ export function InstrumentIdentity({
         {trailing}
       </div>
       {showTickerLine ? (
-        <p className={cn(tickerStyles[density], tickerClassName)}>
-          {code}
-          {tickerSuffix ? (
-            <span className="text-muted-foreground/80">{tickerSuffix}</span>
-          ) : null}
-        </p>
+        onTickerClick ? (
+          <button
+            type="button"
+            onClick={onTickerClick}
+            aria-label={tickerAriaLabel}
+            title={tickerAriaLabel}
+            className={cn(
+              tickerStyles[density],
+              'cursor-pointer border-0 bg-transparent p-0 text-left underline underline-offset-2 transition-colors hover:text-foreground',
+              tickerClassName,
+            )}
+          >
+            {tickerContent}
+          </button>
+        ) : (
+          <p className={cn(tickerStyles[density], tickerClassName)}>
+            {tickerContent}
+          </p>
+        )
       ) : null}
     </div>
   );

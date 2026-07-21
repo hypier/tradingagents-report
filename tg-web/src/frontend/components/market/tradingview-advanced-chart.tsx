@@ -1,7 +1,11 @@
 import { useTheme } from 'next-themes';
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/frontend/components/ui/toggle-group';
 import { cn } from '@/frontend/lib/utils';
 
 declare global {
@@ -13,6 +17,20 @@ declare global {
 }
 
 const SCRIPT_SRC = 'https://s3.tradingview.com/tv.js';
+
+/** TradingView Advanced Chart interval codes. */
+export const CHART_INTERVALS = [
+  { value: '5', labelKey: '5m' },
+  { value: '15', labelKey: '15m' },
+  { value: '60', labelKey: '1H' },
+  { value: 'D', labelKey: '1D' },
+  { value: 'W', labelKey: '1W' },
+  { value: 'M', labelKey: '1M' },
+] as const;
+
+export type ChartInterval = (typeof CHART_INTERVALS)[number]['value'];
+
+const DEFAULT_INTERVAL: ChartInterval = 'D';
 
 function loadTradingViewScript(): Promise<void> {
   if (window.TradingView) return Promise.resolve();
@@ -43,16 +61,20 @@ export function TradingViewAdvancedChart({
   symbol,
   className,
   height = 420,
+  defaultInterval = DEFAULT_INTERVAL,
 }: {
   symbol: string;
   className?: string;
   height?: number;
+  defaultInterval?: ChartInterval;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   const { resolvedTheme } = useTheme();
   const { i18n, t } = useTranslation('stock');
   const isDark = resolvedTheme === 'dark';
   const locale = i18n.language.toLowerCase().startsWith('zh') ? 'zh_CN' : 'en';
+  const [interval, setInterval] = useState<ChartInterval>(defaultInterval);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -74,7 +96,7 @@ export function TradingViewAdvancedChart({
         new window.TradingView.widget({
           autosize: true,
           symbol,
-          interval: 'D',
+          interval,
           timezone: 'Etc/UTC',
           theme: isDark ? 'dark' : 'light',
           style: '1',
@@ -125,14 +147,44 @@ export function TradingViewAdvancedChart({
       cancelled = true;
       host.replaceChildren();
     };
-  }, [symbol, isDark, locale, t]);
+  }, [symbol, interval, isDark, locale, t]);
 
   return (
     <div
       className={cn('overflow-hidden border border-border bg-card', className)}
-      style={{ height }}
+      aria-labelledby={titleId}
     >
-      <div ref={containerRef} className="h-full w-full" />
+      <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-1.5">
+        <h2
+          id={titleId}
+          className="shrink-0 text-sm font-semibold tracking-tight"
+        >
+          {t('chart.title')}
+        </h2>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          variant="outline"
+          spacing={0}
+          value={interval}
+          onValueChange={(value) => {
+            if (value) setInterval(value as ChartInterval);
+          }}
+          aria-label={t('chart.interval')}
+          className="rounded-none"
+        >
+          {CHART_INTERVALS.map((item) => (
+            <ToggleGroupItem
+              key={item.value}
+              value={item.value}
+              className="h-7 min-w-9 rounded-none px-2 font-mono text-[11px] tabular-nums"
+            >
+              {t(`chart.intervals.${item.labelKey}`)}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+      <div ref={containerRef} className="w-full" style={{ height }} />
     </div>
   );
 }
