@@ -41,6 +41,8 @@ export type AnalysisJob = {
   cost_usd?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
   analysts?: string[] | null;
   display?: InstrumentDisplay | null;
   output_language?: string | null;
@@ -258,3 +260,17 @@ export const getMarketIdentities = (tickers: string[]) =>
       tickers.map((ticker) => ['ticker', ticker]),
     ).toString()}`,
   );
+
+/** Jobs persist display at submit — only backfill via TradingView when name is missing. */
+export function tickersNeedingMarketIdentity(
+  jobs: Array<Pick<AnalysisJob, 'ticker' | 'display'>>,
+): string[] {
+  return [
+    ...new Set(
+      jobs
+        .filter((job) => !job.display?.display_name?.trim())
+        .map((job) => job.ticker)
+        .filter(Boolean),
+    ),
+  ];
+}

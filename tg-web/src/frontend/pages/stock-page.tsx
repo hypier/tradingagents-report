@@ -5,7 +5,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AppShell } from '../components/app-shell';
-import { QuoteStrip } from '../components/dashboard/quote-strip';
 import { ReportsTable } from '../components/dashboard/recent-reports';
 import { InstrumentIdentity } from '../components/instrument-identity';
 import { PageBody } from '../components/page-chrome';
@@ -13,13 +12,8 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
-import { formatSnapshotDelay, snapshotFreshness } from '../lib/snapshot-freshness';
-import {
-  getMarketSnapshot,
-  listResearch,
-} from '../lib/research';
+import { listResearch } from '../lib/research';
 import {
   addWatchlistItem,
   getWatchlist,
@@ -28,7 +22,7 @@ import {
 import { listingFromProviderSymbol } from '@/shared/listing';
 
 export function StockPage() {
-  const { t } = useTranslation(['stock', 'common', 'home']);
+  const { t } = useTranslation(['stock', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { providerSymbol: rawSymbol = '' } = useParams();
@@ -41,23 +35,23 @@ export function StockPage() {
     listing = null;
   }
 
-  const snapshot = useQuery({
-    queryKey: ['snapshot', providerSymbol],
-    queryFn: () => getMarketSnapshot(providerSymbol),
-    enabled: Boolean(listing),
-  });
+  // Identity + reports from local Postgres only — no TradingView round-trip.
   const reports = useQuery({
     queryKey: ['stock-reports', listing?.display_ticker],
     queryFn: () =>
       listResearch({
         ticker: listing!.display_ticker,
-        limit: 20,
+        limit: 50,
+        status: 'succeeded',
+        archived: false,
       }),
     enabled: Boolean(listing?.display_ticker),
+    staleTime: 30_000,
   });
   const watchlist = useQuery({
     queryKey: ['watchlist'],
     queryFn: () => getWatchlist(),
+    staleTime: 60_000,
   });
 
   const existingItem = watchlist.data?.data.groups
@@ -83,17 +77,18 @@ export function StockPage() {
     onError: () => toast.error(t('watchlist.removeError')),
   });
 
-  const quote = snapshot.data?.data;
-  const freshness = snapshotFreshness({
-    asOf: quote?.as_of,
-    updateMode: quote?.update_mode,
-    delaySeconds: quote?.delay_seconds,
-  });
-  const delayLabel = formatSnapshotDelay({
-    asOf: quote?.as_of,
-    updateMode: quote?.update_mode,
-    delaySeconds: quote?.delay_seconds,
-  });
+  const reportDisplay = reports.data?.data.find(
+    (job) => job.display?.display_name || job.display?.logo_url,
+  )?.display;
+  const displayName =
+    reportDisplay?.display_name?.trim() ||
+    existingItem?.displayName?.trim() ||
+    listing?.display_ticker ||
+    '';
+  const logoUrl =
+    reportDisplay?.logo_url?.trim() ||
+    existingItem?.logoUrl?.trim() ||
+    undefined;
 
   if (!listing) {
     return (
@@ -119,10 +114,10 @@ export function StockPage() {
                 className="size-12 !rounded-none after:hidden"
               >
                 <AvatarImage
-                  key={quote?.logo_url ?? 'missing'}
+                  key={logoUrl ?? 'missing'}
                   className="!rounded-none object-contain"
-                  src={quote?.logo_url}
-                  alt={quote?.display_name ?? listing.display_ticker}
+                  src={logoUrl}
+                  alt={displayName || listing.display_ticker}
                 />
                 <AvatarFallback className="!rounded-none text-lg font-semibold">
                   {listing.symbol.slice(0, 1)}
@@ -132,7 +127,7 @@ export function StockPage() {
                 <InstrumentIdentity
                   density="header"
                   nameAs="h1"
-                  name={quote?.display_name}
+                  name={displayName}
                   ticker={listing.display_ticker}
                   tickerSuffix={` · ${listing.provider_symbol}`}
                 />
@@ -140,16 +135,6 @@ export function StockPage() {
                   {listing.exchange ? (
                     <Badge variant="secondary">{listing.exchange}</Badge>
                   ) : null}
-                  {quote?.currency ? (
-                    <Badge variant="outline">{quote.currency}</Badge>
-                  ) : null}
-                  <Badge variant="outline">
-                    {freshness === 'stale'
-                      ? delayLabel
-                        ? t('home:snapshot.staleWithAge', { age: delayLabel })
-                        : t('home:snapshot.stale')
-                      : t('home:snapshot.asOf')}
-                  </Badge>
                 </div>
               </div>
             </div>
@@ -185,9 +170,8 @@ export function StockPage() {
                       symbol: listing.symbol,
                       displayTicker: listing.display_ticker,
                       providerSymbol: listing.provider_symbol ?? providerSymbol,
-                      displayName:
-                        quote?.display_name ?? listing.display_ticker,
-                      logoUrl: quote?.logo_url ?? null,
+                      displayName: displayName || listing.display_ticker,
+                      logoUrl: logoUrl ?? null,
                     });
                   }}
                 >
@@ -204,33 +188,6 @@ export function StockPage() {
         </div>
 
         <PageBody>
-          {snapshot.isLoading ? (
-            <Skeleton className="h-28 w-full" />
-          ) : snapshot.isError || !quote ? (
-            <Alert variant="destructive">
-              <AlertTitle>{t('quote.errorTitle')}</AlertTitle>
-              <AlertDescription>{t('quote.errorBody')}</AlertDescription>
-            </Alert>
-          ) : (
-            <QuoteStrip
-              variant="panel"
-              quote={{
-                ticker: listing.display_ticker,
-                display_ticker: listing.display_ticker,
-                display_name: quote.display_name,
-                last_price: quote.last_price,
-                change: quote.change,
-                change_percent: quote.change_percent,
-                currency: quote.currency,
-                source: quote.source,
-                as_of: quote.as_of,
-                update_mode: quote.update_mode,
-                delay_seconds: quote.delay_seconds,
-                logo_url: quote.logo_url,
-              }}
-            />
-          )}
-
           <ReportsTable
             jobs={reports.data?.data ?? []}
             loading={reports.isLoading}
@@ -240,6 +197,8 @@ export function StockPage() {
             title={t('reports.title')}
             description={t('reports.description')}
             titleId="stock-reports-title"
+            variant="library"
+            hideSectionHeader
           />
         </PageBody>
       </div>

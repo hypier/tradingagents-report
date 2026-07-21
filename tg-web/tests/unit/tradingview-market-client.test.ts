@@ -3,45 +3,27 @@ import { describe, expect, it, vi } from 'vitest';
 import { TradingViewMarketClient } from '../../src/backend/market-assets/tradingview-market-client';
 
 describe('TradingViewMarketClient', () => {
-  it('builds a market snapshot from a provider symbol', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            success: true,
+  it('quotes a provider symbol directly without a search round-trip', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            symbol: 'HKEX:700',
             data: {
-              markets: [
-                {
-                  symbol: '700',
-                  full_name: 'HKEX:700',
-                  description: 'Tencent Holdings Ltd.',
-                  is_primary_listing: true,
-                  logo: { style: 'single', logoid: 'tencent' },
-                },
-              ],
+              lp: 481.8,
+              ch: 7.8,
+              chp: 1.65,
+              currency_code: 'HKD',
+              lp_time: 1784165400,
+              update_mode: 'delayed_streaming_900',
+              short_name: 'Tencent Holdings Ltd.',
+              logoid: 'tencent',
             },
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            success: true,
-            data: {
-              symbol: 'HKEX:700',
-              data: {
-                lp: 481.8,
-                ch: 7.8,
-                chp: 1.65,
-                currency_code: 'HKD',
-                lp_time: 1784165400,
-                update_mode: 'delayed_streaming_900',
-              },
-            },
-          }),
-        ),
-      );
+          },
+        }),
+      ),
+    );
     const client = new TradingViewMarketClient('server-secret', fetchMock);
 
     await expect(client.getSnapshot('HKEX:700')).resolves.toEqual({
@@ -58,12 +40,8 @@ describe('TradingViewMarketClient', () => {
       delay_seconds: 900,
       source: 'tradingview',
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      'https://tradingview-data1.p.rapidapi.com/api/search/market/700?filter=stock',
-      expect.anything(),
-    );
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
       'https://tradingview-data1.p.rapidapi.com/api/quote/HKEX%3A700?session=regular&fields=all',
       expect.anything(),
     );

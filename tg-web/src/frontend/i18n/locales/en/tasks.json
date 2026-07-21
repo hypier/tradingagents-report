@@ -1,11 +1,26 @@
 {
   "eyebrow": "Task center",
   "title": "Tasks",
-  "subtitle": "Track queued, running, succeeded, and failed runs.",
+  "subtitle": "Monitor queued and running analyses — progress, current step, and failure reasons.",
   "reportsLink": "Open report library",
   "statusFilter": "Status",
   "library": {
-    "title": "Job history",
-    "description": "Only jobs you submitted appear here."
+    "title": "Job ledger",
+    "description": "Newest updates first; open the library to read finished reports."
+  },
+  "table": {
+    "status": "Status",
+    "timing": "Time",
+    "submitted": "Submitted",
+    "duration": "Duration",
+    "step": "Step",
+    "open": "Open",
+    "openFor": "Open job for {{ticker}}",
+    "errorReason": "Failure reason",
+    "jobs": "{{count}} jobs",
+    "complete": "Complete",
+    "stopped": "Stopped",
+    "unavailable": "Job list is temporarily unavailable.",
+    "empty": "Submit an analysis and it will appear here."
   }
 }

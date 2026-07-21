@@ -1,7 +1,17 @@
 {
   "eyebrow": "Research library",
-  "title": "All reports",
-  "subtitle": "Browse every submitted research run and open its report when it is ready.",
+  "title": "Reports",
+  "subtitle": "Search and read finished research reports — filter by ticker, date, and favorites.",
+  "filtersShow": "Filters",
+  "filtersHide": "Hide filters",
+  "view": {
+    "label": "View",
+    "list": "List",
+    "byTicker": "By ticker"
+  },
+  "byTicker": {
+    "reportCount": "{{count}} reports"
+  },
   "statusFilter": "Status",
   "tickerFilter": "Ticker",
   "tickerPlaceholder": "AAPL",
@@ -12,8 +22,8 @@
   "favoriteOnly": "Favorites only",
   "includeArchived": "Include archived",
   "library": {
-    "title": "Report library",
-    "description": "Your complete research history."
+    "title": "Research archive",
+    "description": "Readable report history. Live runs belong in Tasks."
   },
   "loadMore": "Load more reports",
   "loadingMore": "Loading reports...",
@@ -21,14 +31,17 @@
   "loadMoreErrorBody": "Your loaded reports are still available. Try again to continue the history.",
   "table": {
     "instrument": "Instrument",
+    "decision": "Decision",
+    "tradeDate": "Trade date",
     "team": "Team",
     "status": "Status",
     "language": "Language",
     "updated": "Updated",
     "report": "Report",
-    "runs": "{{count}} runs",
+    "favorite": "Favorite",
+    "runs": "{{count}} reports",
     "unavailable": "Research history is temporarily unavailable.",
-    "empty": "Start a research run to build your report library.",
+    "empty": "Finish an analysis and the report will appear here.",
     "noConclusion": "No conclusion yet",
     "configuredTeam": "Configured team",
     "viewReport": "View report",

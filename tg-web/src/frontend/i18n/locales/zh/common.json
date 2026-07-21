@@ -84,6 +84,13 @@
     "failed": "失败",
     "all": "全部状态"
   },
+  "decisions": {
+    "Buy": "买入",
+    "Overweight": "增持",
+    "Hold": "持有",
+    "Underweight": "减持",
+    "Sell": "卖出"
+  },
   "analysts": {
     "market": "市场",
     "fundamentals": "基本面",

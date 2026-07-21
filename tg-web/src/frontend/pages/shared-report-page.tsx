@@ -31,6 +31,10 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { getAnalystIcon, getStageIcon } from '../components/icons/research-icons';
 import {
+  decisionBadgeVariant,
+  formatDecisionLabel,
+} from '../lib/format-decision';
+import {
   formatLocaleCalendarDate,
   formatLocaleDateTime,
 } from '../lib/format-locale';
@@ -91,18 +95,6 @@ function reportTabIcon(key: string) {
   return getStageIcon(key);
 }
 
-function formatDecision(decision: unknown): string | null {
-  if (decision == null) return null;
-  if (typeof decision === 'string') {
-    const trimmed = decision.trim();
-    return trimmed || null;
-  }
-  if (typeof decision === 'object') {
-    const action = (decision as { action?: unknown }).action;
-    if (typeof action === 'string' && action.trim()) return action.trim();
-  }
-  return null;
-}
 
 function getReportScrollParent() {
   return (
@@ -153,24 +145,28 @@ export function SharedReportPage({
   const reportHighlightSoft = isDark
     ? paperThemeConfig.darkHighlightSoft
     : paperThemeConfig.highlightSoft;
-  const decisionLabel = formatDecision(job?.decision);
+  const decisionLabel = formatDecisionLabel(job?.decision, (key, options) =>
+    t(`common:${key}`, options),
+  );
   const ticker = job?.ticker ? formatDisplayTicker(job.ticker) : null;
   const displayName = job?.display?.display_name?.trim() || null;
   const logoUrl = job?.display?.logo_url?.trim() || null;
-  const exchange = job?.exchange?.trim() || null;
-  const country = job?.display?.country?.trim() || null;
   const language = job?.output_language?.trim() || null;
   const tradeDate =
     typeof job?.trade_date === 'string' ? job.trade_date : null;
   const title = displayName ?? ticker ?? t('fallbackTitle');
-  const subtitle = decisionLabel
-    ? t('finalDecision', { decision: decisionLabel })
-    : ticker
-      ? t('analysisFor', { ticker })
-      : t('fallbackSubtitle');
   const expiresLabel = job?.share_expires_at
     ? formatLocaleDateTime(String(job.share_expires_at))
     : null;
+  const headerMeta = [
+    language
+      ? formatOutputLanguage(language, (key, options) =>
+          t(`common:${key}`, options),
+        )
+      : null,
+    tradeDate ? formatLocaleCalendarDate(tradeDate) : null,
+    expiresLabel ? t('share.expires', { date: expiresLabel }) : null,
+  ].filter((part): part is string => Boolean(part));
 
   function reportTabLabel(key: string) {
     return t(`tabs.${key}`, {
@@ -242,7 +238,7 @@ export function SharedReportPage({
   const body = (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-5 px-5 py-3.5 md:gap-5 lg:px-6">
-        <div className="flex items-start gap-3 border-b border-border pb-3.5">
+        <div className="flex items-center gap-3 border-b border-border pb-3.5">
           <Avatar
             size="lg"
             className="size-11 !rounded-none after:hidden"
@@ -268,44 +264,24 @@ export function SharedReportPage({
               ticker={ticker || title}
               trailing={
                 decisionLabel ? (
-                  <Badge variant="default" className="capitalize">
+                  <Badge variant={decisionBadgeVariant(job?.decision)}>
                     {decisionLabel}
                   </Badge>
                 ) : null
               }
+              tickerSuffix={
+                headerMeta.length ? (
+                  <>
+                    {headerMeta.map((part) => (
+                      <span key={part}> · {part}</span>
+                    ))}
+                  </>
+                ) : null
+              }
             />
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {exchange ? <Badge variant="outline">{exchange}</Badge> : null}
-              {country ? <Badge variant="outline">{country}</Badge> : null}
-              {language ? (
-                <Badge variant="outline">
-                  {formatOutputLanguage(language, (key, options) =>
-                    t(`common:${key}`, options),
-                  )}
-                </Badge>
-              ) : null}
-            </div>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              {subtitle}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-              {tradeDate ? (
-                <span>
-                  {t('tradeDate', {
-                    date: formatLocaleCalendarDate(tradeDate),
-                  })}
-                </span>
-              ) : null}
-              {expiresLabel ? (
-                <span>{t('share.expires', { date: expiresLabel })}</span>
-              ) : null}
-            </div>
-            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-              {t('dataAsOf')} {t('riskNotice')}
-            </p>
           </div>
           {publicView ? (
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="shrink-0">
               <Link to="/">{t('share.signIn')}</Link>
             </Button>
           ) : null}
@@ -346,6 +322,10 @@ export function SharedReportPage({
               <ReportTabsNav
                 entries={tabKeys}
                 activeTab={activeTab || entries[0][0]}
+                onSelect={(value) => {
+                  setActiveTab(value);
+                  scrollToTop();
+                }}
                 renderLabel={reportTabLabel}
                 renderIcon={(key) => {
                   const Icon = reportTabIcon(key);
@@ -404,6 +384,12 @@ export function SharedReportPage({
             </EmptyHeader>
           </Empty>
         )}
+
+        {job ? (
+          <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+            {t('dataAsOf')} {t('riskNotice')}
+          </p>
+        ) : null}
       </div>
 
       {entries.length ? (

@@ -20,7 +20,7 @@
     "errorBody": "Market data could not be loaded for this listing."
   },
   "reports": {
-    "title": "Your analyses",
-    "description": "Recent research runs for this instrument."
+    "title": "Research reports",
+    "description": "Finished analyses for this instrument from your report library."
   }
 }

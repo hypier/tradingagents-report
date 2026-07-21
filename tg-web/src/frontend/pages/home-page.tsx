@@ -46,6 +46,7 @@ import {
   getMarketSnapshot,
   getResearchEvents,
   listResearch,
+  tickersNeedingMarketIdentity,
   type SelectedInstrument,
 } from '../lib/research';
 
@@ -123,16 +124,13 @@ export function HomePage() {
     enabled: Boolean(active),
     refetchInterval: active ? 5_000 : false,
   });
-  const assetTickers = [
-    ...new Set([
-      ...(jobs.data?.data ?? []).map((job) => job.ticker),
-      ...(instrument ? [instrument.display_ticker] : []),
-    ]),
-  ];
+  // Prefer job.display written at submit; only backfill legacy rows via TradingView.
+  const assetTickers = tickersNeedingMarketIdentity(jobs.data?.data ?? []);
   const identities = useQuery({
     queryKey: ['market-identities', assetTickers],
     queryFn: () => getMarketIdentities(assetTickers),
     enabled: assetTickers.length > 0,
+    staleTime: 5 * 60_000,
   });
   const snapshot = useQuery({
     queryKey: ['snapshot', instrument?.provider_symbol],

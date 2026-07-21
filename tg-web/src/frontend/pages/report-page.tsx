@@ -38,7 +38,12 @@ import {
 } from '../components/ui/empty';
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent } from '../components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { getAnalystIcon, getStageIcon } from '../components/icons/research-icons';
+import {
+  decisionBadgeVariant,
+  formatDecisionLabel,
+} from '../lib/format-decision';
 import {
   formatLocaleCalendarDate,
   formatLocaleDateTime,
@@ -112,19 +117,6 @@ function reportTabIcon(key: string) {
   return getStageIcon(key);
 }
 
-function formatDecision(decision: unknown): string | null {
-  if (decision == null) return null;
-  if (typeof decision === 'string') {
-    const trimmed = decision.trim();
-    return trimmed || null;
-  }
-  if (typeof decision === 'object') {
-    const action = (decision as { action?: unknown }).action;
-    if (typeof action === 'string' && action.trim()) return action.trim();
-  }
-  return null;
-}
-
 function reportIdentity(job: AnalysisDetail | undefined) {
   const ticker = job?.ticker ? formatDisplayTicker(job.ticker) : null;
   const displayName = job?.display?.display_name?.trim() || null;
@@ -173,10 +165,13 @@ export function ReportPage() {
     queryFn: () => listShares(id!),
     enabled: canShare,
   });
+  const needsMarketIdentity = Boolean(
+    job?.ticker && !job.display?.display_name?.trim(),
+  );
   const marketIdentity = useQuery({
     queryKey: ['market-identities', job?.ticker],
     queryFn: () => getMarketIdentities([job!.ticker]),
-    enabled: Boolean(job?.ticker),
+    enabled: needsMarketIdentity,
     staleTime: 5 * 60_000,
   });
   const meta = useMutation({
@@ -237,7 +232,9 @@ export function ReportPage() {
   const reportHighlightSoft = isDark
     ? paperThemeConfig.darkHighlightSoft
     : paperThemeConfig.highlightSoft;
-  const decisionLabel = formatDecision(job?.decision);
+  const decisionLabel = formatDecisionLabel(job?.decision, (key, options) =>
+    t(`common:${key}`, options),
+  );
   const storedIdentity = reportIdentity(job);
   const resolvedMarket = marketIdentity.data?.data?.[0];
   const identity = {
@@ -269,6 +266,16 @@ export function ReportPage() {
     : identity.ticker
       ? t('analysisFor', { ticker: identity.ticker })
       : t('fallbackSubtitle');
+  const headerMeta = [
+    identity.language
+      ? formatOutputLanguage(identity.language, (key, options) =>
+          t(`common:${key}`, options),
+        )
+      : null,
+    tradeDate ? formatLocaleCalendarDate(tradeDate) : null,
+  ].filter((part): part is string => Boolean(part));
+  const showStatusBadge =
+    Boolean(job?.status) && job?.status !== 'succeeded';
 
   function reportTabLabel(key: string) {
     return t(`tabs.${key}`, {
@@ -404,7 +411,7 @@ export function ReportPage() {
             size="icon"
             aria-label={t('backAria')}
             className="shrink-0"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/reports')}
           >
             <ArrowLeft />
           </Button>
@@ -437,95 +444,97 @@ export function ReportPage() {
               trailing={
                 <>
                   {decisionLabel ? (
-                    <Badge variant="default" className="capitalize">
+                    <Badge variant={decisionBadgeVariant(job?.decision)}>
                       {decisionLabel}
                     </Badge>
                   ) : null}
-                  {job?.status ? (
+                  {showStatusBadge ? (
                     <Badge variant="outline">
-                      {t(`common:status.${job.status}`, {
-                        defaultValue: job.status,
+                      {t(`common:status.${job!.status}`, {
+                        defaultValue: job!.status,
                       })}
                     </Badge>
                   ) : null}
                 </>
               }
+              tickerSuffix={
+                headerMeta.length ? (
+                  <>
+                    {headerMeta.map((part) => (
+                      <span key={part}> · {part}</span>
+                    ))}
+                  </>
+                ) : null
+              }
             />
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {identity.exchange ? (
-                <Badge variant="outline">{identity.exchange}</Badge>
-              ) : null}
-              {identity.country ? (
-                <Badge variant="outline">{identity.country}</Badge>
-              ) : null}
-              {identity.language ? (
-                <Badge variant="outline">
-                  {formatOutputLanguage(
-                    identity.language,
-                    (key, options) => t(`common:${key}`, options),
-                  )}
-                </Badge>
-              ) : null}
-            </div>
-            <p className="mt-1 truncate text-sm text-muted-foreground">
-              {subtitle}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-              {tradeDate ? (
-                <span>
-                  {t('tradeDate', {
-                    date: formatLocaleCalendarDate(tradeDate),
-                  })}
-                </span>
-              ) : null}
-              <span>{t('creditCost', { count: creditUnits })}</span>
-            </div>
-            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-              {t('dataAsOf')} {t('riskNotice')}
-            </p>
           </div>
           {job ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={isFavorite ? 'default' : 'outline'}
-                size="sm"
-                disabled={meta.isPending}
-                onClick={() => meta.mutate({ isFavorite: !isFavorite })}
-              >
-                <Star
-                  data-icon="inline-start"
-                  className={isFavorite ? 'fill-current' : undefined}
-                />
-                {isFavorite ? t('unfavorite') : t('favorite')}
-              </Button>
-              <Button
-                variant={isArchived ? 'default' : 'outline'}
-                size="sm"
-                disabled={meta.isPending}
-                onClick={() => meta.mutate({ isArchived: !isArchived })}
-              >
-                <Archive data-icon="inline-start" />
-                {isArchived ? t('unarchive') : t('archive')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!entries.length}
-                onClick={exportMarkdown}
-              >
-                <Download data-icon="inline-start" />
-                {t('exportMarkdown')}
-              </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isFavorite ? 'default' : 'outline'}
+                    size="icon-sm"
+                    disabled={meta.isPending}
+                    aria-label={isFavorite ? t('unfavorite') : t('favorite')}
+                    onClick={() => meta.mutate({ isFavorite: !isFavorite })}
+                  >
+                    <Star className={isFavorite ? 'fill-current' : undefined} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  {isFavorite ? t('unfavorite') : t('favorite')}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isArchived ? 'default' : 'outline'}
+                    size="icon-sm"
+                    disabled={meta.isPending}
+                    aria-label={isArchived ? t('unarchive') : t('archive')}
+                    onClick={() => meta.mutate({ isArchived: !isArchived })}
+                  >
+                    <Archive />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  {isArchived ? t('unarchive') : t('archive')}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!entries.length}
+                    aria-label={t('exportMarkdown')}
+                    onClick={exportMarkdown}
+                  >
+                    <Download />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  {t('exportMarkdown')}
+                </TooltipContent>
+              </Tooltip>
               {canShare ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={createShareLink.isPending}
-                  onClick={() => createShareLink.mutate()}
-                >
-                  <Link2 data-icon="inline-start" />
-                  {t('share.create')}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      disabled={createShareLink.isPending}
+                      aria-label={t('share.create')}
+                      onClick={() => createShareLink.mutate()}
+                    >
+                      <Link2 />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    {t('share.create')}
+                  </TooltipContent>
+                </Tooltip>
               ) : null}
             </div>
           ) : null}
@@ -613,6 +622,10 @@ export function ReportPage() {
               <ReportTabsNav
                 entries={tabKeys}
                 activeTab={activeTab || entries[0][0]}
+                onSelect={(value) => {
+                  setActiveTab(value);
+                  scrollToTop();
+                }}
                 renderLabel={reportTabLabel}
                 renderIcon={(key) => {
                   const Icon = reportTabIcon(key);
@@ -671,6 +684,12 @@ export function ReportPage() {
             </EmptyHeader>
           </Empty>
         )}
+
+        {job ? (
+          <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+            {t('dataAsOf')} {t('riskNotice')}
+          </p>
+        ) : null}
       </div>
 
       {entries.length ? (

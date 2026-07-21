@@ -84,6 +84,13 @@
     "failed": "Failed",
     "all": "All statuses"
   },
+  "decisions": {
+    "Buy": "Buy",
+    "Overweight": "Overweight",
+    "Hold": "Hold",
+    "Underweight": "Underweight",
+    "Sell": "Sell"
+  },
   "analysts": {
     "market": "Market",
     "fundamentals": "Fundamentals",

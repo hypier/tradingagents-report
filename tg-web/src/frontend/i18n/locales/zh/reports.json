@@ -1,7 +1,17 @@
 {
   "eyebrow": "研究报告库",
-  "title": "全部报告",
-  "subtitle": "浏览所有已提交的研究任务，报告就绪后即可打开查看。",
+  "title": "报告库",
+  "subtitle": "检索与阅读已完成的研究报告；按标的、日期与收藏筛选。",
+  "filtersShow": "筛选",
+  "filtersHide": "收起筛选",
+  "view": {
+    "label": "视图",
+    "list": "列表",
+    "byTicker": "按标的"
+  },
+  "byTicker": {
+    "reportCount": "{{count}} 份"
+  },
   "statusFilter": "状态",
   "tickerFilter": "代码",
   "tickerPlaceholder": "AAPL",
@@ -12,8 +22,8 @@
   "favoriteOnly": "仅收藏",
   "includeArchived": "包含已归档",
   "library": {
-    "title": "报告库",
-    "description": "完整的研究历史记录。"
+    "title": "研究档案",
+    "description": "可读报告历史；运行中的任务请到任务中心查看。"
   },
   "loadMore": "加载更多报告",
   "loadingMore": "正在加载报告...",
@@ -21,14 +31,17 @@
   "loadMoreErrorBody": "已加载的报告仍可查看。请重试以继续浏览历史。",
   "table": {
     "instrument": "标的",
+    "decision": "结论",
+    "tradeDate": "分析日",
     "team": "团队",
     "status": "状态",
     "language": "语言",
     "updated": "更新时间",
     "report": "报告",
-    "runs": "{{count}} 次运行",
+    "favorite": "已收藏",
+    "runs": "{{count}} 份报告",
     "unavailable": "研究历史暂时不可用。",
-    "empty": "开始一次研究任务，以建立你的报告库。",
+    "empty": "完成一次分析后，报告会出现在这里。",
     "noConclusion": "尚无结论",
     "configuredTeam": "已配置团队",
     "viewReport": "查看报告",

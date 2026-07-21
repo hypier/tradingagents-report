@@ -4,7 +4,11 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 
-import { RecentReports } from '../../src/frontend/components/dashboard/recent-reports';
+import {
+  formatJobDuration,
+  RecentReports,
+  ReportsTable,
+} from '../../src/frontend/components/dashboard/recent-reports';
 import { TooltipProvider } from '../../src/frontend/components/ui/tooltip';
 
 it('opens a report from its direct icon action', () => {
@@ -29,11 +33,60 @@ it('opens a report from its direct icon action', () => {
   ).not.toBeInTheDocument();
 });
 
-it('uses the destructive badge variant for failed research', () => {
+it('shows library columns for decision and trade date', async () => {
+  const { default: i18n } = await import('../../src/frontend/i18n');
+  await i18n.changeLanguage('en');
+
   render(
     <TooltipProvider>
       <RecentReports
-        jobs={[{ id: 'job-1', ticker: 'AAPL', status: 'failed' }]}
+        jobs={[
+          {
+            id: 'job-1',
+            ticker: 'AAPL',
+            status: 'succeeded',
+            decision: 'Buy',
+            trade_date: '2026-07-21',
+            is_favorite: true,
+          },
+        ]}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(
+    screen.getByRole('columnheader', { name: 'Decision' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('columnheader', { name: 'Trade date' }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Buy')).toHaveAttribute('data-variant', 'up');
+  expect(screen.getByLabelText('Favorite')).toBeInTheDocument();
+
+  await i18n.changeLanguage('zh');
+  expect(await screen.findByText('买入')).toHaveAttribute('data-variant', 'up');
+  await i18n.changeLanguage('en');
+});
+
+it('uses the destructive badge variant for failed tasks', () => {
+  render(
+    <TooltipProvider>
+      <ReportsTable
+        variant="tasks"
+        title="Jobs"
+        description="Ops"
+        titleId="tasks-title"
+        jobs={[
+          {
+            id: 'job-1',
+            ticker: 'AAPL',
+            status: 'failed',
+            error: 'Vendor timeout',
+          },
+        ]}
         loading={false}
         error={false}
         onOpenReport={vi.fn()}
@@ -45,12 +98,23 @@ it('uses the destructive badge variant for failed research', () => {
     'data-variant',
     'destructive',
   );
+  expect(screen.queryByText('Vendor timeout')).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Failure reason' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Open job for AAPL' }),
+  ).not.toBeInTheDocument();
 });
 
-it('uses the market-up badge variant for succeeded research', () => {
+it('uses the market-up badge variant for succeeded tasks', () => {
   const { container } = render(
     <TooltipProvider>
-      <RecentReports
+      <ReportsTable
+        variant="tasks"
+        title="Jobs"
+        description="Ops"
+        titleId="tasks-title"
         jobs={[{ id: 'job-1', ticker: 'AAPL', status: 'succeeded' }]}
         loading={false}
         error={false}
@@ -65,11 +129,25 @@ it('uses the market-up badge variant for succeeded research', () => {
   );
 });
 
-it('uses the running badge variant for running research', () => {
+it('uses the running badge variant for running tasks', () => {
   render(
     <TooltipProvider>
-      <RecentReports
-        jobs={[{ id: 'job-1', ticker: 'AAPL', status: 'running' }]}
+      <ReportsTable
+        variant="tasks"
+        title="Jobs"
+        description="Ops"
+        titleId="tasks-title"
+        jobs={[
+          {
+            id: 'job-1',
+            ticker: 'AAPL',
+            status: 'running',
+            current_step: 'Running market analyst',
+            progress_percent: 40,
+            credit_units: 1,
+            created_at: '2026-07-21T08:00:00.000Z',
+          },
+        ]}
         loading={false}
         error={false}
         onOpenReport={vi.fn()}
@@ -77,7 +155,23 @@ it('uses the running badge variant for running research', () => {
     </TooltipProvider>,
   );
 
-  expect(screen.getByText('Running')).toHaveAttribute('data-variant', 'running');
+  expect(screen.getByText('Running')).toHaveAttribute(
+    'data-variant',
+    'running',
+  );
+  expect(
+    screen.getByRole('columnheader', { name: 'Step' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('columnheader', { name: 'Submitted' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('columnheader', { name: 'Duration' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('columnheader', { name: 'Credits' }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText('40%')).toBeInTheDocument();
 });
 
 it('shows a TradingView asset logo before the ticker when available', () => {
@@ -107,6 +201,7 @@ it('shows a TradingView asset logo before the ticker when available', () => {
 
 it('shows the report output language column', async () => {
   const { default: i18n } = await import('../../src/frontend/i18n');
+  await i18n.changeLanguage('en');
 
   render(
     <TooltipProvider>
@@ -137,6 +232,8 @@ it('shows the report output language column', async () => {
     await screen.findByRole('columnheader', { name: '语言' }),
   ).toBeInTheDocument();
   expect(screen.getByText('中文')).toBeInTheDocument();
+
+  await i18n.changeLanguage('en');
 });
 
 it('shows logo and company name in the rail density list', () => {
@@ -200,4 +297,54 @@ it('renders Yahoo-style display tickers for multi-market instruments', () => {
 
   expect(screen.getByText('0700.HK')).toBeInTheDocument();
   expect(screen.getByText('300750.SZ')).toBeInTheDocument();
+});
+
+it('formats compact job durations', () => {
+  expect(
+    formatJobDuration(
+      '2026-07-21T08:00:00.000Z',
+      '2026-07-21T08:03:12.000Z',
+    ),
+  ).toBe('3:12');
+  expect(
+    formatJobDuration(
+      '2026-07-21T08:00:00.000Z',
+      '2026-07-21T09:05:00.000Z',
+    ),
+  ).toBe('1:05:00');
+  expect(
+    formatJobDuration(
+      '2026-07-21T08:00:00.000Z',
+      '2026-07-21T08:00:09.000Z',
+    ),
+  ).toBe('0:09');
+});
+
+it('uses started_at to finished_at for task duration, not created_at', () => {
+  render(
+    <TooltipProvider>
+      <ReportsTable
+        variant="tasks"
+        title="Jobs"
+        description="Ops"
+        titleId="tasks-title"
+        jobs={[
+          {
+            id: 'job-1',
+            ticker: 'AAPL',
+            status: 'succeeded',
+            created_at: '2026-06-01T08:00:00.000Z',
+            updated_at: '2026-07-21T12:00:00.000Z',
+            started_at: '2026-07-21T08:00:00.000Z',
+            finished_at: '2026-07-21T08:04:30.000Z',
+          },
+        ]}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(screen.getByText('4:30')).toBeInTheDocument();
 });

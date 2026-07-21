@@ -288,10 +288,11 @@ Floor language, not startup landing copy.
 
 1. **Authenticated home / analysis composer** — search, quote strip, analysts, credit estimate, amber Run CTA, dense recent jobs  
 2. **Report detail** — Cool Paper reading, TOC rail, decision summary, risk footer  
-3. **Tasks center** — dense status table, amber running states, failure reasons  
-4. **Watchlist / stock detail** — quote-first + in-row sparks  
-5. **Billing / credits** — ledger table clarity  
-6. **Admin overview** — metric pit, amber only on live/action affordances  
+3. **Tasks center** — job ops ledger (status, instrument, timing, step/progress, failure reason) + pipeline rail; not a report archive  
+4. **Report library** — research archive filters (ticker/date/favorites); columns emphasize decision + trade date; default succeeded; no live pipeline  
+5. **Watchlist / stock detail** — quote-first + in-row sparks  
+6. **Billing / credits** — ledger table clarity  
+7. **Admin overview** — metric pit, amber only on live/action affordances  
 
 Glance test: *With logo removed, does this still read as equity research software?* If it could be notes or generic AI chat, redesign denser and more data-forward.
 
@@ -336,6 +337,8 @@ Keep design rules above authoritative; this section maps them to `tg-web` module
 | Instrument name / ticker stack | `components/instrument-identity.tsx` — name above, ticker below |
 | Job / report rows (rail + full table) | `dashboard/recent-reports.tsx` — logos `size-8` square + `InstrumentIdentity` in **both** densities |
 | Research desk layout | `pages/home-page.tsx` — search → quote strip → analysts → sticky Run; rail = pipeline + recent |
-| Tasks / report library tables | `pages/tasks-page.tsx`, `pages/reports-page.tsx` via `ReportsTable` |
+| Tasks / report library tables | `pages/tasks-page.tsx`, `pages/reports-page.tsx` via `ReportsTable` (`variant="tasks"` vs `variant="library"`) |
+
+**Tasks vs Reports (hard boundary):** `/tasks` = live job monitoring (status tabs, compact timing + step/progress, pipeline rail, poll while active). `/reports` = readable archive (decision/trade date/favorites, library filters, default `succeeded`, no queued/running filter, no pipeline). Do **not** reuse the same column set on both pages.
 
 When adding a page: use **PageFrame** (or the same ruled header classes), square `28px` logos in rows, **name-above / ticker-below** for instruments, tables over cards, and do not reintroduce a site-header + page double title.

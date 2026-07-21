@@ -100,10 +100,20 @@ export class TradingViewMarketClient implements MarketAssetClient {
       throw new Error('TradingView could not resolve this ticker');
     }
 
-    const market = await this.findMarket(listing);
-    const symbol =
-      stringValue(market?.full_name) || listing.provider_symbol || '';
-    if (!market || !symbol) {
+    // Prefer a single quote call when the caller already passed EXCHANGE:SYMBOL.
+    // Yahoo-suffixed tickers still need search — local suffix→exchange mapping
+    // is not always the TradingView primary listing.
+    const inputIsProviderSymbol = normalized.includes(':');
+    let market: MarketRecord | undefined;
+    let symbol =
+      inputIsProviderSymbol && listing.provider_symbol?.includes(':')
+        ? listing.provider_symbol
+        : '';
+    if (!symbol) {
+      market = await this.findMarket(listing);
+      symbol = stringValue(market?.full_name) || listing.provider_symbol || '';
+    }
+    if (!symbol) {
       throw new Error('TradingView could not resolve this ticker');
     }
 
@@ -119,15 +129,24 @@ export class TradingViewMarketClient implements MarketAssetClient {
       throw new Error('TradingView quote is missing price data');
     }
 
-    const description = stringValue(market.description);
-    const logoid = stringValue(market.logo?.logoid);
+    const quoteLogo =
+      quote?.logo && isRecord(quote.logo) ? quote.logo : undefined;
+    const description =
+      stringValue(market?.description) ||
+      stringValue(quote?.short_name) ||
+      stringValue(quote?.description) ||
+      listing.display_ticker;
+    const logoid =
+      stringValue(market?.logo?.logoid) ||
+      stringValue(quote?.logoid) ||
+      stringValue(quoteLogo?.logoid);
     const quoteTime = numberValue(quote?.lp_time);
     const updateMode = stringValue(quote?.update_mode) || undefined;
     const delaySeconds = parseUpdateModeDelaySeconds(updateMode);
     return {
       ticker: listing.display_ticker,
       display_ticker: listing.display_ticker,
-      display_name: description || listing.display_ticker,
+      display_name: description,
       ...(logoid
         ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
         : {}),

@@ -20,7 +20,7 @@
     "errorBody": "无法加载该上市标的的行情数据。"
   },
   "reports": {
-    "title": "你的分析",
-    "description": "该标的的近期研究任务。"
+    "title": "研究报告",
+    "description": "该标的在报告库中的已完成分析。"
   }
 }

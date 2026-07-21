@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { expect, it, vi } from 'vitest';
 
@@ -139,14 +139,18 @@ it('renders the complete report library inside the dashboard shell', () => {
     within(container).getAllByRole('button', { name: 'Toggle Sidebar' }),
   ).not.toHaveLength(0);
   expect(
-    within(container).getByRole('heading', { name: 'All reports' }),
+    within(container).getByRole('heading', { name: 'Reports' }),
   ).toBeInTheDocument();
   expect(
-    within(container).getByRole('heading', { name: 'Report library' }),
-  ).toBeInTheDocument();
+    within(container).queryByRole('heading', { name: 'Research archive' }),
+  ).not.toBeInTheDocument();
+  expect(
+    within(container).queryByRole('combobox', { name: 'Status' }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(within(container).getByRole('button', { name: /Filters/i }));
   expect(
     within(container).getByRole('combobox', { name: 'Status' }),
-  ).toHaveTextContent('All statuses');
+  ).toHaveTextContent('Succeeded');
   const reportLinks = within(container).getAllByRole('link', {
     name: 'Reports',
   });

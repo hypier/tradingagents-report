@@ -7,24 +7,31 @@ import {
   type ReactNode,
 } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/frontend/components/ui/button';
-import { TabsList, TabsTrigger } from '@/frontend/components/ui/tabs';
 import { cn } from '@/frontend/lib/utils';
 
 type ReportTabsNavProps = {
   entries: string[];
   activeTab: string;
+  onSelect: (key: string) => void;
   renderIcon: (key: string) => ReactNode;
   renderLabel: (key: string) => string;
 };
 
+/**
+ * Report section tabs. Plain buttons (not shared TabsTrigger) so the active
+ * underline is not wiped by the design-system trigger chrome.
+ */
 export function ReportTabsNav({
   entries,
   activeTab,
+  onSelect,
   renderIcon,
   renderLabel,
 }: ReportTabsNavProps) {
+  const { t } = useTranslation('report');
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -62,7 +69,7 @@ export function ReportTabsNav({
     const node = scrollerRef.current;
     if (!node) return;
     const active = node.querySelector<HTMLElement>(
-      `[data-slot="tabs-trigger"][data-state="active"]`,
+      '[role="tab"][aria-selected="true"]',
     );
     active?.scrollIntoView({
       behavior: 'smooth',
@@ -79,54 +86,68 @@ export function ReportTabsNav({
   }
 
   return (
-    <div className="flex items-center gap-1 border-b border-border">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Scroll tabs left"
-        disabled={!canScrollLeft}
-        className="shrink-0 rounded-none"
-        onClick={() => scrollByPage(-1)}
-      >
-        <ChevronLeft />
-      </Button>
-
-      <div
-        ref={scrollerRef}
-        className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <TabsList
-          variant="line"
-          className="inline-flex h-auto w-max min-w-full flex-nowrap justify-start gap-0 rounded-none bg-transparent p-0"
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-end gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Scroll tabs left"
+          disabled={!canScrollLeft}
+          className="mb-0.5 shrink-0 rounded-none"
+          onClick={() => scrollByPage(-1)}
         >
-          {entries.map((key) => (
-            <TabsTrigger
-              key={key}
-              value={key}
-              className={cn(
-                'h-10 flex-none gap-1.5 rounded-none border-b-2 border-transparent px-3 text-sm capitalize shadow-none',
-                'data-active:border-primary data-active:bg-transparent data-active:text-foreground data-active:shadow-none',
-              )}
-            >
-              {renderIcon(key)}
-              {renderLabel(key)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+          <ChevronLeft />
+        </Button>
+
+        <div
+          ref={scrollerRef}
+          role="tablist"
+          className="flex min-w-0 flex-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="inline-flex h-10 w-max min-w-full flex-nowrap items-stretch justify-center">
+            {entries.map((key) => {
+              const selected = activeTab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  data-report-tab={key}
+                  tabIndex={selected ? 0 : -1}
+                  className={cn(
+                    '-mb-px inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-solid bg-transparent px-3 text-sm capitalize transition-colors',
+                    selected
+                      ? 'border-b-primary font-semibold text-primary'
+                      : 'border-b-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                  onClick={() => onSelect(key)}
+                >
+                  {renderIcon(key)}
+                  {renderLabel(key)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Scroll tabs right"
+          disabled={!canScrollRight}
+          className="mb-0.5 shrink-0 rounded-none"
+          onClick={() => scrollByPage(1)}
+        >
+          <ChevronRight />
+        </Button>
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Scroll tabs right"
-        disabled={!canScrollRight}
-        className="shrink-0 rounded-none"
-        onClick={() => scrollByPage(1)}
-      >
-        <ChevronRight />
-      </Button>
+      <p className="text-center text-[11px] tracking-wide text-muted-foreground">
+        {t('keyboardHint')}
+      </p>
     </div>
   );
 }
