@@ -15,6 +15,13 @@
     "analyze": "Analyze",
     "remove": "Remove"
   },
+  "view": {
+    "label": "View",
+    "grouped": "By market",
+    "list": "List",
+    "toggle": "{{mode}}, {{count}} items — click to switch"
+  },
+  "addedAt": "Added {{time}}",
   "toasts": {
     "added": "Added to watchlist",
     "addError": "Unable to add instrument",

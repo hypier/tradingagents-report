@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CandlestickChart,
+  Layers,
+  List,
   LoaderCircle,
   Play,
   Plus,
@@ -12,12 +14,21 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import {
+  displayNameForTvMarket,
+  getTvMarketEntry,
+  marketFromExchange,
+  productMarketToTradingViewCode,
+} from '@/shared/market-codes';
+
 import { AppShell } from '../components/app-shell';
 import { InstrumentIdentity } from '../components/instrument-identity';
 import { InstrumentLogo } from '../components/instrument-logo';
+import { PriceSparkline } from '../components/market/price-sparkline';
 import { PageFrame, PageToolbar } from '../components/page-chrome';
 import { TickerSearch } from '../components/ticker-search';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
   Empty,
@@ -33,7 +44,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '../components/ui/tooltip';
-import type { SelectedInstrument } from '../lib/research';
+import { normalizeUiLocale } from '../i18n/locales';
+import {
+  formatLocaleDateTimeValue,
+  formatLocaleNumber,
+  parseSortableDateInput,
+} from '../lib/format-locale';
+import { getMarketOhlcv, type SelectedInstrument } from '../lib/research';
+import { cn } from '../lib/utils';
 import {
   addWatchlistItem,
   getWatchlist,
@@ -41,11 +59,112 @@ import {
   type WatchlistItem,
 } from '../lib/watchlist';
 
+/** Daily bars for the in-row sparkline (price/OHLCV only — no quote API). */
+const SPARKLINE_TIMEFRAME = 'D';
+const SPARKLINE_RANGE = 30;
+
+const VIEW_MODE_STORAGE_KEY = 'tg.watchlist.viewMode';
+type WatchlistViewMode = 'grouped' | 'list';
+
+/** Same TV market codes as the quotes desk picker; unknown exchanges follow. */
+const MARKET_SECTION_ORDER = ['china', 'hongkong', 'america'] as const;
+
+type WatchlistMarketSection = {
+  key: string;
+  items: WatchlistItem[];
+};
+
+function loadWatchlistViewMode(): WatchlistViewMode {
+  try {
+    const raw = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (raw === 'list' || raw === 'grouped') return raw;
+  } catch {
+    // ignore
+  }
+  return 'grouped';
+}
+
+function saveWatchlistViewMode(mode: WatchlistViewMode) {
+  try {
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
+function marketSectionKey(item: WatchlistItem): string {
+  const tvMarket = productMarketToTradingViewCode(
+    marketFromExchange(item.exchange),
+  );
+  if (tvMarket) return tvMarket;
+  const exchange = item.exchange.trim().toUpperCase();
+  return exchange || 'other';
+}
+
+function groupWatchlistByMarket(items: WatchlistItem[]): WatchlistMarketSection[] {
+  const buckets = new Map<string, WatchlistItem[]>();
+  for (const item of items) {
+    const key = marketSectionKey(item);
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      buckets.set(key, [item]);
+    }
+  }
+
+  const preferred = new Set<string>(MARKET_SECTION_ORDER);
+  const sections: WatchlistMarketSection[] = [];
+
+  for (const key of MARKET_SECTION_ORDER) {
+    const bucket = buckets.get(key);
+    if (bucket?.length) {
+      sections.push({ key, items: bucket });
+    }
+  }
+
+  const rest = [...buckets.keys()]
+    .filter((key) => !preferred.has(key))
+    .sort((a, b) => a.localeCompare(b));
+  for (const key of rest) {
+    const bucket = buckets.get(key);
+    if (bucket?.length) {
+      sections.push({ key, items: bucket });
+    }
+  }
+
+  return sections;
+}
+
+function marketSectionLabel(key: string, locale: 'en' | 'zh'): string {
+  return getTvMarketEntry(key)
+    ? displayNameForTvMarket(key, locale)
+    : key;
+}
+
+function dayChangePercent(closes: number[]): number | null {
+  if (closes.length < 2) return null;
+  const prev = closes[closes.length - 2]!;
+  const last = closes[closes.length - 1]!;
+  if (!Number.isFinite(prev) || prev === 0) return null;
+  return ((last - prev) / prev) * 100;
+}
+
+function changeClass(changePercent: number) {
+  if (changePercent > 0) return 'text-market-up';
+  if (changePercent < 0) return 'text-market-down';
+  return 'text-muted-foreground';
+}
+
 export function WatchlistPage() {
-  const { t } = useTranslation(['watchlist', 'common']);
+  const { t, i18n } = useTranslation(['watchlist', 'common']);
+  const locale = normalizeUiLocale(i18n.language) === 'zh' ? 'zh' : 'en';
   const queryClient = useQueryClient();
   const [pendingInstrument, setPendingInstrument] =
     useState<SelectedInstrument | null>(null);
+  const [viewMode, setViewMode] = useState<WatchlistViewMode>(() =>
+    loadWatchlistViewMode(),
+  );
   const watchlist = useQuery({
     queryKey: ['watchlist'],
     queryFn: () => getWatchlist(),
@@ -75,12 +194,24 @@ export function WatchlistPage() {
   const groups = watchlist.data?.data.groups ?? [];
   const defaultGroupId = groups[0]?.id;
   const items = groups.flatMap((group) => group.items);
+  const listItems = [...items].sort(
+    (a, b) =>
+      parseSortableDateInput(b.createdAt) - parseSortableDateInput(a.createdAt),
+  );
+  const marketSections = groupWatchlistByMarket(items);
   const alreadySaved = Boolean(
     pendingInstrument &&
       items.some(
         (item) => item.providerSymbol === pendingInstrument.provider_symbol,
       ),
   );
+
+  function handleViewModeToggle() {
+    const next: WatchlistViewMode =
+      viewMode === 'grouped' ? 'list' : 'grouped';
+    setViewMode(next);
+    saveWatchlistViewMode(next);
+  }
 
   function handleAdd() {
     if (!pendingInstrument || !defaultGroupId || alreadySaved) return;
@@ -93,6 +224,23 @@ export function WatchlistPage() {
       displayName: pendingInstrument.display_name,
       logoUrl: pendingInstrument.logo_url ?? null,
     });
+  }
+
+  function renderRows(rowItems: WatchlistItem[]) {
+    return (
+      <ul className="divide-y divide-border">
+        {rowItems.map((item) => (
+          <WatchlistRow
+            key={item.id}
+            item={item}
+            removing={
+              removeItem.isPending && removeItem.variables === item.id
+            }
+            onRemove={() => removeItem.mutate(item.id)}
+          />
+        ))}
+      </ul>
+    );
   }
 
   return (
@@ -158,18 +306,64 @@ export function WatchlistPage() {
               </Empty>
             </div>
           ) : (
-            <ul className="divide-y divide-border border-t border-border">
-              {items.map((item) => (
-                <WatchlistRow
-                  key={item.id}
-                  item={item}
-                  removing={
-                    removeItem.isPending && removeItem.variables === item.id
-                  }
-                  onRemove={() => removeItem.mutate(item.id)}
-                />
-              ))}
-            </ul>
+            <>
+              <div className="flex items-center justify-end border-b border-border px-5 py-2.5 lg:px-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewModeToggle}
+                  aria-label={t('view.toggle', {
+                    mode:
+                      viewMode === 'grouped'
+                        ? t('view.grouped')
+                        : t('view.list'),
+                    count: items.length,
+                  })}
+                >
+                  {viewMode === 'grouped' ? <Layers /> : <List />}
+                  <span>
+                    {viewMode === 'grouped'
+                      ? t('view.grouped')
+                      : t('view.list')}
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    className="ml-0.5 font-mono text-xs tabular-nums"
+                  >
+                    {items.length}
+                  </Badge>
+                </Button>
+              </div>
+              {viewMode === 'list' ? (
+                <div>{renderRows(listItems)}</div>
+              ) : (
+                <div>
+                  {marketSections.map((section) => (
+                    <section
+                      key={section.key}
+                      aria-labelledby={`watchlist-market-${section.key}`}
+                    >
+                      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-background/95 px-5 py-2.5 backdrop-blur-md lg:px-6">
+                        <h2
+                          id={`watchlist-market-${section.key}`}
+                          className="font-label-caps text-muted-foreground"
+                        >
+                          {marketSectionLabel(section.key, locale)}
+                        </h2>
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-xs tabular-nums"
+                        >
+                          {section.items.length}
+                        </Badge>
+                      </div>
+                      {renderRows(section.items)}
+                    </section>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </PageFrame>
@@ -187,27 +381,100 @@ function WatchlistRow({
   onRemove: () => void;
 }) {
   const { t } = useTranslation('watchlist');
+  const ohlcv = useQuery({
+    queryKey: [
+      'market-ohlcv',
+      item.providerSymbol,
+      SPARKLINE_TIMEFRAME,
+      SPARKLINE_RANGE,
+    ],
+    queryFn: () =>
+      getMarketOhlcv(item.providerSymbol, SPARKLINE_TIMEFRAME, {
+        range: SPARKLINE_RANGE,
+      }),
+    staleTime: 60_000,
+    enabled: Boolean(item.providerSymbol),
+  });
+
+  const closes =
+    ohlcv.data?.data.bars
+      .map((bar) => bar.close)
+      .filter((close) => Number.isFinite(close)) ?? [];
+  const lastPrice = closes.length ? closes[closes.length - 1]! : null;
+  const currency = ohlcv.data?.data.currency;
+  const changePct = dayChangePercent(closes);
+  const changeLabel =
+    changePct === null
+      ? null
+      : `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`;
+  const addedLabel = formatLocaleDateTimeValue(item.createdAt);
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 lg:px-6">
-      <Link
-        to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}
-        className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-90"
-      >
-        <InstrumentLogo
-          symbol={item.providerSymbol || item.displayTicker}
-          logoUrl={item.logoUrl}
-          alt={item.displayName || item.displayTicker}
-          size="md"
-        />
-        <InstrumentIdentity
-          density="row"
-          name={item.displayName || item.displayTicker}
-          ticker={item.displayTicker}
-        />
-      </Link>
+    <li className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-muted/50 lg:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
+        <Link
+          to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}
+          className="flex w-[11rem] shrink-0 items-center gap-2.5 hover:opacity-90 sm:w-[13rem] md:w-[15rem]"
+        >
+          <InstrumentLogo
+            symbol={item.providerSymbol || item.displayTicker}
+            logoUrl={item.logoUrl}
+            alt={item.displayName || item.displayTicker}
+            size="md"
+          />
+          <InstrumentIdentity
+            density="row"
+            name={item.displayName || item.displayTicker}
+            ticker={item.displayTicker}
+          />
+        </Link>
 
-      <div className="flex shrink-0 items-center gap-1.5">
+        <div className="hidden items-center gap-3 sm:flex">
+          {ohlcv.isLoading ? (
+            <Skeleton className="h-7 w-28 rounded-none" />
+          ) : lastPrice !== null ? (
+            <>
+              {closes.length >= 2 ? (
+                <PriceSparkline values={closes} />
+              ) : null}
+              <div className="flex min-w-[5.5rem] flex-col items-end gap-0.5">
+                <span className="font-mono text-sm tabular-nums text-foreground">
+                  {formatLocaleNumber(lastPrice)}
+                  {currency ? (
+                    <span className="ml-1 text-[11px] text-muted-foreground">
+                      {currency}
+                    </span>
+                  ) : null}
+                </span>
+                {changeLabel ? (
+                  <span
+                    className={cn(
+                      'font-mono text-xs tabular-nums',
+                      changeClass(changePct!),
+                    )}
+                  >
+                    {changeLabel}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <span className="font-mono text-xs text-muted-foreground">—</span>
+          )}
+        </div>
+
+        {addedLabel ? (
+          <time
+            dateTime={item.createdAt}
+            title={t('addedAt', { time: addedLabel })}
+            className="hidden shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground md:block"
+          >
+            {addedLabel}
+          </time>
+        ) : null}
+      </div>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
         <Button asChild size="sm" variant="outline">
           <Link to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}>
             <CandlestickChart data-icon="inline-start" />

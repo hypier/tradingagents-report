@@ -15,6 +15,13 @@
     "analyze": "分析",
     "remove": "移除"
   },
+  "view": {
+    "label": "视图",
+    "grouped": "按市场",
+    "list": "列表",
+    "toggle": "当前 {{mode}}，共 {{count}} 只，点击切换"
+  },
+  "addedAt": "加入 {{time}}",
   "toasts": {
     "added": "已加入自选",
     "addError": "无法添加标的",

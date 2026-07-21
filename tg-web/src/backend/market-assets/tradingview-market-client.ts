@@ -95,6 +95,7 @@ export type MarketOhlcv = {
   symbol: string;
   timeframe: OhlcvTimeframe;
   bars: OhlcvBar[];
+  currency?: string;
   has_intraday?: boolean;
   timezone?: string;
   source: 'tradingview';
@@ -722,6 +723,7 @@ function parseOhlcvPayload(
     symbol: stringValue(root.symbol) || symbol,
     timeframe,
     bars,
+    currency: resolveMarketCurrency(stringValue(info?.currency_code)),
     ...(typeof info?.has_intraday === 'boolean'
       ? { has_intraday: info.has_intraday }
       : {}),

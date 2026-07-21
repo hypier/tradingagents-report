@@ -533,6 +533,7 @@ describe('TradingViewMarketClient', () => {
             info: {
               has_intraday: true,
               timezone: 'Asia/Chongqing',
+              currency_code: 'CNY',
             },
           },
         }),
@@ -561,6 +562,7 @@ describe('TradingViewMarketClient', () => {
           volume: 472_800,
         },
       ],
+      currency: 'CNY',
       has_intraday: true,
       timezone: 'Asia/Chongqing',
       source: 'tradingview',

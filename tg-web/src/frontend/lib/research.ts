@@ -273,6 +273,7 @@ export type MarketOhlcv = {
   symbol: string;
   timeframe: string;
   bars: MarketOhlcvBar[];
+  currency?: string;
   has_intraday?: boolean;
   timezone?: string;
   source?: string;
