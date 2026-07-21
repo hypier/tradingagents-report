@@ -2,5 +2,6 @@
   "placeholder": "搜索 AAPL、0700.HK、Tencent…",
   "searching": "搜索中…",
   "noMatches": "未找到匹配股票",
+  "unavailable": "股票搜索服务暂时不可用",
   "clear": "清除代码"
 }

@@ -226,6 +226,64 @@ describe('createApp', () => {
     expect(dependencies.core.listAnalyses).not.toHaveBeenCalled();
   });
 
+  it('scopes analysis lists, reports, and events to the authenticated user', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.core.listAnalyses).mockResolvedValue([]);
+    vi.mocked(dependencies.core.getAnalysis).mockResolvedValue({ id: 'job-1' });
+    vi.mocked(dependencies.core.getAnalysisEvents).mockResolvedValue([]);
+    const app = createApp(dependencies);
+    const jobId = '00000000-0000-4000-8000-000000000001';
+
+    const listResponse = await app.request(
+      '/api/analyses?status=succeeded&owner_id=forged-user',
+    );
+    const detailResponse = await app.request(`/api/analyses/${jobId}`);
+    const eventsResponse = await app.request(`/api/analyses/${jobId}/events`);
+
+    expect(listResponse.status).toBe(200);
+    expect(detailResponse.status).toBe(200);
+    expect(eventsResponse.status).toBe(200);
+    expect(dependencies.core.listAnalyses).toHaveBeenCalledWith(
+      expect.any(URLSearchParams),
+      'user-1',
+    );
+    expect(dependencies.core.getAnalysis).toHaveBeenCalledWith(jobId, 'user-1');
+    expect(dependencies.core.getAnalysisEvents).toHaveBeenCalledWith(
+      jobId,
+      'user-1',
+    );
+  });
+
+  it('allows administrators to read all analysis reports and events', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'admin-1',
+      displayName: 'Administrator',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    vi.mocked(dependencies.core.listAnalyses).mockResolvedValue([]);
+    vi.mocked(dependencies.core.getAnalysis).mockResolvedValue({ id: 'job-1' });
+    vi.mocked(dependencies.core.getAnalysisEvents).mockResolvedValue([]);
+    const app = createApp(dependencies);
+    const jobId = '00000000-0000-4000-8000-000000000001';
+
+    await app.request('/api/analyses');
+    await app.request(`/api/analyses/${jobId}`);
+    await app.request(`/api/analyses/${jobId}/events`);
+
+    expect(dependencies.core.listAnalyses).toHaveBeenCalledWith(
+      expect.any(URLSearchParams),
+      null,
+    );
+    expect(dependencies.core.getAnalysis).toHaveBeenCalledWith(jobId, null);
+    expect(dependencies.core.getAnalysisEvents).toHaveBeenCalledWith(
+      jobId,
+      null,
+    );
+  });
+
   it('returns the authenticated Clerk session and normalized user', async () => {
     const dependencies = fakeDependencies();
     const app = createApp(dependencies);
@@ -1136,6 +1194,22 @@ describe('createApp', () => {
       data: [{ display_ticker: '0700.HK', provider_symbol: 'HKEX:700' }],
     });
     expect(marketAssets.searchMarkets).toHaveBeenCalledWith('tencent');
+  });
+
+  it('reports an unavailable market search instead of an empty result', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn().mockRejectedValue(new Error('rate limited')),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request('/api/market-search?q=tencent');
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'MARKET_SEARCH_UNAVAILABLE' },
+    });
   });
 
   it('returns a server-side TradingView market snapshot', async () => {

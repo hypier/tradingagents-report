@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
@@ -141,6 +141,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
   app.get('/analyses', async (context) => {
     const data = await dependencies.core.listAnalyses(
       new URLSearchParams(context.req.query()),
+      analysisOwnerScope(context),
     );
     return context.json(apiSuccess(data, context.get('requestId')));
   });
@@ -148,7 +149,10 @@ export function analysisRoutes(dependencies: AppDependencies) {
   app.get('/analyses/:id', async (context) =>
     context.json(
       apiSuccess(
-        await dependencies.core.getAnalysis(context.req.param('id')),
+        await dependencies.core.getAnalysis(
+          context.req.param('id'),
+          analysisOwnerScope(context),
+        ),
         context.get('requestId'),
       ),
     ),
@@ -157,7 +161,10 @@ export function analysisRoutes(dependencies: AppDependencies) {
   app.get('/analyses/:id/events', async (context) =>
     context.json(
       apiSuccess(
-        await dependencies.core.getAnalysisEvents(context.req.param('id')),
+        await dependencies.core.getAnalysisEvents(
+          context.req.param('id'),
+          analysisOwnerScope(context),
+        ),
         context.get('requestId'),
       ),
     ),
@@ -177,12 +184,21 @@ export function analysisRoutes(dependencies: AppDependencies) {
         400,
       );
     }
-    return context.json(
-      apiSuccess(
-        await dependencies.marketAssets.searchMarkets(query),
-        context.get('requestId'),
-      ),
-    );
+    try {
+      return context.json(
+        apiSuccess(
+          await dependencies.marketAssets.searchMarkets(query),
+          context.get('requestId'),
+        ),
+      );
+    } catch (error) {
+      throw new AppError(
+        'MARKET_SEARCH_UNAVAILABLE',
+        503,
+        'Stock search is temporarily unavailable',
+        error,
+      );
+    }
   });
 
   app.get('/market-snapshot', async (context) => {
@@ -237,6 +253,12 @@ export function analysisRoutes(dependencies: AppDependencies) {
   });
 
   return app;
+}
+
+function analysisOwnerScope(context: Context<AppEnvironment>) {
+  return context.get('authUser').role === 'admin'
+    ? null
+    : context.get('auth').userId;
 }
 
 function billingError(error: unknown): AppError {

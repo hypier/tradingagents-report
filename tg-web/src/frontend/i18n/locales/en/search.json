@@ -2,5 +2,6 @@
   "placeholder": "Search AAPL, 0700.HK, Tencent…",
   "searching": "Searching…",
   "noMatches": "No matching stocks",
+  "unavailable": "Stock search is temporarily unavailable",
   "clear": "Clear ticker"
 }

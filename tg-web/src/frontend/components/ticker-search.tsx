@@ -31,13 +31,14 @@ type TickerSearchProps = {
 };
 
 function toInstrument(hit: MarketSearchHit): SelectedInstrument | null {
-  if (!hit.provider_symbol || !hit.exchange) return null;
   return {
     display_ticker: hit.display_ticker,
-    provider_symbol: hit.provider_symbol,
     display_name: hit.display_name,
-    exchange: hit.exchange,
     symbol: hit.symbol,
+    ...(hit.provider_symbol
+      ? { provider_symbol: hit.provider_symbol }
+      : {}),
+    ...(hit.exchange ? { exchange: hit.exchange } : {}),
     ...(hit.logo_url ? { logo_url: hit.logo_url } : {}),
   };
 }
@@ -76,6 +77,8 @@ export function TickerSearch({
     queryKey: ['market-search', debouncedQuery],
     queryFn: () => searchMarkets(debouncedQuery),
     enabled: showMenu,
+    retry: false,
+    staleTime: 5 * 60_000,
   });
 
   const hits = search.data?.data ?? [];
@@ -194,6 +197,10 @@ export function TickerSearch({
                 <Spinner className="size-4" />
                 {t('searching')}
               </div>
+            ) : search.isError ? (
+              <p className={'px-3 py-3 text-sm text-destructive'}>
+                {t('unavailable')}
+              </p>
             ) : hits.length === 0 ? (
               <p className="px-3 py-3 text-sm text-muted-foreground">
                 {t('noMatches')}
@@ -231,8 +238,12 @@ export function TickerSearch({
                       </span>
                       <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] tracking-wide text-muted-foreground">
                         <span>{hit.display_ticker}</span>
-                        <span aria-hidden>·</span>
-                        <span>{hit.exchange}</span>
+                        {hit.exchange ? (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span>{hit.exchange}</span>
+                          </>
+                        ) : null}
                       </span>
                     </span>
                   </button>
@@ -293,10 +304,12 @@ export function TickerSearch({
       {value ? (
         <p className="mt-1.5 truncate text-xs text-muted-foreground">
           {value.display_name}
-          <span className="text-muted-foreground/70">
-            {' '}
-            · {value.provider_symbol}
-          </span>
+          {value.provider_symbol ? (
+            <span className="text-muted-foreground/70">
+              {' '}
+              · {value.provider_symbol}
+            </span>
+          ) : null}
         </p>
       ) : null}
     </div>

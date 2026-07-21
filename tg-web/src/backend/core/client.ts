@@ -6,9 +6,12 @@ const CORE_TIMEOUT_MS = 5_000;
 export interface CoreClientContract extends ListingResolver {
   healthcheck(): Promise<void>;
   submitAnalysis(input: unknown): Promise<unknown>;
-  listAnalyses(input: URLSearchParams): Promise<unknown>;
-  getAnalysis(id: string): Promise<unknown>;
-  getAnalysisEvents(id: string): Promise<unknown>;
+  listAnalyses(
+    input: URLSearchParams,
+    ownerId: string | null,
+  ): Promise<unknown>;
+  getAnalysis(id: string, ownerId: string | null): Promise<unknown>;
+  getAnalysisEvents(id: string, ownerId: string | null): Promise<unknown>;
 }
 
 type FetchImplementation = (
@@ -49,8 +52,14 @@ export class CoreClient implements CoreClientContract {
     );
   }
 
-  listAnalyses(input: URLSearchParams): Promise<unknown> {
-    const search = input.toString();
+  listAnalyses(
+    input: URLSearchParams,
+    ownerId: string | null,
+  ): Promise<unknown> {
+    const parameters = new URLSearchParams(input);
+    parameters.delete('owner_id');
+    if (ownerId) parameters.set('owner_id', ownerId);
+    const search = parameters.toString();
     return this.request(
       `/api/v1/analyses${search ? `?${search}` : ''}`,
       {},
@@ -58,13 +67,20 @@ export class CoreClient implements CoreClientContract {
     );
   }
 
-  getAnalysis(id: string): Promise<unknown> {
-    return this.request(`/api/v1/analyses/${encodeURIComponent(id)}`, {}, true);
+  getAnalysis(id: string, ownerId: string | null): Promise<unknown> {
+    return this.request(
+      withOwnerScope(`/api/v1/analyses/${encodeURIComponent(id)}`, ownerId),
+      {},
+      true,
+    );
   }
 
-  getAnalysisEvents(id: string): Promise<unknown> {
+  getAnalysisEvents(id: string, ownerId: string | null): Promise<unknown> {
     return this.request(
-      `/api/v1/analyses/${encodeURIComponent(id)}/events`,
+      withOwnerScope(
+        `/api/v1/analyses/${encodeURIComponent(id)}/events`,
+        ownerId,
+      ),
       {},
       true,
     );
@@ -91,6 +107,13 @@ export class CoreClient implements CoreClientContract {
       );
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new AppError(
+            'ANALYSIS_NOT_FOUND',
+            404,
+            'Analysis job not found',
+          );
+        }
         if (response.status === 400 || response.status === 409) {
           throw new AppError(
             'CORE_REQUEST_REJECTED',
@@ -116,6 +139,11 @@ export class CoreClient implements CoreClientContract {
   }
 }
 
+function withOwnerScope(path: string, ownerId: string | null) {
+  if (!ownerId) return path;
+  return `${path}?owner_id=${encodeURIComponent(ownerId)}`;
+}
+
 function readResolvedListing(
   payload: unknown,
   fallbackTicker: string,
@@ -125,8 +153,7 @@ function readResolvedListing(
   }
 
   const symbol = stringValue(payload.symbol) || fallbackTicker;
-  const displayTicker =
-    stringValue(payload.display_ticker) || fallbackTicker;
+  const displayTicker = stringValue(payload.display_ticker) || fallbackTicker;
   const exchange = stringValue(payload.exchange) || null;
   const providerSymbol = stringValue(payload.provider_symbol) || null;
 

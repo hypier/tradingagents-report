@@ -1,6 +1,8 @@
 import asyncio
 from uuid import UUID
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from api import app as api_app
@@ -76,12 +78,68 @@ def test_health_returns_503_when_database_is_unavailable(monkeypatch):
     assert response.json()["status"] == "error"
 
 
+def test_get_analyses_passes_owner_scope(monkeypatch):
+    captured = {}
+
+    def list_jobs(**kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(api_app.analysis_jobs, "list_jobs", list_jobs)
+
+    assert (
+        api_app.get_analyses(
+            ticker=None,
+            status_filter=None,
+            limit=50,
+            offset=0,
+            owner_id="user-1",
+        )
+        == []
+    )
+    assert captured["owner_id"] == "user-1"
+
+
+def test_get_analysis_hides_jobs_outside_owner_scope(monkeypatch):
+    captured = {}
+
+    def get_job(job_id, *, owner_id=None):
+        captured.update(job_id=job_id, owner_id=owner_id)
+        return None
+
+    monkeypatch.setattr(api_app.analysis_jobs, "get_job", get_job)
+    job_id = UUID("00000000-0000-0000-0000-000000000001")
+
+    with pytest.raises(HTTPException) as error:
+        api_app.get_analysis(job_id, owner_id="user-2")
+
+    assert error.value.status_code == 404
+    assert captured == {"job_id": job_id, "owner_id": "user-2"}
+
+
+def test_get_analysis_events_hides_jobs_outside_owner_scope(monkeypatch):
+    captured = {}
+
+    def get_job(job_id, *, owner_id=None):
+        captured.update(job_id=job_id, owner_id=owner_id)
+        return None
+
+    monkeypatch.setattr(api_app.analysis_jobs, "get_job", get_job)
+    job_id = UUID("00000000-0000-0000-0000-000000000001")
+
+    with pytest.raises(HTTPException) as error:
+        api_app.get_analysis_events(job_id, owner_id="user-2")
+
+    assert error.value.status_code == 404
+    assert captured == {"job_id": job_id, "owner_id": "user-2"}
+
+
 def test_get_analysis_events_returns_only_persisted_timeline(monkeypatch):
     job_id = UUID("00000000-0000-0000-0000-000000000001")
     monkeypatch.setattr(
         api_app.analysis_jobs,
         "get_job",
-        lambda _job_id: {
+        lambda _job_id, *, owner_id=None: {
             "events": [
                 {
                     "time": "2026-01-15T00:00:00+00:00",
@@ -96,6 +154,7 @@ def test_get_analysis_events_returns_only_persisted_timeline(monkeypatch):
 
     events = api_app.get_analysis_events(job_id)
 
+    assert events
     assert events == [
         {
             "time": "2026-01-15T00:00:00+00:00",

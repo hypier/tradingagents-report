@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 from contextlib import asynccontextmanager
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
@@ -144,11 +145,13 @@ def get_analyses(
     status_filter: str | None = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    owner_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
 ) -> list[dict]:
     ticker_value = ticker.upper() if ticker else None
     rows = analysis_jobs.list_jobs(
         ticker=ticker_value,
         status=status_filter,
+        owner_id=owner_id,
         limit=limit,
         offset=offset,
     )
@@ -160,8 +163,11 @@ def get_analyses(
     response_model=list[AnalysisEventLog],
     dependencies=[Depends(require_api_key)],
 )
-def get_analysis_events(job_id: UUID) -> list[dict]:
-    row = analysis_jobs.get_job(job_id)
+def get_analysis_events(
+    job_id: UUID,
+    owner_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+) -> list[dict]:
+    row = analysis_jobs.get_job(job_id, owner_id=owner_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="analysis job not found")
     return list(row.get("events") or [])
@@ -172,8 +178,11 @@ def get_analysis_events(job_id: UUID) -> list[dict]:
     response_model=AnalysisDetail,
     dependencies=[Depends(require_api_key)],
 )
-def get_analysis(job_id: UUID) -> dict:
-    row = analysis_jobs.get_job(job_id)
+def get_analysis(
+    job_id: UUID,
+    owner_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+) -> dict:
+    row = analysis_jobs.get_job(job_id, owner_id=owner_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="analysis job not found")
     return analysis_result_from_row(analysis_jobs.row_to_public(row))

@@ -132,6 +132,8 @@ TG-web BFF 另提供仅管理员可调用的 `POST /api/admin/billing/plans/defa
 
 TG-web 的 `POST /api/billing/checkout` 和 `POST /api/billing/portal` 请求体包含当前界面语言 `locale`（仅允许 `en` 或 `zh`）；BFF 将该值传给 Stripe Checkout 和 Customer Portal，使 Stripe 托管页面与产品界面语言一致。这两个端点同样不属于 Core API。
 
+TG-web 的 `GET /api/market-search?q=<query>` 为已登录用户提供 TradingView 股票搜索。供应商正常时返回已规范化的上市候选；供应商限流、拒绝或超时时，明确的股票代码（如 `AAPL`、`NASDAQ:AAPL`、`0700.HK`）会回退为本地候选，并可只凭 ticker 提交给 Core。公司名称等无法本地确定的查询返回 `503 MARKET_SEARCH_UNAVAILABLE`，不会伪装成空搜索结果。
+
 当带 `request_id` 的 HTTP job 存在 `credit_reservations` 预留时，Core 在把 `analysis_jobs` 更新为 `succeeded` 的同一事务中，使用预留时的积分汇率和加价快照将 `cost_usd` 向上取整换算为最终积分，并执行多退少补；补扣可以使可用积分为负。`failed` 或进程重启回收的 job 在同一终态事务中全额释放预扣。旧的无快照 reservation 继续按原 `units` 结算。CLI、程序化调用和没有预留记录的 API job 保持原行为。账本写入使用 `analysis:<request_id>:consume|release` 幂等键。
 
 ## 4. 接口列表
@@ -257,6 +259,14 @@ GET /api/v1/analyses?status=succeeded&ticker=NVDA&limit=50&offset=0
 | `status` | 可选，按任务状态过滤 |
 | `limit` | 默认 50，最大 200 |
 | `offset` | 默认 0 |
+| `owner_id` | 可选，内部服务按账户所有权过滤；仅供受信任的 TG-web BFF 使用 |
+
+`owner_id` 不是终端用户身份凭证。Core 仍只验证服务 API key；TG-web 根据
+Clerk 会话和角色生成该参数，普通用户不能从浏览器选择或覆盖。普通用户请求
+使用当前 Clerk user ID，管理员省略该参数以查看全部任务。所有权通过
+`analysis_jobs.request_id = credit_reservations.request_id` 且
+`credit_reservations.clerk_user_id = owner_id` 判断，并在 ticker、status
+和分页之前完成过滤。
 
 ### 4.5 查询任务详情与结果
 
@@ -265,6 +275,10 @@ GET /api/v1/analyses/{job_id}
 ```
 
 返回紧凑的任务状态、运行进度、决策、报告、用量和成本。任务未完成时 `reports` 为空；任务完成后从数据库的 `final_state` 生成报告内容。详情响应不包含运行事件。
+
+TG-web 会在普通用户请求中附加当前账户的内部 `owner_id`。任务不存在或不
+属于该账户时均返回 `404 analysis job not found`，避免泄露其他账户的任务
+是否存在；管理员请求不附加 owner scope。
 
 成功响应包含：
 
@@ -287,6 +301,9 @@ GET /api/v1/analyses/{job_id}/events
 ```
 
 仅返回任务阶段和工具调用的时间线。前端在任务运行中轮询此端点；完成后的报告详情不重复包含这些事件。
+
+事件端点与详情端点使用完全相同的 owner scope 和 404 语义，不能通过事件
+接口绕过报告所有权检查。
 
 ## 5. curl 示例
 
@@ -346,7 +363,7 @@ curl -H "Authorization: Bearer $TRADINGAGENTS_API_KEY" \
 ## 7. 后续建议
 
 1. 引入独立 worker 队列，例如 Redis Queue、Celery 或 Dramatiq。
-2. 增加多用户 API key、密钥轮换和任务级权限隔离。
+2. 增加多用户 API key、密钥轮换和管理员跨账户读取审计。
 3. 增加任务取消接口。
 4. 增加分页总数和运行耗时统计。
 5. 将 `final_state` 拆分为报告表、消息表和工具调用表，便于检索和前端展示。

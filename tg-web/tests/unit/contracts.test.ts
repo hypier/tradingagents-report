@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { apiSuccess, isApiFailure } from '../../src/shared/contracts';
 import {
@@ -7,6 +7,10 @@ import {
 } from '../../src/frontend/lib/research';
 
 describe('shared API contracts', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('builds a typed success envelope and identifies failure envelopes', () => {
     expect(apiSuccess({ status: 'ok' }, 'req-1')).toEqual({
       data: { status: 'ok' },
@@ -34,6 +38,29 @@ describe('shared API contracts', () => {
     expect(fetchImplementation).toHaveBeenCalledWith(
       '/api/analyses',
       expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('submits research when randomUUID is unavailable on an insecure HTTP origin', async () => {
+    const originalCrypto = globalThis.crypto;
+    vi.stubGlobal('crypto', {
+      getRandomValues: originalCrypto.getRandomValues.bind(originalCrypto),
+    });
+    const fetchImplementation = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { id: 'job-1' }, requestId: 'request-1' }),
+      ),
+    );
+
+    await createResearch(
+      { ticker: 'AAPL', tradeDate: '2026-07-21', analysts: ['market'] },
+      fetchImplementation,
+    );
+
+    const request = fetchImplementation.mock.calls[0]?.[1];
+    const body = JSON.parse(String(request?.body)) as { requestId?: string };
+    expect(body.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
   });
 

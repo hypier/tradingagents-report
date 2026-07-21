@@ -184,6 +184,36 @@ describe('TradingViewMarketClient', () => {
     ]);
   });
 
+  it('falls back to a direct ticker when market search is rate limited', async () => {
+    const client = new TradingViewMarketClient(
+      'server-secret',
+      vi.fn().mockResolvedValue(new Response(null, { status: 429 })),
+    );
+
+    await expect(client.searchMarkets('AAPL')).resolves.toEqual([
+      {
+        ticker: 'AAPL',
+        exchange: null,
+        symbol: 'AAPL',
+        display_ticker: 'AAPL',
+        provider_symbol: null,
+        display_name: 'AAPL',
+        is_primary_listing: true,
+      },
+    ]);
+  });
+
+  it('surfaces an unavailable market search for a company name', async () => {
+    const client = new TradingViewMarketClient(
+      'server-secret',
+      vi.fn().mockResolvedValue(new Response(null, { status: 429 })),
+    );
+
+    await expect(client.searchMarkets('Tencent')).rejects.toThrow(
+      'TradingView market search is temporarily unavailable',
+    );
+  });
+
   it('returns a direct public logo URL from a market search result', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

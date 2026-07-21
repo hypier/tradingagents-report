@@ -493,6 +493,29 @@ actual   = max(1, ceil(cost_usd * (1 + markup) * points_per_usd))  其他情况
 
 公开 `GET /invite/:code` 只校验邀请码并写入 30 天的 HttpOnly 归因 Cookie。Clerk 用户首次已认证请求在一个 PostgreSQL 事务中完成用户同步、积分账户创建、用户行锁定、新用户赠送、有效邀请关系写入、邀请人奖励和 onboarding 标记。换算公式为 `ceil(amount_usd * points_per_usd)`，不使用分析预扣的 markup 或 buffer；账本幂等键分别为 `signup:<userId>:grant` 和 `referral:<inviteeId>:reward`。数据库事务或后续请求处理失败时保留 Cookie，完整请求成功后才清除，因此可安全重试。历史用户由迁移统一回填邀请码并标记 onboarding 完成，不补发积分。
 
+### 12.6 分析报告账户隔离
+
+TG-web 以 `credit_reservations.request_id -> clerk_user_id` 作为分析任务所有权
+来源。普通用户读取分析列表、详情报告或事件日志时，BFF 从已经验证的 Clerk
+会话取得 user ID，并通过 API-key 保护的 Core 请求传递内部 `owner_id`；
+浏览器参数不能覆盖该值。管理员角色传递空 scope，因此保留全局日志和报告
+访问。
+
+Core 不解析 Clerk session 或角色，只在 PostgreSQL 查询中使用 owner scope：
+
+```text
+Clerk session
+  -> TG-web role-derived owner scope
+  -> API-key-protected Core request
+  -> EXISTS(credit_reservations.request_id = analysis_jobs.request_id
+            AND credit_reservations.clerk_user_id = owner_id)
+```
+
+所有权条件先于 ticker、status 和分页执行。详情和事件使用同一条件，跨账户
+访问与不存在都返回 404。已消费或释放的 reservation 仍保留所有权；没有
+reservation 的 CLI、程序化或直接 Core 任务不出现在普通用户报告库中，但
+管理员仍可查看。不新增 owner 字段或数据库迁移。
+
 ## 13. 部署方式
 
 ### 13.1 本地安装

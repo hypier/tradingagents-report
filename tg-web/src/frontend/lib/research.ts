@@ -91,14 +91,32 @@ export type MarketSearchHit = {
 
 export type SelectedInstrument = {
   display_ticker: string;
-  provider_symbol: string;
+  provider_symbol?: string;
   display_name: string;
   logo_url?: string;
-  exchange: string;
+  exchange?: string;
   symbol: string;
 };
 
 type FetchImplementation = typeof fetch;
+
+function createRequestId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  );
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10).join(''),
+  ].join('-');
+}
 
 export class ResearchRequestError extends Error {
   constructor(public readonly code: string) {
@@ -116,7 +134,7 @@ export async function createResearch(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...input,
-      requestId: crypto.randomUUID(),
+      requestId: createRequestId(),
       ...(instrument ? { instrument } : {}),
       ...(display ? { display } : {}),
       configOverrides: { output_language: outputLanguage ?? 'English' },

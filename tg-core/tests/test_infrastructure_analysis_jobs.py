@@ -142,6 +142,34 @@ def test_get_job_returns_database_row(monkeypatch):
     assert executed == [("SELECT * FROM analysis_jobs WHERE id = %s", ("job-id",))]
 
 
+def test_get_job_filters_by_owner(monkeypatch):
+    row = {"id": "job-id"}
+    executed = []
+
+    class Cursor:
+        def fetchone(self):
+            return row
+
+    class Connection:
+        def execute(self, sql, params=()):
+            executed.append((sql, params))
+            return Cursor()
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    monkeypatch.setattr(analysis_jobs.database, "connect", connect)
+
+    assert analysis_jobs.get_job("job-id", owner_id="user-1") is row
+    sql, params = executed[0]
+    assert "FROM analysis_jobs AS job" in sql
+    assert "FROM credit_reservations AS reservation" in sql
+    assert "reservation.request_id = job.request_id" in sql
+    assert "reservation.clerk_user_id = %s" in sql
+    assert params == ("job-id", "user-1")
+
+
 def test_list_queued_job_ids_returns_ids_in_created_order(monkeypatch):
     first = UUID("00000000-0000-0000-0000-000000000001")
     second = UUID("00000000-0000-0000-0000-000000000002")
@@ -192,6 +220,41 @@ def test_list_jobs_applies_optional_filters_and_pagination(monkeypatch):
     assert "ticker = %s" in sql
     assert "status = %s" in sql
     assert params == ("AAPL", "AAPL", "queued", "queued", 10, 20)
+
+
+def test_list_jobs_filters_by_owner_before_pagination(monkeypatch):
+    executed = []
+    rows = [{"id": "job-id"}]
+
+    class Cursor:
+        def fetchall(self):
+            return rows
+
+    class Connection:
+        def execute(self, sql, params=()):
+            executed.append((sql, params))
+            return Cursor()
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    monkeypatch.setattr(analysis_jobs.database, "connect", connect)
+
+    assert analysis_jobs.list_jobs(
+        ticker="AAPL",
+        status="succeeded",
+        owner_id="user-1",
+        limit=10,
+        offset=20,
+    ) == rows
+    sql, params = executed[0]
+    assert "FROM analysis_jobs AS job" in sql
+    assert "FROM credit_reservations AS reservation" in sql
+    assert "reservation.request_id = job.request_id" in sql
+    assert "reservation.clerk_user_id = %s" in sql
+    assert sql.index("reservation.clerk_user_id") < sql.index("LIMIT %s OFFSET %s")
+    assert params == ("user-1", "AAPL", "AAPL", "succeeded", "succeeded", 10, 20)
 
 
 def test_row_to_public_converts_database_json_and_number_values():

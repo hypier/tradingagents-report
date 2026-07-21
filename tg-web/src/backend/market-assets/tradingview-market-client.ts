@@ -55,12 +55,18 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
   async searchMarkets(query: string): Promise<MarketSearchHit[]> {
     const normalizedQuery = query.trim();
-    if (!this.apiKey || !normalizedQuery) return [];
+    if (!normalizedQuery) return [];
+    if (!this.apiKey) return directTickerFallback(normalizedQuery);
 
-    const response = await this.request(
-      `/api/search/market/${encodeURIComponent(normalizedQuery)}?filter=stock`,
-    );
-    if (!response.ok) return [];
+    let response: Response;
+    try {
+      response = await this.request(
+        `/api/search/market/${encodeURIComponent(normalizedQuery)}?filter=stock`,
+      );
+    } catch {
+      return directTickerFallback(normalizedQuery);
+    }
+    if (!response.ok) return directTickerFallback(normalizedQuery);
 
     const hits: MarketSearchHit[] = [];
     for (const market of readMarkets(await response.json())) {
@@ -206,6 +212,30 @@ export class TradingViewMarketClient implements MarketAssetClient {
       },
       signal: AbortSignal.timeout(5_000),
     });
+  }
+}
+
+function directTickerFallback(query: string): MarketSearchHit[] {
+  const normalized = query.trim().toUpperCase();
+  const isProviderSymbol = /^[A-Z]+:[A-Z0-9.-]+$/u.test(normalized);
+  const isRegionalTicker =
+    /^[A-Z0-9]+\.(?:TWO|HK|SS|SZ|TW|T)$/u.test(normalized);
+  const isUsTicker = /^[A-Z][A-Z0-9.-]{0,5}$/u.test(normalized);
+  if (!isProviderSymbol && !isRegionalTicker && !isUsTicker) {
+    throw new Error('TradingView market search is temporarily unavailable');
+  }
+
+  try {
+    const listing = resolveListingTicker(normalized);
+    return [
+      {
+        ...listing,
+        display_name: listing.display_ticker,
+        is_primary_listing: true,
+      },
+    ];
+  } catch {
+    throw new Error('TradingView market search is temporarily unavailable');
   }
 }
 

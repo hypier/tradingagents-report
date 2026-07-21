@@ -68,8 +68,23 @@ def insert_job(
     return existing
 
 
-def get_job(job_id: UUID | str) -> dict | None:
+def get_job(job_id: UUID | str, *, owner_id: str | None = None) -> dict | None:
     with database.connect() as conn:
+        if owner_id is not None:
+            return conn.execute(
+                """
+                SELECT job.*
+                FROM analysis_jobs AS job
+                WHERE job.id = %s
+                  AND EXISTS (
+                      SELECT 1
+                      FROM credit_reservations AS reservation
+                      WHERE reservation.request_id = job.request_id
+                        AND reservation.clerk_user_id = %s
+                  )
+                """,
+                (job_id, owner_id),
+            ).fetchone()
         return conn.execute("SELECT * FROM analysis_jobs WHERE id = %s", (job_id,)).fetchone()
 
 
@@ -139,10 +154,30 @@ def list_jobs(
     *,
     ticker: str | None = None,
     status: str | None = None,
+    owner_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
     with database.connect() as conn:
+        if owner_id is not None:
+            rows = conn.execute(
+                """
+                SELECT job.*
+                FROM analysis_jobs AS job
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM credit_reservations AS reservation
+                    WHERE reservation.request_id = job.request_id
+                      AND reservation.clerk_user_id = %s
+                )
+                  AND (%s::text IS NULL OR job.ticker = %s)
+                  AND (%s::text IS NULL OR job.status = %s)
+                ORDER BY job.created_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (owner_id, ticker, ticker, status, status, limit, offset),
+            ).fetchall()
+            return list(rows)
         rows = conn.execute(
             """
             SELECT *
