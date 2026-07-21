@@ -92,10 +92,7 @@ export type UpdateCreditBillingSettingsInput = Pick<
 >;
 
 export type AnalysisCreditEstimate = {
-  estimatedCostUsd: string;
   reservedPoints: number;
-  source: 'default' | 'history';
-  sampleCount: number;
 };
 
 export type BillingSettings = {

@@ -42,10 +42,7 @@ describe('shared API contracts', () => {
       new Response(
         JSON.stringify({
           data: {
-            estimatedCostUsd: '1.00000000',
             reservedPoints: 132,
-            source: 'default',
-            sampleCount: 0,
           },
           requestId: 'request-2',
         }),

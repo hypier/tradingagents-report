@@ -9,6 +9,7 @@ export interface CoreClientContract extends ListingResolver {
   listAnalyses(input: URLSearchParams): Promise<unknown>;
   getAnalysis(id: string): Promise<unknown>;
   getAnalysisEvents(id: string): Promise<unknown>;
+  cancelAnalysis(id: string): Promise<unknown>;
 }
 
 type FetchImplementation = (
@@ -70,6 +71,14 @@ export class CoreClient implements CoreClientContract {
     );
   }
 
+  cancelAnalysis(id: string): Promise<unknown> {
+    return this.request(
+      `/api/v1/analyses/${encodeURIComponent(id)}/cancel`,
+      { method: 'POST' },
+      true,
+    );
+  }
+
   private async request(
     path: string,
     init: RequestInit = {},
@@ -91,10 +100,14 @@ export class CoreClient implements CoreClientContract {
       );
 
       if (!response.ok) {
-        if (response.status === 400 || response.status === 409) {
+        if (
+          response.status === 400 ||
+          response.status === 409 ||
+          response.status === 422
+        ) {
           throw new AppError(
             'CORE_REQUEST_REJECTED',
-            response.status,
+            response.status === 422 ? 400 : response.status,
             'Analysis service rejected the request',
           );
         }

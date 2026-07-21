@@ -276,6 +276,7 @@ function fakeDependencies(
       listAnalyses: vi.fn(),
       getAnalysis: vi.fn(),
       getAnalysisEvents: vi.fn(),
+      cancelAnalysis: vi.fn(),
     },
     marketAssets: {
       searchMarkets: vi.fn(),
@@ -1117,9 +1118,11 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      data: { estimatedCostUsd: '1.00000000', reservedPoints: 132 },
+    const body = await response.json();
+    expect(body).toMatchObject({
+      data: { reservedPoints: 132 },
     });
+    expect(body.data).not.toHaveProperty('estimatedCostUsd');
     expect(dependencies.database.billing.estimateAnalysis).toHaveBeenCalledWith(
       {
         billingSignature: buildBillingSignature({
@@ -1293,6 +1296,7 @@ describe('createApp', () => {
         listAnalyses: vi.fn(),
         getAnalysis: vi.fn(),
         getAnalysisEvents: vi.fn(),
+      cancelAnalysis: vi.fn(),
       },
       marketAssets: {
         searchMarkets: vi.fn(),
@@ -1341,6 +1345,7 @@ describe('createApp', () => {
         }),
         listAnalyses: vi.fn(),
         getAnalysisEvents: vi.fn(),
+      cancelAnalysis: vi.fn(),
         getAnalysis: vi.fn(),
       },
       marketAssets: {
@@ -1379,7 +1384,7 @@ describe('createApp', () => {
 
     expect(response.status).toBe(202);
     expect(dependencies.core.submitAnalysis).toHaveBeenCalledWith({
-      ticker: '0700.HK',
+      ticker: 'HKEX:700',
       trade_date: '2026-07-15',
       analysts: ['market'],
       config_overrides: {},
@@ -1473,6 +1478,7 @@ describe('createApp', () => {
         listAnalyses: vi.fn(),
         getAnalysis: vi.fn(),
         getAnalysisEvents: vi.fn(),
+      cancelAnalysis: vi.fn(),
       },
       marketAssets: {
         searchMarkets: vi.fn(),

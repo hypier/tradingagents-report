@@ -46,10 +46,12 @@ import {
 } from '@/shared/timezone';
 import {
   createResearch,
+  cancelResearch,
   estimateResearch,
   getMarketSnapshot,
   getResearchEvents,
   listResearch,
+  type AnalysisJob,
   type SelectedInstrument,
 } from '../lib/research';
 import { useJobMarketIdentities } from '../hooks/use-market-identities';
@@ -127,13 +129,29 @@ export function HomePage() {
         : false,
   });
   const { identities } = useJobMarketIdentities(jobs.data?.data ?? []);
-  const active = jobs.data?.data.find(
+  const [watchedJobId, setWatchedJobId] = useState<string | null>(null);
+  const watchedJob = watchedJobId
+    ? jobs.data?.data.find((job) => job.id === watchedJobId)
+    : undefined;
+  const liveWatched =
+    watchedJob &&
+    (watchedJob.status === 'queued' || watchedJob.status === 'running')
+      ? watchedJob
+      : undefined;
+  const finishedWatched =
+    watchedJob &&
+    (watchedJob.status === 'succeeded' || watchedJob.status === 'failed')
+      ? watchedJob
+      : undefined;
+  const activeFromList = jobs.data?.data.find(
     (job) => job.status === 'queued' || job.status === 'running',
   );
+  const active = liveWatched ?? activeFromList;
+  const eventsJobId = active?.id ?? finishedWatched?.id;
   const events = useQuery({
-    queryKey: ['analysis-events', active?.id],
-    queryFn: () => getResearchEvents(active!.id),
-    enabled: Boolean(active),
+    queryKey: ['analysis-events', eventsJobId],
+    queryFn: () => getResearchEvents(eventsJobId!),
+    enabled: Boolean(eventsJobId),
     refetchInterval: active ? 5_000 : false,
   });
   // Prefer job.display written at submit; legacy rows should be backfilled in DB.
@@ -145,12 +163,35 @@ export function HomePage() {
   const create = useMutation({
     mutationFn: (input: Parameters<typeof createResearch>[0]) =>
       createResearch(input),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      setWatchedJobId(result.data.id);
       queryClient.invalidateQueries({ queryKey: ['analyses'] });
       queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
       toast.success(t('submit.toastSuccess'));
     },
   });
+  const cancel = useMutation({
+    mutationFn: (id: string) => cancelResearch(id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
+      toast.success(
+        result.data.status === 'cancel_requested'
+          ? t('pipeline.toastStopping')
+          : t('pipeline.toastStopped'),
+      );
+    },
+    onError: () => {
+      toast.error(t('pipeline.toastStopFailed'));
+    },
+  });
+
+  useEffect(() => {
+    if (!watchedJobId && activeFromList?.id) {
+      setWatchedJobId(activeFromList.id);
+    }
+  }, [activeFromList?.id, watchedJobId]);
+
   const createErrorCode =
     create.error &&
     typeof create.error === 'object' &&
@@ -159,6 +200,39 @@ export function HomePage() {
       ? create.error.code
       : null;
   const quote = snapshot.data?.data;
+  const watchedListed = Boolean(watchedJob);
+  const optimisticJob =
+    instrument &&
+    (create.isPending || (Boolean(watchedJobId) && !watchedListed))
+      ? ({
+          id: watchedJobId ?? 'pending-submit',
+          ticker: instrument.display_ticker,
+          status: 'queued' as const,
+          analysts,
+          progress_percent: 0,
+          current_step: null,
+          display: {
+            display_name:
+              quote?.display_name?.trim() || instrument.display_name,
+            ...(quote?.english_name?.trim() ||
+            instrument.english_name?.trim()
+              ? {
+                  english_name:
+                    quote?.english_name?.trim() ||
+                    instrument.english_name?.trim(),
+                }
+              : {}),
+            ...(quote?.logo_url?.trim() || instrument.logo_url?.trim()
+              ? {
+                  logo_url:
+                    quote?.logo_url?.trim() || instrument.logo_url?.trim(),
+                }
+              : {}),
+          },
+        } satisfies AnalysisJob)
+      : undefined;
+  const pipelineJob = active ?? optimisticJob ?? finishedWatched;
+  const showPipeline = Boolean(pipelineJob);
   const availableCredits = billing.data?.data.usage?.availableCredits ?? 0;
   const selectedMarket = marketFromExchange(instrument?.exchange);
   const accountTimezone =
@@ -277,278 +351,277 @@ export function HomePage() {
   return (
     <AppShell>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Composer: search → quote → team → run */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col border-border lg:border-r">
-          <div className="border-b border-border px-5 py-3.5 lg:px-6">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {t('title')}
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              {t('subtitle')}
-            </p>
-          </div>
-
-          <form
-            className="flex min-h-0 flex-1 flex-col"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit();
-            }}
-          >
-            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5 lg:px-6">
-              <Field>
-                <FieldLabel
-                  htmlFor="ticker"
-                  className="inline-flex items-center gap-2 text-sm"
-                >
-                  <Search className="size-4 text-muted-foreground" />
-                  {t('instrument.label')}
-                </FieldLabel>
-                <TickerSearch
-                  id="ticker"
-                  value={instrument}
-                  onChange={setInstrument}
-                  preferredMarket={defaultMarket}
-                />
-                {!instrument ? (
-                  <FieldDescription>{t('instrument.hint')}</FieldDescription>
-                ) : null}
-              </Field>
-
-              <QuoteStrip
-                variant="strip"
-                quote={quoteForStrip}
-                loading={
-                  Boolean(instrument?.provider_symbol) && snapshot.isLoading
-                }
-                detailHref={
-                  instrument?.provider_symbol
-                    ? `/stocks/${encodeURIComponent(instrument.provider_symbol)}`
+          {showPipeline ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-5 lg:p-6">
+              <PipelinePanel
+                variant="full"
+                className="min-h-[28rem]"
+                job={pipelineJob}
+                events={events.data?.data}
+                loading={Boolean(eventsJobId) && events.isLoading}
+                stopping={cancel.isPending}
+                onStop={
+                  active
+                    ? () => {
+                        cancel.mutate(active.id);
+                      }
                     : undefined
                 }
+                onViewReport={
+                  finishedWatched?.status === 'succeeded'
+                    ? () => navigate(`/reports/${finishedWatched.id}`)
+                    : undefined
+                }
+                onAnalyzeAgain={() => {
+                  setWatchedJobId(null);
+                }}
               />
+            </div>
+          ) : (
+            <>
+              <div className="border-b border-border px-5 py-3.5 lg:px-6">
+                <h1 className="text-xl font-semibold tracking-tight">
+                  {t('title')}
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  {t('subtitle')}
+                </p>
+              </div>
 
-              <Field>
-                <FieldTitle id="analyst-team-label" className="text-sm">
-                  {t('analystTeam')}
-                </FieldTitle>
-                <FieldDescription>{t('analystTeamHint')}</FieldDescription>
-                <div
-                  role="group"
-                  aria-labelledby="analyst-team-label"
-                  className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4"
-                >
-                  {analystOptions.map((analyst) => {
-                    const Icon = getAnalystIcon(analyst);
-                    const selected = analysts.includes(analyst);
-                    return (
-                      <button
-                        key={analyst}
-                        type="button"
-                        aria-pressed={selected}
-                        title={t(`analysts.${analyst}.description`)}
-                        onClick={() => {
-                          setAnalysts((current) =>
-                            selected
-                              ? current.filter((value) => value !== analyst)
-                              : [...current, analyst],
-                          );
-                        }}
-                        className={cn(
-                          'flex min-h-[4.25rem] flex-col items-start justify-center gap-1.5 border px-3.5 py-3 text-left transition-colors',
-                          'border-border bg-background hover:border-foreground/20 hover:bg-muted/40',
-                          'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
-                          'active:translate-y-px',
-                          selected &&
-                            'border-primary/50 bg-primary/10 text-foreground shadow-[inset_2px_0_0_0_var(--primary)]',
-                        )}
-                      >
-                        <span className="flex w-full items-center gap-2.5">
-                          <Icon
+              <form
+                className="flex min-h-0 flex-1 flex-col"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  submit();
+                }}
+              >
+                <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-5 lg:px-6">
+                  <Field>
+                    <FieldLabel
+                      htmlFor="ticker"
+                      className="inline-flex items-center gap-2 text-sm"
+                    >
+                      <Search className="size-4 text-muted-foreground" />
+                      {t('instrument.label')}
+                    </FieldLabel>
+                    <TickerSearch
+                      id="ticker"
+                      value={instrument}
+                      onChange={setInstrument}
+                      preferredMarket={defaultMarket}
+                    />
+                    {!instrument ? (
+                      <FieldDescription>{t('instrument.hint')}</FieldDescription>
+                    ) : null}
+                  </Field>
+
+                  <QuoteStrip
+                    variant="strip"
+                    quote={quoteForStrip}
+                    loading={
+                      Boolean(instrument?.provider_symbol) && snapshot.isLoading
+                    }
+                    detailHref={
+                      instrument?.provider_symbol
+                        ? `/stocks/${encodeURIComponent(instrument.provider_symbol)}`
+                        : undefined
+                    }
+                  />
+
+                  <Field>
+                    <FieldTitle id="analyst-team-label" className="text-sm">
+                      {t('analystTeam')}
+                    </FieldTitle>
+                    <FieldDescription>{t('analystTeamHint')}</FieldDescription>
+                    <div
+                      role="group"
+                      aria-labelledby="analyst-team-label"
+                      className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4"
+                    >
+                      {analystOptions.map((analyst) => {
+                        const Icon = getAnalystIcon(analyst);
+                        const selected = analysts.includes(analyst);
+                        return (
+                          <button
+                            key={analyst}
+                            type="button"
+                            aria-pressed={selected}
+                            title={t(`analysts.${analyst}.description`)}
+                            onClick={() => {
+                              setAnalysts((current) =>
+                                selected
+                                  ? current.filter((value) => value !== analyst)
+                                  : [...current, analyst],
+                              );
+                            }}
                             className={cn(
-                              'size-5 shrink-0',
-                              selected
-                                ? 'text-primary'
-                                : 'text-muted-foreground',
-                            )}
-                          />
-                          <span
-                            className={cn(
-                              'min-w-0 truncate text-sm font-semibold tracking-tight',
-                              selected && 'text-primary',
+                              'flex min-h-[4.25rem] flex-col items-start justify-center gap-1.5 border px-3.5 py-3 text-left transition-colors',
+                              'border-border bg-background hover:border-foreground/20 hover:bg-muted/40',
+                              'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
+                              'active:translate-y-px',
+                              selected &&
+                                'border-primary/50 bg-primary/10 text-foreground shadow-[inset_2px_0_0_0_var(--primary)]',
                             )}
                           >
-                            {t(`analysts.${analyst}.title`)}
-                          </span>
-                        </span>
-                        <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-                          {t(`analysts.${analyst}.description`)}
-                        </span>
-                      </button>
-                    );
-                  })}
+                            <span className="flex w-full items-center gap-2.5">
+                              <Icon
+                                className={cn(
+                                  'size-5 shrink-0',
+                                  selected
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground',
+                                )}
+                              />
+                              <span
+                                className={cn(
+                                  'min-w-0 truncate text-sm font-semibold tracking-tight',
+                                  selected && 'text-primary',
+                                )}
+                              >
+                                {t(`analysts.${analyst}.title`)}
+                              </span>
+                            </span>
+                            <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                              {t(`analysts.${analyst}.description`)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+
+                  <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel
+                        htmlFor="trade-date"
+                        className="inline-flex items-center gap-2 text-sm"
+                      >
+                        <CalendarDays className="size-4 text-muted-foreground" />
+                        {t('tradeDate.label')}
+                      </FieldLabel>
+                      <Input
+                        id="trade-date"
+                        type="date"
+                        value={tradeDate}
+                        max={maxTradeDate}
+                        onChange={(event) => setTradeDate(event.target.value)}
+                        required
+                      />
+                      <FieldDescription>{t('tradeDate.hint')}</FieldDescription>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel
+                        htmlFor="output-language"
+                        className="inline-flex items-center gap-2 text-sm"
+                      >
+                        <Languages className="size-4 text-muted-foreground" />
+                        {t('reportLanguage.label')}
+                      </FieldLabel>
+                      <Select
+                        value={outputLanguage}
+                        onValueChange={setOutputLanguage}
+                      >
+                        <SelectTrigger
+                          id="output-language"
+                          aria-label={t('reportLanguage.label')}
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {OUTPUT_LANGUAGE_IDS.map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {formatOutputLanguage(value, (key, options) =>
+                                t(`common:${key}`, options),
+                              )}
+                              {value === 'English'
+                                ? ` (${t('reportLanguage.defaultSuffix')})`
+                                : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </FieldGroup>
+
+                  {insufficientCredits ? (
+                    <Alert>
+                      <AlertTitle>{t('submit.creditsRequiredTitle')}</AlertTitle>
+                      <AlertDescription>
+                        <Link className="underline" to="/billing">
+                          {t('submit.insufficientCredits')}
+                        </Link>
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  {create.isError && (
+                    <Alert variant="destructive">
+                      <AlertTitle>
+                        {createErrorCode === 'CONSENT_REQUIRED'
+                          ? t('submit.consentRequiredTitle')
+                          : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                              createErrorCode === 'SUBSCRIPTION_REQUIRED'
+                            ? t('submit.creditsRequiredTitle')
+                            : t('submit.errorTitle')}
+                      </AlertTitle>
+                      <AlertDescription>
+                        {createErrorCode === 'CONSENT_REQUIRED' ? (
+                          <Link className="underline" to="/account">
+                            {t('submit.consentRequiredBody')}
+                          </Link>
+                        ) : createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                          createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
+                          <Link className="underline" to="/billing">
+                            {t('submit.creditsRequiredBody')}
+                          </Link>
+                        ) : (
+                          t('submit.errorBody')
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
-              </Field>
 
-              <FieldGroup className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel
-                    htmlFor="trade-date"
-                    className="inline-flex items-center gap-2 text-sm"
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border bg-muted/20 px-5 py-3.5 lg:px-6">
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="min-w-[11rem]"
+                    disabled={
+                      !instrument ||
+                      !analysts.length ||
+                      !outputLanguage ||
+                      !tradeDate ||
+                      insufficientCredits ||
+                      create.isPending
+                    }
                   >
-                    <CalendarDays className="size-4 text-muted-foreground" />
-                    {t('tradeDate.label')}
-                  </FieldLabel>
-                  <Input
-                    id="trade-date"
-                    type="date"
-                    value={tradeDate}
-                    max={maxTradeDate}
-                    onChange={(event) => setTradeDate(event.target.value)}
-                    required
-                  />
-                  <FieldDescription>{t('tradeDate.hint')}</FieldDescription>
-                </Field>
-
-                <Field>
-                  <FieldLabel
-                    htmlFor="output-language"
-                    className="inline-flex items-center gap-2 text-sm"
-                  >
-                    <Languages className="size-4 text-muted-foreground" />
-                    {t('reportLanguage.label')}
-                  </FieldLabel>
-                  <Select
-                    value={outputLanguage}
-                    onValueChange={setOutputLanguage}
-                  >
-                    <SelectTrigger
-                      id="output-language"
-                      aria-label={t('reportLanguage.label')}
-                      className="w-full"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OUTPUT_LANGUAGE_IDS.map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {formatOutputLanguage(value, (key, options) =>
-                            t(`common:${key}`, options),
-                          )}
-                          {value === 'English'
-                            ? ` (${t('reportLanguage.defaultSuffix')})`
-                            : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </FieldGroup>
-
-              {insufficientCredits ? (
-                <Alert>
-                  <AlertTitle>{t('submit.creditsRequiredTitle')}</AlertTitle>
-                  <AlertDescription>
-                    <Link className="underline" to="/billing">
-                      {t('submit.insufficientCredits')}
-                    </Link>
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              {create.isError && (
-                <Alert variant="destructive">
-                  <AlertTitle>
-                    {createErrorCode === 'CONSENT_REQUIRED'
-                      ? t('submit.consentRequiredTitle')
-                      : createErrorCode === 'INSUFFICIENT_CREDITS' ||
-                          createErrorCode === 'SUBSCRIPTION_REQUIRED'
-                        ? t('submit.creditsRequiredTitle')
-                        : t('submit.errorTitle')}
-                  </AlertTitle>
-                  <AlertDescription>
-                    {createErrorCode === 'CONSENT_REQUIRED' ? (
-                      <Link className="underline" to="/account">
-                        {t('submit.consentRequiredBody')}
-                      </Link>
-                    ) : createErrorCode === 'INSUFFICIENT_CREDITS' ||
-                      createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
-                      <Link className="underline" to="/billing">
-                        {t('submit.creditsRequiredBody')}
-                      </Link>
+                    {create.isPending ? (
+                      <Spinner data-icon="inline-start" />
                     ) : (
-                      t('submit.errorBody')
+                      <Play data-icon="inline-start" />
                     )}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-
-            <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-border bg-muted/20 px-5 py-3.5 lg:px-6">
-              {pendingResearchInput ? (
-                <p
-                  className="font-mono text-sm tabular-nums text-muted-foreground"
-                  aria-live="polite"
-                >
-                  {estimate.isLoading
-                    ? t('submit.estimating')
-                    : estimate.isError
-                      ? t('submit.estimateUnavailable')
-                      : estimate.data
-                        ? t('submit.estimate', {
-                            count: estimate.data.data.reservedPoints,
-                            cost: estimate.data.data.estimatedCostUsd,
-                          })
-                        : billing.isSuccess && !insufficientCredits
-                          ? t('submit.runEstimate', {
-                              cost: reservedPoints ?? '—',
-                              available: availableCredits,
-                              defaultValue: `This run: ${reservedPoints ?? '—'} · Available: ${availableCredits}`,
+                    {create.isPending
+                      ? t('submit.submitting')
+                      : estimate.isLoading
+                        ? t('submit.estimating')
+                        : estimate.data
+                          ? t('submit.runWithEstimate', {
+                              count: estimate.data.data.reservedPoints,
                             })
-                          : null}
-                </p>
-              ) : null}
-              <Button
-                type="submit"
-                size="lg"
-                className="ml-auto min-w-[11rem]"
-                disabled={
-                  !instrument ||
-                  !analysts.length ||
-                  !outputLanguage ||
-                  !tradeDate ||
-                  insufficientCredits ||
-                  create.isPending
-                }
-              >
-                {create.isPending ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <Play data-icon="inline-start" />
-                )}
-                {create.isPending
-                  ? t('submit.submitting')
-                  : estimate.data
-                    ? t('submit.runWithEstimate', {
-                        count: estimate.data.data.reservedPoints,
-                      })
-                    : t('submit.runWithCredit', { count: 0 })}
-              </Button>
-            </div>
-          </form>
+                          : t('submit.run')}
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
         </section>
 
-        {/* Active job + recent activity */}
         <aside className="flex w-full min-h-0 shrink-0 flex-col border-t border-border bg-muted/15 lg:w-[min(100%,22rem)] lg:border-t-0 xl:w-[24rem]">
-          <div className="shrink-0">
-            <PipelinePanel
-              variant="rail"
-              job={active}
-              events={events.data?.data}
-              loading={events.isLoading}
-            />
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto border-t border-border">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <RecentReports
               density="rail"
               jobs={jobs.data?.data ?? []}

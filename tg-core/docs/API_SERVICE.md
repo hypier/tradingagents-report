@@ -300,6 +300,28 @@ GET /api/v1/analyses/{job_id}/events
 
 仅返回任务阶段和工具调用的时间线。前端在任务运行中轮询此端点；完成后的报告详情不重复包含这些事件。
 
+### 4.7 取消分析任务
+
+```http
+POST /api/v1/analyses/{job_id}/cancel
+```
+
+- `queued`：立即转为 `failed`（`error=Cancelled by user`），并释放积分预占。
+- `running`：写入 `request.cancel_requested=true`；worker 在下一次进度回调或完成前检查该标志并结束任务。
+- 已是终态：返回 `409`。
+
+响应示例：
+
+```json
+{ "id": "…", "status": "cancelled" }
+```
+
+或：
+
+```json
+{ "id": "…", "status": "cancel_requested" }
+```
+
 ## 5. curl 示例
 
 提交：

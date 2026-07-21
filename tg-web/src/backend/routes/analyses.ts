@@ -29,7 +29,12 @@ export function analysisRoutes(dependencies: AppDependencies) {
         configOverrides: input.configOverrides,
       }),
     });
-    return context.json(apiSuccess(data, context.get('requestId')));
+    return context.json(
+      apiSuccess(
+        { reservedPoints: data.reservedPoints },
+        context.get('requestId'),
+      ),
+    );
   });
 
   app.post('/analyses', async (context) => {
@@ -67,26 +72,32 @@ export function analysisRoutes(dependencies: AppDependencies) {
 
     let data: unknown;
     try {
+      const instrument = input.instrument
+        ? {
+            exchange: input.instrument.exchange.toUpperCase(),
+            symbol: input.instrument.symbol.toUpperCase(),
+            ...(input.instrument.display_ticker
+              ? {
+                  display_ticker:
+                    input.instrument.display_ticker.toUpperCase(),
+                }
+              : {}),
+          }
+        : undefined;
+      // Core requires ticker and instrument to resolve to the same listing.
+      // Bare symbols like "AAPL" resolve with exchange=null and conflict with
+      // NASDAQ:AAPL-style instruments from the watchlist/search UI.
       data = await dependencies.core.submitAnalysis({
-        ticker: input.ticker.toUpperCase(),
+        ...(instrument
+          ? {
+              ticker: `${instrument.exchange}:${instrument.symbol}`,
+              instrument,
+            }
+          : { ticker: input.ticker.toUpperCase() }),
         trade_date: input.tradeDate,
         analysts: input.analysts,
         config_overrides: input.configOverrides,
         request_id: requestId,
-        ...(input.instrument
-          ? {
-              instrument: {
-                exchange: input.instrument.exchange.toUpperCase(),
-                symbol: input.instrument.symbol.toUpperCase(),
-                ...(input.instrument.display_ticker
-                  ? {
-                      display_ticker:
-                        input.instrument.display_ticker.toUpperCase(),
-                    }
-                  : {}),
-              },
-            }
-          : {}),
         ...(input.display
           ? {
               display: {
@@ -226,6 +237,14 @@ export function analysisRoutes(dependencies: AppDependencies) {
         context.get('requestId'),
       ),
     );
+  });
+
+  app.post('/analyses/:id/cancel', async (context) => {
+    const clerkUserId = context.get('auth').userId;
+    const id = context.req.param('id');
+    await requireOwnedAnalysis(dependencies, clerkUserId, id);
+    const data = await dependencies.core.cancelAnalysis(id);
+    return context.json(apiSuccess(data, context.get('requestId')));
   });
 
   app.patch('/analyses/:id/meta', async (context) => {

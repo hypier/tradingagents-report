@@ -18,7 +18,7 @@ from api.schemas import (
     ListingResolveResponse,
 )
 from api.security import require_api_key
-from application.jobs import CreateAnalysisJob, create_job
+from application.jobs import CreateAnalysisJob, cancel_job, create_job
 from application.pricing import refresh_and_backfill_model_prices
 from infrastructure import analysis_jobs, database, llm_prices
 from tradingagents.dataflows.listings import resolve_listing
@@ -177,3 +177,23 @@ def get_analysis(job_id: UUID) -> dict:
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="analysis job not found")
     return analysis_result_from_row(analysis_jobs.row_to_public(row))
+
+
+@app.post(
+    "/api/v1/analyses/{job_id}/cancel",
+    dependencies=[Depends(require_api_key)],
+)
+def cancel_analysis(job_id: UUID) -> dict:
+    result = cancel_job(job_id)
+    if result is None:
+        row = analysis_jobs.get_job(job_id)
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="analysis job not found",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="analysis job is not cancellable",
+        )
+    return {"id": str(job_id), "status": result}

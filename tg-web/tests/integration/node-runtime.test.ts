@@ -89,6 +89,7 @@ function fakeDependencies(): AppDependencies {
       listAnalyses: vi.fn(),
       getAnalysis: vi.fn(),
       getAnalysisEvents: vi.fn(),
+      cancelAnalysis: vi.fn(),
     },
     marketAssets: {
       searchMarkets: vi.fn(),

@@ -1,24 +1,31 @@
 import {
   Check,
   CircleDashed,
+  FileText,
   LoaderCircle,
+  RotateCcw,
   ScrollText,
+  Square,
 } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { SectionPanel } from '../page-chrome';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '../ui/empty';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
 import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
 import { Skeleton } from '../ui/skeleton';
-import { getStageIcon, Workflow } from '../icons/research-icons';
+import { Spinner } from '../ui/spinner';
+import { InstrumentLogo } from '../instrument-logo';
+import { getStageIcon } from '../icons/research-icons';
 import { formatLocaleTime } from '@/frontend/lib/format-locale';
 import { localizeProgressMessage } from '@/frontend/lib/localize-progress-message';
 import { cn } from '@/frontend/lib/utils';
@@ -58,18 +65,34 @@ export function PipelinePanel({
   events,
   loading,
   variant = 'full',
+  className,
+  onStop,
+  stopping,
+  onViewReport,
+  onAnalyzeAgain,
 }: {
   job?: AnalysisJob;
   events?: AnalysisEvent[];
   loading?: boolean;
-  /** full = wide desk card; rail = compact right-column activity */
+  /** full = main-area stage grid + event log; rail = compact right-column */
   variant?: 'full' | 'rail';
+  className?: string;
+  onStop?: () => void;
+  stopping?: boolean;
+  onViewReport?: () => void;
+  onAnalyzeAgain?: () => void;
 }) {
   const { t } = useTranslation(['home', 'common']);
+  const [confirmStopOpen, setConfirmStopOpen] = useState(false);
   const stages = [...(job?.analysts ?? analystStages), ...finalStages];
   const activeStage = stageFromProgressMessage(job?.current_step);
   const activeIndex = activeStage ? stages.indexOf(activeStage) : -1;
   const CurrentStageIcon = getStageIcon(activeStage ?? 'market');
+  const displayName = job?.display?.display_name?.trim() || job?.ticker;
+  const showTickerUnderName = Boolean(
+    job?.display?.display_name?.trim() && job?.ticker,
+  );
+  const logoUrl = job?.display?.logo_url?.trim() || undefined;
 
   function displayStage(value?: string | null) {
     if (!value) return t('common:stages.waiting');
@@ -89,10 +112,22 @@ export function PipelinePanel({
     ? t(`common:status.${job.status}`, { defaultValue: job.status })
     : t('common:status.idle');
   const isLive = job?.status === 'running' || job?.status === 'queued';
+  const canStop =
+    Boolean(onStop) &&
+    isLive &&
+    Boolean(job?.id) &&
+    job.id !== 'pending-submit';
+  const isFinished =
+    job?.status === 'succeeded' || job?.status === 'failed';
+  const showResultActions =
+    isFinished &&
+    Boolean(onAnalyzeAgain) &&
+    Boolean(job?.id) &&
+    job.id !== 'pending-submit';
 
   if (variant === 'rail') {
     return (
-      <div className="flex min-h-0 flex-col">
+      <div className={cn('flex min-h-0 flex-col', className)}>
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <p className="inline-flex items-center gap-2 font-label-caps text-muted-foreground">
             <span
@@ -113,9 +148,9 @@ export function PipelinePanel({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium tracking-tight">
-                  {job.display?.display_name?.trim() || job.ticker}
+                  {displayName}
                 </p>
-                {job.display?.display_name?.trim() ? (
+                {showTickerUnderName ? (
                   <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
                     {job.ticker}
                   </p>
@@ -190,139 +225,172 @@ export function PipelinePanel({
   }
 
   return (
-    <SectionPanel
-      aria-labelledby="pipeline-title"
-      className="@container/card"
-      title={
-        <span id="pipeline-title" className="inline-flex items-center gap-1.5">
-          <Workflow className="size-3.5" aria-hidden />
-          {t('pipeline.title')}
-        </span>
-      }
-      actions={
-        <Badge variant={jobStatusVariant(job?.status)}>{jobStatus}</Badge>
-      }
-    >
-      <div className="grid gap-6 @5xl/card:grid-cols-[minmax(0,1fr)_minmax(240px,0.85fr)]">
-        <div className="@container/stages flex flex-col gap-5">
-          <div className="flex items-end justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2.5">
-              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-none bg-primary/10 text-primary">
-                <CurrentStageIcon className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  {t('pipeline.currentStage')}
+    <div className={cn('flex min-h-0 flex-1 flex-col gap-3', className)}>
+      <section
+        aria-labelledby="pipeline-title"
+        className="@container/card flex min-h-0 flex-1 flex-col border border-border bg-card"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3.5 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            {job?.ticker ? (
+              <InstrumentLogo
+                symbol={job.ticker}
+                logoUrl={logoUrl}
+                alt={displayName ?? job.ticker}
+                size="xl"
+                tone="accent"
+              />
+            ) : null}
+            <div className="min-w-0">
+              <h2
+                id="pipeline-title"
+                className="truncate text-lg font-semibold tracking-tight"
+              >
+                {displayName ?? t('pipeline.title')}
+              </h2>
+              {showTickerUnderName ? (
+                <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
+                  {job?.ticker}
                 </p>
-                <p className="mt-1 truncate text-base font-medium">
-                  {displayStage(activeStage ?? job?.current_step)}
-                </p>
-              </div>
+              ) : null}
             </div>
-            <span className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
-              {job?.progress_percent ?? 0}%
-            </span>
           </div>
-          <Progress value={job?.progress_percent ?? 0} className="h-1.5" />
-
-          <ol className="grid grid-cols-[repeat(auto-fill,minmax(8.75rem,1fr))] gap-2">
-            {stages.map((stage, index) => {
-              const current =
-                index === activeIndex && job?.status === 'running';
-              const complete =
-                activeIndex > index || job?.status === 'succeeded';
-              const label = statusLabel(complete, current);
-              const stageName = displayStage(stage);
-              const StageIcon = getStageIcon(stage);
-              return (
-                <li
-                  key={stage}
-                  aria-label={t('pipeline.stageStatus', {
-                    stage: stageName,
-                    status: label,
-                  })}
-                  data-stage-status={label}
-                  title={stageName}
-                  className={cn(
-                    'relative flex min-w-0 items-center gap-2 rounded-none border px-2.5 py-2 transition-colors',
-                    complete && 'border-primary/30 bg-primary/5',
-                    current &&
-                      'border-primary bg-primary/10 shadow-[0_0_0_1px] shadow-primary/20',
-                    !complete && !current && 'bg-muted/20',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'flex size-8 shrink-0 items-center justify-center rounded-none',
-                      complete || current
-                        ? 'bg-primary/15 text-primary'
-                        : 'bg-muted text-muted-foreground',
-                    )}
-                  >
-                    <StageIcon className="size-4" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={cn(
-                        'truncate text-sm leading-snug text-foreground',
-                        current ? 'font-bold' : 'font-medium',
-                      )}
-                    >
-                      {stageName}
-                    </p>
-                    <p className="mt-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                      {String(index + 1).padStart(2, '0')}
-                    </p>
-                  </div>
-                  {complete ? (
-                    <Check
-                      className="size-3.5 shrink-0 text-primary"
-                      aria-hidden="true"
-                    />
-                  ) : current ? (
-                    <LoaderCircle
-                      className="size-3.5 shrink-0 animate-spin text-primary"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <CircleDashed
-                      className="size-3.5 shrink-0 text-muted-foreground/60"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className="sr-only">{label}</span>
-                </li>
-              );
-            })}
-          </ol>
+          <Badge
+            variant={jobStatusVariant(job?.status)}
+            className="shrink-0 font-mono"
+          >
+            {jobStatus}
+          </Badge>
         </div>
 
-        <div className="min-w-0 rounded-none border bg-muted/25 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="inline-flex items-center gap-1.5 text-sm font-medium">
-              <ScrollText className="size-3.5 text-muted-foreground" />
-              {t('pipeline.eventLog')}
-            </p>
-            <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-              {t('pipeline.latest')}
-            </span>
-          </div>
-          {loading ? (
-            <div className="mt-4 flex flex-col gap-3">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-4/5" />
-              <Skeleton className="h-3 w-3/5" />
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
+          <div className="@container/stages flex min-h-0 flex-col gap-5">
+            <div className="flex items-end justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-2.5">
+                <span
+                  className={cn(
+                    'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-none',
+                    isLive
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-primary/10 text-primary',
+                  )}
+                >
+                  <CurrentStageIcon className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    {t('pipeline.currentStage')}
+                  </p>
+                  <p className="mt-1 truncate text-base font-medium">
+                    {displayStage(activeStage ?? job?.current_step)}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 font-mono text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+                {job?.progress_percent ?? 0}%
+              </span>
             </div>
-          ) : events?.length ? (
-            <ScrollArea className="mt-4 h-56 pr-2">
-              <ol className="flex flex-col gap-3 border-l border-border/80 py-0.5 pl-3 pr-2">
-                {[...events].reverse().map((event, index) => (
+            <Progress
+              value={job?.progress_percent ?? 0}
+              className={cn('h-1.5', isLive && 'bg-primary/15')}
+            />
+
+            <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {stages.map((stage, index) => {
+                const current =
+                  index === activeIndex &&
+                  (job?.status === 'running' || job?.status === 'queued');
+                const complete =
+                  activeIndex > index || job?.status === 'succeeded';
+                const label = statusLabel(complete, current);
+                const stageName = displayStage(stage);
+                const StageIcon = getStageIcon(stage);
+                return (
                   <li
-                    key={`${event.time ?? 'event'}-${index}`}
-                    className="relative text-xs leading-5 text-muted-foreground"
+                    key={stage}
+                    aria-label={t('pipeline.stageStatus', {
+                      stage: stageName,
+                      status: label,
+                    })}
+                    data-stage-status={label}
+                    title={stageName}
+                    className={cn(
+                      'relative flex min-w-0 items-center gap-2 rounded-none border px-2.5 py-2.5 transition-colors',
+                      complete && 'border-primary/30 bg-primary/5',
+                      current &&
+                        'border-primary bg-primary/10 shadow-[0_0_0_1px] shadow-primary/20',
+                      !complete && !current && 'bg-muted/20',
+                    )}
                   >
-                    <span className="absolute top-1.5 -left-[17px] size-1.5 rounded-full bg-primary/70" />
-                    <div className="flex items-baseline gap-2">
+                    <span
+                      className={cn(
+                        'flex size-8 shrink-0 items-center justify-center rounded-none',
+                        complete || current
+                          ? 'bg-primary/15 text-primary'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      <StageIcon className="size-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          'truncate text-sm leading-snug text-foreground',
+                          current ? 'font-bold' : 'font-medium',
+                        )}
+                      >
+                        {stageName}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+                        {String(index + 1).padStart(2, '0')}
+                      </p>
+                    </div>
+                    {complete ? (
+                      <Check
+                        className="size-3.5 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                    ) : current ? (
+                      <LoaderCircle
+                        className="size-3.5 shrink-0 animate-spin text-primary"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <CircleDashed
+                        className="size-3.5 shrink-0 text-muted-foreground/60"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span className="sr-only">{label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+
+          <div className="mt-auto flex shrink-0 flex-col rounded-none border bg-muted/25">
+            <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-2">
+              <p className="inline-flex items-center gap-1.5 text-sm font-medium">
+                <ScrollText className="size-3.5 text-muted-foreground" />
+                {t('pipeline.eventLog')}
+              </p>
+              <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+                {t('pipeline.latest')}
+              </span>
+            </div>
+            {loading ? (
+              <div className="flex flex-col gap-2 px-3 py-2.5">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            ) : events?.length ? (
+              <ScrollArea className="h-[7.5rem]">
+                <ol className="flex flex-col gap-2 px-3 py-2.5">
+                  {[...events].reverse().map((event, index) => (
+                    <li
+                      key={`${event.time ?? 'event'}-${index}`}
+                      className="flex items-baseline gap-2.5 text-xs leading-5 text-muted-foreground"
+                    >
                       {event.time ? (
                         <time
                           dateTime={event.time}
@@ -331,29 +399,126 @@ export function PipelinePanel({
                           {formatLocaleTime(event.time)}
                         </time>
                       ) : null}
-                      <span className="min-w-0 break-words">
+                      <span
+                        className={cn(
+                          'min-w-0 break-words',
+                          index === 0 && 'text-foreground',
+                        )}
+                      >
                         {localizeProgressMessage(event.message, t)}
                       </span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </ScrollArea>
-          ) : (
-            <Empty className="min-h-48 p-4">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ScrollText />
-                </EmptyMedia>
-                <EmptyTitle>{t('pipeline.noEventsTitle')}</EmptyTitle>
-                <EmptyDescription>
-                  {t('pipeline.noEventsBody')}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
+                    </li>
+                  ))}
+                </ol>
+              </ScrollArea>
+            ) : (
+              <p className="px-3 py-3 text-xs text-muted-foreground">
+                {t('pipeline.noEventsBody')}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
-    </SectionPanel>
+      </section>
+
+      {canStop ? (
+        <>
+          <div className="flex shrink-0 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="min-w-[10rem] gap-2 border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={stopping}
+              onClick={() => setConfirmStopOpen(true)}
+            >
+              {stopping ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <Square
+                  className="fill-current"
+                  data-icon="inline-start"
+                  aria-hidden
+                />
+              )}
+              {stopping ? t('pipeline.stopping') : t('pipeline.stop')}
+            </Button>
+          </div>
+          <Dialog open={confirmStopOpen} onOpenChange={setConfirmStopOpen}>
+            <DialogContent showCloseButton={false} className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>{t('pipeline.stopConfirmTitle')}</DialogTitle>
+                <DialogDescription>
+                  {t('pipeline.stopConfirmBody')}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirmStopOpen(false)}
+                >
+                  {t('pipeline.stopConfirmCancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="lg"
+                  disabled={stopping}
+                  onClick={() => {
+                    setConfirmStopOpen(false);
+                    onStop?.();
+                  }}
+                >
+                  {stopping ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <Square
+                      className="fill-current"
+                      data-icon="inline-start"
+                      aria-hidden
+                    />
+                  )}
+                  {t('pipeline.stopConfirmAction')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      ) : null}
+
+      {showResultActions ? (
+        <div className="flex shrink-0 flex-col gap-3 border border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold tracking-tight">
+              {job?.status === 'succeeded'
+                ? t('pipeline.resultSucceededTitle')
+                : t('pipeline.resultFailedTitle')}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {job?.status === 'succeeded'
+                ? t('pipeline.resultSucceededBody')
+                : t('pipeline.resultFailedBody')}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={onAnalyzeAgain}
+            >
+              <RotateCcw data-icon="inline-start" aria-hidden />
+              {t('pipeline.analyzeAgain')}
+            </Button>
+            {job?.status === 'succeeded' && onViewReport ? (
+              <Button type="button" size="lg" onClick={onViewReport}>
+                <FileText data-icon="inline-start" aria-hidden />
+                {t('pipeline.viewReport')}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

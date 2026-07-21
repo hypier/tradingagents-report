@@ -115,6 +115,7 @@ export function SectionPanel({
   actions,
   children,
   className,
+  bodyClassName,
   ...props
 }: {
   title?: ReactNode;
@@ -122,6 +123,7 @@ export function SectionPanel({
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  bodyClassName?: string;
 } & Omit<ComponentProps<'section'>, 'title' | 'children'>) {
   return (
     <section
@@ -145,7 +147,7 @@ export function SectionPanel({
           ) : null}
         </div>
       ) : null}
-      <div className="p-4">{children}</div>
+      <div className={cn('p-4', bodyClassName)}>{children}</div>
     </section>
   );
 }

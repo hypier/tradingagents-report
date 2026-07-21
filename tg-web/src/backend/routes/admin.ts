@@ -371,29 +371,33 @@ export function adminRoutes(dependencies: AppDependencies) {
 
     let data: unknown;
     try {
+      const normalizedInstrument =
+        instrument &&
+        typeof instrument.exchange === 'string' &&
+        typeof instrument.symbol === 'string'
+          ? {
+              exchange: String(instrument.exchange).toUpperCase(),
+              symbol: String(instrument.symbol).toUpperCase(),
+              ...(typeof instrument.display_ticker === 'string'
+                ? {
+                    display_ticker: String(
+                      instrument.display_ticker,
+                    ).toUpperCase(),
+                  }
+                : {}),
+            }
+          : undefined;
       data = await dependencies.core.submitAnalysis({
-        ticker: job.ticker,
+        ...(normalizedInstrument
+          ? {
+              ticker: `${normalizedInstrument.exchange}:${normalizedInstrument.symbol}`,
+              instrument: normalizedInstrument,
+            }
+          : { ticker: job.ticker }),
         trade_date: job.tradeDate,
         analysts,
         config_overrides: configOverrides,
         request_id: requestId,
-        ...(instrument &&
-        typeof instrument.exchange === 'string' &&
-        typeof instrument.symbol === 'string'
-          ? {
-              instrument: {
-                exchange: String(instrument.exchange).toUpperCase(),
-                symbol: String(instrument.symbol).toUpperCase(),
-                ...(typeof instrument.display_ticker === 'string'
-                  ? {
-                      display_ticker: String(
-                        instrument.display_ticker,
-                      ).toUpperCase(),
-                    }
-                  : {}),
-              },
-            }
-          : {}),
         ...(Object.keys(display).length
           ? {
               display: {

@@ -32,7 +32,6 @@ it('renders the research command dashboard', () => {
   );
 
   expect(screen.getByRole('main')).toHaveTextContent('Run analysis');
-  expect(screen.getByRole('main')).toHaveTextContent('Live pipeline');
   expect(
     screen.getByRole('heading', { name: 'Recent reports' }),
   ).toBeInTheDocument();
@@ -63,7 +62,7 @@ it('renders the standard dashboard navigation shell', () => {
     true,
   );
   const submitButtons = screen.getAllByRole('button', {
-    name: /Run analysis \(1 credit/,
+    name: /Run analysis/,
   });
   expect(
     submitButtons.every((button) => button.getAttribute('type') === 'submit'),

@@ -28,6 +28,11 @@ _UNPRICED_COST_BREAKDOWN = {
     "items": [],
 }
 
+
+class JobCancelled(Exception):
+    """Raised when a running analysis job is cancelled by the user."""
+
+
 DEFAULT_ANALYSTS = ["market", "social", "news", "fundamentals"]
 ALLOWED_CONFIG_OVERRIDES = {
     "llm_provider",
@@ -156,11 +161,18 @@ def run_job(job_id: UUID | str) -> None:
         _run_claimed_job(row)
 
 
+def cancel_job(job_id: UUID | str) -> str | None:
+    """Cancel a queued job or request cancel for a running job."""
+    return analysis_jobs.cancel_job(job_id)
+
+
 def _run_claimed_job(row: dict[str, Any]) -> None:
     tracker = TokenUsageCallback()
     config = dict(row.get("config") or {})
 
     def record_progress(event: Any) -> None:
+        if analysis_jobs.is_cancel_requested(row["id"]):
+            raise JobCancelled("Cancelled by user")
         logger.info(
             "Analysis progress job=%s ticker=%s progress=%s%% step=%s",
             row["id"],
@@ -181,6 +193,8 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         )
 
     try:
+        if analysis_jobs.is_cancel_requested(row["id"]):
+            raise JobCancelled("Cancelled by user")
         config = build_config(row["request"].get("config_overrides") or {})
         command = AnalysisCommand(
             ticker=row["ticker"],
@@ -196,6 +210,20 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         )
         usage = tracker.summary()
         costs = _calculate_cost_safely(usage, config, row["id"])
+        if analysis_jobs.is_cancel_requested(row["id"]):
+            updated = analysis_jobs.mark_failed(
+                job_id=row["id"],
+                error="Cancelled by user",
+                token_usage=usage,
+                cost_breakdown=costs,
+            )
+            if updated:
+                logger.info(
+                    "Analysis job cancelled job=%s ticker=%s",
+                    row["id"],
+                    row["ticker"],
+                )
+            return
         if costs is _UNPRICED_COST_BREAKDOWN:
             updated = analysis_jobs.mark_failed(
                 job_id=row["id"],
@@ -230,6 +258,18 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
                 result.decision,
                 usage.get("total_tokens", 0),
             )
+    except JobCancelled as exc:
+        logger.info("Analysis job cancelled job=%s ticker=%s", row["id"], row["ticker"])
+        usage = tracker.summary()
+        costs = _calculate_cost_safely(usage, config, row["id"])
+        updated = analysis_jobs.mark_failed(
+            job_id=row["id"],
+            error=str(exc) or "Cancelled by user",
+            token_usage=usage,
+            cost_breakdown=costs,
+        )
+        if not updated:
+            logger.warning("Analysis job %s left running state before cancel update", row["id"])
     except Exception as exc:
         logger.exception("Analysis job failed job=%s ticker=%s", row["id"], row["ticker"])
         usage = tracker.summary()

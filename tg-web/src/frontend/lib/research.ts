@@ -269,6 +269,23 @@ export const getResearchEvents = (
     fetchImplementation,
   );
 
+export async function cancelResearch(
+  id: string,
+  fetchImplementation: FetchImplementation = fetch,
+) {
+  const response = await fetchImplementation(
+    `/api/analyses/${encodeURIComponent(id)}/cancel`,
+    { method: 'POST' },
+  );
+  if (!response.ok) {
+    throw new ResearchRequestError('REQUEST_FAILED');
+  }
+  return response.json() as Promise<{
+    data: { id: string; status: string };
+    requestId: string;
+  }>;
+}
+
 export const getMarketSnapshot = (
   providerSymbol: string,
   options?: { refresh?: boolean; fetchImplementation?: FetchImplementation },

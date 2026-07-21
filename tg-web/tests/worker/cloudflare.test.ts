@@ -215,6 +215,7 @@ describe('Cloudflare Worker runtime', () => {
         listAnalyses: vi.fn(),
         getAnalysis: vi.fn(),
         getAnalysisEvents: vi.fn(),
+      cancelAnalysis: vi.fn(),
       },
       marketAssets: {
         searchMarkets: vi.fn(),

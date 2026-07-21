@@ -233,13 +233,14 @@ def mark_failed(
     cost_breakdown: dict,
 ) -> bool:
     usage = token_usage or {}
+    current_step = "Cancelled" if error.startswith("Cancelled") else "Failed"
     with database.connect() as conn:
         cursor = conn.execute(
             """
             UPDATE analysis_jobs
             SET status = 'failed', error = %s, tokens_used = %s,
                 token_usage = %s, cost_usd = %s, cost_breakdown = %s,
-                current_step = 'Failed', finished_at = now(), updated_at = now()
+                current_step = %s, finished_at = now(), updated_at = now()
             WHERE id = %s AND status = 'running'
             """,
             (
@@ -248,6 +249,7 @@ def mark_failed(
                 Jsonb(usage),
                 cost_breakdown["total_cost_usd"],
                 Jsonb(cost_breakdown),
+                current_step,
                 job_id,
             ),
         )
@@ -259,6 +261,61 @@ def mark_failed(
                 actual_cost_usd=Decimal(str(cost_breakdown["total_cost_usd"])),
             )
     return cursor.rowcount == 1
+
+
+def cancel_job(job_id: UUID | str) -> str | None:
+    """Cancel a queued job immediately, or request cancel for a running job.
+
+    Returns ``cancelled``, ``cancel_requested``, or ``None`` when the job is
+    already terminal / missing.
+    """
+    with database.connect() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE analysis_jobs
+            SET status = 'failed',
+                error = 'Cancelled by user',
+                current_step = 'Cancelled',
+                finished_at = now(),
+                updated_at = now()
+            WHERE id = %s AND status = 'queued'
+            """,
+            (job_id,),
+        )
+        if cursor.rowcount == 1:
+            _settle_credit_reservation(
+                conn,
+                job_id=job_id,
+                outcome="released",
+                actual_cost_usd=Decimal("0"),
+            )
+            return "cancelled"
+
+        cursor = conn.execute(
+            """
+            UPDATE analysis_jobs
+            SET request = jsonb_set(
+                    COALESCE(request, '{}'::jsonb),
+                    '{cancel_requested}',
+                    'true'::jsonb,
+                    true
+                ),
+                updated_at = now()
+            WHERE id = %s AND status = 'running'
+            """,
+            (job_id,),
+        )
+        if cursor.rowcount == 1:
+            return "cancel_requested"
+    return None
+
+
+def is_cancel_requested(job_id: UUID | str) -> bool:
+    row = get_job(job_id)
+    if row is None:
+        return False
+    request = row.get("request") or {}
+    return bool(request.get("cancel_requested"))
 
 
 def _settle_credit_reservation(
