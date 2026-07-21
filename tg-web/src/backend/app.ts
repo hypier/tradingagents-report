@@ -83,6 +83,7 @@ export function createApp(dependencies: AppDependencies) {
   app.use('/api/watchlist/*', requireAuth(dependencies));
   app.use('/api/market-search', requireAuth(dependencies));
   app.use('/api/market-snapshot', requireAuth(dependencies));
+  app.use('/api/market-ohlcv', requireAuth(dependencies));
   app.use('/api/market-identities', requireAuth(dependencies));
   app.use('/api/market-markets', requireAuth(dependencies));
   app.use('/api/market-board', requireAuth(dependencies));

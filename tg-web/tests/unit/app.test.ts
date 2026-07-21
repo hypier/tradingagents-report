@@ -261,6 +261,7 @@ function fakeDependencies(
       getStockLeaderboard: vi.fn(),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     },
     logger: new Logger(),
     clerkPublishableKey: 'pk_test_public',
@@ -1010,6 +1011,7 @@ describe('createApp', () => {
         getStockLeaderboard: vi.fn(),
         getMarketTape: vi.fn(),
         createStreamToken: vi.fn(),
+        getOhlcv: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1057,6 +1059,7 @@ describe('createApp', () => {
         getStockLeaderboard: vi.fn(),
         getMarketTape: vi.fn(),
         createStreamToken: vi.fn(),
+        getOhlcv: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1183,6 +1186,7 @@ describe('createApp', () => {
         getStockLeaderboard: vi.fn(),
         getMarketTape: vi.fn(),
         createStreamToken: vi.fn(),
+        getOhlcv: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1253,6 +1257,7 @@ describe('createApp', () => {
       getStockLeaderboard: vi.fn(),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1283,6 +1288,7 @@ describe('createApp', () => {
       getStockLeaderboard: vi.fn(),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1311,6 +1317,7 @@ describe('createApp', () => {
       getStockLeaderboard: vi.fn(),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     };
     const cache = {
       get: vi.fn().mockResolvedValue(null),
@@ -1336,6 +1343,59 @@ describe('createApp', () => {
     );
   });
 
+  it('returns server-side OHLCV candles for chart rendering', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
+      getOhlcv: vi.fn().mockResolvedValue({
+        symbol: 'SZSE:300750',
+        timeframe: '5',
+        bars: [
+          {
+            time: 1_700_000_300,
+            open: 1,
+            high: 2,
+            low: 0.5,
+            close: 1.5,
+            volume: 100,
+          },
+        ],
+        source: 'tradingview',
+      }),
+    };
+    const cache = {
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn(),
+      healthcheck: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets, cache }));
+
+    const response = await app.request(
+      '/api/market-ohlcv?symbol=SZSE%3A300750&timeframe=5&range=5',
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        symbol: 'SZSE:300750',
+        timeframe: '5',
+        bars: [{ time: 1_700_000_300, close: 1.5 }],
+      },
+    });
+    expect(marketAssets.getOhlcv).toHaveBeenCalledWith('SZSE:300750', '5', 5);
+    expect(cache.set).toHaveBeenCalledWith(
+      'market-ohlcv:v1:SZSE:300750:5:5',
+      expect.any(String),
+      30,
+    );
+  });
+
   it('serves a cached TradingView market snapshot without upstream', async () => {
     const marketAssets = {
       searchMarkets: vi.fn(),
@@ -1345,6 +1405,7 @@ describe('createApp', () => {
       getStockLeaderboard: vi.fn(),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     };
     const cache = {
       get: vi.fn().mockResolvedValue(
@@ -1388,6 +1449,7 @@ describe('createApp', () => {
       getStockLeaderboard: vi.fn(),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     };
     const cache = {
       get: vi.fn().mockResolvedValue(
@@ -1429,6 +1491,7 @@ describe('createApp', () => {
       getStockLeaderboard: vi.fn(),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1472,6 +1535,7 @@ describe('createApp', () => {
       }),
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1502,6 +1566,7 @@ describe('createApp', () => {
       listMarkets: vi.fn().mockResolvedValue([]),
       getStockLeaderboard: vi.fn(),
       createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
       getMarketTape: vi.fn().mockResolvedValue({
         marketCode: 'america',
         pinned: [
@@ -1541,6 +1606,7 @@ describe('createApp', () => {
         sseUrl: 'https://ws.tradingviewapi.com/sse/stream',
         expiresAt: 1_700_000_000_000,
       }),
+      getOhlcv: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 

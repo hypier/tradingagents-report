@@ -29,6 +29,7 @@ function fakeInner(
     getStockLeaderboard: vi.fn(),
     getMarketTape: vi.fn(),
     createStreamToken: vi.fn(),
+    getOhlcv: vi.fn(),
     ...overrides,
   };
 }

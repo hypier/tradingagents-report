@@ -39,10 +39,18 @@
   "chart": {
     "title": "趋势图",
     "unavailable": "趋势图暂不可用",
+    "loading": "加载中…",
     "interval": "时间间隔",
+    "style": "图表样式",
+    "styles": {
+      "candle": "K线",
+      "line": "折线"
+    },
+    "ma": "均线",
     "intervals": {
       "5m": "5分",
       "15m": "15分",
+      "30m": "30分",
       "1H": "1时",
       "1D": "日",
       "1W": "周",

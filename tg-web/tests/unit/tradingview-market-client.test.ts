@@ -496,4 +496,78 @@ describe('TradingViewMarketClient', () => {
       }),
     );
   });
+
+  it('loads Japanese OHLCV candles ascending by time', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            symbol: 'SZSE:300750',
+            current: {
+              time: 1_700_000_600,
+              open: 378.72,
+              close: 379.58,
+              max: 379.58,
+              min: 378.52,
+              volume: 472_800,
+            },
+            history: [
+              {
+                time: 1_700_000_600,
+                open: 378.72,
+                close: 379.58,
+                max: 379.58,
+                min: 378.52,
+                volume: 472_800,
+              },
+              {
+                time: 1_700_000_300,
+                open: 385.05,
+                close: 383.28,
+                max: 385.44,
+                min: 382.36,
+                volume: 1_614_316,
+              },
+            ],
+            info: {
+              has_intraday: true,
+              timezone: 'Asia/Chongqing',
+            },
+          },
+        }),
+      ),
+    );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.getOhlcv('SZSE:300750', '5', 5)).resolves.toEqual({
+      symbol: 'SZSE:300750',
+      timeframe: '5',
+      bars: [
+        {
+          time: 1_700_000_300,
+          open: 385.05,
+          high: 385.44,
+          low: 382.36,
+          close: 383.28,
+          volume: 1_614_316,
+        },
+        {
+          time: 1_700_000_600,
+          open: 378.72,
+          high: 379.58,
+          low: 378.52,
+          close: 379.58,
+          volume: 472_800,
+        },
+      ],
+      has_intraday: true,
+      timezone: 'Asia/Chongqing',
+      source: 'tradingview',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://tradingview-data1.p.rapidapi.com/api/price/SZSE%3A300750?timeframe=5&range=5&type=Japanese',
+      expect.anything(),
+    );
+  });
 });

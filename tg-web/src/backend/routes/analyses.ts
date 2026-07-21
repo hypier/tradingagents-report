@@ -12,6 +12,7 @@ import { AppError } from '../errors/app-error';
 import { BillingRepositoryError } from '../database/billing-repository';
 import { metaFlags } from '../database/report-meta-repository';
 import type { AnalysisJob } from '../database/repositories';
+import { isOhlcvTimeframe } from '../market-assets/tradingview-market-client';
 
 export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
@@ -304,6 +305,70 @@ export function analysisRoutes(dependencies: AppDependencies) {
         error instanceof Error ? error.message : 'Unable to load market snapshot';
       if (message.includes('not configured')) {
         throw new AppError('SERVICE_UNAVAILABLE', 503, message, error);
+      }
+      throw new AppError('BAD_GATEWAY', 502, message, error);
+    }
+  });
+
+  app.get('/market-ohlcv', async (context) => {
+    const providerSymbol =
+      context.req.query('symbol') ?? context.req.query('ticker') ?? '';
+    const timeframe = context.req.query('timeframe') ?? 'D';
+    const rangeRaw = Number(context.req.query('range') ?? '120');
+    if (!providerSymbol.trim()) {
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'symbol is required',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
+    }
+    if (!isOhlcvTimeframe(timeframe)) {
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'timeframe is invalid',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
+    }
+    const normalized = providerSymbol.trim().toUpperCase();
+    const range = Number.isFinite(rangeRaw) ? rangeRaw : 120;
+    const cacheKey = `market-ohlcv:v1:${normalized}:${timeframe}:${Math.min(Math.max(Math.trunc(range), 1), 500)}`;
+    const cached = await dependencies.cache.get(cacheKey);
+    if (cached) {
+      try {
+        return context.json(
+          apiSuccess(JSON.parse(cached), context.get('requestId')),
+        );
+      } catch {
+        // fall through to refresh
+      }
+    }
+
+    try {
+      const ohlcv = await dependencies.marketAssets.getOhlcv(
+        normalized,
+        timeframe,
+        range,
+      );
+      await dependencies.cache.set(cacheKey, JSON.stringify(ohlcv), 30);
+      return context.json(apiSuccess(ohlcv, context.get('requestId')));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to load OHLCV';
+      if (message.includes('not configured')) {
+        throw new AppError('SERVICE_UNAVAILABLE', 503, message, error);
+      }
+      if (message.includes('must be EXCHANGE:TICKER') || message.includes('Invalid')) {
+        throw new AppError('INVALID_REQUEST', 400, message, error);
       }
       throw new AppError('BAD_GATEWAY', 502, message, error);
     }

@@ -10,7 +10,7 @@ import { InstrumentIdentity } from '../components/instrument-identity';
 import { InstrumentLogo } from '../components/instrument-logo';
 import { SessionStatsRow } from '../components/market/session-stats-row';
 import { StockQuoteMetrics } from '../components/market/stock-quote-metrics';
-import { TradingViewAdvancedChart } from '../components/market/tradingview-advanced-chart';
+import { MarketTrendChart } from '../components/market/tradingview-advanced-chart';
 import { PageBody } from '../components/page-chrome';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -360,10 +360,12 @@ export function StockPage() {
         </header>
 
         <PageBody>
-          <TradingViewAdvancedChart
+          <MarketTrendChart
             symbol={providerSymbol}
             height={420}
             timezone={chartTimezone}
+            lastPrice={quote?.last_price}
+            asOf={quote?.as_of}
           />
 
           <ReportsTable

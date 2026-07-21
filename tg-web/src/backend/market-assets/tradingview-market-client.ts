@@ -67,6 +67,43 @@ export type MarketStreamToken = {
   expiresAt: number;
 };
 
+/** Supported Japanese-candle resolutions for `/api/price`. */
+export const OHLCV_TIMEFRAMES = [
+  '1',
+  '5',
+  '15',
+  '30',
+  '60',
+  '240',
+  'D',
+  'W',
+  'M',
+] as const;
+
+export type OhlcvTimeframe = (typeof OHLCV_TIMEFRAMES)[number];
+
+export type OhlcvBar = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+export type MarketOhlcv = {
+  symbol: string;
+  timeframe: OhlcvTimeframe;
+  bars: OhlcvBar[];
+  has_intraday?: boolean;
+  timezone?: string;
+  source: 'tradingview';
+};
+
+export function isOhlcvTimeframe(value: string): value is OhlcvTimeframe {
+  return (OHLCV_TIMEFRAMES as readonly string[]).includes(value);
+}
+
 export interface MarketAssetClient {
   searchMarkets(
     query: string,
@@ -74,6 +111,11 @@ export interface MarketAssetClient {
   ): Promise<MarketSearchHit[]>;
   getIdentities(tickers: string[]): Promise<MarketAssetIdentity[]>;
   getSnapshot(providerSymbol: string): Promise<MarketSnapshot>;
+  getOhlcv(
+    providerSymbol: string,
+    timeframe: OhlcvTimeframe,
+    range?: number,
+  ): Promise<MarketOhlcv>;
   listMarkets(locale?: 'en' | 'zh'): Promise<
     Array<{ code: string; displayName: string }>
   >;
@@ -309,6 +351,34 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const data = readQuote(await response.json());
     if (!data) return undefined;
     return quoteRecordToTape(symbol, data, locale);
+  }
+
+  async getOhlcv(
+    providerSymbol: string,
+    timeframe: OhlcvTimeframe,
+    range = 120,
+  ): Promise<MarketOhlcv> {
+    if (!this.apiKey) {
+      throw new Error('TradingView market data is not configured');
+    }
+    const symbol = providerSymbol.trim().toUpperCase();
+    if (!symbol.includes(':')) {
+      throw new Error('symbol must be EXCHANGE:TICKER');
+    }
+    if (!isOhlcvTimeframe(timeframe)) {
+      throw new Error('Invalid OHLCV timeframe');
+    }
+    const clampedRange = Math.min(Math.max(Math.trunc(range), 1), 500);
+    const params = new URLSearchParams({
+      timeframe,
+      range: String(clampedRange),
+      type: 'Japanese',
+    });
+    const response = await this.request(
+      `/api/price/${encodeURIComponent(symbol)}?${params.toString()}`,
+    );
+    if (!response.ok) throw new Error('TradingView price request failed');
+    return parseOhlcvPayload(await response.json(), symbol, timeframe);
   }
 
   async getSnapshot(providerSymbol: string): Promise<MarketSnapshot> {
@@ -605,6 +675,61 @@ function readQuote(payload: unknown): Record<string, unknown> | undefined {
     return undefined;
   }
   return payload.data.data;
+}
+
+function parseOhlcvPayload(
+  payload: unknown,
+  symbol: string,
+  timeframe: OhlcvTimeframe,
+): MarketOhlcv {
+  if (!isRecord(payload) || !isRecord(payload.data)) {
+    throw new Error('TradingView price response was empty');
+  }
+  const root = payload.data;
+  const info = isRecord(root.info) ? root.info : undefined;
+  const barsByTime = new Map<number, OhlcvBar>();
+
+  const pushBar = (raw: unknown) => {
+    if (!isRecord(raw)) return;
+    const time = numberValue(raw.time);
+    const open = numberValue(raw.open);
+    const close = numberValue(raw.close);
+    const high = numberValue(raw.max) ?? numberValue(raw.high);
+    const low = numberValue(raw.min) ?? numberValue(raw.low);
+    const volume = numberValue(raw.volume) ?? 0;
+    if (
+      time === undefined ||
+      open === undefined ||
+      high === undefined ||
+      low === undefined ||
+      close === undefined
+    ) {
+      return;
+    }
+    barsByTime.set(time, { time, open, high, low, close, volume });
+  };
+
+  const history = Array.isArray(root.history) ? root.history : [];
+  for (const row of history) pushBar(row);
+  pushBar(root.current);
+
+  const bars = [...barsByTime.values()].sort((left, right) => left.time - right.time);
+  if (!bars.length) {
+    throw new Error('TradingView price response had no candles');
+  }
+
+  return {
+    symbol: stringValue(root.symbol) || symbol,
+    timeframe,
+    bars,
+    ...(typeof info?.has_intraday === 'boolean'
+      ? { has_intraday: info.has_intraday }
+      : {}),
+    ...(stringValue(info?.timezone)
+      ? { timezone: stringValue(info?.timezone) }
+      : {}),
+    source: 'tradingview',
+  };
 }
 
 function parseLeaderboardPayload(

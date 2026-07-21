@@ -7,8 +7,10 @@ import type { MarketSearchHit } from '../../shared/listing';
 import type {
   MarketAssetClient,
   MarketAssetIdentity,
+  MarketOhlcv,
   MarketSnapshot,
   MarketStreamToken,
+  OhlcvTimeframe,
   StockLeaderboardQuery,
 } from './tradingview-market-client';
 
@@ -153,6 +155,14 @@ export class CachingMarketAssetClient implements MarketAssetClient {
       ...(snapshot.logo_url ? { logo_url: snapshot.logo_url } : {}),
     });
     return snapshot;
+  }
+
+  getOhlcv(
+    providerSymbol: string,
+    timeframe: OhlcvTimeframe,
+    range?: number,
+  ): Promise<MarketOhlcv> {
+    return this.inner.getOhlcv(providerSymbol, timeframe, range);
   }
 
   listMarkets(locale?: 'en' | 'zh') {

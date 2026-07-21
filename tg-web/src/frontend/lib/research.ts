@@ -260,6 +260,42 @@ export const getMarketSnapshot = (
   );
 };
 
+export type MarketOhlcvBar = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+export type MarketOhlcv = {
+  symbol: string;
+  timeframe: string;
+  bars: MarketOhlcvBar[];
+  has_intraday?: boolean;
+  timezone?: string;
+  source?: string;
+};
+
+export const getMarketOhlcv = (
+  providerSymbol: string,
+  timeframe: string,
+  options?: { range?: number; fetchImplementation?: FetchImplementation },
+) => {
+  const params = new URLSearchParams({
+    symbol: providerSymbol,
+    timeframe,
+  });
+  if (options?.range !== undefined) {
+    params.set('range', String(options.range));
+  }
+  return read<MarketOhlcv>(
+    `/api/market-ohlcv?${params.toString()}`,
+    options?.fetchImplementation,
+  );
+};
+
 export type MarketStreamToken = {
   token: string;
   sseUrl: string;
