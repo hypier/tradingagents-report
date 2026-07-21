@@ -35,10 +35,7 @@ import { Spinner } from '../components/ui/spinner';
 import { getAccountProfile } from '../lib/account';
 import { getBillingOverview } from '../lib/billing';
 import { OUTPUT_LANGUAGE_IDS, formatOutputLanguage } from '../lib/format-output-language';
-import {
-  fetchCreditEstimate,
-  fetchPublicConfig,
-} from '../lib/public-config';
+import { fetchPublicConfig } from '../lib/public-config';
 import { todayInTimezone } from '../i18n/locales';
 import { cn } from '../lib/utils';
 import { listingFromProviderSymbol } from '@/shared/listing';
@@ -49,6 +46,7 @@ import {
 } from '@/shared/timezone';
 import {
   createResearch,
+  estimateResearch,
   getMarketSnapshot,
   getResearchEvents,
   listResearch,
@@ -162,9 +160,6 @@ export function HomePage() {
       : null;
   const quote = snapshot.data?.data;
   const availableCredits = billing.data?.data.usage?.availableCredits ?? 0;
-  const subscriptionStatus = billing.data?.data.subscription?.status;
-  const hasActiveSubscription =
-    subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
   const selectedMarket = marketFromExchange(instrument?.exchange);
   const accountTimezone =
     profile.data?.data.profile.timezone ?? guessBrowserTimezone();
@@ -180,16 +175,56 @@ export function HomePage() {
     setTradeDate((current) => (current > maxTradeDate ? maxTradeDate : current));
   }, [maxTradeDate, prefsReady]);
 
-  const creditEstimate = useQuery({
-    queryKey: ['credit-estimate', selectedMarket, analysts.length],
-    queryFn: () => fetchCreditEstimate(selectedMarket, analysts.length),
-    enabled: analysts.length > 0,
+  const pendingResearchInput =
+    instrument && analysts.length && outputLanguage && tradeDate
+      ? {
+          ticker: instrument.display_ticker,
+          tradeDate,
+          analysts,
+          outputLanguage,
+          instrument: {
+            exchange: instrument.exchange,
+            symbol: instrument.symbol,
+            display_ticker: instrument.display_ticker,
+          },
+          display: {
+            display_name:
+              quote?.display_name?.trim() || instrument.display_name,
+            ...(quote?.english_name?.trim() ||
+            instrument.english_name?.trim()
+              ? {
+                  english_name:
+                    quote?.english_name?.trim() ||
+                    instrument.english_name?.trim(),
+                }
+              : {}),
+            ...(quote?.logo_url?.trim() || instrument.logo_url?.trim()
+              ? {
+                  logo_url:
+                    quote?.logo_url?.trim() || instrument.logo_url?.trim(),
+                }
+              : {}),
+          },
+        }
+      : null;
+  const estimate = useQuery({
+    queryKey: [
+      'analysis-credit-estimate',
+      pendingResearchInput?.ticker,
+      pendingResearchInput?.tradeDate,
+      analysts,
+      outputLanguage,
+    ],
+    queryFn: () => estimateResearch(pendingResearchInput!),
+    enabled: pendingResearchInput !== null,
     staleTime: 30_000,
   });
-  const creditUnits = creditEstimate.data ?? 1;
+  const reservedPoints = estimate.data?.data.reservedPoints;
   const insufficientCredits =
     billing.isSuccess &&
-    (!hasActiveSubscription || availableCredits < creditUnits);
+    estimate.isSuccess &&
+    reservedPoints !== undefined &&
+    availableCredits < reservedPoints;
   const defaultMarket = profile.data?.data.profile.defaultMarket;
 
   function submit() {
@@ -450,13 +485,27 @@ export function HomePage() {
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-border bg-muted/20 px-5 py-3.5 lg:px-6">
-              {billing.isSuccess && !insufficientCredits ? (
-                <p className="font-mono text-sm tabular-nums text-muted-foreground">
-                  {t('submit.runEstimate', {
-                    cost: creditUnits,
-                    available: availableCredits,
-                    defaultValue: `This run: ${creditUnits} · Available: ${availableCredits}`,
-                  })}
+              {pendingResearchInput ? (
+                <p
+                  className="font-mono text-sm tabular-nums text-muted-foreground"
+                  aria-live="polite"
+                >
+                  {estimate.isLoading
+                    ? t('submit.estimating')
+                    : estimate.isError
+                      ? t('submit.estimateUnavailable')
+                      : estimate.data
+                        ? t('submit.estimate', {
+                            count: estimate.data.data.reservedPoints,
+                            cost: estimate.data.data.estimatedCostUsd,
+                          })
+                        : billing.isSuccess && !insufficientCredits
+                          ? t('submit.runEstimate', {
+                              cost: reservedPoints ?? '—',
+                              available: availableCredits,
+                              defaultValue: `This run: ${reservedPoints ?? '—'} · Available: ${availableCredits}`,
+                            })
+                          : null}
                 </p>
               ) : null}
               <Button
@@ -479,9 +528,11 @@ export function HomePage() {
                 )}
                 {create.isPending
                   ? t('submit.submitting')
-                  : t('submit.runWithCredit', {
-                      count: creditUnits,
-                    })}
+                  : estimate.data
+                    ? t('submit.runWithEstimate', {
+                        count: estimate.data.data.reservedPoints,
+                      })
+                    : t('submit.runWithCredit', { count: 0 })}
               </Button>
             </div>
           </form>

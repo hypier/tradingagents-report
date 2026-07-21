@@ -227,6 +227,9 @@ export function BillingPage() {
                         <TableHead className="text-right">
                           {t('ledger.reserved')}
                         </TableHead>
+                        <TableHead className="text-right">
+                          {t('ledger.spent')}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -242,6 +245,23 @@ export function BillingPage() {
                             <Badge variant="outline">
                               {formatStatus(entry.entryType)}
                             </Badge>
+                            {entry.metadata?.actualCostUsd !== undefined && (
+                              <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                <span className="inline-flex gap-1">
+                                  <span>{t('ledger.actualCost')}:</span>
+                                  <span>
+                                    ${String(entry.metadata.actualCostUsd)}
+                                  </span>
+                                </span>
+                                {entry.metadata.finalPoints !== undefined && (
+                                  <span>
+                                    {t('ledger.finalPoints', {
+                                      count: Number(entry.metadata.finalPoints),
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
                             {entry.referenceId}
@@ -251,6 +271,9 @@ export function BillingPage() {
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {formatDelta(entry.reservedDelta)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatDelta(entry.spentDelta)}
                           </TableCell>
                         </TableRow>
                       ))}

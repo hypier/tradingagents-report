@@ -2,7 +2,9 @@ import type {
   BillingOverview,
   BillingPlan,
   BillingSettings,
+  CreditBillingSettings,
   CreateBillingPlanInput,
+  UpdateCreditBillingSettingsInput,
 } from '@/backend/billing/contract';
 import i18n from '@/frontend/i18n';
 import { normalizeUiLocale } from '@/frontend/i18n/locales';
@@ -22,9 +24,10 @@ async function write<T>(
   path: string,
   body?: unknown,
   fetchImplementation: FetchImplementation = fetch,
+  method: 'POST' | 'PUT' = 'POST',
 ) {
   const response = await fetchImplementation(path, {
-    method: 'POST',
+    method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -37,6 +40,25 @@ export const getBillingOverview = (fetchImplementation?: FetchImplementation) =>
 
 export const getBillingSettings = (fetchImplementation?: FetchImplementation) =>
   read<BillingSettings>('/api/admin/billing/settings', fetchImplementation);
+
+export const getCreditBillingSettings = (
+  fetchImplementation?: FetchImplementation,
+) =>
+  read<CreditBillingSettings>(
+    '/api/admin/billing/credit-settings',
+    fetchImplementation,
+  );
+
+export const updateCreditBillingSettings = (
+  input: UpdateCreditBillingSettingsInput,
+  fetchImplementation?: FetchImplementation,
+) =>
+  write<CreditBillingSettings>(
+    '/api/admin/billing/credit-settings',
+    input,
+    fetchImplementation,
+    'PUT',
+  );
 
 export const updateStripeConfiguration = (
   input: { secretKey: string; webhookSecret: string },

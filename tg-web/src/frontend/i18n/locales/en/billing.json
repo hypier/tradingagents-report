@@ -14,7 +14,7 @@
   "portalError": "Unable to open the billing portal.",
   "usage": {
     "title": "Usage",
-    "description": "One completed analysis consumes one credit",
+    "description": "Actual AI token cost is converted into points at settlement",
     "available": "Available",
     "reserved": "Reserved",
     "consumed": "Consumed",
@@ -46,13 +46,13 @@
       "scale": {
         "name": "Scale 100"
       },
-      "description": "{{count}} analysis credits, renewed monthly",
-      "credits": "{{count}} analysis credits per month",
+      "description": "{{count}} usage points, renewed monthly",
+      "credits": "{{count}} usage points per month",
       "markets": "All supported markets"
     },
     "per": "per {{interval}}",
     "perCount": "per {{count}} {{interval}}",
-    "analysesPerCycle": "{{count}} analyses per cycle",
+    "analysesPerCycle": "{{count}} points per cycle",
     "subscribe": "Subscribe"
   },
   "ledger": {
@@ -63,6 +63,9 @@
     "reference": "Reference",
     "available": "Available",
     "reserved": "Reserved",
+    "spent": "Spent",
+    "actualCost": "Actual AI cost",
+    "finalPoints": "{{count}} points",
     "emptyTitle": "No credit activity",
     "emptyBody": "Cycle grants and analysis usage will appear here."
   },

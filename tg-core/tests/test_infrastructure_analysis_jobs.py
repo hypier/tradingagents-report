@@ -260,17 +260,31 @@ def test_recover_interrupted_jobs_commits_before_unlock(monkeypatch):
     events = []
 
     class Cursor:
-        rowcount = 2
+        def __init__(self, row=None, rows=None):
+            self.row = row
+            self.rows = rows or []
+            self.rowcount = len(self.rows)
 
         def fetchone(self):
-            return {"acquired": True}
+            return self.row
+
+        def fetchall(self):
+            return self.rows
 
     class Connection:
         def execute(self, sql, _params=()):
             if "pg_try_advisory_lock" in sql:
                 events.append("lock")
+                return Cursor(row={"acquired": True})
             elif "UPDATE analysis_jobs" in sql:
                 events.append("update")
+                return Cursor(rows=[
+                    {"id": "job-1", "cost_usd": Decimal("0.25")},
+                    {"id": "job-2", "cost_usd": Decimal("0")},
+                ])
+            elif "FROM credit_reservations AS reservation" in sql:
+                events.append("settle")
+                return Cursor(row=None)
             elif "pg_advisory_unlock" in sql:
                 events.append("unlock")
             return Cursor()
@@ -285,7 +299,7 @@ def test_recover_interrupted_jobs_commits_before_unlock(monkeypatch):
     monkeypatch.setattr(analysis_jobs.database, "connect", connect)
 
     assert analysis_jobs.recover_interrupted_jobs() == 2
-    assert events == ["lock", "update", "commit", "unlock"]
+    assert events == ["lock", "update", "settle", "settle", "commit", "unlock"]
 
 
 def test_update_progress_clamps_progress_and_appends_event(monkeypatch):
@@ -426,38 +440,141 @@ def test_mark_failed_returns_false_when_job_is_already_terminal(monkeypatch):
     )
 
 
-def test_settle_credit_reservation_consumes_reserved_credit():
-    executed = []
+class _SettlementCursor:
+    def __init__(self, row=None):
+        self.row = row
 
-    class Cursor:
-        def __init__(self, row=None):
-            self.row = row
+    def fetchone(self):
+        return self.row
 
-        def fetchone(self):
-            return self.row
 
-    class Connection:
-        def execute(self, sql, params=()):
-            executed.append((sql, params))
-            if "UPDATE credit_reservations" in sql:
-                return Cursor(
-                    {
-                        "clerk_user_id": "user-1",
-                        "request_id": UUID("00000000-0000-4000-8000-000000000010"),
-                        "units": 1,
-                    }
-                )
-            if "UPDATE credit_accounts" in sql:
-                return Cursor({"clerk_user_id": "user-1"})
-            return Cursor()
+class _SettlementConnection:
+    def __init__(self, reservation):
+        self.reservation = reservation
+        self.executed = []
+
+    def execute(self, sql, params=()):
+        self.executed.append((sql, params))
+        if "FROM credit_reservations AS reservation" in sql and "SELECT" in sql:
+            return _SettlementCursor(self.reservation)
+        if "UPDATE credit_accounts" in sql:
+            return _SettlementCursor({"clerk_user_id": "user-1"})
+        return _SettlementCursor()
+
+
+def _reservation(*, units=132, pricing_snapshot=True):
+    return {
+        "clerk_user_id": "user-1",
+        "request_id": UUID("00000000-0000-4000-8000-000000000010"),
+        "units": units,
+        "estimated_cost_usd": Decimal("1.00000000"),
+        "pricing_snapshot": (
+            {
+                "points_per_usd": "100.000000",
+                "markup_basis_points": 1000,
+                "reserve_buffer_basis_points": 2000,
+                "estimate_source": "default",
+                "sample_count": 0,
+                "billing_signature": "signature",
+            }
+            if pricing_snapshot
+            else None
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    ("actual_cost_usd", "settled_units", "available_delta"),
+    [
+        (Decimal("0"), 0, 132),
+        (Decimal("0.123"), 14, 118),
+        (Decimal("2.00"), 220, -88),
+    ],
+)
+def test_settle_credit_reservation_uses_actual_cost(
+    actual_cost_usd, settled_units, available_delta
+):
+    connection = _SettlementConnection(_reservation())
 
     analysis_jobs._settle_credit_reservation(
-        Connection(),
+        connection,
         job_id=UUID("00000000-0000-4000-8000-000000000011"),
         outcome="consumed",
+        actual_cost_usd=actual_cost_usd,
     )
 
-    assert "status = %s" in executed[0][0]
-    assert executed[0][1][0] == "consumed"
-    assert "spent_credits = spent_credits + %s" in executed[1][0]
-    assert executed[2][1][1:5] == ("consume", 0, -1, 1)
+    account_sql, account_params = next(
+        item for item in connection.executed if "UPDATE credit_accounts" in item[0]
+    )
+    assert "available_credits = available_credits + %s" in account_sql
+    assert "available_credits >=" not in account_sql
+    assert account_params == (available_delta, 132, settled_units, "user-1", 132)
+    ledger_params = next(
+        params
+        for sql, params in connection.executed
+        if "INSERT INTO credit_ledger_entries" in sql
+    )
+    assert ledger_params[1:5] == (
+        "consume",
+        available_delta,
+        -132,
+        settled_units,
+    )
+    assert ledger_params[-1].obj["actualCostUsd"] == str(actual_cost_usd)
+    assert ledger_params[-1].obj["finalPoints"] == settled_units
+
+
+def test_settle_failed_reservation_refunds_all_points():
+    connection = _SettlementConnection(_reservation())
+
+    analysis_jobs._settle_credit_reservation(
+        connection,
+        job_id="job-id",
+        outcome="released",
+        actual_cost_usd=Decimal("0.50"),
+    )
+
+    account_params = next(
+        params for sql, params in connection.executed if "UPDATE credit_accounts" in sql
+    )
+    assert account_params == (132, 132, "user-1", 132)
+    reservation_params = next(
+        params
+        for sql, params in connection.executed
+        if "UPDATE credit_reservations" in sql
+    )
+    assert reservation_params[:4] == (
+        "released",
+        "analysis_failed",
+        0,
+        Decimal("0.50"),
+    )
+
+
+def test_settle_legacy_reservation_consumes_original_units():
+    connection = _SettlementConnection(_reservation(units=1, pricing_snapshot=False))
+
+    analysis_jobs._settle_credit_reservation(
+        connection,
+        job_id="job-id",
+        outcome="consumed",
+        actual_cost_usd=Decimal("0.123"),
+    )
+
+    account_params = next(
+        params for sql, params in connection.executed if "UPDATE credit_accounts" in sql
+    )
+    assert account_params == (0, 1, 1, "user-1", 1)
+
+
+def test_settle_credit_reservation_is_idempotent_without_reserved_row():
+    connection = _SettlementConnection(None)
+
+    analysis_jobs._settle_credit_reservation(
+        connection,
+        job_id="job-id",
+        outcome="consumed",
+        actual_cost_usd=Decimal("1"),
+    )
+
+    assert len(connection.executed) == 1

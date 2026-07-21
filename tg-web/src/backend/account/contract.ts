@@ -1,6 +1,6 @@
 export const LEGAL_DOCUMENT_VERSIONS = {
   risk_disclaimer: '2026-07-18',
-  terms: '2026-07-18',
+  terms: '2026-07-20',
   privacy: '2026-07-18',
 } as const;
 

@@ -13,6 +13,8 @@ import {
   stripeWebhookEvents,
   billingProviderConfigs,
   billingConfigAuditEvents,
+  creditBillingSettings,
+  creditBillingSettingEvents,
 } from '../../src/backend/database/schema';
 
 describe('Core table mappings', () => {
@@ -34,6 +36,41 @@ describe('Core table mappings', () => {
     expect(getTableName(billingConfigAuditEvents)).toBe(
       'billing_config_audit_events',
     );
+    expect(getTableName(creditBillingSettings)).toBe('credit_billing_settings');
+    expect(getTableName(creditBillingSettingEvents)).toBe(
+      'credit_billing_setting_events',
+    );
+  });
+
+  it('stores pricing snapshots and settlement results on reservations', () => {
+    const columns = getTableConfig(creditReservations).columns.map(
+      (column) => column.name,
+    );
+
+    expect(columns).toEqual(
+      expect.arrayContaining([
+        'estimated_cost_usd',
+        'pricing_snapshot',
+        'settled_units',
+        'settled_cost_usd',
+      ]),
+    );
+  });
+
+  it('uses bigint columns for point balances and ledger deltas', () => {
+    const sqlTypes = [
+      ...getTableConfig(creditAccounts).columns
+        .filter((column) => column.name.endsWith('_credits'))
+        .map((column) => column.getSQLType()),
+      ...getTableConfig(creditReservations).columns
+        .filter((column) => ['units', 'settled_units'].includes(column.name))
+        .map((column) => column.getSQLType()),
+      ...getTableConfig(creditLedgerEntries).columns
+        .filter((column) => column.name.endsWith('_delta'))
+        .map((column) => column.getSQLType()),
+    ];
+
+    expect(sqlTypes).toEqual(Array(sqlTypes.length).fill('bigint'));
   });
 
   it('declares the Core status check constraint', () => {
@@ -53,8 +90,6 @@ describe('Core table mappings', () => {
       (column) => column.name,
     );
 
-    expect(columns).toEqual(
-      expect.arrayContaining(['exchange', 'display']),
-    );
+    expect(columns).toEqual(expect.arrayContaining(['exchange', 'display']));
   });
 });

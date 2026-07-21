@@ -164,6 +164,9 @@ export function AdminUsersPage() {
                   <TableHead className="w-36">
                     {t('users.columns.role')}
                   </TableHead>
+                  <TableHead className="text-right">
+                    {t('users.columns.credits')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -239,6 +242,9 @@ export function AdminUsersPage() {
                             </SelectGroup>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {user.availableCredits}
                       </TableCell>
                     </TableRow>
                   );

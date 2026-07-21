@@ -14,7 +14,8 @@ class _Connection:
         return self
 
     def fetchone(self):
-        return {"n": 3}
+        sql = self.executed[-1][0]
+        return {"n": 4 if "information_schema.columns" in sql else 3}
 
 
 def test_database_url_uses_environment_override(monkeypatch):
@@ -76,6 +77,24 @@ def test_require_schema_fails_when_tables_are_missing(monkeypatch):
             return {"n": 1}
 
     connection = MissingConnection()
+
+    @contextmanager
+    def connect():
+        yield connection
+
+    monkeypatch.setattr(database, "connect", connect)
+
+    with pytest.raises(RuntimeError, match="pnpm db:migrate"):
+        database.require_schema()
+
+
+def test_require_schema_fails_when_credit_settlement_columns_are_missing(monkeypatch):
+    class MissingColumnsConnection(_Connection):
+        def fetchone(self):
+            sql = self.executed[-1][0]
+            return {"n": 3 if "information_schema.columns" in sql else 3}
+
+    connection = MissingColumnsConnection()
 
     @contextmanager
     def connect():

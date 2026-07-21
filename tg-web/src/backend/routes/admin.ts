@@ -1,15 +1,13 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { ANALYSIS_CREDIT_UNITS, resolveCreditUnits } from '../../shared/analysis-credits';
-import { marketFromExchange } from '../../shared/market-codes';
 import { apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
-import { AppError } from '../errors/app-error';
+import { buildBillingSignature } from '../billing/credit-pricing';
 import { BillingRepositoryError } from '../database/billing-repository';
+import { AppError } from '../errors/app-error';
 import type { AnalysisJob } from '../database/repositories';
 import { adminOpsRoutes } from './admin-ops';
-
 
 const listUsersSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -30,6 +28,17 @@ const adjustCreditsSchema = z.object({
   delta: z.number().int().refine((value) => value !== 0),
   reason: z.string().trim().min(1).max(500),
   idempotencyKey: z.string().uuid(),
+});
+
+const creditAdjustmentSchema = z.object({
+  adjustmentId: z.string().uuid(),
+  delta: z
+    .number()
+    .int()
+    .min(-1_000_000)
+    .max(1_000_000)
+    .refine((value) => value !== 0),
+  reason: z.string().trim().max(500).optional(),
 });
 
 const listAnalysesSchema = z.object({
@@ -85,9 +94,19 @@ export function adminRoutes(dependencies: AppDependencies) {
       throw new AppError('INVALID_REQUEST', 400, 'Invalid user list query');
     }
 
+    const page = await dependencies.auth.listUsers(input.data);
+    const balances = await dependencies.database.billing.getAvailableCredits(
+      page.users.map((user) => user.id),
+    );
     return context.json(
       apiSuccess(
-        await dependencies.auth.listUsers(input.data),
+        {
+          ...page,
+          users: page.users.map((user) => ({
+            ...user,
+            availableCredits: balances[user.id] ?? 0,
+          })),
+        },
         context.get('requestId'),
       ),
     );
@@ -203,10 +222,14 @@ export function adminRoutes(dependencies: AppDependencies) {
       throw new AppError('NOT_FOUND', 404, 'User not found');
     }
     try {
-      const usage = await dependencies.database.billing.adjustCredits({
-        ...input.data,
-        actorClerkUserId: context.get('auth').userId,
-      });
+      const availableCredits =
+        await dependencies.database.billing.adjustCredits({
+          adjustmentId: input.data.idempotencyKey,
+          clerkUserId: input.data.clerkUserId,
+          actorClerkUserId: context.get('auth').userId,
+          delta: input.data.delta,
+          reason: input.data.reason,
+        });
       await dependencies.database.audit.record({
         actorClerkUserId: context.get('auth').userId,
         action: 'credits.adjust',
@@ -218,7 +241,54 @@ export function adminRoutes(dependencies: AppDependencies) {
           idempotencyKey: input.data.idempotencyKey,
         },
       });
-      return context.json(apiSuccess(usage, context.get('requestId')));
+      const usage = await dependencies.database.billing.getUsage(
+        input.data.clerkUserId,
+      );
+      return context.json(
+        apiSuccess(
+          {
+            ...usage,
+            availableCredits,
+          },
+          context.get('requestId'),
+        ),
+      );
+    } catch (error) {
+      throw billingError(error);
+    }
+  });
+
+  app.post('/admin/users/:userId/credit-adjustments', async (context) => {
+    const input = creditAdjustmentSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid credit adjustment');
+    }
+    const userId = context.req.param('userId');
+    const user = await dependencies.auth.getUser(userId);
+    await dependencies.database.account.syncUser(user);
+    try {
+      const availableCredits =
+        await dependencies.database.billing.adjustCredits({
+          ...input.data,
+          clerkUserId: userId,
+          actorClerkUserId: context.get('auth').userId,
+        });
+      await dependencies.database.audit.record({
+        actorClerkUserId: context.get('auth').userId,
+        action: 'credits.adjust',
+        targetType: 'user',
+        targetId: userId,
+        metadata: {
+          delta: input.data.delta,
+          reason: input.data.reason ?? null,
+          adjustmentId: input.data.adjustmentId,
+        },
+      });
+      return context.json(
+        apiSuccess({ availableCredits }, context.get('requestId')),
+      );
     } catch (error) {
       throw billingError(error);
     }
@@ -274,28 +344,26 @@ export function adminRoutes(dependencies: AppDependencies) {
       ? request.instrument
       : null;
     const display = isRecord(job.display) ? job.display : {};
-    const analysts = Array.isArray(job.analysts) ? job.analysts : [];
+    const analysts = Array.isArray(job.analysts)
+      ? job.analysts.filter((value): value is string => typeof value === 'string')
+      : [];
     const requestId = crypto.randomUUID();
-    const market =
-      marketFromExchange(
-        typeof instrument?.exchange === 'string' ? instrument.exchange : null,
-      ) ??
-      (typeof display.country === 'string'
-        ? display.country.toUpperCase()
-        : null) ??
-      job.exchange;
-    const creditRules = await dependencies.database.creditRules.listEnabled();
-    const creditUnits = resolveCreditUnits(
-      { market, analystCount: analysts.length },
-      creditRules,
-    );
+    const configOverrides = {
+      ...config,
+      ...(typeof request.output_language === 'string'
+        ? { output_language: request.output_language }
+        : {}),
+    };
 
     let reservation: 'created' | 'existing';
     try {
       reservation = await dependencies.database.billing.reserveAnalysis({
         clerkUserId: ownerId,
         requestId,
-        units: creditUnits > 0 ? creditUnits : ANALYSIS_CREDIT_UNITS,
+        billingSignature: buildBillingSignature({
+          analysts,
+          configOverrides,
+        }),
       });
     } catch (error) {
       throw billingError(error);
@@ -307,12 +375,7 @@ export function adminRoutes(dependencies: AppDependencies) {
         ticker: job.ticker,
         trade_date: job.tradeDate,
         analysts,
-        config_overrides: {
-          ...config,
-          ...(typeof request.output_language === 'string'
-            ? { output_language: request.output_language }
-            : {}),
-        },
+        config_overrides: configOverrides,
         request_id: requestId,
         ...(instrument &&
         typeof instrument.exchange === 'string' &&

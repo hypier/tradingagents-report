@@ -53,6 +53,12 @@ vi.mock('stripe', () => ({
 import { createStripeBillingService } from '../../src/backend/billing/stripe-billing';
 
 describe('default Stripe plan provisioning', () => {
+  it('grants points matching the USD catalog prices', () => {
+    expect(
+      DEFAULT_MONTHLY_BILLING_PLANS.map((plan) => plan.analysisCredits),
+    ).toEqual([2_000, 5_000, 10_000]);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     stripe.prices.list.mockResolvedValue({ data: [] });
@@ -100,11 +106,11 @@ describe('default Stripe plan provisioning', () => {
       1,
       expect.objectContaining({
         metadata: expect.objectContaining({
-          catalog_key: 'starter-usd-monthly-20-v1',
-          analysis_credits: '20',
+          catalog_key: 'starter-usd-monthly-2000-v2',
+          analysis_credits: '2000',
         }),
       }),
-      { idempotencyKey: 'tg-default-product-starter-usd-monthly-20-v1' },
+      { idempotencyKey: 'tg-default-product-starter-usd-monthly-2000-v2' },
     );
     expect(stripe.prices.create).toHaveBeenNthCalledWith(
       3,
@@ -113,7 +119,7 @@ describe('default Stripe plan provisioning', () => {
         currency: 'usd',
         recurring: { interval: 'month' },
       }),
-      { idempotencyKey: 'tg-default-price-scale-usd-monthly-100-v1' },
+      { idempotencyKey: 'tg-default-price-scale-usd-monthly-10000-v2' },
     );
   });
 
@@ -136,13 +142,52 @@ describe('default Stripe plan provisioning', () => {
     expect(stripe.products.create).not.toHaveBeenCalled();
     expect(stripe.prices.create).not.toHaveBeenCalled();
     expect(stripe.products.update).toHaveBeenCalledWith(
-      'prod_starter-usd-monthly-20-v1',
+      'prod_starter-usd-monthly-2000-v2',
       { active: true },
     );
     expect(stripe.prices.update).toHaveBeenCalledWith(
-      'price_starter-usd-monthly-20-v1',
+      'price_starter-usd-monthly-2000-v2',
       { active: true },
     );
+  });
+
+  it('upgrades legacy catalog metadata so existing subscriptions grant points', async () => {
+    const definition = DEFAULT_MONTHLY_BILLING_PLANS[0]!;
+    const legacy = existingPrice(definition, true);
+    legacy.metadata.catalog_key = 'starter-usd-monthly-20-v1';
+    legacy.metadata.analysis_credits = '20';
+    legacy.product.metadata.catalog_key = 'starter-usd-monthly-20-v1';
+    legacy.product.metadata.analysis_credits = '20';
+    stripe.prices.list.mockResolvedValue({ data: [legacy] });
+    stripe.prices.retrieve.mockResolvedValue(existingPrice(definition, true));
+
+    const service = createStripeBillingService({
+      secretKey: 'sk_test_secret',
+      appBaseUrl: new URL('https://app.example.test'),
+    });
+
+    await service.provisionDefaultPlans();
+
+    expect(stripe.products.update).toHaveBeenCalledWith(
+      legacy.product.id,
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          catalog_key: definition.catalogKey,
+          analysis_credits: '2000',
+        }),
+      }),
+    );
+    expect(stripe.prices.update).toHaveBeenCalledWith(
+      legacy.id,
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          catalog_key: definition.catalogKey,
+          analysis_credits: '2000',
+        }),
+      }),
+    );
+    expect(stripe.products.create).toHaveBeenCalledTimes(2);
+    expect(stripe.prices.create).toHaveBeenCalledTimes(2);
   });
 
   it('rejects an existing catalog key with conflicting terms', async () => {

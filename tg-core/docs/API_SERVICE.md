@@ -125,13 +125,13 @@ TRADINGAGENTS_DATABASE_URL=postgresql://user:password@host:5432/db
 - `(ticker, created_at DESC)`
 - `(status, created_at DESC)`
 
-同一 PostgreSQL 中还包含 TG-web 产品表：`product_users`、`user_consents`、`billing_subscriptions`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时只校验核心表存在，不执行 DDL。身份档案、Stripe Webhook、加密支付配置和额度预留由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。
+同一 PostgreSQL 中还包含 TG-web 产品表：`product_users`、`user_consents`、`billing_subscriptions`、`credit_billing_settings`、`credit_billing_setting_events`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时校验所需表及积分结算列存在，但不执行 DDL。身份档案、Stripe Webhook、计费配置、人工调点和预扣由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。
 
-TG-web BFF 另提供仅管理员可调用的 `POST /api/admin/billing/plans/defaults`，通过 Stripe API 幂等创建或恢复每月 20、50、100 美元三档套餐。该端点不属于 Core API；Stripe 仍是产品、价格和订阅状态的数据源。
+TG-web BFF 另提供仅管理员可调用的 `POST /api/admin/billing/plans/defaults`，通过 Stripe API 幂等创建或恢复每月 20、50、100 美元三档套餐，分别发放 2,000、5,000、10,000 积分。该操作同时升级旧版套餐的积分 metadata，使存量订阅在后续付款周期发放新积分。该端点不属于 Core API；Stripe 仍是产品、价格和订阅状态的数据源。
 
 TG-web 的 `POST /api/billing/checkout` 和 `POST /api/billing/portal` 请求体包含当前界面语言 `locale`（仅允许 `en` 或 `zh`）；BFF 将该值传给 Stripe Checkout 和 Customer Portal，使 Stripe 托管页面与产品界面语言一致。这两个端点同样不属于 Core API。
 
-当带 `request_id` 的 HTTP job 存在 `credit_reservations` 预留时，Core 在把 `analysis_jobs` 更新为 `succeeded` 的同一事务中核销额度，在更新为 `failed` 的同一事务中释放额度。CLI、程序化调用和没有预留记录的 API job 保持原行为。账本写入使用 `analysis:<request_id>:consume|release` 幂等键。
+当带 `request_id` 的 HTTP job 存在 `credit_reservations` 预留时，Core 在把 `analysis_jobs` 更新为 `succeeded` 的同一事务中，使用预留时的积分汇率和加价快照将 `cost_usd` 向上取整换算为最终积分，并执行多退少补；补扣可以使可用积分为负。`failed` 或进程重启回收的 job 在同一终态事务中全额释放预扣。旧的无快照 reservation 继续按原 `units` 结算。CLI、程序化调用和没有预留记录的 API job 保持原行为。账本写入使用 `analysis:<request_id>:consume|release` 幂等键。
 
 ## 4. 接口列表
 

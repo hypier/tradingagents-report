@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+} from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -14,6 +18,7 @@ const authState = vi.hoisted(() => ({
 const authMocks = vi.hoisted(() => ({
   listManagedUsers: vi.fn(),
   updateManagedUserRole: vi.fn(),
+  adjustManagedUserCredits: vi.fn(),
 }));
 
 vi.mock('../../src/frontend/hooks/use-auth-session', () => ({
@@ -60,6 +65,7 @@ beforeEach(() => {
           role: 'admin',
           createdAt: 1,
           banned: false,
+          availableCredits: 500,
         },
         {
           id: 'user-2',
@@ -69,11 +75,16 @@ beforeEach(() => {
           role: 'user',
           createdAt: 2,
           banned: false,
+          availableCredits: 100,
         },
       ],
       totalCount: 2,
     },
     requestId: 'request-1',
+  });
+  authMocks.adjustManagedUserCredits.mockResolvedValue({
+    data: { availableCredits: 75 },
+    requestId: 'request-2',
   });
 });
 
@@ -102,6 +113,17 @@ it('shows user management navigation and role controls to administrators', async
   expect(
     screen.getByRole('combobox', { name: 'Role for Admin User' }),
   ).toBeDisabled();
+});
+
+it('shows available credits for each user', async () => {
+  render(
+    <MemoryRouter initialEntries={['/admin/users']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText('500')).toBeInTheDocument();
+  expect(screen.getByText('100')).toBeInTheDocument();
 });
 
 it('does not expose user data to a regular user on the admin route', () => {

@@ -1,25 +1,45 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { resolveCreditUnits } from '../../shared/analysis-credits';
 import type { MarketTapeQuote } from '../../shared/market-board';
-import {
-  isStockLeaderboardTab,
-  marketFromExchange,
-} from '../../shared/market-codes';
+import { isStockLeaderboardTab } from '../../shared/market-codes';
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
-import { AppError } from '../errors/app-error';
+import { buildBillingSignature } from '../billing/credit-pricing';
 import { BillingRepositoryError } from '../database/billing-repository';
 import { metaFlags } from '../database/report-meta-repository';
 import type { AnalysisJob } from '../database/repositories';
+import { AppError } from '../errors/app-error';
 import { isOhlcvTimeframe } from '../market-assets/tradingview-market-client';
 
 export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
+  app.post('/analyses/estimate', async (context) => {
+    const parsed = createAnalysisSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid analysis request');
+    }
+    const input = parsed.data;
+    const data = await dependencies.database.billing.estimateAnalysis({
+      billingSignature: buildBillingSignature({
+        analysts: input.analysts,
+        configOverrides: input.configOverrides,
+      }),
+    });
+    return context.json(apiSuccess(data, context.get('requestId')));
+  });
+
   app.post('/analyses', async (context) => {
-    const input = createAnalysisSchema.parse(await context.req.json());
+    const parsed = createAnalysisSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid analysis request');
+    }
+    const input = parsed.data;
     const clerkUserId = context.get('auth').userId;
     if (
       !(await dependencies.database.account.hasCurrentConsents(clerkUserId))
@@ -31,27 +51,18 @@ export function analysisRoutes(dependencies: AppDependencies) {
       );
     }
     const requestId = input.requestId ?? crypto.randomUUID();
-    const market =
-      marketFromExchange(input.instrument?.exchange) ??
-      (input.display?.country
-        ? input.display.country.toUpperCase()
-        : null);
-    const creditRules = await dependencies.database.creditRules.listEnabled();
-    const creditUnits = resolveCreditUnits(
-      { market, analystCount: input.analysts.length },
-      creditRules,
-    );
-    let reservation: 'created' | 'existing' | 'skipped' = 'skipped';
-    if (creditUnits > 0) {
-      try {
-        reservation = await dependencies.database.billing.reserveAnalysis({
-          clerkUserId,
-          requestId,
-          units: creditUnits,
-        });
-      } catch (error) {
-        throw billingError(error);
-      }
+    let reservation: 'created' | 'existing';
+    try {
+      reservation = await dependencies.database.billing.reserveAnalysis({
+        clerkUserId,
+        requestId,
+        billingSignature: buildBillingSignature({
+          analysts: input.analysts,
+          configOverrides: input.configOverrides,
+        }),
+      });
+    } catch (error) {
+      throw billingError(error);
     }
 
     let data: unknown;
@@ -120,22 +131,17 @@ export function analysisRoutes(dependencies: AppDependencies) {
         'Analysis service returned an invalid job response',
       );
     }
-    if (reservation !== 'skipped') {
-      try {
-        await dependencies.database.billing.attachAnalysis(
-          requestId,
-          result.data.id,
-        );
-      } catch (error) {
-        dependencies.logger.warn(
-          'Unable to attach analysis credit reservation',
-          {
-            requestId,
-            analysisJobId: result.data.id,
-            error: String(error),
-          },
-        );
-      }
+    try {
+      await dependencies.database.billing.attachAnalysis(
+        requestId,
+        result.data.id,
+      );
+    } catch (error) {
+      dependencies.logger.warn('Unable to attach analysis credit reservation', {
+        requestId,
+        analysisJobId: result.data.id,
+        error: String(error),
+      });
     }
     return context.json(apiSuccess(data, context.get('requestId')), 202);
   });
@@ -693,11 +699,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function billingError(error: unknown): AppError {
   if (error instanceof BillingRepositoryError) {
-    const status =
-      error.code === 'INSUFFICIENT_CREDITS' ||
-      error.code === 'SUBSCRIPTION_REQUIRED'
-        ? 402
-        : 409;
+    const status = error.code === 'INSUFFICIENT_CREDITS' ? 402 : 409;
     return new AppError(error.code, status, error.message, error);
   }
   return new AppError(

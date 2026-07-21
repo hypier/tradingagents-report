@@ -12,6 +12,7 @@
  */
 import { desc, sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
   date,
   index,
@@ -146,15 +147,65 @@ export const creditAccounts = pgTable('credit_accounts', {
     .primaryKey()
     .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
   /** 可预留给新分析的积分。 */
-  availableCredits: integer('available_credits').notNull().default(0),
+  availableCredits: bigint('available_credits', { mode: 'number' })
+    .notNull()
+    .default(0),
   /** 进行中分析预留占用的积分。 */
-  reservedCredits: integer('reserved_credits').notNull().default(0),
+  reservedCredits: bigint('reserved_credits', { mode: 'number' })
+    .notNull()
+    .default(0),
   /** 已完成分析永久扣减的积分。 */
-  spentCredits: integer('spent_credits').notNull().default(0),
+  spentCredits: bigint('spent_credits', { mode: 'number' })
+    .notNull()
+    .default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+/** Product-wide points-per-USD pricing configuration. */
+export const creditBillingSettings = pgTable('credit_billing_settings', {
+  id: text('id').primaryKey().default('default'),
+  pointsPerUsd: numeric('points_per_usd', { precision: 18, scale: 6 })
+    .notNull()
+    .default('100'),
+  markupBasisPoints: integer('markup_basis_points').notNull().default(1000),
+  reserveBufferBasisPoints: integer('reserve_buffer_basis_points')
+    .notNull()
+    .default(2000),
+  defaultEstimatedCostUsd: numeric('default_estimated_cost_usd', {
+    precision: 18,
+    scale: 8,
+  })
+    .notNull()
+    .default('1.00000000'),
+  updatedByClerkUserId: text('updated_by_clerk_user_id'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** Append-only audit snapshots for credit billing setting changes. */
+export const creditBillingSettingEvents = pgTable(
+  'credit_billing_setting_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    previousSettings: jsonb('previous_settings').$type<Record<
+      string,
+      unknown
+    > | null>(),
+    nextSettings: jsonb('next_settings')
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    actorClerkUserId: text('actor_clerk_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
 
 /**
  * 单次分析请求的幂等积分预留。
@@ -172,7 +223,14 @@ export const creditReservations = pgTable(
     /** Core 接受任务后关联的 `analysis_jobs.id`。 */
     analysisJobId: uuid('analysis_job_id'),
     /** 预留积分数（当前通常为 1）。 */
-    units: integer('units').notNull(),
+    units: bigint('units', { mode: 'number' }).notNull(),
+    estimatedCostUsd: numeric('estimated_cost_usd', {
+      precision: 18,
+      scale: 8,
+    }),
+    pricingSnapshot: jsonb('pricing_snapshot').$type<Record<string, unknown>>(),
+    settledUnits: bigint('settled_units', { mode: 'number' }),
+    settledCostUsd: numeric('settled_cost_usd', { precision: 18, scale: 8 }),
     /** reserved → consumed | released。 */
     status: text('status')
       .$type<'reserved' | 'consumed' | 'released'>()
@@ -197,6 +255,9 @@ export const creditReservations = pgTable(
       table.clerkUserId,
       desc(table.createdAt),
     ),
+    index('credit_reservations_billing_signature_idx').on(
+      sql`(${table.pricingSnapshot}->>'billing_signature')`,
+    ),
   ],
 );
 
@@ -214,11 +275,17 @@ export const creditLedgerEntries = pgTable(
       .$type<'grant' | 'reserve' | 'consume' | 'release' | 'adjustment'>()
       .notNull(),
     /** 对 available_credits 的有符号增量。 */
-    availableDelta: integer('available_delta').notNull().default(0),
+    availableDelta: bigint('available_delta', { mode: 'number' })
+      .notNull()
+      .default(0),
     /** 对 reserved_credits 的有符号增量。 */
-    reservedDelta: integer('reserved_delta').notNull().default(0),
+    reservedDelta: bigint('reserved_delta', { mode: 'number' })
+      .notNull()
+      .default(0),
     /** 对 spent_credits 的有符号增量。 */
-    spentDelta: integer('spent_delta').notNull().default(0),
+    spentDelta: bigint('spent_delta', { mode: 'number' })
+      .notNull()
+      .default(0),
     /** 防止重复入账的唯一键。 */
     idempotencyKey: text('idempotency_key').notNull(),
     /** 外部引用类别（如 analysis_request、stripe_invoice）。 */

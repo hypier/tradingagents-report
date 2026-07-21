@@ -233,20 +233,28 @@ class StripeBillingService implements BillingService {
     });
     const plans: BillingPlan[] = [];
     for (const definition of DEFAULT_MONTHLY_BILLING_PLANS) {
-      const existing = prices.data.filter(
+      const current = prices.data.filter(
         (price) => price.metadata.catalog_key === definition.catalogKey,
       );
-      if (existing.length > 1) {
+      const legacy = prices.data.filter(
+        (price) => price.metadata.catalog_key === definition.legacyCatalogKey,
+      );
+      if (current.length > 1 || legacy.length > 1) {
         throw new BillingServiceError(
           'DEFAULT_BILLING_PLAN_CONFLICT',
           409,
           `Stripe has duplicate plans for ${definition.catalogKey}`,
         );
       }
+      if (current[0] && legacy[0]) {
+        await this.upgradeLegacyDefaultPlan(legacy[0], definition, false);
+      }
       plans.push(
-        existing[0]
-          ? await this.restoreDefaultPlan(existing[0], definition)
-          : await this.createManagedPlan(definition, definition.catalogKey),
+        current[0]
+          ? await this.restoreDefaultPlan(current[0], definition)
+          : legacy[0]
+            ? await this.upgradeLegacyDefaultPlan(legacy[0], definition, true)
+            : await this.createManagedPlan(definition, definition.catalogKey),
       );
     }
     return plans;
@@ -321,6 +329,51 @@ class StripeBillingService implements BillingService {
       expand: ['product'],
     });
     return mapPlan(restored, expandedProduct(restored));
+  }
+
+  private async upgradeLegacyDefaultPlan(
+    price: Stripe.Price,
+    definition: DefaultBillingPlanDefinition,
+    promote: boolean,
+  ): Promise<BillingPlan> {
+    const product = expandedProduct(price);
+    if (!defaultPlanTermsMatch(price, product, definition)) {
+      throw new BillingServiceError(
+        'DEFAULT_BILLING_PLAN_CONFLICT',
+        409,
+        `Stripe plan ${definition.legacyCatalogKey} does not match the default catalog`,
+      );
+    }
+    const catalogKey = promote
+      ? definition.catalogKey
+      : definition.legacyCatalogKey;
+    const metadata = {
+      managed_by: 'tradingagents-web',
+      catalog_key: catalogKey,
+      analysis_credits: String(definition.analysisCredits),
+    };
+    await this.stripe.products.update(product.id, {
+      active: promote,
+      name: definition.name,
+      description: definition.description,
+      metadata: {
+        ...product.metadata,
+        ...metadata,
+        supported_markets: JSON.stringify(definition.supportedMarkets),
+        features: JSON.stringify(definition.features),
+      },
+    });
+    await this.stripe.prices.update(price.id, {
+      active: promote,
+      metadata: { ...price.metadata, ...metadata },
+    });
+    if (!promote) {
+      return mapPlan(price, product);
+    }
+    const upgraded = await this.stripe.prices.retrieve(price.id, {
+      expand: ['product'],
+    });
+    return mapPlan(upgraded, expandedProduct(upgraded));
   }
 
   async archivePlan(priceId: string): Promise<void> {
@@ -546,6 +599,21 @@ function defaultPlanMatches(
       JSON.stringify(definition.supportedMarkets) &&
     JSON.stringify(metadataList(product.metadata.features)) ===
       JSON.stringify(definition.features)
+  );
+}
+
+function defaultPlanTermsMatch(
+  price: Stripe.Price,
+  product: Stripe.Product,
+  definition: DefaultBillingPlanDefinition,
+) {
+  return (
+    price.unit_amount === definition.unitAmount &&
+    price.currency === definition.currency &&
+    price.recurring?.interval === definition.interval &&
+    price.recurring.interval_count === 1 &&
+    price.metadata.managed_by === 'tradingagents-web' &&
+    product.metadata.managed_by === 'tradingagents-web'
   );
 }
 

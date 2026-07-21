@@ -68,10 +68,11 @@ export const listManagedUsers = (
 ) => {
   const search = new URLSearchParams({ limit: '50', offset: '0' });
   if (input.query) search.set('query', input.query);
-  return read<ManagedUserPage>(
-    `/api/admin/users?${search.toString()}`,
-    fetchImplementation,
-  );
+  return read<
+    Omit<ManagedUserPage, 'users'> & {
+      users: Array<ManagedUser & { availableCredits: number }>;
+    }
+  >(`/api/admin/users?${search.toString()}`, fetchImplementation);
 };
 
 export const getManagedUserDetail = (
@@ -172,4 +173,35 @@ export async function retryAdminAnalysis(
     { method: 'POST' },
     fetchImplementation,
   );
+}
+
+export async function adjustManagedUserCredits(
+  userId: string,
+  input: { adjustmentId: string; delta: number; reason?: string },
+  fetchImplementation: FetchImplementation = fetch,
+) {
+  const response = await fetchImplementation(
+    `/api/admin/users/${encodeURIComponent(userId)}/credit-adjustments`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: { code?: string };
+    } | null;
+    const error = new Error(
+      body?.error?.code === 'INSUFFICIENT_CREDITS'
+        ? 'INSUFFICIENT_CREDITS'
+        : 'Unable to adjust user credits',
+    );
+    error.name = body?.error?.code ?? 'CREDIT_ADJUSTMENT_FAILED';
+    throw error;
+  }
+  return response.json() as Promise<{
+    data: { availableCredits: number };
+    requestId: string;
+  }>;
 }

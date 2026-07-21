@@ -19,6 +19,8 @@ const state = vi.hoisted(() => ({ role: 'user' as 'user' | 'admin' }));
 const billing = vi.hoisted(() => ({
   getBillingOverview: vi.fn(),
   getBillingSettings: vi.fn(),
+  getCreditBillingSettings: vi.fn(),
+  updateCreditBillingSettings: vi.fn(),
   createCheckout: vi.fn(),
   createBillingPortal: vi.fn(),
   createBillingPlan: vi.fn(),
@@ -95,6 +97,23 @@ beforeEach(() => {
     },
     requestId: 'request-1',
   });
+  billing.getCreditBillingSettings.mockResolvedValue({
+    data: {
+      id: 'default',
+      pointsPerUsd: '100.000000',
+      markupBasisPoints: 1000,
+      reserveBufferBasisPoints: 2000,
+      defaultEstimatedCostUsd: '1.00000000',
+      updatedByClerkUserId: 'admin-1',
+      createdAt: '2026-07-20T00:00:00.000Z',
+      updatedAt: '2026-07-20T00:00:00.000Z',
+    },
+    requestId: 'request-1',
+  });
+  billing.updateCreditBillingSettings.mockImplementation(async (input) => ({
+    data: input,
+    requestId: 'request-2',
+  }));
   billing.getBillingSettings.mockResolvedValue({
     data: {
       configured: true,
@@ -142,6 +161,51 @@ it('shows subscription plans and invoices to an authenticated user', async () =>
   expect(screen.queryByRole('link', { name: 'Payment settings' })).toBeNull();
 });
 
+it('shows actual USD cost and final points in credit activity', async () => {
+  billing.getBillingOverview.mockResolvedValue({
+    data: {
+      configured: true,
+      plans: [],
+      subscription: null,
+      invoices: [],
+      usage: {
+        availableCredits: 118,
+        reservedCredits: 0,
+        spentCredits: 14,
+        periodEnd: null,
+        ledger: [
+          {
+            id: 'entry-1',
+            entryType: 'consume',
+            availableDelta: 118,
+            reservedDelta: -132,
+            spentDelta: 14,
+            description: 'Analysis credit consumed',
+            referenceId: 'job-1',
+            metadata: {
+              actualCostUsd: '0.123',
+              estimatedCostUsd: '1.00000000',
+              reservedPoints: 132,
+              finalPoints: 14,
+            },
+            createdAt: new Date('2026-07-20T00:00:00Z'),
+          },
+        ],
+      },
+    },
+    requestId: 'request-1',
+  });
+
+  render(
+    <MemoryRouter initialEntries={['/billing']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(await screen.findByText('$0.123')).toBeInTheDocument();
+  expect(screen.getByText('14 points')).toBeInTheDocument();
+});
+
 it('localizes the default subscription catalog in Chinese', async () => {
   await i18n.changeLanguage('zh');
   billing.getBillingOverview.mockResolvedValue({
@@ -163,8 +227,8 @@ it('localizes the default subscription catalog in Chinese', async () => {
   expect(
     await screen.findByRole('heading', { name: '专业版 100' }),
   ).toBeInTheDocument();
-  expect(screen.getByText('每月续订，包含 100 次分析额度')).toBeInTheDocument();
-  expect(screen.getByText('每月 100 次分析额度')).toBeInTheDocument();
+  expect(screen.getByText('每月续订，发放 100 积分')).toBeInTheDocument();
+  expect(screen.getByText('每月 100 积分')).toBeInTheDocument();
   expect(screen.getByText('支持全部市场')).toBeInTheDocument();
   expect(screen.getByText('每月')).toBeInTheDocument();
   expect(screen.queryByText('Scale 100')).toBeNull();
@@ -232,7 +296,7 @@ it('localizes default plans in the Chinese Stripe settings table', async () => {
     ctrlKey: false,
   });
   expect(await screen.findByText('专业版 100')).toBeInTheDocument();
-  expect(screen.getByText('每月续订，包含 100 次分析额度')).toBeInTheDocument();
+  expect(screen.getByText('每月续订，发放 100 积分')).toBeInTheDocument();
   expect(screen.getByText('每月')).toBeInTheDocument();
   expect(
     screen.getByRole('button', { name: '归档 专业版 100' }),
@@ -295,6 +359,46 @@ it('lets an administrator save Stripe credentials without displaying them', asyn
     expect(billing.updateStripeConfiguration).toHaveBeenCalledWith({
       secretKey: 'sk_test_1234567890abcdef',
       webhookSecret: 'whsec_1234567890abcdef',
+    }),
+  );
+});
+
+it('lets an administrator preview and save credit billing settings', async () => {
+  state.role = 'admin';
+  render(
+    <MemoryRouter initialEntries={['/admin/billing']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  fireEvent.mouseDown(
+    await screen.findByRole('tab', { name: 'Credit billing' }),
+    {
+      button: 0,
+      ctrlKey: false,
+    },
+  );
+  expect(await screen.findByText('132 points')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Points per USD'), {
+    target: { value: '200' },
+  });
+  fireEvent.change(screen.getByLabelText('Cost markup (%)'), {
+    target: { value: '15' },
+  });
+  fireEvent.change(screen.getByLabelText('Reserve buffer (%)'), {
+    target: { value: '25' },
+  });
+  fireEvent.change(screen.getByLabelText('Default estimated cost (USD)'), {
+    target: { value: '2.5' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save credit settings' }));
+
+  await waitFor(() =>
+    expect(billing.updateCreditBillingSettings).toHaveBeenCalledWith({
+      pointsPerUsd: '200',
+      markupBasisPoints: 1500,
+      reserveBufferBasisPoints: 2500,
+      defaultEstimatedCostUsd: '2.5',
     }),
   );
 });
