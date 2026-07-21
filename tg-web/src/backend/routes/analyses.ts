@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { resolveCreditUnits } from '../../shared/analysis-credits';
+import type { MarketTapeQuote } from '../../shared/market-board';
 import {
   isStockLeaderboardTab,
   marketFromExchange,
@@ -369,6 +370,88 @@ export function analysisRoutes(dependencies: AppDependencies) {
       }
       if (message.includes('must be EXCHANGE:TICKER') || message.includes('Invalid')) {
         throw new AppError('INVALID_REQUEST', 400, message, error);
+      }
+      throw new AppError('BAD_GATEWAY', 502, message, error);
+    }
+  });
+
+  app.get('/market-quotes', async (context) => {
+    const symbols = [
+      ...new Set(
+        (context.req.queries('symbol') ?? [])
+          .map((symbol) => symbol.trim().toUpperCase())
+          .filter((symbol) => symbol.includes(':')),
+      ),
+    ].slice(0, 50);
+    if (!symbols.length) {
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'symbol is required',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
+    }
+
+    const quotesBySymbol = new Map<string, MarketTapeQuote>();
+    const missing: string[] = [];
+    await Promise.all(
+      symbols.map(async (symbol) => {
+        const cacheKey = `market-quote:v1:${symbol}`;
+        const cached = await dependencies.cache.get(cacheKey);
+        if (!cached) {
+          missing.push(symbol);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(cached) as MarketTapeQuote;
+          if (
+            typeof parsed?.symbol === 'string' &&
+            typeof parsed?.price === 'number' &&
+            typeof parsed?.change_percent === 'number'
+          ) {
+            quotesBySymbol.set(symbol, parsed);
+            return;
+          }
+        } catch {
+          // fall through
+        }
+        missing.push(symbol);
+      }),
+    );
+
+    try {
+      if (missing.length) {
+        const fetched = await dependencies.marketAssets.getQuotesBatch(missing);
+        await Promise.all(
+          fetched.map(async (quote) => {
+            const key = quote.symbol.trim().toUpperCase();
+            quotesBySymbol.set(key, quote);
+            await dependencies.cache.set(
+              `market-quote:v1:${key}`,
+              JSON.stringify(quote),
+              20,
+            );
+          }),
+        );
+      }
+      return context.json(
+        apiSuccess(
+          symbols.flatMap((symbol) => {
+            const quote = quotesBySymbol.get(symbol);
+            return quote ? [quote] : [];
+          }),
+          context.get('requestId'),
+        ),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to load market quotes';
+      if (message.includes('not configured')) {
+        throw new AppError('SERVICE_UNAVAILABLE', 503, message, error);
       }
       throw new AppError('BAD_GATEWAY', 502, message, error);
     }

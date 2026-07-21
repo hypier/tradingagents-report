@@ -30,6 +30,7 @@ function fakeInner(
     getMarketTape: vi.fn(),
     createStreamToken: vi.fn(),
     getOhlcv: vi.fn(),
+    getQuotesBatch: vi.fn(),
     ...overrides,
   };
 }

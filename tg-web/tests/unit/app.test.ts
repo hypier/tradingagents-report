@@ -262,6 +262,7 @@ function fakeDependencies(
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     },
     logger: new Logger(),
     clerkPublishableKey: 'pk_test_public',
@@ -1012,6 +1013,7 @@ describe('createApp', () => {
         getMarketTape: vi.fn(),
         createStreamToken: vi.fn(),
         getOhlcv: vi.fn(),
+        getQuotesBatch: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1060,6 +1062,7 @@ describe('createApp', () => {
         getMarketTape: vi.fn(),
         createStreamToken: vi.fn(),
         getOhlcv: vi.fn(),
+        getQuotesBatch: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1187,6 +1190,7 @@ describe('createApp', () => {
         getMarketTape: vi.fn(),
         createStreamToken: vi.fn(),
         getOhlcv: vi.fn(),
+        getQuotesBatch: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1258,6 +1262,7 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1289,6 +1294,7 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1318,6 +1324,7 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const cache = {
       get: vi.fn().mockResolvedValue(null),
@@ -1367,6 +1374,7 @@ describe('createApp', () => {
         ],
         source: 'tradingview',
       }),
+      getQuotesBatch: vi.fn(),
     };
     const cache = {
       get: vi.fn().mockResolvedValue(null),
@@ -1396,6 +1404,65 @@ describe('createApp', () => {
     );
   });
 
+  it('returns batched market quotes for watchlist rows', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
+      getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn().mockResolvedValue([
+        {
+          symbol: 'SZSE:300750',
+          name: 'CATL',
+          price: 379.58,
+          change_percent: 1.24,
+          currency: 'CNY',
+          linkable: true,
+        },
+        {
+          symbol: 'HKEX:700',
+          name: 'Tencent',
+          price: 481.8,
+          change_percent: -0.5,
+          currency: 'HKD',
+          linkable: true,
+        },
+      ]),
+    };
+    const cache = {
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn(),
+      healthcheck: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets, cache }));
+
+    const response = await app.request(
+      '/api/market-quotes?symbol=SZSE%3A300750&symbol=HKEX%3A700',
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: [
+        { symbol: 'SZSE:300750', price: 379.58, change_percent: 1.24 },
+        { symbol: 'HKEX:700', price: 481.8, change_percent: -0.5 },
+      ],
+    });
+    expect(marketAssets.getQuotesBatch).toHaveBeenCalledWith([
+      'SZSE:300750',
+      'HKEX:700',
+    ]);
+    expect(cache.set).toHaveBeenCalledWith(
+      'market-quote:v1:SZSE:300750',
+      expect.any(String),
+      20,
+    );
+  });
+
   it('serves a cached TradingView market snapshot without upstream', async () => {
     const marketAssets = {
       searchMarkets: vi.fn(),
@@ -1406,6 +1473,7 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const cache = {
       get: vi.fn().mockResolvedValue(
@@ -1450,6 +1518,7 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const cache = {
       get: vi.fn().mockResolvedValue(
@@ -1492,6 +1561,7 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1536,6 +1606,7 @@ describe('createApp', () => {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1567,6 +1638,7 @@ describe('createApp', () => {
       getStockLeaderboard: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
       getMarketTape: vi.fn().mockResolvedValue({
         marketCode: 'america',
         pinned: [
@@ -1607,6 +1679,7 @@ describe('createApp', () => {
         expiresAt: 1_700_000_000_000,
       }),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 

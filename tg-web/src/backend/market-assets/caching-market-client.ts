@@ -165,6 +165,10 @@ export class CachingMarketAssetClient implements MarketAssetClient {
     return this.inner.getOhlcv(providerSymbol, timeframe, range);
   }
 
+  getQuotesBatch(symbols: string[], locale?: 'en' | 'zh') {
+    return this.inner.getQuotesBatch(symbols, locale);
+  }
+
   listMarkets(locale?: 'en' | 'zh') {
     return this.inner.listMarkets(locale);
   }

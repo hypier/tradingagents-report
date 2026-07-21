@@ -297,6 +297,33 @@ export const getMarketOhlcv = (
   );
 };
 
+export type MarketQuote = {
+  symbol: string;
+  name: string;
+  exchange?: string;
+  logo_url?: string;
+  price: number;
+  change_percent: number;
+  currency: string;
+  linkable: boolean;
+};
+
+/** Batch last price + session change for watchlist / multi-symbol rows. */
+export const getMarketQuotes = (
+  providerSymbols: string[],
+  fetchImplementation?: FetchImplementation,
+) => {
+  const params = new URLSearchParams();
+  for (const symbol of providerSymbols) {
+    const normalized = symbol.trim();
+    if (normalized) params.append('symbol', normalized);
+  }
+  return read<MarketQuote[]>(
+    `/api/market-quotes?${params.toString()}`,
+    fetchImplementation,
+  );
+};
+
 export type MarketStreamToken = {
   token: string;
   sseUrl: string;

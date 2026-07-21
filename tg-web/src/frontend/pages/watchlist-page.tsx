@@ -50,7 +50,12 @@ import {
   formatLocaleNumber,
   parseSortableDateInput,
 } from '../lib/format-locale';
-import { getMarketOhlcv, type SelectedInstrument } from '../lib/research';
+import {
+  getMarketOhlcv,
+  getMarketQuotes,
+  type MarketQuote,
+  type SelectedInstrument,
+} from '../lib/research';
 import { cn } from '../lib/utils';
 import {
   addWatchlistItem,
@@ -59,7 +64,7 @@ import {
   type WatchlistItem,
 } from '../lib/watchlist';
 
-/** Daily bars for the in-row sparkline (price/OHLCV only — no quote API). */
+/** Daily bars for the in-row sparkline only (price/change come from batch quotes). */
 const SPARKLINE_TIMEFRAME = 'D';
 const SPARKLINE_RANGE = 30;
 
@@ -142,18 +147,18 @@ function marketSectionLabel(key: string, locale: 'en' | 'zh'): string {
     : key;
 }
 
-function dayChangePercent(closes: number[]): number | null {
-  if (closes.length < 2) return null;
-  const prev = closes[closes.length - 2]!;
-  const last = closes[closes.length - 1]!;
-  if (!Number.isFinite(prev) || prev === 0) return null;
-  return ((last - prev) / prev) * 100;
-}
-
 function changeClass(changePercent: number) {
   if (changePercent > 0) return 'text-market-up';
   if (changePercent < 0) return 'text-market-down';
   return 'text-muted-foreground';
+}
+
+function quotesBySymbol(quotes: MarketQuote[] | undefined) {
+  const map = new Map<string, MarketQuote>();
+  for (const quote of quotes ?? []) {
+    map.set(quote.symbol.trim().toUpperCase(), quote);
+  }
+  return map;
 }
 
 export function WatchlistPage() {
@@ -199,6 +204,23 @@ export function WatchlistPage() {
       parseSortableDateInput(b.createdAt) - parseSortableDateInput(a.createdAt),
   );
   const marketSections = groupWatchlistByMarket(items);
+  const providerSymbols = [
+    ...new Set(
+      items
+        .map((item) => item.providerSymbol.trim().toUpperCase())
+        .filter((symbol) => symbol.includes(':')),
+    ),
+  ].sort();
+  const quotes = useQuery({
+    queryKey: ['market-quotes', providerSymbols],
+    queryFn: async () => {
+      const response = await getMarketQuotes(providerSymbols);
+      return response.data;
+    },
+    enabled: providerSymbols.length > 0,
+    staleTime: 20_000,
+  });
+  const quoteMap = quotesBySymbol(quotes.data);
   const alreadySaved = Boolean(
     pendingInstrument &&
       items.some(
@@ -233,6 +255,8 @@ export function WatchlistPage() {
           <WatchlistRow
             key={item.id}
             item={item}
+            quote={quoteMap.get(item.providerSymbol.trim().toUpperCase())}
+            quotesLoading={quotes.isLoading}
             removing={
               removeItem.isPending && removeItem.variables === item.id
             }
@@ -373,36 +397,47 @@ export function WatchlistPage() {
 
 function WatchlistRow({
   item,
+  quote,
+  quotesLoading,
   removing,
   onRemove,
 }: {
   item: WatchlistItem;
+  quote: MarketQuote | undefined;
+  quotesLoading: boolean;
   removing: boolean;
   onRemove: () => void;
 }) {
   const { t } = useTranslation('watchlist');
-  const ohlcv = useQuery({
+  const sparkline = useQuery({
     queryKey: [
       'market-ohlcv',
       item.providerSymbol,
       SPARKLINE_TIMEFRAME,
       SPARKLINE_RANGE,
     ],
-    queryFn: () =>
-      getMarketOhlcv(item.providerSymbol, SPARKLINE_TIMEFRAME, {
-        range: SPARKLINE_RANGE,
-      }),
+    queryFn: async () => {
+      const response = await getMarketOhlcv(
+        item.providerSymbol,
+        SPARKLINE_TIMEFRAME,
+        { range: SPARKLINE_RANGE },
+      );
+      return response.data;
+    },
     staleTime: 60_000,
     enabled: Boolean(item.providerSymbol),
   });
 
   const closes =
-    ohlcv.data?.data.bars
+    sparkline.data?.bars
       .map((bar) => bar.close)
       .filter((close) => Number.isFinite(close)) ?? [];
-  const lastPrice = closes.length ? closes[closes.length - 1]! : null;
-  const currency = ohlcv.data?.data.currency;
-  const changePct = dayChangePercent(closes);
+  const lastPrice = quote?.price ?? null;
+  const currency = quote?.currency;
+  const changePct =
+    quote && Number.isFinite(quote.change_percent)
+      ? quote.change_percent
+      : null;
   const changeLabel =
     changePct === null
       ? null
@@ -429,15 +464,17 @@ function WatchlistRow({
           />
         </Link>
 
-        <div className="hidden items-center gap-3 sm:flex">
-          {ohlcv.isLoading ? (
-            <Skeleton className="h-7 w-28 rounded-none" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          {quotesLoading && !quote ? (
+            <Skeleton className="h-7 w-20 rounded-none sm:w-28" />
           ) : lastPrice !== null ? (
             <>
               {closes.length >= 2 ? (
-                <PriceSparkline values={closes} />
+                <span className="hidden sm:inline-flex">
+                  <PriceSparkline values={closes} />
+                </span>
               ) : null}
-              <div className="flex min-w-[5.5rem] flex-col items-end gap-0.5">
+              <div className="flex min-w-[4.5rem] flex-col items-end gap-0.5 sm:min-w-[5.5rem]">
                 <span className="font-mono text-sm tabular-nums text-foreground">
                   {formatLocaleNumber(lastPrice)}
                   {currency ? (

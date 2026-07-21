@@ -117,6 +117,11 @@ export interface MarketAssetClient {
     timeframe: OhlcvTimeframe,
     range?: number,
   ): Promise<MarketOhlcv>;
+  /** Batch quotes for EXCHANGE:SYMBOL lists (chunks of 10 upstream). */
+  getQuotesBatch(
+    symbols: string[],
+    locale?: 'en' | 'zh',
+  ): Promise<MarketTapeQuote[]>;
   listMarkets(locale?: 'en' | 'zh'): Promise<
     Array<{ code: string; displayName: string }>
   >;
@@ -305,15 +310,35 @@ export class TradingViewMarketClient implements MarketAssetClient {
     symbols: string[],
     locale: 'en' | 'zh' = 'en',
   ): Promise<MarketTapeQuote[]> {
-    const normalized = uniqueSymbols(symbols).slice(0, 10);
+    // RapidAPI batch accepts ≤10 symbols; chunk larger watchlists.
+    const BATCH_SIZE = 10;
+    const MAX_SYMBOLS = 50;
+    const normalized = uniqueSymbols(symbols).slice(0, MAX_SYMBOLS);
     if (!this.apiKey || !normalized.length) return [];
+
+    const chunks: string[][] = [];
+    for (let index = 0; index < normalized.length; index += BATCH_SIZE) {
+      chunks.push(normalized.slice(index, index + BATCH_SIZE));
+    }
+
+    const results = await Promise.all(
+      chunks.map((chunk) => this.getQuotesBatchChunk(chunk, locale)),
+    );
+    return results.flat();
+  }
+
+  private async getQuotesBatchChunk(
+    symbols: string[],
+    locale: 'en' | 'zh',
+  ): Promise<MarketTapeQuote[]> {
+    if (!symbols.length) return [];
 
     try {
       const response = await this.request('/api/quote/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          symbols: normalized,
+          symbols,
           session: 'regular',
           fields: 'all',
         }),
@@ -327,7 +352,7 @@ export class TradingViewMarketClient implements MarketAssetClient {
     }
 
     const quotes: MarketTapeQuote[] = [];
-    for (const symbol of normalized) {
+    for (const symbol of symbols) {
       try {
         const quote = await this.quoteProviderSymbol(symbol, locale);
         if (quote) quotes.push(quote);

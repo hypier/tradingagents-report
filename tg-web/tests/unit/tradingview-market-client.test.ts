@@ -572,4 +572,40 @@ describe('TradingViewMarketClient', () => {
       expect.anything(),
     );
   });
+
+  it('chunks getQuotesBatch into RapidAPI batches of 10', async () => {
+    const symbols = Array.from({ length: 12 }, (_, index) => `NASDAQ:T${index}`);
+    const fetchMock = vi.fn().mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as {
+        symbols?: string[];
+      };
+      const batch = body.symbols ?? [];
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            data: batch.map((symbol) => ({
+              success: true,
+              symbol,
+              data: {
+                lp: 10,
+                chp: 1,
+                currency_code: 'USD',
+                short_name: symbol,
+              },
+            })),
+          },
+        }),
+      );
+    });
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    const quotes = await client.getQuotesBatch(symbols);
+    expect(quotes).toHaveLength(12);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    const secondBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(firstBody.symbols).toHaveLength(10);
+    expect(secondBody.symbols).toHaveLength(2);
+  });
 });

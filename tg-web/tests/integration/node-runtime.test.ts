@@ -94,6 +94,7 @@ function fakeDependencies(): AppDependencies {
       getMarketTape: vi.fn(),
       createStreamToken: vi.fn(),
       getOhlcv: vi.fn(),
+      getQuotesBatch: vi.fn(),
     },
     logger: new Logger(),
     clerkPublishableKey: 'pk_test_public',

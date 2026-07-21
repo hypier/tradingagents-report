@@ -429,7 +429,8 @@ export function MarketTrendChart({
   const { i18n, t } = useTranslation('stock');
   const isDark = resolvedTheme === 'dark';
   const intlLocale = toIntlLocale(i18n.language);
-  const [interval, setInterval] = useState<ChartInterval>(defaultInterval);
+  const [chartInterval, setChartInterval] =
+    useState<ChartInterval>(defaultInterval);
   const [style, setStyle] = useState<ChartStyle>('candle');
   const [maVisible, setMaVisible] = useState<MaVisibility>(DEFAULT_MA_VISIBLE);
   const [legend, setLegend] = useState<LegendState | null>(null);
@@ -437,17 +438,17 @@ export function MarketTrendChart({
   maVisibleRef.current = maVisible;
 
   const range =
-    CHART_INTERVALS.find((item) => item.value === interval)?.range ?? 120;
+    CHART_INTERVALS.find((item) => item.value === chartInterval)?.range ?? 120;
   const isIntraday =
-    interval === '5' ||
-    interval === '15' ||
-    interval === '30' ||
-    interval === '60';
+    chartInterval === '5' ||
+    chartInterval === '15' ||
+    chartInterval === '30' ||
+    chartInterval === '60';
 
   const ohlcv = useQuery({
-    queryKey: ['market-ohlcv', symbol, interval, range],
+    queryKey: ['market-ohlcv', symbol, chartInterval, range],
     queryFn: async () => {
-      const response = await getMarketOhlcv(symbol, interval, { range });
+      const response = await getMarketOhlcv(symbol, chartInterval, { range });
       return response.data;
     },
     enabled: Boolean(symbol),
@@ -593,7 +594,7 @@ export function MarketTrendChart({
       localization: {
         locale: intlLocale,
         timeFormatter: (time: number) =>
-          formatCrosshairTime(time, intlLocale, timezone, interval),
+          formatCrosshairTime(time, intlLocale, timezone, chartInterval),
       },
     });
 
@@ -726,7 +727,7 @@ export function MarketTrendChart({
     };
     // paintChart closes over lastPrice/style/isDark; remount covers style/theme.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional remount deps
-  }, [isDark, interval, timezone, isIntraday, style, intlLocale]);
+  }, [isDark, chartInterval, timezone, isIntraday, style, intlLocale]);
 
   useEffect(() => {
     const bars = ohlcv.data?.bars;
@@ -748,7 +749,7 @@ export function MarketTrendChart({
       barsRef.current,
       lastPrice,
       asOfUnix,
-      interval,
+      chartInterval,
     );
     const previousLast = barsRef.current[barsRef.current.length - 1];
     const nextLast = next[next.length - 1];
@@ -767,7 +768,7 @@ export function MarketTrendChart({
     paintChart(next, false);
     priceLineRef.current?.applyOptions({ price: lastPrice });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- live quote stream
-  }, [lastPrice, asOf, interval, isDark, style]);
+  }, [lastPrice, asOf, chartInterval, isDark, style]);
 
   useEffect(() => {
     ma5Ref.current?.applyOptions({ visible: maVisible.ma5 });
@@ -952,9 +953,9 @@ export function MarketTrendChart({
             size="sm"
             variant="outline"
             spacing={0}
-            value={interval}
+            value={chartInterval}
             onValueChange={(value) => {
-              if (value) setInterval(value as ChartInterval);
+              if (value) setChartInterval(value as ChartInterval);
             }}
             aria-label={t('chart.interval')}
             className="rounded-none"
