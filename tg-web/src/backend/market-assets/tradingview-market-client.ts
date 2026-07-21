@@ -617,6 +617,16 @@ function toBoardItem(
   const relativeVolume =
     numberValue(row.relativevolume) ?? numberValue(row.relative_volume_10d_calc);
   const marketCap = numberValue(row.marketcap) ?? numberValue(row.market_cap_basic);
+  const peRatio =
+    numberValue(row.pricetoearnings) ?? numberValue(row.price_earnings_ttm);
+  const epsDiluted =
+    numberValue(row.epsdiluted) ?? numberValue(row.earnings_per_share_diluted_ttm);
+  const epsDilutedGrowth =
+    numberValue(row.epsdilutedgrowth) ??
+    numberValue(row.earnings_per_share_diluted_yoy_growth_ttm);
+  const dividendYield =
+    numberValue(row.dividendsyield) ?? numberValue(row.dividend_yield_recent);
+  const sector = stringValue(row.sector) || stringValue(row.sector_tr);
   const analyst =
     stringValue(row.analystrating) || stringValue(row.analystrating_tr);
 
@@ -635,6 +645,13 @@ function toBoardItem(
     ...(volume !== undefined ? { volume } : {}),
     ...(relativeVolume !== undefined ? { relative_volume: relativeVolume } : {}),
     ...(marketCap !== undefined ? { market_cap: marketCap } : {}),
+    ...(peRatio !== undefined ? { pe_ratio: peRatio } : {}),
+    ...(epsDiluted !== undefined ? { eps_diluted: epsDiluted } : {}),
+    ...(epsDilutedGrowth !== undefined
+      ? { eps_diluted_growth: epsDilutedGrowth }
+      : {}),
+    ...(dividendYield !== undefined ? { dividend_yield: dividendYield } : {}),
+    ...(sector ? { sector } : {}),
     ...(analyst ? { analyst_rating: analyst } : {}),
     // Any EXCHANGE:SYMBOL can open the quote page; analysis is gated separately.
     linkable: Boolean(exchange),

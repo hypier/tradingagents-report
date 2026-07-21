@@ -9,6 +9,7 @@
     "empty": "No matching markets",
     "dialogTitle": "Select market",
     "dialogDescription": "Browse equity markets by continent.",
+    "recent": "Frequently used",
     "catalogCount": "{{count}} markets",
     "continents": {
       "north_america": "North America",
@@ -22,6 +23,10 @@
     "symbols": "{{count}} symbols",
     "asOf": "Data as of {{time}}",
     "source": "TradingView"
+  },
+  "tabsNav": {
+    "scrollLeft": "Scroll tabs left",
+    "scrollRight": "Scroll tabs right"
   },
   "tabs": {
     "all_stocks": "All stocks",
@@ -47,6 +52,11 @@
     "volume": "Volume",
     "relVol": "Rel Vol",
     "mktCap": "Mkt Cap",
+    "pe": "P/E",
+    "eps": "EPS",
+    "epsGrowth": "EPS Growth",
+    "divYield": "Div Yield",
+    "sector": "Sector",
     "analyst": "Analyst"
   },
   "errors": {

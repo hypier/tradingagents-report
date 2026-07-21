@@ -31,6 +31,11 @@ export type MarketBoardItem = {
   volume?: number;
   relative_volume?: number;
   market_cap?: number;
+  pe_ratio?: number;
+  eps_diluted?: number;
+  eps_diluted_growth?: number;
+  dividend_yield?: number;
+  sector?: string;
   analyst_rating?: string;
   /** When true, UI may deep-link to /stocks/:symbol for quote viewing */
   linkable: boolean;

@@ -20,8 +20,8 @@ export function PageHeader({
 }) {
   return (
     <div className={cn('shrink-0 border-b border-border', className)}>
-      <div className="flex flex-wrap items-end justify-between gap-3 px-5 py-3.5 lg:px-6">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-end justify-between gap-3 px-3 py-3.5 sm:px-5 lg:px-6">
+        <div className="min-w-0 flex-1 basis-[12rem]">
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {description ? (
             <div className="mt-1 text-sm text-muted-foreground">
@@ -30,7 +30,7 @@ export function PageHeader({
           ) : null}
         </div>
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
             {actions}
           </div>
         ) : null}
@@ -51,7 +51,7 @@ export function PageToolbar({
   return (
     <div
       className={cn(
-        'border-t border-border px-5 py-3.5 lg:px-6',
+        'border-t border-border px-3 py-3.5 sm:px-5 lg:px-6',
         className,
       )}
     >

@@ -11,6 +11,10 @@ import {
   DialogTitle,
 } from '@/frontend/components/ui/dialog';
 import { Input } from '@/frontend/components/ui/input';
+import {
+  loadRecentTvMarkets,
+  rememberTvMarket,
+} from '@/frontend/lib/recent-tv-markets';
 import { cn } from '@/frontend/lib/utils';
 import { normalizeUiLocale } from '@/frontend/i18n/locales';
 import {
@@ -24,6 +28,46 @@ export type MarketCodeOption = {
   code: string;
   displayName: string;
 };
+
+type MarketRow = {
+  code: string;
+  displayName: string;
+};
+
+function MarketGrid({
+  markets,
+  value,
+  onSelect,
+}: {
+  markets: MarketRow[];
+  value: string;
+  onSelect: (code: string) => void;
+}) {
+  return (
+    <div className="ml-px mt-px grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      {markets.map((market) => {
+        const selected = market.code === value;
+        return (
+          <button
+            key={market.code}
+            type="button"
+            className={cn(
+              '-ml-px -mt-px flex cursor-pointer items-center justify-between gap-2 border border-border bg-popover px-3.5 py-2.5 text-left transition-colors hover:bg-muted/50',
+              selected &&
+                'bg-primary/10 font-medium text-primary hover:bg-primary/15',
+            )}
+            onClick={() => onSelect(market.code)}
+          >
+            <span className="truncate text-sm">{market.displayName}</span>
+            <span className="shrink-0 font-mono text-[11px] tracking-wide text-muted-foreground">
+              {market.code}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function MarketCodePicker({
   value,
@@ -40,12 +84,30 @@ export function MarketCodePicker({
   const locale = normalizeUiLocale(i18n.language) === 'zh' ? 'zh' : 'en';
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [recentCodes, setRecentCodes] = useState<string[]>(() =>
+    loadRecentTvMarkets(),
+  );
 
   const selectedName = displayNameForTvMarket(value, locale);
   const groups = useMemo(
     () => groupTvMarketsByContinent(locale),
     [locale],
   );
+
+  const recentMarkets = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return recentCodes
+      .map((code) => ({
+        code,
+        displayName: displayNameForTvMarket(code, locale),
+      }))
+      .filter(
+        (market) =>
+          !needle ||
+          market.code.includes(needle) ||
+          market.displayName.toLowerCase().includes(needle),
+      );
+  }, [locale, query, recentCodes]);
 
   const filteredGroups = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -67,13 +129,25 @@ export function MarketCodePicker({
       defaultValue: continent,
     });
 
+  const selectMarket = (code: string) => {
+    setRecentCodes(rememberTvMarket(code));
+    onChange(code);
+    setOpen(false);
+    setQuery('');
+  };
+
+  const hasResults = recentMarkets.length > 0 || filteredGroups.length > 0;
+
   return (
     <div className={cn('min-w-[14rem]', className)}>
       <Button
         type="button"
         variant="outline"
         className="h-11 w-full justify-between rounded-none px-3.5 font-normal"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setRecentCodes(loadRecentTvMarkets());
+          setOpen(true);
+        }}
         aria-haspopup="dialog"
       >
         <span className="truncate text-left">
@@ -92,6 +166,7 @@ export function MarketCodePicker({
         onOpenChange={(next) => {
           setOpen(next);
           if (!next) setQuery('');
+          if (next) setRecentCodes(loadRecentTvMarkets());
         }}
       >
         <DialogContent className="flex max-h-[min(85dvh,40rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
@@ -114,12 +189,28 @@ export function MarketCodePicker({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            {filteredGroups.length === 0 ? (
+            {!hasResults ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {t('marketPicker.empty')}
               </p>
             ) : (
               <div className="space-y-5">
+                {recentMarkets.length > 0 ? (
+                  <section>
+                    <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
+                      {t('marketPicker.recent')}
+                      <span className="ml-2 font-mono tabular-nums opacity-70">
+                        {recentMarkets.length}
+                      </span>
+                    </h3>
+                    <MarketGrid
+                      markets={recentMarkets}
+                      value={value}
+                      onSelect={selectMarket}
+                    />
+                  </section>
+                ) : null}
+
                 {filteredGroups.map((group) => (
                   <section key={group.continent}>
                     <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
@@ -128,34 +219,11 @@ export function MarketCodePicker({
                         {group.markets.length}
                       </span>
                     </h3>
-                    <div className="grid grid-cols-1 gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
-                      {group.markets.map((market) => {
-                        const selected = market.code === value;
-                        return (
-                          <button
-                            key={market.code}
-                            type="button"
-                            className={cn(
-                              'flex cursor-pointer items-center justify-between gap-2 bg-popover px-3.5 py-2.5 text-left transition-colors hover:bg-muted/50',
-                              selected &&
-                                'bg-primary/10 font-medium text-primary hover:bg-primary/15',
-                            )}
-                            onClick={() => {
-                              onChange(market.code);
-                              setOpen(false);
-                              setQuery('');
-                            }}
-                          >
-                            <span className="truncate text-sm">
-                              {market.displayName}
-                            </span>
-                            <span className="shrink-0 font-mono text-[11px] tracking-wide text-muted-foreground">
-                              {market.code}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <MarketGrid
+                      markets={group.markets}
+                      value={value}
+                      onSelect={selectMarket}
+                    />
                   </section>
                 ))}
               </div>

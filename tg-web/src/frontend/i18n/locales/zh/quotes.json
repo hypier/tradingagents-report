@@ -9,6 +9,7 @@
     "empty": "没有匹配的市场",
     "dialogTitle": "选择市场",
     "dialogDescription": "按大洲浏览股票市场。",
+    "recent": "常用选择",
     "catalogCount": "共 {{count}} 个市场",
     "continents": {
       "north_america": "北美",
@@ -22,6 +23,10 @@
     "symbols": "{{count}} 只标的",
     "asOf": "数据截至 {{time}}",
     "source": "TradingView"
+  },
+  "tabsNav": {
+    "scrollLeft": "向左滚动榜单分类",
+    "scrollRight": "向右滚动榜单分类"
   },
   "tabs": {
     "all_stocks": "全部",
@@ -47,6 +52,11 @@
     "volume": "成交量",
     "relVol": "相对量",
     "mktCap": "市值",
+    "pe": "市盈率",
+    "eps": "每股收益",
+    "epsGrowth": "EPS 增长",
+    "divYield": "股息率",
+    "sector": "板块",
     "analyst": "评级"
   },
   "errors": {

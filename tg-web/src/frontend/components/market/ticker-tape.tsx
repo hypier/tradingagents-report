@@ -117,82 +117,89 @@ export function PinnedIndices({
   const count = items.length;
 
   return (
-    <div
-      className={cn(
-        'grid border-y border-border',
-        count === 1 ? 'grid-cols-1' : 'grid-cols-2',
-        'sm:[grid-template-columns:repeat(var(--pinned-cols),minmax(0,1fr))]',
-      )}
-      style={{ '--pinned-cols': String(count) } as CSSProperties}
-    >
-      {items.map((quote, index) => {
-        const label = symbolLabel(quote.symbol);
-        const changeLabel = `${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%`;
-        const isUp = quote.change_percent > 0;
-        const isDown = quote.change_percent < 0;
-        const cell = (
-          <div
-            key={updatedAt}
-            className={cn(
-              'flex h-full items-center gap-3 px-4 py-3 quote-flash',
-              index % 2 === 1 && 'border-l border-border',
-              index > 0 && 'sm:border-l sm:border-border',
-              index >= 2 && count > 2 && 'border-t border-border sm:border-t-0',
-              isUp && 'bg-market-up-bg',
-              isDown && 'bg-market-down-bg',
-            )}
-          >
-            <InstrumentLogo
-              symbol={quote.symbol}
-              logoUrl={quote.logo_url}
-              size="md"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium tracking-tight text-foreground">
-                {quote.name || label}
-              </p>
-              <p className="mt-0.5 font-mono text-[11px] tracking-wide text-muted-foreground">
-                {label}
-                {quote.currency ? (
-                  <span className="text-muted-foreground/70">
-                    {' '}
-                    / {quote.currency}
-                  </span>
-                ) : null}
-              </p>
-            </div>
-            <div className="shrink-0 text-right font-mono">
-              <p className="text-base font-semibold tabular-nums tracking-tight text-foreground">
-                {formatLocaleNumber(quote.price)}
-              </p>
-              <p
-                className={cn(
-                  'mt-0.5 text-xs tabular-nums',
-                  changeClass(quote.change_percent),
-                )}
-              >
-                {changeLabel}
-              </p>
-            </div>
-          </div>
-        );
-        if (quote.linkable) {
-          return (
-            <Link
-              key={quote.symbol}
-              to={`/stocks/${encodeURIComponent(quote.symbol)}`}
-              className="block min-w-0 transition-colors hover:bg-muted/30"
+    <div className="-mx-3 border-y border-border sm:-mx-5 lg:-mx-6">
+      <div
+        className={cn(
+          'grid min-w-0',
+          count === 1
+            ? 'grid-cols-1'
+            : 'grid-cols-2 lg:[grid-template-columns:repeat(var(--pinned-cols),minmax(0,1fr))]',
+        )}
+        style={{ '--pinned-cols': String(count) } as CSSProperties}
+      >
+        {items.map((quote, index) => {
+          const label = symbolLabel(quote.symbol);
+          const changeLabel = `${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%`;
+          const isUp = quote.change_percent > 0;
+          const isDown = quote.change_percent < 0;
+          const cell = (
+            <div
+              key={updatedAt}
+              className={cn(
+                'flex h-full min-w-0 flex-col gap-2 px-3 py-3 quote-flash sm:px-4 lg:flex-row lg:items-center lg:gap-3',
+                index % 2 === 1 && 'border-l border-border',
+                index > 0 && 'lg:border-l lg:border-border',
+                index >= 2 &&
+                  count > 2 &&
+                  'border-t border-border lg:border-t-0',
+                isUp && 'bg-market-up-bg',
+                isDown && 'bg-market-down-bg',
+              )}
             >
-              {cell}
-            </Link>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <InstrumentLogo
+                  symbol={quote.symbol}
+                  logoUrl={quote.logo_url}
+                  size="md"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium tracking-tight text-foreground">
+                    {quote.name || label}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[11px] tracking-wide text-muted-foreground">
+                    {label}
+                    {quote.currency ? (
+                      <span className="text-muted-foreground/70">
+                        {' '}
+                        / {quote.currency}
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-baseline justify-between gap-3 font-mono lg:ml-auto lg:block lg:text-right">
+                <p className="text-sm font-semibold tabular-nums tracking-tight text-foreground sm:text-base">
+                  {formatLocaleNumber(quote.price)}
+                </p>
+                <p
+                  className={cn(
+                    'text-xs tabular-nums lg:mt-0.5',
+                    changeClass(quote.change_percent),
+                  )}
+                >
+                  {changeLabel}
+                </p>
+              </div>
+            </div>
           );
-        }
-        return (
-          <div key={quote.symbol} className="min-w-0">
-            {cell}
-          </div>
-        );
-      })}
+          if (quote.linkable) {
+            return (
+              <Link
+                key={quote.symbol}
+                to={`/stocks/${encodeURIComponent(quote.symbol)}`}
+                className="block min-w-0 transition-colors hover:bg-muted/30"
+              >
+                {cell}
+              </Link>
+            );
+          }
+          return (
+            <div key={quote.symbol} className="min-w-0">
+              {cell}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
