@@ -122,6 +122,7 @@ export function QuotesPage() {
         count: 20,
         lang,
       }),
+    staleTime: 30_000,
     refetchInterval: 45_000,
   });
 
@@ -281,7 +282,7 @@ export function QuotesPage() {
                     <TableHead className="sticky left-0 z-20 w-12 bg-background pl-3 font-mono text-xs tracking-wide text-muted-foreground sm:w-14 sm:pl-5 lg:pl-6">
                       {t('columns.rank')}
                     </TableHead>
-                    <TableHead className="sticky left-12 z-20 w-[7.5rem] max-w-[7.5rem] bg-background font-mono text-xs tracking-wide text-muted-foreground sm:left-14 sm:w-auto sm:max-w-none sm:min-w-[11rem] md:min-w-[13rem]">
+                    <TableHead className="sticky left-12 z-20 w-[8rem] max-w-[8rem] bg-background font-mono text-xs tracking-wide text-muted-foreground sm:left-14 sm:w-[13rem] sm:max-w-[13rem] md:w-[15rem] md:max-w-[15rem]">
                       {t('columns.asset')}
                     </TableHead>
                     <TableHead className="bg-background text-right font-mono text-xs tracking-wide text-muted-foreground">
@@ -355,11 +356,11 @@ export function QuotesPage() {
                         </TableCell>
                         <TableCell
                           className={cn(
-                            'sticky left-12 z-10 w-[7.5rem] max-w-[7.5rem] sm:left-14 sm:w-auto sm:max-w-none',
+                            'sticky left-12 z-10 w-[8rem] max-w-[8rem] sm:left-14 sm:w-[13rem] sm:max-w-[13rem] md:w-[15rem] md:max-w-[15rem]',
                             zebra,
                           )}
                         >
-                          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5">
+                          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                             <InstrumentLogo
                               symbol={item.symbol}
                               logoUrl={item.logo_url}
@@ -370,8 +371,12 @@ export function QuotesPage() {
                               name={item.description}
                               ticker={item.name}
                               density="compact"
-                              className="min-w-0 flex-1"
+                              className="min-w-0 flex-1 overflow-hidden"
                               nameClassName="max-w-full text-xs sm:text-sm"
+                              tickerClassName="max-w-full"
+                              tickerSuffix={
+                                item.exchange ? ` · ${item.exchange}` : undefined
+                              }
                             />
                           </div>
                         </TableCell>

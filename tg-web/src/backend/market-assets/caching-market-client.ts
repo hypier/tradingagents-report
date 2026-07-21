@@ -14,9 +14,38 @@ import type {
 
 const IDENTITY_TTL_SECONDS = 7 * 24 * 60 * 60;
 const IDENTITY_KEY_PREFIX = 'market-identity:v1:';
+/** Short TTL — leaderboards refresh often but RapidAPI calls are expensive. */
+const LEADERBOARD_TTL_SECONDS = 45;
+const LEADERBOARD_KEY_PREFIX = 'market-leaderboard:v1:';
 
 function identityCacheKey(ticker: string) {
   return `${IDENTITY_KEY_PREFIX}${ticker.trim().toUpperCase()}`;
+}
+
+function leaderboardCacheKey(query: StockLeaderboardQuery) {
+  const market = query.marketCode.trim().toLowerCase();
+  const tab = query.tab;
+  const lang = query.lang === 'zh' ? 'zh' : 'en';
+  const count = Math.min(Math.max(query.count ?? 20, 1), 150);
+  const start = Math.max(query.start ?? 0, 0);
+  return `${LEADERBOARD_KEY_PREFIX}${market}:${tab}:${lang}:${start}:${count}`;
+}
+
+function parseLeaderboard(raw: string): MarketBoardPayload | null {
+  try {
+    const parsed = JSON.parse(raw) as MarketBoardPayload;
+    if (
+      typeof parsed?.marketCode !== 'string' ||
+      typeof parsed?.tab !== 'string' ||
+      typeof parsed?.totalCount !== 'number' ||
+      !Array.isArray(parsed?.items)
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 function parseIdentity(raw: string): MarketAssetIdentity | null {
@@ -123,8 +152,23 @@ export class CachingMarketAssetClient implements MarketAssetClient {
     return this.inner.listMarkets(locale);
   }
 
-  getStockLeaderboard(query: StockLeaderboardQuery): Promise<MarketBoardPayload> {
-    return this.inner.getStockLeaderboard(query);
+  async getStockLeaderboard(
+    query: StockLeaderboardQuery,
+  ): Promise<MarketBoardPayload> {
+    const key = leaderboardCacheKey(query);
+    const cached = await this.cache.get(key);
+    if (cached) {
+      const parsed = parseLeaderboard(cached);
+      if (parsed) return parsed;
+    }
+
+    const payload = await this.inner.getStockLeaderboard(query);
+    await this.cache.set(
+      key,
+      JSON.stringify(payload),
+      LEADERBOARD_TTL_SECONDS,
+    );
+    return payload;
   }
 
   getMarketTape(

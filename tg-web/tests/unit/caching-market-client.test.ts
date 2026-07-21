@@ -119,4 +119,44 @@ describe('CachingMarketAssetClient', () => {
 
     expect(cache.store.get('market-identity:v1:AAPL')).toContain('apple.svg');
   });
+
+  it('caches stock leaderboard payloads briefly', async () => {
+    const cache = fakeCache();
+    const payload = {
+      marketCode: 'america',
+      tab: 'active' as const,
+      totalCount: 10,
+      items: [
+        {
+          rank: 1,
+          symbol: 'NASDAQ:AAPL',
+          name: 'AAPL',
+          description: 'Apple Inc.',
+          exchange: 'NASDAQ',
+          price: 200,
+          change_percent: 1.2,
+          currency: 'USD',
+          linkable: true,
+        },
+      ],
+    };
+    const inner = fakeInner({
+      getStockLeaderboard: vi.fn().mockResolvedValue(payload),
+    });
+    const client = new CachingMarketAssetClient(inner, cache);
+    const query = {
+      marketCode: 'america',
+      tab: 'active' as const,
+      count: 20,
+      lang: 'en' as const,
+    };
+
+    await expect(client.getStockLeaderboard(query)).resolves.toEqual(payload);
+    await expect(client.getStockLeaderboard(query)).resolves.toEqual(payload);
+
+    expect(inner.getStockLeaderboard).toHaveBeenCalledTimes(1);
+    expect(
+      cache.store.has('market-leaderboard:v1:america:active:en:0:20'),
+    ).toBe(true);
+  });
 });
