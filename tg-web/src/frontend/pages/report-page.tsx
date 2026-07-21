@@ -24,6 +24,7 @@ import {
   type ReportPaperThemeId,
 } from '../components/report/report-reading-toolbar';
 import { ReportTabsNav } from '../components/report/report-tabs-nav';
+import { InstrumentIdentity } from '../components/instrument-identity';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
@@ -38,7 +39,10 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { getAnalystIcon, getStageIcon } from '../components/icons/research-icons';
-import { formatLocaleDateTime } from '../lib/format-locale';
+import {
+  formatLocaleCalendarDate,
+  formatLocaleDateTime,
+} from '../lib/format-locale';
 import { formatOutputLanguage } from '../lib/format-output-language';
 import { fetchPublicConfig } from '../lib/public-config';
 import {
@@ -46,6 +50,7 @@ import {
   saveReportReadingPreferences,
 } from '../lib/report-reading-preferences';
 import {
+  getMarketIdentities,
   getResearch,
   updateResearchMeta,
   type AnalysisDetail,
@@ -168,6 +173,12 @@ export function ReportPage() {
     queryFn: () => listShares(id!),
     enabled: canShare,
   });
+  const marketIdentity = useQuery({
+    queryKey: ['market-identities', job?.ticker],
+    queryFn: () => getMarketIdentities([job!.ticker]),
+    enabled: Boolean(job?.ticker),
+    staleTime: 5 * 60_000,
+  });
   const meta = useMutation({
     mutationFn: (input: { isFavorite?: boolean; isArchived?: boolean }) =>
       updateResearchMeta(id!, input),
@@ -227,7 +238,20 @@ export function ReportPage() {
     ? paperThemeConfig.darkHighlightSoft
     : paperThemeConfig.highlightSoft;
   const decisionLabel = formatDecision(job?.decision);
-  const identity = reportIdentity(job);
+  const storedIdentity = reportIdentity(job);
+  const resolvedMarket = marketIdentity.data?.data?.[0];
+  const identity = {
+    ticker: storedIdentity.ticker,
+    exchange: storedIdentity.exchange,
+    country: storedIdentity.country,
+    language: storedIdentity.language,
+    displayName:
+      storedIdentity.displayName ||
+      resolvedMarket?.display_name?.trim() ||
+      null,
+    logoUrl:
+      storedIdentity.logoUrl || resolvedMarket?.logo_url?.trim() || null,
+  };
   const isFavorite = Boolean(job?.is_favorite ?? job?.isFavorite);
   const isArchived = Boolean(job?.is_archived ?? job?.isArchived);
   const creditUnits = job?.credit_units ?? ANALYSIS_CREDIT_UNITS;
@@ -270,7 +294,9 @@ export function ReportPage() {
       `# ${title}`,
       '',
       subtitle,
-      tradeDate ? t('tradeDate', { date: tradeDate }) : '',
+      tradeDate
+        ? t('tradeDate', { date: formatLocaleCalendarDate(tradeDate) })
+        : '',
       t('creditCost', { count: creditUnits }),
       t('dataAsOf'),
       t('riskNotice'),
@@ -384,10 +410,11 @@ export function ReportPage() {
           </Button>
           <Avatar
             size="lg"
-            className="size-11 !rounded-none after:!rounded-none"
+            className="size-11 !rounded-none after:hidden"
             data-logo-url={identity.logoUrl ?? undefined}
           >
             <AvatarImage
+              key={identity.logoUrl ?? 'missing'}
               src={identity.logoUrl ?? undefined}
               alt={t('logoAlt', {
                 name:
@@ -395,36 +422,36 @@ export function ReportPage() {
                   identity.ticker ??
                   t('instrumentFallback'),
               })}
-              className="!rounded-none"
+              className="!rounded-none object-contain"
             />
             <AvatarFallback className="!rounded-none bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
               {(identity.ticker ?? 'R').slice(0, 1)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">
-                {title}
-              </h1>
-              {decisionLabel ? (
-                <Badge variant="default" className="capitalize">
-                  {decisionLabel}
-                </Badge>
-              ) : null}
-              {job?.status ? (
-                <Badge variant="outline">
-                  {t(`common:status.${job.status}`, {
-                    defaultValue: job.status,
-                  })}
-                </Badge>
-              ) : null}
-            </div>
+            <InstrumentIdentity
+              density="header"
+              nameAs="h1"
+              name={identity.displayName}
+              ticker={identity.ticker || title}
+              trailing={
+                <>
+                  {decisionLabel ? (
+                    <Badge variant="default" className="capitalize">
+                      {decisionLabel}
+                    </Badge>
+                  ) : null}
+                  {job?.status ? (
+                    <Badge variant="outline">
+                      {t(`common:status.${job.status}`, {
+                        defaultValue: job.status,
+                      })}
+                    </Badge>
+                  ) : null}
+                </>
+              }
+            />
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {identity.ticker && identity.displayName ? (
-                <Badge variant="secondary" className="font-mono tracking-wide">
-                  {identity.ticker}
-                </Badge>
-              ) : null}
               {identity.exchange ? (
                 <Badge variant="outline">{identity.exchange}</Badge>
               ) : null}
@@ -445,7 +472,11 @@ export function ReportPage() {
             </p>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {tradeDate ? (
-                <span>{t('tradeDate', { date: tradeDate })}</span>
+                <span>
+                  {t('tradeDate', {
+                    date: formatLocaleCalendarDate(tradeDate),
+                  })}
+                </span>
               ) : null}
               <span>{t('creditCost', { count: creditUnits })}</span>
             </div>
@@ -578,7 +609,7 @@ export function ReportPage() {
             }}
             className="min-h-0 flex-1 gap-0"
           >
-            <div className="sticky top-(--header-height) z-10 -mx-4 border-b bg-background/95 px-4 py-3 backdrop-blur-md md:-mx-6 md:px-6 lg:px-6">
+            <div className="sticky top-(--header-height) z-10 -mx-5 bg-background/95 px-5 py-3 backdrop-blur-md lg:-mx-6 lg:px-6">
               <ReportTabsNav
                 entries={tabKeys}
                 activeTab={activeTab || entries[0][0]}
@@ -595,7 +626,7 @@ export function ReportPage() {
                 value={key}
                 className={cn(
                   'mt-0 flex-1 pt-5',
-                  '-mx-4 px-4 pb-6 md:-mx-6 md:px-6 md:pb-8 lg:px-6',
+                  '-mx-5 px-5 pb-6 lg:-mx-6 lg:px-6 lg:pb-8',
                   deskClassName,
                 )}
               >

@@ -1,0 +1,74 @@
+import type { ElementType, ReactNode } from 'react';
+
+import { cn } from '@/frontend/lib/utils';
+
+type Density = 'compact' | 'row' | 'header';
+
+const nameStyles: Record<Density, string> = {
+  compact: 'truncate text-sm font-medium tracking-tight text-foreground',
+  row: 'truncate text-sm font-medium tracking-tight text-foreground',
+  header: 'truncate text-xl font-semibold tracking-tight text-foreground',
+};
+
+const tickerStyles: Record<Density, string> = {
+  compact:
+    'mt-0.5 block truncate font-mono text-[11px] tracking-wide text-muted-foreground',
+  row: 'mt-0.5 block truncate font-mono text-xs tracking-wide text-muted-foreground',
+  header: 'mt-1 font-mono text-sm tracking-wide text-muted-foreground',
+};
+
+/**
+ * Canonical instrument label: company name on top, ticker code below.
+ * When name is missing, ticker occupies the primary line only.
+ */
+export function InstrumentIdentity({
+  name,
+  ticker,
+  density = 'row',
+  nameAs: NameTag = 'p',
+  className,
+  nameClassName,
+  tickerClassName,
+  trailing,
+  tickerSuffix,
+}: {
+  name?: string | null;
+  ticker: string;
+  density?: Density;
+  nameAs?: ElementType;
+  className?: string;
+  nameClassName?: string;
+  tickerClassName?: string;
+  /** Badges / actions aligned with the name row (headers). */
+  trailing?: ReactNode;
+  /** Extra mono meta after the ticker (e.g. provider symbol). */
+  tickerSuffix?: ReactNode;
+}) {
+  const code = ticker.trim();
+  const normalizedName = name?.trim() || '';
+  const primary = normalizedName || code;
+  // Name on top; ticker below when we have a distinct name, or extra meta (provider).
+  const showTickerLine =
+    Boolean(code) &&
+    ((Boolean(normalizedName) && normalizedName !== code) ||
+      tickerSuffix != null);
+
+  return (
+    <div className={cn('min-w-0', className)}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <NameTag className={cn(nameStyles[density], nameClassName)}>
+          {primary}
+        </NameTag>
+        {trailing}
+      </div>
+      {showTickerLine ? (
+        <p className={cn(tickerStyles[density], tickerClassName)}>
+          {code}
+          {tickerSuffix ? (
+            <span className="text-muted-foreground/80">{tickerSuffix}</span>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  );
+}

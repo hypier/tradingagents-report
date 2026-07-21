@@ -152,7 +152,7 @@ export function ReportReadingToolbar({
           open ? t('reading.closeOptions') : t('reading.openOptions')
         }
         aria-expanded={open}
-        className="size-11 rounded-full border bg-background/95 shadow-lg backdrop-blur-md"
+        className="size-11 rounded-none border border-border bg-background/95 shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)] backdrop-blur-md"
         onClick={() => setOpen((value) => !value)}
       >
         <MoreVertical className="size-5" />
@@ -164,30 +164,30 @@ export function ReportReadingToolbar({
         aria-label={t('reading.backToTop')}
         onClick={onBackToTop}
         className={cn(
-          'size-11 rounded-full shadow-lg transition-all duration-200',
+          'size-11 rounded-none shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)] transition-opacity duration-200',
           showBackToTop
-            ? 'pointer-events-auto translate-y-0 opacity-100'
-            : 'pointer-events-none absolute translate-y-2 opacity-0',
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none absolute opacity-0',
         )}
       >
         <ArrowUp className="size-5" />
       </Button>
 
       {open ? (
-        <div className="w-56 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur-md">
+        <div className="w-56 rounded-none border border-border bg-background/95 p-3 shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)] backdrop-blur-md">
           <div className="space-y-3">
             <div>
               <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 {t('reading.fontSize')}
               </p>
-              <div className="flex items-center justify-between gap-1 rounded-xl bg-muted/50 p-1">
+              <div className="flex items-center justify-between gap-1 border border-border bg-muted/50 p-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
                   aria-label={t('reading.decreaseFont')}
                   disabled={fontStep <= 0}
-                  className="rounded-lg"
+                  className="rounded-none"
                   onClick={() => onFontStepChange(Math.max(0, fontStep - 1))}
                 >
                   <Minus />
@@ -201,7 +201,7 @@ export function ReportReadingToolbar({
                   size="icon-sm"
                   aria-label={t('reading.increaseFont')}
                   disabled={fontStep >= fontSteps.length - 1}
-                  className="rounded-lg"
+                  className="rounded-none"
                   onClick={() =>
                     onFontStepChange(
                       Math.min(fontSteps.length - 1, fontStep + 1),
@@ -228,7 +228,7 @@ export function ReportReadingToolbar({
                     })}
                     aria-pressed={paperTheme === theme.id}
                     className={cn(
-                      'relative flex size-9 items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105',
+                      'relative flex size-9 cursor-pointer items-center justify-center rounded-none border transition-colors',
                       paperTheme === theme.id
                         ? 'ring-2 ring-primary ring-offset-2 ring-offset-popover'
                         : 'border-black/10 dark:border-white/30',
@@ -268,7 +268,7 @@ export function ReportReadingToolbar({
                     })}
                     aria-pressed={deskTheme === theme.id}
                     className={cn(
-                      'relative flex size-9 items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105',
+                      'relative flex size-9 cursor-pointer items-center justify-center rounded-none border transition-colors',
                       deskTheme === theme.id
                         ? 'ring-2 ring-primary ring-offset-2 ring-offset-popover'
                         : 'border-black/10 dark:border-white/30',

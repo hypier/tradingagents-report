@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { cn } from '@/frontend/lib/utils';
 
@@ -115,15 +115,19 @@ export function SectionPanel({
   actions,
   children,
   className,
+  ...props
 }: {
-  title?: string;
+  title?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
-}) {
+} & Omit<ComponentProps<'section'>, 'title' | 'children'>) {
   return (
-    <section className={cn('border border-border bg-card', className)}>
+    <section
+      className={cn('border border-border bg-card', className)}
+      {...props}
+    >
       {title ? (
         <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3">
           <div className="min-w-0">

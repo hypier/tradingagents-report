@@ -5,7 +5,11 @@ import { toast } from 'sonner';
 
 import type { BillingPlan } from '@/backend/billing/contract';
 import { AppShell } from '@/frontend/components/app-shell';
-import { PageFrame, StatTile } from '@/frontend/components/page-chrome';
+import {
+  PageFrame,
+  SectionPanel,
+  StatTile,
+} from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -15,7 +19,6 @@ import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -126,45 +129,41 @@ export function BillingPage() {
               </section>
             )}
             {data.subscription && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    <h3>{t('subscription.title')}</h3>
-                  </CardTitle>
-                  <CardDescription>
-                    {localizeBillingPlanName(
-                      data.subscription.planName,
-                      t,
-                      'plans.defaultPlans',
-                    )}
-                  </CardDescription>
-                  <CardAction>
-                    <Badge
-                      variant={
-                        data.subscription.status === 'active'
-                          ? 'default'
-                          : 'secondary'
-                      }
-                    >
-                      {formatStatus(data.subscription.status)}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-1">
+              <SectionPanel
+                title={t('subscription.title')}
+                description={localizeBillingPlanName(
+                  data.subscription.planName,
+                  t,
+                  'plans.defaultPlans',
+                )}
+                actions={
+                  <Badge
+                    variant={
+                      data.subscription.status === 'active'
+                        ? 'default'
+                        : 'secondary'
+                    }
+                  >
+                    {formatStatus(data.subscription.status)}
+                  </Badge>
+                }
+              >
+                <div className="flex flex-col gap-3">
                   <p className="text-sm text-muted-foreground">
                     {data.subscription.cancelAtPeriodEnd
                       ? t('subscription.ends')
                       : t('subscription.renews')}{' '}
-                    {formatLocaleDate(
-                      data.subscription.currentPeriodEnd,
-                      t('notAvailable'),
-                    )}
+                    <span className="font-mono tabular-nums">
+                      {formatLocaleDate(
+                        data.subscription.currentPeriodEnd,
+                        t('notAvailable'),
+                      )}
+                    </span>
                   </p>
-                </CardContent>
-                <CardFooter>
                   <Button
                     disabled={portal.isPending}
                     onClick={() => portal.mutate()}
+                    className="self-start"
                   >
                     {portal.isPending ? (
                       <Spinner data-icon="inline-start" />
@@ -173,8 +172,8 @@ export function BillingPage() {
                     )}
                     {t('subscription.manage')}
                   </Button>
-                </CardFooter>
-              </Card>
+                </div>
+              </SectionPanel>
             )}
 
             <section className="flex flex-col gap-3">
@@ -232,8 +231,8 @@ export function BillingPage() {
                     </TableHeader>
                     <TableBody>
                       {data.usage.ledger.map((entry) => (
-                        <TableRow key={entry.id}>
-                          <TableCell>
+                        <TableRow key={entry.id} className="h-11">
+                          <TableCell className="font-mono text-xs tabular-nums">
                             {formatLocaleDateTimeValue(entry.createdAt)}
                           </TableCell>
                           <TableCell>
@@ -297,9 +296,11 @@ export function BillingPage() {
                   </TableHeader>
                   <TableBody>
                     {data.invoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell>{invoice.number ?? invoice.id}</TableCell>
-                        <TableCell>
+                      <TableRow key={invoice.id} className="h-11">
+                        <TableCell className="font-mono text-xs">
+                          {invoice.number ?? invoice.id}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
                           {formatLocaleDate(
                             invoice.createdAt,
                             t('notAvailable'),
@@ -382,7 +383,7 @@ function PlanCard({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-2xl font-semibold tabular-nums">
+        <p className="font-mono text-2xl font-semibold tabular-nums">
           {formatLocaleCurrency(plan.unitAmount, plan.currency)}
         </p>
         <p className="text-sm text-muted-foreground">

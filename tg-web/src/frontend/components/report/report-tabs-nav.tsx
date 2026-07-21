@@ -79,14 +79,14 @@ export function ReportTabsNav({
   }
 
   return (
-    <div className="flex items-center gap-1.5 rounded-xl border bg-muted/50 p-1.5 shadow-sm">
+    <div className="flex items-center gap-1 border-b border-border">
       <Button
         type="button"
         variant="ghost"
         size="icon-sm"
         aria-label="Scroll tabs left"
         disabled={!canScrollLeft}
-        className="shrink-0"
+        className="shrink-0 rounded-none"
         onClick={() => scrollByPage(-1)}
       >
         <ChevronLeft />
@@ -97,16 +97,16 @@ export function ReportTabsNav({
         className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <TabsList
-          variant="default"
-          className="inline-flex h-auto w-max min-w-full flex-nowrap justify-start gap-1 bg-transparent p-0"
+          variant="line"
+          className="inline-flex h-auto w-max min-w-full flex-nowrap justify-start gap-0 rounded-none bg-transparent p-0"
         >
           {entries.map((key) => (
             <TabsTrigger
               key={key}
               value={key}
               className={cn(
-                'h-9 flex-none gap-1.5 rounded-lg px-3 text-sm capitalize',
-                'data-active:bg-background data-active:text-foreground data-active:shadow-sm',
+                'h-10 flex-none gap-1.5 rounded-none border-b-2 border-transparent px-3 text-sm capitalize shadow-none',
+                'data-active:border-primary data-active:bg-transparent data-active:text-foreground data-active:shadow-none',
               )}
             >
               {renderIcon(key)}
@@ -122,7 +122,7 @@ export function ReportTabsNav({
         size="icon-sm"
         aria-label="Scroll tabs right"
         disabled={!canScrollRight}
-        className="shrink-0"
+        className="shrink-0 rounded-none"
         onClick={() => scrollByPage(1)}
       >
         <ChevronRight />

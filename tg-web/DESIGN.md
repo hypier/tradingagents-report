@@ -3,7 +3,7 @@
 **Product:** TG-web — multi-market AI equity research for individual investors  
 **Skill:** stitch-design-taste  
 **Locked style:** **D · Signal Floor** (see alternatives in [`DESIGN_OPTIONS.md`](./DESIGN_OPTIONS.md))  
-**Implementation:** Tokens landed in `src/frontend/styles/globals.css` (dark-first default). Stitch mocks in `docs/stitch-signal-floor/`.  
+**Implementation:** Tokens in `src/frontend/styles/globals.css` (dark-first). Page chrome in `src/frontend/components/page-chrome.tsx` + `admin-gate.tsx`. Stitch mocks in `docs/stitch-signal-floor/`.  
 **Intent:** Abandon the soft gallery-SaaS look. Ship a near-black, high-density market-floor instrument — finance-first at a glance, research-only (never order tickets).
 
 ---
@@ -105,9 +105,11 @@ Density 8 mandate: **all numbers are monospace** — prices, percents, credits, 
 
 ### Type behaviors
 
-- Tickers: mono, slight tracking (`0.04em`), always with exchange badge
+- **Instrument identity (lists, quote, headers):** company **name on top** (Geist, medium/semibold); **ticker code below** (Geist Mono, Dim Meta, tracking `0.04em`). Never ticker-above-name. If name is missing, ticker occupies the primary line only.
+- Tickers: mono, slight tracking (`0.04em`); pair with exchange badge in headers / quote chrome — not as a substitute for the name row
 - Moves: mono + Rise/Fall + explicit sign (`+1.24%` / `-0.86%`) — no fake `99.99%`
 - Credits: mono numerals + Dim Meta label; low balance → Amber Wash chip + Signal Amber text
+- **Dates / timestamps:** localize via `format-locale` helpers. **Omit the year when the value is in the current local year** (e.g. `Jul 21` / `7月21日`); keep the year for prior/future years. Apply to job times, quote as-of, trade dates, billing cycles, and admin ledgers — not to raw `<input type="date">` values.
 
 ### Banned fonts
 
@@ -132,26 +134,58 @@ Density 8 mandate: **all numbers are monospace** — prices, percents, credits, 
 - Prefer **flat pit surfaces** and ruled rows over floating soft cards.
 - Radius `0` — rectangular instrument chrome (no soft corners).
 - Fill: Pit Surface on Floor Carbon. Border: Wire Edge. Shadow: deep carbon (`0 10px 28px -12px rgba(0,0,0,0.55)`), minimal — elevation is rare.
-- Lists (tasks, watchlists, admin, ledgers): **no cards** — hairline rows, optional zebra `rgba(148,163,184,0.04)`, row height ~40–44px.
+- Lists (tasks, watchlists, admin, ledgers, report library): **no cards** — hairline rows, optional zebra `rgba(148,163,184,0.04)`, row height ~40–44px.
+- Interactive plan / checkout tiles may keep a bordered panel; default sections use **SectionPanel** (ruled title + body), not soft elevated cards.
+
+### Page chrome (authenticated app)
+
+Every standard page follows one composition — do not invent a second title style per route.
+
+| Piece | Rule |
+|-------|------|
+| **Page title** | One ruled `h1` in the page body: `text-xl` (~20px), weight 600, track-tight. Optional one-line Dim Meta subtitle under it. |
+| **Title row** | `border-b` Wire Edge; padding `px-5 py-3.5` (`lg:px-6`). Actions (if any) sit end-aligned on the same row. |
+| **Toolbar** | Optional filter / tab strip **flush under** the title row, separated by `border-t`. Same horizontal padding. Not a floating card. |
+| **Body** | Scrollable column; default padding `px-5 py-5` (`lg:px-6`), gap `1.25rem`. Flush tables may drop body padding (`gap-0 p-0`). |
+| **Site header title** | Suppressed when the page owns its `h1` (desk, tasks, reports, watchlist, billing, account, stock, admin, report detail). Header keeps utilities only: theme, language, account / sign out. |
+| **Split workspaces** | Research desk & tasks may keep a custom ruled header inside the main pane; right rail is pipeline / recent runs — not a second page title. |
+
+**Anti-pattern:** Icon + eyebrow + `text-2xl`/`text-3xl` floating headers; duplicate titles in site header and page; wrapping every section in a rounded Card.
+
+### Instrument logos & identity (lists & tables)
+
+Canonical size matches the research-desk recent-runs rail — **reuse everywhere jobs/instruments appear in rows**.
+
+- Box: **`28×28px`** (`size-8`). Square — `border-radius: 0` (override Avatar’s default circle).
+- Fallback: first letter, `text-xs`, weight 600, Pit Surface / Amber Wash as needed.
+- Used in: research-desk recent rail, **tasks center** table, **report library** table, and any dense job/instrument row.
+- Do **not** use `size-sm` (24px) or circular logos in those tables.
+- Stock / report detail headers may use a slightly larger square mark (`~44px`); still rectangular, never soft-rounded pills.
+- Beside the logo: **`InstrumentIdentity`** — name above, ticker below (see Type behaviors). Same stack in quote strip, ticker search selection, watchlist, pipeline active job, report headers, and admin job tables.
 
 ### Inputs & forms
 
 - Label above; helper Dim Meta; error Critical Rose below.
+- Control height: default **`h-11`** for text inputs, selects, and date fields — keep them aligned in one toolbar row.
 - Wells: recessed Floor Carbon / Pit Panel, Wire Edge, focus ring `2px` Signal Amber at ~40% opacity.
-- Ticker search: mono typed codes; results = company (sans) + symbol/exchange (mono).
-- Analyst chips: selected = Amber Wash + amber text — not oversized filled pills.
+- Ticker search: mono typed codes; results = **company name (sans) on top** + symbol/exchange (mono) below + **square** logo thumb. Selected instrument hint uses the same stack.
+- Analyst chips: selected = Amber Wash + amber text — dense rectangular chips with short description; not oversized filled pills.
+- Interactive controls (buttons, toggles, clickable rows): **`cursor: pointer`**.
 
 ### Data display (industry signature)
 
-- **Quote strip:** large mono last price + Rise/Fall delta + exchange + source + as-of (Ghost Meta). Always freshness — never unscoped “realtime”.
+- **Quote strip:** sits under ticker search on the desk (not in the right rail). Instrument = name above + ticker below (not a side-by-side name/badge). Large mono last price + absolute change + percent (`+16.20 (+3.51%)`) + Rise/Fall + exchange + source + as-of (Ghost Meta). Always freshness — never unscoped “realtime”.
+- **Delay / freshness:** prefer TradingView `update_mode` (e.g. `delayed_streaming_900` → “延迟 15m” / “Delayed 15m”). Stale copy pairs age with Dim Meta.
 - **In-row mini spark:** dim steel stroke; optional Rise/Fall end segment. No neon area fills.
-- **Credit chip:** compact ledger plate — mono remaining, muted cycle end.
+- **Credit / metric tiles:** compact bordered StatTile — Dim Meta label + mono/semibold value (`text-2xl` tabular). Optional icon + hint line. Prefer tiles over nested Card headers for usage grids.
 - **Job progress:** dense step rail or thin bar with amber shimmer when running; amber pulse dot on “running”. No hero circular spinner.
+- **Status tabs** (tasks): underline / border-bottom active state — not pill clusters.
 
 ### Navigation & shell
 
-- Desktop left sidebar: Pit Panel, tight item spacing, brand lockup top, admin block separated by Wire Edge.
-- Top bar: compact page title + utilities (language, account). No pill-stat clutter.
+- Desktop left sidebar: Pit Panel, tight item spacing, brand lockup top.
+- Nav items: brighter readable text (`~85%` of Hot Ink), denser hit target (`h-11`, body `text-base`). Admin is a **separate flat group**, not nested under Account.
+- Top bar: utilities only when the page owns the title (theme, language, Clerk account, Sign out). No pill-stat clutter.
 - Mobile: single column + sheet menu; touch targets ≥ 44px.
 
 ### Loaders, empty, error
@@ -186,8 +220,9 @@ Density 8 mandate: **all numbers are monospace** — prices, percents, credits, 
 - App containment `max-width: 1440px`; report prose `max-width: 48rem`.
 - `min-height: 100dvh` — never `100vh`.
 - No overlapping content stacks.
-- Tables over cards for tasks, users, audit, credits.
-- Admin overview = tight metric pit / uneven bento (2fr / 1fr) — each tile one job, amber accent only on interactive/live bits.
+- Tables over cards for tasks, report library, users, audit, credits.
+- Admin overview = tight metric pit (StatTile grid) / uneven bento (2fr / 1fr) — each tile one job, amber accent only on interactive/live bits.
+- Standard routes compose as **PageFrame** = PageHeader (+ optional PageToolbar) + PageBody. Admin routes wrap with **AdminGate** (loading skeleton → access denied → content) so every admin screen shares one access chrome.
 
 ---
 
@@ -242,6 +277,10 @@ Floor language, not startup landing copy.
 - Unscoped “realtime” claims
 - Confetti, giant BUY/SELL, order tickets — research only
 - Painting whole screens amber (accent starvation kills hierarchy)
+- Duplicate page titles (site header + page `h1` + in-content eyebrow)
+- Circular / soft-rounded logos in dense job tables; mismatched logo sizes across desk / tasks / library
+- Ticker above company name (or ticker-only badge replacing the name row) in instrument lists / quote / headers
+- Card-wrapped filter toolbars; oversized floating page headers with decorative icons
 
 ---
 
@@ -276,3 +315,27 @@ Glance test: *With logo removed, does this still read as equity research softwar
 | Radius | `0` | Rectangular controls / panels |
 | Font UI | Geist | Headings + body |
 | Font Data | Geist Mono | All numbers, tickers, credits |
+| Logo (row) | `28×28` square | Tasks, library, desk rail |
+| Control h | `44px` (`h-11`) | Input / select / date |
+| Page title | `text-xl` / 600 | Ruled PageHeader only |
+
+---
+
+## 13. Implementation Map (code)
+
+Keep design rules above authoritative; this section maps them to `tg-web` modules so agents do not re-invent chrome.
+
+| Concern | Module / pattern |
+|---------|------------------|
+| Tokens, dark/light | `src/frontend/styles/globals.css`, `lib/theme.ts` |
+| PageHeader / PageToolbar / PageBody / PageFrame / SectionPanel / StatTile | `src/frontend/components/page-chrome.tsx` |
+| Admin loading + access gate | `src/frontend/components/admin-gate.tsx` |
+| Site header title suppression | `site-header.tsx` → `pageOwnsTitle()` |
+| Quote strip + delay freshness | `dashboard/quote-strip.tsx`, `lib/snapshot-freshness.ts` |
+| Locale dates (omit current year) | `lib/format-locale.ts` — `formatLocaleDate*`, `formatLocaleCalendarDate` |
+| Instrument name / ticker stack | `components/instrument-identity.tsx` — name above, ticker below |
+| Job / report rows (rail + full table) | `dashboard/recent-reports.tsx` — logos `size-8` square + `InstrumentIdentity` in **both** densities |
+| Research desk layout | `pages/home-page.tsx` — search → quote strip → analysts → sticky Run; rail = pipeline + recent |
+| Tasks / report library tables | `pages/tasks-page.tsx`, `pages/reports-page.tsx` via `ReportsTable` |
+
+When adding a page: use **PageFrame** (or the same ruled header classes), square `28px` logos in rows, **name-above / ticker-below** for instruments, tables over cards, and do not reintroduce a site-header + page double title.

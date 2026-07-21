@@ -14,10 +14,6 @@ import {
   AlertTitle,
 } from '@/frontend/components/ui/alert';
 import { Button } from '@/frontend/components/ui/button';
-import {
-  Card,
-  CardContent,
-} from '@/frontend/components/ui/card';
 import { Input } from '@/frontend/components/ui/input';
 import { Skeleton } from '@/frontend/components/ui/skeleton';
 import {
@@ -67,6 +63,7 @@ export function AdminAuditPage() {
       <PageFrame
         title={t('audit.heading')}
         description={t('audit.subtitle')}
+        bodyClassName="gap-0 p-0"
         toolbar={
           <PageToolbar>
             <form
@@ -94,53 +91,60 @@ export function AdminAuditPage() {
         }
       >
         {audit.isLoading ? (
-          <Skeleton className="h-64 w-full" />
+          <div className="px-5 py-5 lg:px-6">
+            <Skeleton className="h-64 w-full rounded-none" />
+          </div>
         ) : audit.isError ? (
-          <Alert variant="destructive">
-            <AlertTitle>{t('audit.loadError.title')}</AlertTitle>
-            <AlertDescription>{t('audit.loadError.body')}</AlertDescription>
-          </Alert>
+          <div className="px-5 py-5 lg:px-6">
+            <Alert variant="destructive">
+              <AlertTitle>{t('audit.loadError.title')}</AlertTitle>
+              <AlertDescription>{t('audit.loadError.body')}</AlertDescription>
+            </Alert>
+          </div>
         ) : (
-          <Card>
-            <CardContent className="pt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('audit.columns.when')}</TableHead>
-                    <TableHead>{t('audit.columns.actor')}</TableHead>
-                    <TableHead>{t('audit.columns.action')}</TableHead>
-                    <TableHead>{t('audit.columns.target')}</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-5 lg:pl-6">
+                  {t('audit.columns.when')}
+                </TableHead>
+                <TableHead>{t('audit.columns.actor')}</TableHead>
+                <TableHead>{t('audit.columns.action')}</TableHead>
+                <TableHead className="pr-5 lg:pr-6">
+                  {t('audit.columns.target')}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(audit.data?.data ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="px-5 text-muted-foreground lg:px-6"
+                  >
+                    {t('audit.empty')}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                (audit.data?.data ?? []).map((row) => (
+                  <TableRow key={row.id} className="h-11">
+                    <TableCell className="pl-5 font-mono text-xs tabular-nums lg:pl-6">
+                      {formatLocaleDateTimeValue(row.createdAt)}
+                    </TableCell>
+                    <TableCell className="max-w-[10rem] truncate font-mono text-xs">
+                      {row.actorClerkUserId}
+                    </TableCell>
+                    <TableCell>{row.action}</TableCell>
+                    <TableCell className="max-w-xs truncate pr-5 text-xs lg:pr-6">
+                      {[row.targetType, row.targetId]
+                        .filter(Boolean)
+                        .join(' · ') || '—'}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(audit.data?.data ?? []).length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-muted-foreground">
-                        {t('audit.empty')}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    (audit.data?.data ?? []).map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>
-                          {formatLocaleDateTimeValue(row.createdAt)}
-                        </TableCell>
-                        <TableCell className="max-w-[10rem] truncate font-mono text-xs">
-                          {row.actorClerkUserId}
-                        </TableCell>
-                        <TableCell>{row.action}</TableCell>
-                        <TableCell className="max-w-xs truncate text-xs">
-                          {[row.targetType, row.targetId]
-                            .filter(Boolean)
-                            .join(' · ') || '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                ))
+              )}
+            </TableBody>
+          </Table>
         )}
       </PageFrame>
     </AdminGate>

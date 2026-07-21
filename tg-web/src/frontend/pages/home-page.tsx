@@ -190,6 +190,15 @@ export function HomePage() {
       tradeDate &&
       !insufficientCredits
     ) {
+      const displayName =
+        quote?.display_name?.trim() ||
+        identitiesByTicker[instrument.display_ticker]?.display_name?.trim() ||
+        instrument.display_name;
+      const logoUrl =
+        quote?.logo_url?.trim() ||
+        identitiesByTicker[instrument.display_ticker]?.logo_url?.trim() ||
+        instrument.logo_url?.trim() ||
+        undefined;
       create.mutate({
         ticker: instrument.display_ticker,
         tradeDate,
@@ -201,8 +210,8 @@ export function HomePage() {
           display_ticker: instrument.display_ticker,
         },
         display: {
-          display_name: instrument.display_name,
-          ...(instrument.logo_url ? { logo_url: instrument.logo_url } : {}),
+          display_name: displayName,
+          ...(logoUrl ? { logo_url: logoUrl } : {}),
         },
       });
     }

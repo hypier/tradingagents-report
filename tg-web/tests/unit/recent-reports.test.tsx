@@ -168,11 +168,12 @@ it('shows logo and company name in the rail density list', () => {
 
   const row = screen.getByText('AAPL').closest('button');
   expect(row).toBeTruthy();
-  const texts = [...(row?.querySelectorAll('span.block') ?? [])].map(
-    (node) => node.textContent,
-  );
-  expect(texts[0]).toBe('AAPL');
-  expect(texts[1]).toBe('Apple Inc.');
+  const nameEl = within(row!).getByText('Apple Inc.');
+  const tickerEl = within(row!).getByText('AAPL');
+  expect(
+    nameEl.compareDocumentPosition(tickerEl) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 });
 
 it('renders Yahoo-style display tickers for multi-market instruments', () => {

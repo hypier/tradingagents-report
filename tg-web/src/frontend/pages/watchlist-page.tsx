@@ -203,14 +203,26 @@ export function WatchlistPage() {
                       >
                         <div className="min-w-0">
                           <Link
-                            className="font-medium hover:underline"
+                            className="block min-w-0 hover:underline"
                             to={`/stocks/${encodeURIComponent(item.providerSymbol)}`}
                           >
-                            {item.displayName}
+                            <span className="block truncate text-sm font-medium tracking-tight text-foreground">
+                              {item.displayName || item.displayTicker}
+                            </span>
+                            {item.displayName ? (
+                              <span className="mt-0.5 block truncate font-mono text-xs tracking-wide text-muted-foreground">
+                                {item.displayTicker}
+                                <span className="text-muted-foreground/80">
+                                  {' '}
+                                  · {item.providerSymbol}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="mt-0.5 block truncate font-mono text-xs tracking-wide text-muted-foreground">
+                                {item.providerSymbol}
+                              </span>
+                            )}
                           </Link>
-                          <p className="font-mono text-xs text-muted-foreground">
-                            {item.displayTicker} · {item.providerSymbol}
-                          </p>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {tags.map((tag) => {
                               const active = item.tags.some(

@@ -4,7 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
-import { PageFrame, StatTile } from '@/frontend/components/page-chrome';
+import {
+  PageFrame,
+  SectionPanel,
+  StatTile,
+} from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -12,13 +16,6 @@ import {
 } from '@/frontend/components/ui/alert';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/frontend/components/ui/card';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { getAdminOverview } from '@/frontend/lib/auth';
 
@@ -93,15 +90,12 @@ export function AdminOverviewPage() {
               />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('overview.queue.title')}</CardTitle>
-                  <CardDescription>
-                    {t('overview.queue.description')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-3">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <SectionPanel
+                title={t('overview.queue.title')}
+                description={t('overview.queue.description')}
+              >
+                <div className="flex flex-wrap gap-3">
                   <Badge variant="outline">
                     {t('overview.queue.queued', { count: data.queue.queued })}
                   </Badge>
@@ -119,17 +113,14 @@ export function AdminOverviewPage() {
                         data.timing.averageSucceededDurationSeconds ?? '—',
                     })}
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </SectionPanel>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('overview.stripe.title')}</CardTitle>
-                  <CardDescription>
-                    {t('overview.stripe.description')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+              <SectionPanel
+                title={t('overview.stripe.title')}
+                description={t('overview.stripe.description')}
+              >
+                <div className="space-y-2 text-sm">
                   <p>
                     {t('overview.stripe.configured')}:{' '}
                     {data.stripe?.configured
@@ -152,8 +143,8 @@ export function AdminOverviewPage() {
                       {t('overview.links.billing')}
                     </Link>
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </SectionPanel>
             </div>
           </>
         )}

@@ -32,6 +32,7 @@ import {
 } from '@/frontend/components/ui/sidebar';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { getBillingOverview } from '@/frontend/lib/billing';
+import { formatLocaleDate } from '@/frontend/lib/format-locale';
 import { fetchPublicConfig } from '@/frontend/lib/public-config';
 import { cn } from '@/frontend/lib/utils';
 
@@ -227,7 +228,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             {periodEnd ? (
               <p className="mt-2 font-mono text-xs text-sidebar-foreground/45">
                 {t('nav.creditsCycle', {
-                  date: new Date(periodEnd * 1000).toLocaleDateString(),
+                  date: formatLocaleDate(periodEnd, '—'),
                 })}
               </p>
             ) : null}

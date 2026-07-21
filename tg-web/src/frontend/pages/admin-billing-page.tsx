@@ -20,7 +20,7 @@ import type {
   CreateBillingPlanInput,
 } from '@/backend/billing/contract';
 import { AdminGate } from '@/frontend/components/admin-gate';
-import { PageFrame } from '@/frontend/components/page-chrome';
+import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -28,14 +28,6 @@ import {
 } from '@/frontend/components/ui/alert';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/frontend/components/ui/card';
 import {
   Empty,
   EmptyDescription,
@@ -226,38 +218,39 @@ export function AdminBillingPage() {
           <Skeleton className="h-72 w-full" />
         ) : data ? (
           <Tabs defaultValue="connection">
-            <TabsList>
-              <TabsTrigger value="connection">
+            <TabsList variant="line" className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
+              <TabsTrigger
+                value="connection"
+                className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
+              >
                 <CreditCard data-icon="inline-start" />{' '}
                 {t('billing.tabs.connection')}
               </TabsTrigger>
-              <TabsTrigger value="plans">
+              <TabsTrigger
+                value="plans"
+                className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
+              >
                 <CircleDollarSign data-icon="inline-start" />{' '}
                 {t('billing.tabs.plans')}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="connection" className="pt-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    <h3>{t('billing.connection.title')}</h3>
-                  </CardTitle>
-                  <CardDescription>
-                    {t('billing.connection.description')}
-                  </CardDescription>
-                  <CardAction>
-                    <Badge
-                      variant={data.connectionHealthy ? 'default' : 'secondary'}
-                    >
-                      {data.connectionHealthy
-                        ? t('billing.connection.connected')
-                        : data.configured
-                          ? t('billing.connection.connectionError')
-                          : t('billing.connection.notConfigured')}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
+              <SectionPanel
+                title={t('billing.connection.title')}
+                description={t('billing.connection.description')}
+                actions={
+                  <Badge
+                    variant={data.connectionHealthy ? 'default' : 'secondary'}
+                  >
+                    {data.connectionHealthy
+                      ? t('billing.connection.connected')
+                      : data.configured
+                        ? t('billing.connection.connectionError')
+                        : t('billing.connection.notConfigured')}
+                  </Badge>
+                }
+              >
+                <div className="flex flex-col gap-5">
                   <dl className="grid gap-4 sm:grid-cols-2">
                     <StatusItem
                       label={t('billing.connection.environment')}
@@ -423,8 +416,8 @@ export function AdminBillingPage() {
                       </AlertDescription>
                     </Alert>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </SectionPanel>
             </TabsContent>
             <TabsContent value="plans" className="flex flex-col gap-4 pt-3">
               <PlanEditor
@@ -472,31 +465,25 @@ function PlanEditor({
   const change = (values: Partial<PlanForm>) =>
     setPlan((current) => ({ ...current, ...values }));
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h3>{t('billing.plans.createTitle')}</h3>
-        </CardTitle>
-        <CardDescription>
-          {t('billing.plans.createDescription')}
-        </CardDescription>
-        <CardAction>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled || provisioning}
-            onClick={onProvisionDefaults}
-          >
-            {provisioning ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <PackagePlus data-icon="inline-start" />
-            )}
-            {t('billing.plans.provisionDefaults')}
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
+    <SectionPanel
+      title={t('billing.plans.createTitle')}
+      description={t('billing.plans.createDescription')}
+      actions={
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled || provisioning}
+          onClick={onProvisionDefaults}
+        >
+          {provisioning ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <PackagePlus data-icon="inline-start" />
+          )}
+          {t('billing.plans.provisionDefaults')}
+        </Button>
+      }
+    >
         <form onSubmit={onSubmit}>
           <FieldGroup className="grid gap-4 md:grid-cols-2">
             <Field>
@@ -634,8 +621,7 @@ function PlanEditor({
             </Field>
           </FieldGroup>
         </form>
-      </CardContent>
-    </Card>
+    </SectionPanel>
   );
 }
 
@@ -663,16 +649,10 @@ function PlansTable({
     );
   }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h3>{t('billing.plans.activeTitle')}</h3>
-        </CardTitle>
-        <CardAction>
-          <Badge variant="secondary">{plans.length}</Badge>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
+    <SectionPanel
+      title={t('billing.plans.activeTitle')}
+      actions={<Badge variant="secondary">{plans.length}</Badge>}
+    >
         <Table>
           <TableHeader>
             <TableRow>
@@ -696,14 +676,14 @@ function PlansTable({
                 'billing.plans.intervals',
               );
               return (
-                <TableRow key={plan.id}>
+                <TableRow key={plan.id} className="h-11">
                   <TableCell>
                     <div className="font-medium">{displayPlan.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {displayPlan.description ?? plan.id}
                     </div>
                   </TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell className="font-mono tabular-nums">
                     {formatLocaleCurrency(plan.unitAmount, plan.currency)}
                   </TableCell>
                   <TableCell>
@@ -714,7 +694,7 @@ function PlansTable({
                         })
                       : t('billing.plans.every', { interval })}
                   </TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell className="font-mono tabular-nums">
                     {plan.analysisCredits}
                   </TableCell>
                   <TableCell>
@@ -739,8 +719,7 @@ function PlansTable({
             })}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+    </SectionPanel>
   );
 }
 

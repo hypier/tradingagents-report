@@ -16,6 +16,7 @@ import {
 } from '../components/report/report-reading-toolbar';
 import { ReportTabsNav } from '../components/report/report-tabs-nav';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { InstrumentIdentity } from '../components/instrument-identity';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -29,7 +30,10 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { getAnalystIcon, getStageIcon } from '../components/icons/research-icons';
-import { formatLocaleDateTime } from '../lib/format-locale';
+import {
+  formatLocaleCalendarDate,
+  formatLocaleDateTime,
+} from '../lib/format-locale';
 import { formatOutputLanguage } from '../lib/format-output-language';
 import {
   loadReportReadingPreferences,
@@ -237,44 +241,40 @@ export function SharedReportPage({
 
   const body = (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-5 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <div className="flex items-start gap-3">
+      <div className="@container/main flex flex-1 flex-col gap-5 px-5 py-3.5 md:gap-5 lg:px-6">
+        <div className="flex items-start gap-3 border-b border-border pb-3.5">
           <Avatar
             size="lg"
-            className="size-11 rounded-xl after:rounded-xl"
+            className="size-11 !rounded-none after:hidden"
             data-logo-url={logoUrl ?? undefined}
           >
             <AvatarImage
+              key={logoUrl ?? 'missing'}
               src={logoUrl ?? undefined}
               alt={t('logoAlt', {
                 name: displayName ?? ticker ?? t('instrumentFallback'),
               })}
-              className="rounded-xl"
+              className="!rounded-none object-contain"
             />
-            <AvatarFallback className="rounded-xl bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
+            <AvatarFallback className="!rounded-none bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/15">
               {(ticker ?? 'R').slice(0, 1)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">
-              {t('share.eyebrow')}
-            </p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                {title}
-              </h1>
-              {decisionLabel ? (
-                <Badge variant="default" className="capitalize">
-                  {decisionLabel}
-                </Badge>
-              ) : null}
-            </div>
+            <InstrumentIdentity
+              density="header"
+              nameAs="h1"
+              name={displayName}
+              ticker={ticker || title}
+              trailing={
+                decisionLabel ? (
+                  <Badge variant="default" className="capitalize">
+                    {decisionLabel}
+                  </Badge>
+                ) : null
+              }
+            />
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {ticker && displayName ? (
-                <Badge variant="secondary" className="font-mono tracking-wide">
-                  {ticker}
-                </Badge>
-              ) : null}
               {exchange ? <Badge variant="outline">{exchange}</Badge> : null}
               {country ? <Badge variant="outline">{country}</Badge> : null}
               {language ? (
@@ -290,7 +290,11 @@ export function SharedReportPage({
             </p>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {tradeDate ? (
-                <span>{t('tradeDate', { date: tradeDate })}</span>
+                <span>
+                  {t('tradeDate', {
+                    date: formatLocaleCalendarDate(tradeDate),
+                  })}
+                </span>
               ) : null}
               {expiresLabel ? (
                 <span>{t('share.expires', { date: expiresLabel })}</span>
@@ -315,8 +319,8 @@ export function SharedReportPage({
           </Alert>
         ) : detail.isLoading ? (
           <div className="flex flex-col gap-4">
-            <Skeleton className="h-10 w-full max-w-xl rounded-xl" />
-            <Skeleton className="h-[28rem] w-full rounded-xl" />
+            <Skeleton className="h-10 w-full max-w-xl rounded-none" />
+            <Skeleton className="h-[28rem] w-full rounded-none" />
           </div>
         ) : detail.isError ? (
           <Alert variant="destructive">
@@ -335,7 +339,7 @@ export function SharedReportPage({
           >
             <div
               className={cn(
-                'sticky z-10 -mx-4 border-b bg-background/95 px-4 py-3 backdrop-blur-md md:-mx-6 md:px-6 lg:px-6',
+                'sticky z-10 -mx-5 bg-background/95 px-5 py-3 backdrop-blur-md lg:-mx-6 lg:px-6',
                 publicView ? 'top-0' : 'top-(--header-height)',
               )}
             >
@@ -355,13 +359,13 @@ export function SharedReportPage({
                 value={key}
                 className={cn(
                   'mt-0 flex-1 pt-5',
-                  '-mx-4 px-4 pb-6 md:-mx-6 md:px-6 md:pb-8 lg:px-6',
+                  '-mx-5 px-5 pb-6 lg:-mx-6 lg:px-6 lg:pb-8',
                   deskClassName,
                 )}
               >
                 <article
                   className={cn(
-                    'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-xl text-foreground',
+                    'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-none text-foreground',
                     paperClassName,
                     'shadow-[0_1px_1px_rgba(15,23,42,0.04),0_10px_28px_rgba(15,23,42,0.08)]',
                     'dark:shadow-[0_1px_1px_rgba(0,0,0,0.25),0_12px_32px_rgba(0,0,0,0.45)]',
@@ -390,7 +394,7 @@ export function SharedReportPage({
             ))}
           </Tabs>
         ) : (
-          <Empty className="min-h-64 flex-1 rounded-xl border">
+          <Empty className="min-h-64 flex-1 rounded-none border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <FileText />
@@ -421,6 +425,6 @@ export function SharedReportPage({
   return publicView ? (
     <main className="min-h-svh bg-background">{body}</main>
   ) : (
-    <AppShell title={t('share.headerTitle')}>{body}</AppShell>
+    <AppShell>{body}</AppShell>
   );
 }

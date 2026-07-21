@@ -48,6 +48,7 @@ type AdminJob = {
   progress_percent?: number | null;
   cost_usd?: string | number | null;
   created_at?: string | null;
+  display?: { display_name?: string | null } | null;
 };
 
 export function AdminAnalysesPage() {
@@ -141,9 +142,30 @@ export function AdminAnalysesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {jobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell className="font-mono">{job.ticker}</TableCell>
+                {jobs.map((job) => {
+                  const display =
+                    typeof job.display === 'object' && job.display !== null
+                      ? (job.display as { display_name?: unknown })
+                      : null;
+                  const displayName =
+                    typeof display?.display_name === 'string'
+                      ? display.display_name.trim()
+                      : '';
+                  const ticker = String(job.ticker ?? '');
+                  return (
+                  <TableRow key={String(job.id)}>
+                    <TableCell>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium tracking-tight">
+                          {displayName || ticker}
+                        </p>
+                        {displayName ? (
+                          <p className="mt-0.5 font-mono text-xs tracking-wide text-muted-foreground">
+                            {ticker}
+                          </p>
+                        ) : null}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {job.clerk_user_id ? (
                         <Link
@@ -194,7 +216,8 @@ export function AdminAnalysesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

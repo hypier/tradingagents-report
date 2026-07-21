@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { InstrumentIdentity } from '@/frontend/components/instrument-identity';
 import { Avatar, AvatarFallback, AvatarImage } from '@/frontend/components/ui/avatar';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
@@ -127,17 +128,18 @@ export function QuoteStrip({
       <div className={cn('flex min-w-0 items-center gap-3', isPanel && 'w-full items-start')}>
         <Avatar
           className={cn(
-            'shrink-0 !rounded-none after:!rounded-none',
+            'shrink-0 !rounded-none after:hidden',
             isPanel ? 'size-14!' : 'size-10!',
           )}
           data-logo-url={quote.logo_url}
         >
           <AvatarImage
+            key={quote.logo_url ?? 'missing'}
             src={quote.logo_url}
             alt={t('snapshot.logoAlt', {
               name: quote.display_name ?? quote.ticker,
             })}
-            className="!rounded-none"
+            className="!rounded-none object-contain"
           />
           <AvatarFallback className="!rounded-none text-sm font-semibold">
             {quote.ticker.slice(0, 1)}
@@ -145,17 +147,14 @@ export function QuoteStrip({
         </Avatar>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold tracking-tight">
-              {quote.display_name ?? quote.ticker}
-            </p>
-            <Badge
-              variant="secondary"
-              className="font-mono text-[11px] tracking-wider"
-            >
-              {quote.display_ticker ?? formatDisplayTicker(quote.ticker)}
-            </Badge>
-          </div>
+          <InstrumentIdentity
+            density="row"
+            name={quote.display_name}
+            ticker={
+              quote.display_ticker ?? formatDisplayTicker(quote.ticker)
+            }
+            nameClassName="font-semibold"
+          />
           <p className="mt-1 font-mono text-[11px] tabular-nums text-muted-foreground">
             <span
               className={cn(

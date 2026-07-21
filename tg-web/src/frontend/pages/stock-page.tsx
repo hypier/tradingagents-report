@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { AppShell } from '../components/app-shell';
 import { QuoteStrip } from '../components/dashboard/quote-strip';
 import { ReportsTable } from '../components/dashboard/recent-reports';
+import { InstrumentIdentity } from '../components/instrument-identity';
 import { PageBody } from '../components/page-chrome';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
@@ -115,10 +116,11 @@ export function StockPage() {
             <div className="flex min-w-0 items-start gap-3">
               <Avatar
                 size="lg"
-                className="size-12 !rounded-none after:!rounded-none"
+                className="size-12 !rounded-none after:hidden"
               >
                 <AvatarImage
-                  className="!rounded-none"
+                  key={quote?.logo_url ?? 'missing'}
+                  className="!rounded-none object-contain"
                   src={quote?.logo_url}
                   alt={quote?.display_name ?? listing.display_ticker}
                 />
@@ -127,12 +129,13 @@ export function StockPage() {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold tracking-tight">
-                  {quote?.display_name ?? listing.display_ticker}
-                </h1>
-                <p className="font-mono text-sm text-muted-foreground">
-                  {listing.display_ticker} · {listing.provider_symbol}
-                </p>
+                <InstrumentIdentity
+                  density="header"
+                  nameAs="h1"
+                  name={quote?.display_name}
+                  ticker={listing.display_ticker}
+                  tickerSuffix={` · ${listing.provider_symbol}`}
+                />
                 <div className="mt-2 flex flex-wrap gap-2">
                   {listing.exchange ? (
                     <Badge variant="secondary">{listing.exchange}</Badge>

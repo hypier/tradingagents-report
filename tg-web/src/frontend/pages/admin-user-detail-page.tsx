@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
-import { PageFrame } from '@/frontend/components/page-chrome';
+import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -14,13 +14,6 @@ import {
 } from '@/frontend/components/ui/alert';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/frontend/components/ui/card';
 import { Input } from '@/frontend/components/ui/input';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import {
@@ -134,28 +127,34 @@ export function AdminUserDetailPage() {
         ) : (
           <>
             <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('userDetail.credits.title')}</CardTitle>
-                  <CardDescription>
-                    {t('userDetail.credits.description')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
+              <SectionPanel
+                title={t('userDetail.credits.title')}
+                description={t('userDetail.credits.description')}
+              >
+                <div className="space-y-3 text-sm">
                   <p>
-                    {t('userDetail.credits.available')}: {usage.availableCredits}
+                    {t('userDetail.credits.available')}:{' '}
+                    <span className="font-mono tabular-nums">
+                      {usage.availableCredits}
+                    </span>
                   </p>
                   <p>
-                    {t('userDetail.credits.reserved')}: {usage.reservedCredits}
+                    {t('userDetail.credits.reserved')}:{' '}
+                    <span className="font-mono tabular-nums">
+                      {usage.reservedCredits}
+                    </span>
                   </p>
                   <p>
-                    {t('userDetail.credits.spent')}: {usage.spentCredits}
+                    {t('userDetail.credits.spent')}:{' '}
+                    <span className="font-mono tabular-nums">
+                      {usage.spentCredits}
+                    </span>
                   </p>
                   <p>
                     {t('userDetail.credits.subscription')}:{' '}
                     {usage.subscription?.status ?? '—'}
                   </p>
-                  <div className="grid gap-2 border-t pt-3">
+                  <div className="grid gap-2 border-t border-border pt-3">
                     <Input
                       type="number"
                       value={delta}
@@ -182,14 +181,11 @@ export function AdminUserDetailPage() {
                       {t('userDetail.credits.adjust')}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </SectionPanel>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('userDetail.ledger.title')}</CardTitle>
-                </CardHeader>
-                <CardContent className="max-h-80 overflow-auto">
+              <SectionPanel title={t('userDetail.ledger.title')}>
+                <div className="max-h-80 overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -200,60 +196,75 @@ export function AdminUserDetailPage() {
                     </TableHeader>
                     <TableBody>
                       {usage.ledger.map((entry) => (
-                        <TableRow key={entry.id}>
+                        <TableRow key={entry.id} className="h-11">
                           <TableCell>{entry.entryType}</TableCell>
-                          <TableCell className="tabular-nums">
+                          <TableCell className="font-mono tabular-nums">
                             {entry.availableDelta}
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
+                          <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
                             {formatLocaleDateTimeValue(String(entry.createdAt))}
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                </CardContent>
-              </Card>
+                </div>
+              </SectionPanel>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('userDetail.jobs.title')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('userDetail.jobs.ticker')}</TableHead>
-                      <TableHead>{t('userDetail.jobs.status')}</TableHead>
-                      <TableHead>{t('userDetail.jobs.created')}</TableHead>
+            <SectionPanel title={t('userDetail.jobs.title')}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('userDetail.jobs.ticker')}</TableHead>
+                    <TableHead>{t('userDetail.jobs.status')}</TableHead>
+                    <TableHead>{t('userDetail.jobs.created')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentJobs.map((job) => {
+                    const display =
+                      typeof job.display === 'object' && job.display !== null
+                        ? (job.display as { display_name?: unknown })
+                        : null;
+                    const displayName =
+                      typeof display?.display_name === 'string'
+                        ? display.display_name.trim()
+                        : '';
+                    const ticker = String(job.ticker ?? '');
+                    return (
+                    <TableRow key={String(job.id)} className="h-11">
+                      <TableCell>
+                        <Link
+                          className="block min-w-0 underline-offset-2 hover:underline"
+                          to={`/reports/${String(job.id)}`}
+                        >
+                          <span className="block truncate text-sm font-medium tracking-tight">
+                            {displayName || ticker}
+                          </span>
+                          {displayName ? (
+                            <span className="mt-0.5 block font-mono text-xs tracking-wide text-muted-foreground">
+                              {ticker}
+                            </span>
+                          ) : null}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {String(job.status ?? '')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
+                        {job.created_at
+                          ? formatLocaleDateTimeValue(String(job.created_at))
+                          : '—'}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentJobs.map((job) => (
-                      <TableRow key={String(job.id)}>
-                        <TableCell>
-                          <Link
-                            className="font-mono underline"
-                            to={`/reports/${String(job.id)}`}
-                          >
-                            {String(job.ticker ?? '')}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{String(job.status ?? '')}</Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {job.created_at
-                            ? formatLocaleDateTimeValue(String(job.created_at))
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </SectionPanel>
           </>
         )}
       </PageFrame>

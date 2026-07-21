@@ -18,7 +18,7 @@ export function MarkdownReport({
 }) {
   if (typeof value !== 'string') {
     return (
-      <pre className="overflow-hidden whitespace-pre-wrap break-words rounded-lg bg-[var(--report-highlight,theme(colors.muted))] p-4 font-mono text-sm leading-6 text-foreground">
+      <pre className="overflow-hidden whitespace-pre-wrap break-words rounded-none bg-[var(--report-highlight,theme(colors.muted))] p-4 font-mono text-sm leading-6 text-foreground">
         {renderValue(value)}
       </pre>
     );
@@ -88,7 +88,7 @@ export function MarkdownReport({
           ),
           hr: () => <hr className="my-10 border-border/80" />,
           blockquote: ({ children }) => (
-            <blockquote className="my-6 rounded-r-lg border-l-[3px] border-primary/50 bg-[var(--report-highlight-soft,theme(colors.muted)/0.4)] py-1 pl-5 text-[0.98em] leading-relaxed text-muted-foreground">
+            <blockquote className="my-6 border-l-[3px] border-primary/50 bg-[var(--report-highlight-soft,theme(colors.muted)/0.4)] py-1 pl-5 text-[0.98em] leading-relaxed text-muted-foreground">
               {children}
             </blockquote>
           ),
@@ -98,18 +98,18 @@ export function MarkdownReport({
               return <code className={codeClassName}>{children}</code>;
             }
             return (
-              <code className="rounded-md bg-[var(--report-highlight,#efece4)] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground ring-1 ring-foreground/10">
+              <code className="rounded-none bg-[var(--report-highlight,#efece4)] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground ring-1 ring-foreground/10">
                 {children}
               </code>
             );
           },
           pre: ({ children }) => (
-            <pre className="my-6 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-[var(--report-highlight-soft,#f5f2ea)] p-4 font-mono text-[0.86em] leading-6 text-foreground">
+            <pre className="my-6 overflow-x-auto whitespace-pre-wrap break-words rounded-none border border-border bg-[var(--report-highlight-soft,#f5f2ea)] p-4 font-mono text-[0.86em] leading-6 text-foreground">
               {children}
             </pre>
           ),
           table: ({ children }) => (
-            <div className="my-6 overflow-x-auto rounded-xl border border-border">
+            <div className="my-6 overflow-x-auto rounded-none border border-border">
               <table className="w-full table-fixed text-left text-[0.95em] break-words">
                 {children}
               </table>

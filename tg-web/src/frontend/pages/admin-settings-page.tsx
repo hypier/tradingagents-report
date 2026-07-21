@@ -5,20 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
-import { PageFrame } from '@/frontend/components/page-chrome';
+import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from '@/frontend/components/ui/alert';
 import { Button } from '@/frontend/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/frontend/components/ui/card';
 import { Checkbox } from '@/frontend/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
@@ -197,61 +190,53 @@ export function AdminSettingsPage() {
             <AlertDescription>{t('settings.loadError.body')}</AlertDescription>
           </Alert>
         ) : (
-          <form onSubmit={onSave} className="flex flex-col gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('settings.maintenanceTitle')}</CardTitle>
-                <CardDescription>
-                  {t('settings.maintenanceDescription')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FieldGroup>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={form.maintenanceEnabled}
-                      onCheckedChange={(checked) =>
-                        setForm((current) => ({
-                          ...current,
-                          maintenanceEnabled: checked === true,
-                        }))
-                      }
-                    />
-                    {t('settings.maintenanceEnabled')}
-                  </label>
-                  <Field>
-                    <FieldLabel>{t('settings.messageEn')}</FieldLabel>
-                    <Input
-                      value={form.maintenanceEn}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          maintenanceEn: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('settings.messageZh')}</FieldLabel>
-                    <Input
-                      value={form.maintenanceZh}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          maintenanceZh: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                </FieldGroup>
-              </CardContent>
-            </Card>
+          <form onSubmit={onSave} className="flex flex-col gap-5">
+            <SectionPanel
+              title={t('settings.maintenanceTitle')}
+              description={t('settings.maintenanceDescription')}
+            >
+              <FieldGroup>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form.maintenanceEnabled}
+                    onCheckedChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        maintenanceEnabled: checked === true,
+                      }))
+                    }
+                  />
+                  {t('settings.maintenanceEnabled')}
+                </label>
+                <Field>
+                  <FieldLabel>{t('settings.messageEn')}</FieldLabel>
+                  <Input
+                    value={form.maintenanceEn}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        maintenanceEn: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>{t('settings.messageZh')}</FieldLabel>
+                  <Input
+                    value={form.maintenanceZh}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        maintenanceZh: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </FieldGroup>
+            </SectionPanel>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('settings.featuresTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
+            <SectionPanel title={t('settings.featuresTitle')}>
+              <div className="flex flex-col gap-3">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={form.watchlist}
@@ -276,77 +261,67 @@ export function AdminSettingsPage() {
                   />
                   {t('settings.featureShareLinks')}
                 </label>
-              </CardContent>
-            </Card>
+              </div>
+            </SectionPanel>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('settings.disclaimerTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>{t('settings.disclaimerVersion')}</FieldLabel>
-                    <Input
-                      value={form.disclaimerVersion}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          disclaimerVersion: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('settings.disclaimerEn')}</FieldLabel>
-                    <textarea
-                      className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                      value={form.disclaimerEn}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          disclaimerEn: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('settings.disclaimerZh')}</FieldLabel>
-                    <textarea
-                      className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                      value={form.disclaimerZh}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          disclaimerZh: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                </FieldGroup>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('settings.alertsTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <SectionPanel title={t('settings.disclaimerTitle')}>
+              <FieldGroup>
                 <Field>
-                  <FieldLabel>{t('settings.webhookUrl')}</FieldLabel>
+                  <FieldLabel>{t('settings.disclaimerVersion')}</FieldLabel>
                   <Input
-                    value={form.webhookUrl}
+                    value={form.disclaimerVersion}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        webhookUrl: event.target.value,
+                        disclaimerVersion: event.target.value,
                       }))
                     }
-                    placeholder="https://"
                   />
                 </Field>
-              </CardContent>
-            </Card>
+                <Field>
+                  <FieldLabel>{t('settings.disclaimerEn')}</FieldLabel>
+                  <textarea
+                    className="min-h-28 w-full rounded-none border border-input bg-transparent px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+                    value={form.disclaimerEn}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        disclaimerEn: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>{t('settings.disclaimerZh')}</FieldLabel>
+                  <textarea
+                    className="min-h-28 w-full rounded-none border border-input bg-transparent px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+                    value={form.disclaimerZh}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        disclaimerZh: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </FieldGroup>
+            </SectionPanel>
+
+            <SectionPanel title={t('settings.alertsTitle')}>
+              <Field>
+                <FieldLabel>{t('settings.webhookUrl')}</FieldLabel>
+                <Input
+                  value={form.webhookUrl}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      webhookUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://"
+                />
+              </Field>
+            </SectionPanel>
 
             <div className="flex justify-end">
               <Button type="submit" disabled={saveSettings.isPending}>
@@ -361,14 +336,11 @@ export function AdminSettingsPage() {
           </form>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.creditRulesTitle')}</CardTitle>
-            <CardDescription>
-              {t('settings.creditRulesDescription')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
+        <SectionPanel
+          title={t('settings.creditRulesTitle')}
+          description={t('settings.creditRulesDescription')}
+        >
+          <div className="flex flex-col gap-4">
             <form
               onSubmit={onCreateRule}
               className="grid gap-3 md:grid-cols-3 lg:grid-cols-6"
@@ -456,13 +428,15 @@ export function AdminSettingsPage() {
               </TableHeader>
               <TableBody>
                 {(rules.data?.data ?? []).map((rule) => (
-                  <TableRow key={rule.id}>
+                  <TableRow key={rule.id} className="h-11">
                     <TableCell>{rule.label}</TableCell>
                     <TableCell>{rule.market ?? '—'}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-mono tabular-nums">
                       {rule.minAnalysts}–{rule.maxAnalysts}
                     </TableCell>
-                    <TableCell>{rule.units}</TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {rule.units}
+                    </TableCell>
                     <TableCell>
                       {rule.enabled ? t('settings.yes') : t('settings.no')}
                     </TableCell>
@@ -481,8 +455,8 @@ export function AdminSettingsPage() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionPanel>
       </PageFrame>
     </AdminGate>
   );

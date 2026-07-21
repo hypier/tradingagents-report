@@ -6,15 +6,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { SectionPanel } from '../page-chrome';
 import { Badge } from '../ui/badge';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../ui/card';
 import {
   Empty,
   EmptyDescription,
@@ -119,9 +112,14 @@ export function PipelinePanel({
           <div className="space-y-3 px-4 py-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="font-mono text-base font-semibold tracking-wide">
-                  {job.ticker}
+                <p className="truncate text-sm font-medium tracking-tight">
+                  {job.display?.display_name?.trim() || job.ticker}
                 </p>
+                {job.display?.display_name?.trim() ? (
+                  <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
+                    {job.ticker}
+                  </p>
+                ) : null}
                 <p className="mt-1 truncate text-sm text-muted-foreground">
                   {displayStage(activeStage ?? job.current_step)}
                 </p>
@@ -192,24 +190,24 @@ export function PipelinePanel({
   }
 
   return (
-    <Card aria-labelledby="pipeline-title" className="@container/card">
-      <CardHeader className="border-b">
-        <CardDescription className="inline-flex items-center gap-1.5">
-          <Workflow className="size-3.5" />
-          {t('pipeline.eyebrow')}
-        </CardDescription>
-        <CardTitle>
-          <h2 id="pipeline-title">{t('pipeline.title')}</h2>
-        </CardTitle>
-        <CardAction>
-          <Badge variant={jobStatusVariant(job?.status)}>{jobStatus}</Badge>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="grid gap-6 pt-1 @5xl/card:grid-cols-[minmax(0,1fr)_minmax(240px,0.85fr)]">
+    <SectionPanel
+      aria-labelledby="pipeline-title"
+      className="@container/card"
+      title={
+        <span id="pipeline-title" className="inline-flex items-center gap-1.5">
+          <Workflow className="size-3.5" aria-hidden />
+          {t('pipeline.title')}
+        </span>
+      }
+      actions={
+        <Badge variant={jobStatusVariant(job?.status)}>{jobStatus}</Badge>
+      }
+    >
+      <div className="grid gap-6 @5xl/card:grid-cols-[minmax(0,1fr)_minmax(240px,0.85fr)]">
         <div className="@container/stages flex flex-col gap-5">
           <div className="flex items-end justify-between gap-3">
             <div className="flex min-w-0 items-start gap-2.5">
-              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-none bg-primary/10 text-primary">
                 <CurrentStageIcon className="size-4" />
               </span>
               <div className="min-w-0">
@@ -246,7 +244,7 @@ export function PipelinePanel({
                   data-stage-status={label}
                   title={stageName}
                   className={cn(
-                    'relative flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-2 transition-colors',
+                    'relative flex min-w-0 items-center gap-2 rounded-none border px-2.5 py-2 transition-colors',
                     complete && 'border-primary/30 bg-primary/5',
                     current &&
                       'border-primary bg-primary/10 shadow-[0_0_0_1px] shadow-primary/20',
@@ -255,7 +253,7 @@ export function PipelinePanel({
                 >
                   <span
                     className={cn(
-                      'flex size-8 shrink-0 items-center justify-center rounded-md',
+                      'flex size-8 shrink-0 items-center justify-center rounded-none',
                       complete || current
                         ? 'bg-primary/15 text-primary'
                         : 'bg-muted text-muted-foreground',
@@ -299,7 +297,7 @@ export function PipelinePanel({
           </ol>
         </div>
 
-        <div className="min-w-0 rounded-md border bg-muted/25 p-4">
+        <div className="min-w-0 rounded-none border bg-muted/25 p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="inline-flex items-center gap-1.5 text-sm font-medium">
               <ScrollText className="size-3.5 text-muted-foreground" />
@@ -355,7 +353,7 @@ export function PipelinePanel({
             </Empty>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </SectionPanel>
   );
 }

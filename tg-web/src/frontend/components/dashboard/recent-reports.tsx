@@ -1,6 +1,7 @@
 import { ClipboardList, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { InstrumentIdentity } from '../instrument-identity';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
@@ -121,28 +122,25 @@ export function ReportsTable({
                       onClick={() => onOpenReport(job.id)}
                     >
                       <Avatar
-                        className="size-8! shrink-0 !rounded-none after:!rounded-none"
+                        className="size-8! shrink-0 !rounded-none after:hidden"
                         data-logo-url={logoUrl}
                       >
                         <AvatarImage
+                          key={logoUrl ?? 'missing'}
                           src={logoUrl}
                           alt={t('table.logoAlt', { ticker: job.ticker })}
-                          className="!rounded-none"
+                          className="!rounded-none object-contain"
                         />
                         <AvatarFallback className="!rounded-none text-xs font-semibold">
                           {ticker.slice(0, 1)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-mono text-sm font-medium tracking-wide">
-                          {ticker}
-                        </span>
-                        {name ? (
-                          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                            {name}
-                          </span>
-                        ) : null}
-                      </span>
+                      <InstrumentIdentity
+                        className="min-w-0 flex-1"
+                        density="compact"
+                        name={name}
+                        ticker={ticker}
+                      />
                       <span className="flex shrink-0 flex-col items-end gap-0.5">
                         <Badge
                           variant={statusVariant(job.status)}
@@ -230,29 +228,24 @@ export function ReportsTable({
                 <TableCell className="pl-5 lg:pl-6">
                   <div className="flex items-center gap-2.5">
                     <Avatar
-                      size="sm"
-                      className="!rounded-none after:!rounded-none"
+                      className="size-8! shrink-0 !rounded-none after:hidden"
                       data-logo-url={instrumentLogo(job, identities)}
                     >
                       <AvatarImage
+                        key={instrumentLogo(job, identities) ?? 'missing'}
                         src={instrumentLogo(job, identities)}
                         alt={t('table.logoAlt', { ticker: job.ticker })}
-                        className="!rounded-none"
+                        className="!rounded-none object-contain"
                       />
-                      <AvatarFallback className="!rounded-none">
+                      <AvatarFallback className="!rounded-none text-xs font-semibold">
                         {job.ticker.slice(0, 1)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <div className="font-mono text-sm font-medium tracking-wide">
-                        {instrumentTicker(job, identities)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {instrumentName(job, identities) ??
-                          job.decision ??
-                          t('table.noConclusion')}
-                      </div>
-                    </div>
+                    <InstrumentIdentity
+                      density="row"
+                      name={instrumentName(job, identities)}
+                      ticker={instrumentTicker(job, identities)}
+                    />
                   </div>
                 </TableCell>
                 <TableCell className="max-w-48 truncate text-xs text-muted-foreground">

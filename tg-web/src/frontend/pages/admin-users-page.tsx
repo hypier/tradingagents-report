@@ -177,12 +177,13 @@ export function AdminUsersPage() {
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar size="sm">
+                          <Avatar className="size-8! shrink-0 !rounded-none after:!rounded-none">
                             <AvatarImage
                               src={user.imageUrl}
                               alt={user.displayName}
+                              className="!rounded-none"
                             />
-                            <AvatarFallback>
+                            <AvatarFallback className="!rounded-none text-xs font-semibold">
                               {user.displayName.slice(0, 1).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>

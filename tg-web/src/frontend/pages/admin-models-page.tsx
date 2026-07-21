@@ -3,20 +3,13 @@ import { Database } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
-import { PageFrame } from '@/frontend/components/page-chrome';
+import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from '@/frontend/components/ui/alert';
 import { Badge } from '@/frontend/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/frontend/components/ui/card';
 import {
   Table,
   TableBody,
@@ -68,111 +61,107 @@ export function AdminModelsPage() {
           </Alert>
         ) : (
           <>
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('models.pricesTitle')}</CardTitle>
-                <CardDescription>{t('models.pricesDescription')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
+            <SectionPanel
+              title={t('models.pricesTitle')}
+              description={t('models.pricesDescription')}
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('models.columns.provider')}</TableHead>
+                    <TableHead>{t('models.columns.model')}</TableHead>
+                    <TableHead>{t('models.columns.input')}</TableHead>
+                    <TableHead>{t('models.columns.output')}</TableHead>
+                    <TableHead>{t('models.columns.updated')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {prices.length === 0 ? (
                     <TableRow>
-                      <TableHead>{t('models.columns.provider')}</TableHead>
-                      <TableHead>{t('models.columns.model')}</TableHead>
-                      <TableHead>{t('models.columns.input')}</TableHead>
-                      <TableHead>{t('models.columns.output')}</TableHead>
-                      <TableHead>{t('models.columns.updated')}</TableHead>
+                      <TableCell colSpan={5} className="text-muted-foreground">
+                        {t('models.emptyPrices')}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {prices.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-muted-foreground">
-                          {t('models.emptyPrices')}
+                  ) : (
+                    prices.map((row) => (
+                      <TableRow
+                        key={`${row.provider}-${row.model}-${row.billingMode}`}
+                        className="h-11"
+                      >
+                        <TableCell>{row.provider}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {row.model}
+                        </TableCell>
+                        <TableCell className="font-mono tabular-nums">
+                          {String(row.inputPrice)} {row.currency}
+                        </TableCell>
+                        <TableCell className="font-mono tabular-nums">
+                          {String(row.outputPrice)} {row.currency}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
+                          {formatLocaleDateTimeValue(row.updatedAt)}
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      prices.map((row) => (
-                        <TableRow key={`${row.provider}-${row.model}-${row.billingMode}`}>
-                          <TableCell>{row.provider}</TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {row.model}
-                          </TableCell>
-                          <TableCell>
-                            {String(row.inputPrice)} {row.currency}
-                          </TableCell>
-                          <TableCell>
-                            {String(row.outputPrice)} {row.currency}
-                          </TableCell>
-                          <TableCell>
-                            {formatLocaleDateTimeValue(row.updatedAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </SectionPanel>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('models.sourcesTitle')}</CardTitle>
-                <CardDescription>
-                  {t('models.sourcesDescription')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
+            <SectionPanel
+              title={t('models.sourcesTitle')}
+              description={t('models.sourcesDescription')}
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('models.columns.source')}</TableHead>
+                    <TableHead>{t('models.columns.models')}</TableHead>
+                    <TableHead>{t('models.columns.lastSuccess')}</TableHead>
+                    <TableHead>{t('models.columns.error')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sources.length === 0 ? (
                     <TableRow>
-                      <TableHead>{t('models.columns.source')}</TableHead>
-                      <TableHead>{t('models.columns.models')}</TableHead>
-                      <TableHead>{t('models.columns.lastSuccess')}</TableHead>
-                      <TableHead>{t('models.columns.error')}</TableHead>
+                      <TableCell colSpan={4} className="text-muted-foreground">
+                        {t('models.emptySources')}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sources.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-muted-foreground">
-                          {t('models.emptySources')}
+                  ) : (
+                    sources.map((row) => (
+                      <TableRow key={row.sourceUrl} className="h-11">
+                        <TableCell className="max-w-xs truncate font-mono text-xs">
+                          {row.sourceUrl}
+                        </TableCell>
+                        <TableCell className="font-mono tabular-nums">
+                          {row.modelCount}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
+                          {row.lastSuccessAt
+                            ? formatLocaleDateTimeValue(row.lastSuccessAt)
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-destructive">
+                          {row.lastError ?? '—'}
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      sources.map((row) => (
-                        <TableRow key={row.sourceUrl}>
-                          <TableCell className="max-w-xs truncate font-mono text-xs">
-                            {row.sourceUrl}
-                          </TableCell>
-                          <TableCell>{row.modelCount}</TableCell>
-                          <TableCell>
-                            {row.lastSuccessAt
-                              ? formatLocaleDateTimeValue(row.lastSuccessAt)
-                              : '—'}
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate text-destructive">
-                            {row.lastError ?? '—'}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </SectionPanel>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="size-4" />
+            <SectionPanel
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <Database className="size-4" aria-hidden />
                   {t('models.healthTitle')}
-                </CardTitle>
-                <CardDescription>
-                  {t('models.healthDescription')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
+                </span>
+              }
+              description={t('models.healthDescription')}
+            >
+              <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap gap-2">
                   {(health?.dependencies ?? []).map((item) => (
                     <Badge
@@ -192,7 +181,7 @@ export function AdminModelsPage() {
                   </TableHeader>
                   <TableBody>
                     {(health?.vendors ?? []).map((vendor) => (
-                      <TableRow key={vendor.id}>
+                      <TableRow key={vendor.id} className="h-11">
                         <TableCell>{vendor.label}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{vendor.status}</Badge>
@@ -201,8 +190,8 @@ export function AdminModelsPage() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </div>
+            </SectionPanel>
           </>
         )}
       </PageFrame>

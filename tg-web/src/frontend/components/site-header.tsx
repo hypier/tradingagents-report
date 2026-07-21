@@ -39,6 +39,8 @@ function pageOwnsTitle(pathname: string) {
   if (pathname === '/billing') return true;
   if (pathname === '/account') return true;
   if (pathname.startsWith('/stocks/')) return true;
+  if (pathname.startsWith('/legal/')) return true;
+  if (pathname.startsWith('/shared/')) return true;
   if (pathname === '/admin' || pathname.startsWith('/admin/')) return true;
   return false;
 }

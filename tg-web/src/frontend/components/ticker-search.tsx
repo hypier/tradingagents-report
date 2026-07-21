@@ -228,11 +228,12 @@ export function TickerSearch({
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => selectHit(hit)}
                   >
-                    <Avatar className="size-10! shrink-0 !rounded-none after:!rounded-none">
+                    <Avatar className="size-10! shrink-0 !rounded-none after:hidden">
                       <AvatarImage
+                        key={hit.logo_url ?? 'missing'}
                         src={hit.logo_url}
                         alt=""
-                        className="!rounded-none"
+                        className="!rounded-none object-contain"
                       />
                       <AvatarFallback className="!rounded-none text-sm font-semibold">
                         {hit.display_ticker.slice(0, 1)}
@@ -313,13 +314,18 @@ export function TickerSearch({
       {menu}
 
       {value ? (
-        <p className="mt-2 truncate text-sm text-muted-foreground">
-          {value.display_name}
-          <span className="text-muted-foreground/70">
-            {' '}
-            · {value.provider_symbol}
-          </span>
-        </p>
+        <div className="mt-2 min-w-0">
+          <p className="truncate text-sm font-medium tracking-tight text-foreground">
+            {value.display_name || value.display_ticker}
+          </p>
+          <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
+            {value.display_ticker}
+            <span className="text-muted-foreground/80">
+              {' '}
+              · {value.provider_symbol}
+            </span>
+          </p>
+        </div>
       ) : null}
     </div>
   );
