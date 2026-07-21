@@ -25,7 +25,7 @@ import {
   type ReportDeskThemeId,
   type ReportPaperThemeId,
 } from '../components/report/report-reading-toolbar';
-import { ReportTabsNav } from '../components/report/report-tabs-nav';
+import { ReportStickyTabs } from '../components/report/report-sticky-tabs';
 import { InstrumentIdentity } from '../components/instrument-identity';
 import { InstrumentLogo } from '../components/instrument-logo';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
@@ -713,21 +713,24 @@ export function ReportPage() {
             }}
             className="min-h-0 flex-1 gap-0"
           >
-            <div className="sticky top-(--header-height) z-10 -mx-5 bg-background/95 px-5 py-3 backdrop-blur-md lg:-mx-6 lg:px-6">
-              <ReportTabsNav
-                entries={tabKeys}
-                activeTab={activeTab || entries[0][0]}
-                onSelect={(value) => {
-                  setActiveTab(value);
-                  scrollToTop();
-                }}
-                renderLabel={reportTabLabel}
-                renderIcon={(key) => {
-                  const Icon = reportTabIcon(key);
-                  return <Icon className="size-3.5" />;
-                }}
-              />
-            </div>
+            <ReportStickyTabs
+              stickyTop="header"
+              symbol={identity.ticker ?? 'R'}
+              logoUrl={identity.logoUrl}
+              displayName={identity.displayName}
+              ticker={identity.ticker}
+              entries={tabKeys}
+              activeTab={activeTab || entries[0][0]}
+              onSelect={(value) => {
+                setActiveTab(value);
+                scrollToTop();
+              }}
+              renderLabel={reportTabLabel}
+              renderIcon={(key) => {
+                const Icon = reportTabIcon(key);
+                return <Icon className="size-3.5" />;
+              }}
+            />
             {entries.map(([key, value]) => (
               <TabsContent
                 key={key}

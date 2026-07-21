@@ -18,6 +18,8 @@ type ReportTabsNavProps = {
   onSelect: (key: string) => void;
   renderIcon: (key: string) => ReactNode;
   renderLabel: (key: string) => string;
+  /** Optional chip to the left of the tab scroller (e.g. stuck identity). */
+  leading?: ReactNode;
 };
 
 /**
@@ -30,6 +32,7 @@ export function ReportTabsNav({
   onSelect,
   renderIcon,
   renderLabel,
+  leading,
 }: ReportTabsNavProps) {
   const { t } = useTranslation('report');
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -101,6 +104,7 @@ export function ReportTabsNav({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-end gap-1">
+        {leading}
         <Button
           type="button"
           variant="ghost"
