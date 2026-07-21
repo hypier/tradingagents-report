@@ -42,9 +42,25 @@ export type ResolvedListing = {
 
 export type MarketSearchHit = ResolvedListing & {
   display_name: string;
+  /** Common English name when different from `display_name` (often localized). */
+  english_name?: string;
   logo_url?: string;
   is_primary_listing?: boolean;
 };
+
+/** Return English name only when it adds information beyond the primary label. */
+export function distinctEnglishName(
+  primary?: string | null,
+  english?: string | null,
+): string | undefined {
+  const primaryName = primary?.trim() || '';
+  const englishName = english?.trim() || '';
+  if (!englishName) return undefined;
+  if (!primaryName) return englishName;
+  if (primaryName === englishName) return undefined;
+  if (primaryName.toLowerCase() === englishName.toLowerCase()) return undefined;
+  return englishName;
+}
 
 export interface ListingResolver {
   resolveListing(ticker: string): Promise<ResolvedListing>;

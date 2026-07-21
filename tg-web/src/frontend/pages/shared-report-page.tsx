@@ -150,6 +150,7 @@ export function SharedReportPage({
   );
   const ticker = job?.ticker ? formatDisplayTicker(job.ticker) : null;
   const displayName = job?.display?.display_name?.trim() || null;
+  const englishName = job?.display?.english_name?.trim() || null;
   const logoUrl = job?.display?.logo_url?.trim() || null;
   const language = job?.output_language?.trim() || null;
   const tradeDate =
@@ -253,6 +254,7 @@ export function SharedReportPage({
               density="header"
               nameAs="h1"
               name={displayName}
+              secondaryName={englishName}
               ticker={ticker || title}
               trailing={
                 decisionLabel ? (

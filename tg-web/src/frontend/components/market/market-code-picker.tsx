@@ -12,6 +12,7 @@ import {
 } from '@/frontend/components/ui/dialog';
 import { Input } from '@/frontend/components/ui/input';
 import {
+  clearRecentTvMarkets,
   loadRecentTvMarkets,
   rememberTvMarket,
 } from '@/frontend/lib/recent-tv-markets';
@@ -197,12 +198,21 @@ export function MarketCodePicker({
               <div className="space-y-5">
                 {recentMarkets.length > 0 ? (
                   <section>
-                    <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
-                      {t('marketPicker.recent')}
-                      <span className="ml-2 font-mono tabular-nums opacity-70">
-                        {recentMarkets.length}
-                      </span>
-                    </h3>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-medium tracking-wide text-muted-foreground">
+                        {t('marketPicker.recent')}
+                        <span className="ml-2 font-mono tabular-nums opacity-70">
+                          {recentMarkets.length}
+                        </span>
+                      </h3>
+                      <button
+                        type="button"
+                        className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        onClick={() => setRecentCodes(clearRecentTvMarkets())}
+                      >
+                        {t('marketPicker.clearRecent')}
+                      </button>
+                    </div>
                     <MarketGrid
                       markets={recentMarkets}
                       value={value}

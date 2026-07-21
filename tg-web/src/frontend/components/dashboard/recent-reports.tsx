@@ -26,6 +26,7 @@ import {
   formatLocaleCalendarDate,
   formatLocaleDateTime,
   formatLocaleTime,
+  isDisplayToday,
   parseLocaleDateInput,
 } from '@/frontend/lib/format-locale';
 import {
@@ -96,12 +97,7 @@ function formatCompactSubmitted(value?: string | null, fallback = '—') {
   if (!value) return fallback;
   const date = parseLocaleDateInput(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  const now = new Date();
-  if (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  ) {
+  if (isDisplayToday(date)) {
     return formatLocaleTime(value, fallback).slice(0, 5);
   }
   return formatLocaleDateTime(value, fallback);

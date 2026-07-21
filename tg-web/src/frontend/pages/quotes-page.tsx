@@ -31,6 +31,7 @@ import {
   formatLocaleDateTimeValue,
   formatLocaleNumber,
 } from '@/frontend/lib/format-locale';
+import { loadRecentTvMarkets } from '@/frontend/lib/recent-tv-markets';
 import type { SelectedInstrument } from '@/frontend/lib/research';
 import { cn } from '@/frontend/lib/utils';
 import { normalizeUiLocale } from '@/frontend/i18n/locales';
@@ -42,6 +43,10 @@ import {
   STOCK_LEADERBOARD_TABS,
   type StockLeaderboardTab,
 } from '@/shared/market-codes';
+
+function initialQuotesMarketCode() {
+  return loadRecentTvMarkets()[0] ?? DEFAULT_TV_MARKET_CODE;
+}
 
 const BOARD_TABS = STOCK_LEADERBOARD_TABS;
 
@@ -74,11 +79,13 @@ export function QuotesPage() {
   const { t, i18n } = useTranslation(['quotes', 'common']);
   const navigate = useNavigate();
   const lang = normalizeUiLocale(i18n.language) === 'zh' ? 'zh' : 'en';
-  const [marketCode, setMarketCode] = useState(DEFAULT_TV_MARKET_CODE);
+  const [marketCode, setMarketCode] = useState(initialQuotesMarketCode);
   const [tab, setTab] = useState<StockLeaderboardTab>('active');
   const [searchInstrument, setSearchInstrument] =
     useState<SelectedInstrument | null>(null);
-  const [defaultApplied, setDefaultApplied] = useState(false);
+  const [defaultApplied, setDefaultApplied] = useState(
+    () => loadRecentTvMarkets().length > 0,
+  );
 
   const account = useQuery({
     queryKey: ['account-profile'],
@@ -88,6 +95,13 @@ export function QuotesPage() {
 
   useEffect(() => {
     if (defaultApplied) return;
+    // Prefer last market picked on this device; account default is fallback only.
+    const cached = loadRecentTvMarkets()[0];
+    if (cached) {
+      setMarketCode(cached);
+      setDefaultApplied(true);
+      return;
+    }
     const preferred = productMarketToTradingViewCode(
       account.data?.data.profile.defaultMarket,
     );
@@ -119,7 +133,7 @@ export function QuotesPage() {
       getMarketBoard({
         marketCode,
         tab,
-        count: 20,
+        count: 50,
         lang,
       }),
     staleTime: 30_000,

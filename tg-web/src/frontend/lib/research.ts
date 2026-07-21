@@ -6,6 +6,7 @@ export type ResearchInstrumentInput = {
 
 export type ResearchDisplayInput = {
   display_name?: string;
+  english_name?: string;
   logo_url?: string;
   country?: string;
 };
@@ -23,6 +24,7 @@ export type AnalysisStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 export type InstrumentDisplay = {
   display_name?: string;
+  english_name?: string;
   logo_url?: string;
   country?: string;
   symbol?: string;
@@ -73,6 +75,7 @@ export type MarketSnapshot = {
   ticker: string;
   display_ticker?: string;
   display_name?: string;
+  english_name?: string;
   logo_url?: string;
   last_price?: number;
   currency?: string;
@@ -93,6 +96,7 @@ export type AssetIdentity = {
   ticker: string;
   display_ticker?: string;
   display_name: string;
+  english_name?: string;
   logo_url?: string;
 };
 
@@ -103,6 +107,7 @@ export type MarketSearchHit = {
   display_ticker: string;
   provider_symbol: string | null;
   display_name: string;
+  english_name?: string;
   logo_url?: string;
   is_primary_listing?: boolean;
 };
@@ -111,6 +116,7 @@ export type SelectedInstrument = {
   display_ticker: string;
   provider_symbol: string;
   display_name: string;
+  english_name?: string;
   logo_url?: string;
   exchange: string;
   symbol: string;
@@ -267,10 +273,11 @@ export const createMarketStreamToken = (
 
 export const searchMarkets = (
   query: string,
+  lang: 'en' | 'zh' = 'en',
   fetchImplementation?: FetchImplementation,
 ) =>
   read<MarketSearchHit[]>(
-    `/api/market-search?q=${encodeURIComponent(query)}`,
+    `/api/market-search?q=${encodeURIComponent(query)}&lang=${encodeURIComponent(lang)}`,
     fetchImplementation,
   );
 

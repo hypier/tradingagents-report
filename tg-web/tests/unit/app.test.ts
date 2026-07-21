@@ -1292,7 +1292,7 @@ describe('createApp', () => {
     expect(await response.json()).toMatchObject({
       data: [{ display_ticker: '0700.HK', provider_symbol: 'HKEX:700' }],
     });
-    expect(marketAssets.searchMarkets).toHaveBeenCalledWith('tencent');
+    expect(marketAssets.searchMarkets).toHaveBeenCalledWith('tencent', 'en');
   });
 
   it('returns a server-side TradingView market snapshot', async () => {

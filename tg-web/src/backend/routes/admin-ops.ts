@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { apiSuccess } from '../../shared/contracts';
+import { isValidTimezone } from '../../shared/timezone';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 
@@ -41,7 +42,12 @@ const marketUpsertSchema = z.object({
   code: z.string().trim().min(1).max(16),
   enabled: z.boolean(),
   displayName: z.string().trim().min(1).max(100),
-  timezone: z.string().trim().min(1).max(64),
+  timezone: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .refine(isValidTimezone, 'Invalid timezone'),
   currency: z.string().trim().min(1).max(16),
   sessionNotes: z.string().trim().max(2000).nullable().optional(),
   disclaimer: z.string().trim().max(5000).nullable().optional(),

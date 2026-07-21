@@ -12,6 +12,7 @@ import {
   type StockLeaderboardTab,
 } from '../../shared/market-codes';
 import {
+  distinctEnglishName,
   formatDisplayTicker,
   isSupportedExchange,
   listingForQuoteView,
@@ -30,6 +31,8 @@ export type MarketAssetIdentity = {
   ticker: string;
   display_ticker: string;
   display_name: string;
+  /** Common English name when different from localized `display_name`. */
+  english_name?: string;
   logo_url?: string;
 };
 
@@ -65,7 +68,10 @@ export type MarketStreamToken = {
 };
 
 export interface MarketAssetClient {
-  searchMarkets(query: string): Promise<MarketSearchHit[]>;
+  searchMarkets(
+    query: string,
+    lang?: 'en' | 'zh',
+  ): Promise<MarketSearchHit[]>;
   getIdentities(tickers: string[]): Promise<MarketAssetIdentity[]>;
   getSnapshot(providerSymbol: string): Promise<MarketSnapshot>;
   listMarkets(locale?: 'en' | 'zh'): Promise<
@@ -100,12 +106,47 @@ export class TradingViewMarketClient implements MarketAssetClient {
     private readonly fetchImplementation: FetchImplementation = fetch,
   ) {}
 
-  async searchMarkets(query: string): Promise<MarketSearchHit[]> {
+  async searchMarkets(
+    query: string,
+    lang: 'en' | 'zh' = 'en',
+  ): Promise<MarketSearchHit[]> {
     const normalizedQuery = query.trim();
     if (!this.apiKey || !normalizedQuery) return [];
 
+    const locale = lang === 'zh' ? 'zh' : 'en';
+    const [primaryHits, englishHits] = await Promise.all([
+      this.searchMarketsForLang(normalizedQuery, locale),
+      locale === 'en'
+        ? Promise.resolve([] as MarketSearchHit[])
+        : this.searchMarketsForLang(normalizedQuery, 'en'),
+    ]);
+
+    if (!englishHits.length) return primaryHits;
+
+    const englishBySymbol = new Map(
+      englishHits
+        .filter((hit) => hit.provider_symbol)
+        .map((hit) => [hit.provider_symbol!, hit.display_name] as const),
+    );
+
+    return primaryHits.map((hit) => {
+      const english_name = distinctEnglishName(
+        hit.display_name,
+        hit.provider_symbol
+          ? englishBySymbol.get(hit.provider_symbol)
+          : undefined,
+      );
+      return english_name ? { ...hit, english_name } : hit;
+    });
+  }
+
+  private async searchMarketsForLang(
+    query: string,
+    lang: 'en' | 'zh',
+  ): Promise<MarketSearchHit[]> {
+    const params = new URLSearchParams({ filter: 'stock', lang });
     const response = await this.request(
-      `/api/search/market/${encodeURIComponent(normalizedQuery)}?filter=stock`,
+      `/api/search/market/${encodeURIComponent(query)}?${params.toString()}`,
     );
     if (!response.ok) return [];
 
@@ -319,19 +360,30 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const quoteLogo =
       quote?.logo && isRecord(quote.logo) ? quote.logo : undefined;
     const shortName = stringValue(quote?.short_name);
-    const quoteDescription =
-      stringValue(quote?.local_description) || stringValue(quote?.description);
+    const localName = stringValue(quote?.local_description);
+    const englishFromQuote = stringValue(quote?.description);
+    const marketDescription = stringValue(market?.description);
     // short_name is often the ticker code (e.g. AAPL); prefer company description.
     const shortLooksLikeCode =
       !shortName ||
       shortName.toUpperCase() === listing.symbol.toUpperCase() ||
       shortName.toUpperCase() === listing.display_ticker.toUpperCase();
-    const description =
-      stringValue(market?.description) ||
+    // Prefer localized name when TradingView provides one; keep English separately.
+    const display_name =
+      localName ||
+      marketDescription ||
       (shortLooksLikeCode
-        ? quoteDescription || shortName
-        : shortName || quoteDescription) ||
+        ? englishFromQuote || shortName
+        : shortName || englishFromQuote) ||
       listing.display_ticker;
+    const english_name = distinctEnglishName(
+      display_name,
+      englishFromQuote ||
+        (!shortLooksLikeCode && shortName !== display_name
+          ? shortName
+          : undefined) ||
+        marketDescription,
+    );
     const logoid =
       stringValue(market?.logo?.logoid) ||
       stringValue(quote?.logoid) ||
@@ -346,7 +398,8 @@ export class TradingViewMarketClient implements MarketAssetClient {
     return {
       ticker: listing.display_ticker,
       display_ticker: listing.display_ticker,
-      display_name: description,
+      display_name,
+      ...(english_name ? { english_name } : {}),
       ...(logoid
         ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
         : {}),

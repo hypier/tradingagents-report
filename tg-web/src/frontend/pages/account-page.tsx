@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { UserProfile } from '@clerk/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save, ShieldCheck } from 'lucide-react';
@@ -41,7 +41,10 @@ import {
   getAccountProfile,
   updateAccountPreferences,
 } from '@/frontend/lib/account';
+import { setDisplayTimezone } from '@/frontend/lib/display-timezone';
+import { cn } from '@/frontend/lib/utils';
 import { interfaceLanguageToUiLocale } from '@/frontend/i18n/locales';
+import { listTimezoneSelectOptions } from '@/shared/timezone';
 
 const legalDocuments: Array<[LegalDocumentType, string]> = [
   ['risk_disclaimer', 'risk-disclaimer'],
@@ -86,6 +89,7 @@ export function AccountPage() {
     mutationFn: updateAccountPreferences,
     onSuccess: (_data, variables) => {
       void refresh();
+      setDisplayTimezone(variables.timezone);
       void i18n.changeLanguage(
         interfaceLanguageToUiLocale(variables.interfaceLanguage),
       );
@@ -101,6 +105,10 @@ export function AccountPage() {
     },
     onError: () => toast.error(t('legal.recordError')),
   });
+  const timezoneOptions = useMemo(
+    () => listTimezoneSelectOptions(preferences?.timezone),
+    [preferences?.timezone],
+  );
 
   return (
     <AppShell>
@@ -133,11 +141,15 @@ export function AccountPage() {
                         ['zh-CN', t('preferences.languages.zhCN')],
                       ]}
                       onChange={(interfaceLanguage) =>
-                        setPreferences({
-                          ...preferences,
-                          interfaceLanguage:
-                            interfaceLanguage as AccountPreferences['interfaceLanguage'],
-                        })
+                        setPreferences((current) =>
+                          current
+                            ? {
+                                ...current,
+                                interfaceLanguage:
+                                  interfaceLanguage as AccountPreferences['interfaceLanguage'],
+                              }
+                            : current,
+                        )
                       }
                     />
                     <Field>
@@ -149,10 +161,14 @@ export function AccountPage() {
                         value={preferences.reportLanguage}
                         maxLength={64}
                         onChange={(event) =>
-                          setPreferences({
-                            ...preferences,
-                            reportLanguage: event.target.value,
-                          })
+                          setPreferences((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  reportLanguage: event.target.value,
+                                }
+                              : current,
+                          )
                         }
                       />
                     </Field>
@@ -160,17 +176,28 @@ export function AccountPage() {
                       <FieldLabel htmlFor="timezone">
                         {t('preferences.timezone')}
                       </FieldLabel>
-                      <Input
+                      <select
                         id="timezone"
                         value={preferences.timezone}
-                        placeholder="Asia/Shanghai"
                         onChange={(event) =>
-                          setPreferences({
-                            ...preferences,
-                            timezone: event.target.value,
-                          })
+                          setPreferences((current) =>
+                            current
+                              ? { ...current, timezone: event.target.value }
+                              : current,
+                          )
                         }
-                      />
+                        className={cn(
+                          'flex h-11 w-full min-w-0 appearance-none items-center rounded-none border border-input bg-transparent px-3.5 py-2.5 text-base transition-colors outline-none',
+                          'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
+                          'dark:bg-card',
+                        )}
+                      >
+                        {timezoneOptions.map(([option, text]) => (
+                          <option key={option} value={option}>
+                            {text}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                     <PreferenceSelect
                       label={t('preferences.defaultMarket')}
@@ -182,11 +209,15 @@ export function AccountPage() {
                         ['CRYPTO', t('preferences.markets.CRYPTO')],
                       ]}
                       onChange={(defaultMarket) =>
-                        setPreferences({
-                          ...preferences,
-                          defaultMarket:
-                            defaultMarket as AccountPreferences['defaultMarket'],
-                        })
+                        setPreferences((current) =>
+                          current
+                            ? {
+                                ...current,
+                                defaultMarket:
+                                  defaultMarket as AccountPreferences['defaultMarket'],
+                              }
+                            : current,
+                        )
                       }
                     />
                     <Field className="md:col-span-2 md:items-end">
@@ -288,7 +319,14 @@ function PreferenceSelect({
   return (
     <Field>
       <FieldLabel>{label}</FieldLabel>
-      <Select value={value} onValueChange={onChange}>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          // Radix form bubble select can briefly emit "" while options hydrate.
+          if (!next) return;
+          onChange(next);
+        }}
+      >
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>

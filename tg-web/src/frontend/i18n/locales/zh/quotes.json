@@ -10,6 +10,7 @@
     "dialogTitle": "选择市场",
     "dialogDescription": "按大洲浏览股票市场。",
     "recent": "常用选择",
+    "clearRecent": "清除",
     "catalogCount": "共 {{count}} 个市场",
     "continents": {
       "north_america": "北美",

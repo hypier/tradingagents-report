@@ -3,7 +3,7 @@
     "title": "无效标的",
     "body": "无法解析该股票代码。"
   },
-  "backToQuotes": "市场行情",
+  "back": "返回",
   "actions": {
     "analyze": "开始分析",
     "analyzeUnsupported": "该交易所暂不支持分析。",

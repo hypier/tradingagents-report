@@ -35,11 +35,18 @@ import { Spinner } from '../components/ui/spinner';
 import { getAccountProfile } from '../lib/account';
 import { getBillingOverview } from '../lib/billing';
 import { OUTPUT_LANGUAGE_IDS, formatOutputLanguage } from '../lib/format-output-language';
-import { fetchCreditEstimate } from '../lib/public-config';
+import {
+  fetchCreditEstimate,
+  fetchPublicConfig,
+} from '../lib/public-config';
 import { todayInTimezone } from '../i18n/locales';
 import { cn } from '../lib/utils';
 import { listingFromProviderSymbol } from '@/shared/listing';
 import { marketFromExchange } from '@/shared/market-codes';
+import {
+  guessBrowserTimezone,
+  resolveMarketTimezone,
+} from '@/shared/timezone';
 import {
   createResearch,
   getMarketSnapshot,
@@ -78,13 +85,20 @@ export function HomePage() {
   });
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [outputLanguage, setOutputLanguage] = useState('English');
-  const [tradeDate, setTradeDate] = useState(() => todayInTimezone('UTC'));
+  const [tradeDate, setTradeDate] = useState(() =>
+    todayInTimezone(guessBrowserTimezone()),
+  );
   const [prefsReady, setPrefsReady] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const profile = useQuery({
     queryKey: ['account-profile'],
     queryFn: getAccountProfile,
+  });
+  const publicConfig = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => fetchPublicConfig(),
+    staleTime: 60_000,
   });
   const billing = useQuery({
     queryKey: ['billing-overview'],
@@ -152,6 +166,20 @@ export function HomePage() {
   const hasActiveSubscription =
     subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
   const selectedMarket = marketFromExchange(instrument?.exchange);
+  const accountTimezone =
+    profile.data?.data.profile.timezone ?? guessBrowserTimezone();
+  const tradeDateTimezone = resolveMarketTimezone(
+    selectedMarket,
+    publicConfig.data?.markets,
+    accountTimezone,
+  );
+  const maxTradeDate = todayInTimezone(tradeDateTimezone);
+
+  useEffect(() => {
+    if (!prefsReady) return;
+    setTradeDate((current) => (current > maxTradeDate ? maxTradeDate : current));
+  }, [maxTradeDate, prefsReady]);
+
   const creditEstimate = useQuery({
     queryKey: ['credit-estimate', selectedMarket, analysts.length],
     queryFn: () => fetchCreditEstimate(selectedMarket, analysts.length),
@@ -162,9 +190,6 @@ export function HomePage() {
   const insufficientCredits =
     billing.isSuccess &&
     (!hasActiveSubscription || availableCredits < creditUnits);
-  const maxTradeDate = todayInTimezone(
-    profile.data?.data.profile.timezone ?? 'UTC',
-  );
   const defaultMarket = profile.data?.data.profile.defaultMarket;
 
   function submit() {
@@ -177,6 +202,10 @@ export function HomePage() {
     ) {
       const displayName =
         quote?.display_name?.trim() || instrument.display_name;
+      const englishName =
+        quote?.english_name?.trim() ||
+        instrument.english_name?.trim() ||
+        undefined;
       const logoUrl =
         quote?.logo_url?.trim() ||
         instrument.logo_url?.trim() ||
@@ -193,6 +222,7 @@ export function HomePage() {
         },
         display: {
           display_name: displayName,
+          ...(englishName ? { english_name: englishName } : {}),
           ...(logoUrl ? { logo_url: logoUrl } : {}),
         },
       });
@@ -204,6 +234,7 @@ export function HomePage() {
         ...quote,
         logo_url: quote.logo_url ?? instrument?.logo_url,
         display_name: quote.display_name ?? instrument?.display_name,
+        english_name: quote.english_name ?? instrument?.english_name,
         display_ticker: quote.display_ticker ?? instrument?.display_ticker,
       }
     : null;

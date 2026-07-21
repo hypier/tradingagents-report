@@ -17,6 +17,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Spinner } from './ui/spinner';
 import { cn } from '../lib/utils';
+import { normalizeUiLocale } from '@/frontend/i18n/locales';
 import {
   searchMarkets,
   type MarketSearchHit,
@@ -50,6 +51,7 @@ function toInstrument(hit: MarketSearchHit): SelectedInstrument | null {
     display_name: hit.display_name,
     exchange: hit.exchange,
     symbol: hit.symbol,
+    ...(hit.english_name ? { english_name: hit.english_name } : {}),
     ...(hit.logo_url ? { logo_url: hit.logo_url } : {}),
   };
 }
@@ -65,7 +67,8 @@ export function TickerSearch({
   className,
   preferredMarket,
 }: TickerSearchProps) {
-  const { t } = useTranslation('search');
+  const { t, i18n } = useTranslation('search');
+  const lang = normalizeUiLocale(i18n.language) === 'zh' ? 'zh' : 'en';
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputWrapRef = useRef<HTMLDivElement>(null);
@@ -86,8 +89,8 @@ export function TickerSearch({
   const showMenu = open && !value && debouncedQuery.length >= 1;
 
   const search = useQuery({
-    queryKey: ['market-search', debouncedQuery],
-    queryFn: () => searchMarkets(debouncedQuery),
+    queryKey: ['market-search', debouncedQuery, lang],
+    queryFn: () => searchMarkets(debouncedQuery, lang),
     enabled: showMenu,
   });
 
@@ -236,6 +239,11 @@ export function TickerSearch({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-base font-medium">
                         {hit.display_name}
+                        {hit.english_name ? (
+                          <span className="ml-1.5 font-normal text-xs text-muted-foreground">
+                            {hit.english_name}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="mt-0.5 flex items-center gap-1.5 font-mono text-xs tracking-wide text-muted-foreground">
                         <span>{hit.display_ticker}</span>
@@ -311,6 +319,11 @@ export function TickerSearch({
         <div className="mt-2 min-w-0">
           <p className="truncate text-sm font-medium tracking-tight text-foreground">
             {value.display_name || value.display_ticker}
+            {value.english_name ? (
+              <span className="ml-1.5 font-normal text-xs text-muted-foreground">
+                {value.english_name}
+              </span>
+            ) : null}
           </p>
           <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
             {value.display_ticker}

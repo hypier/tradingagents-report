@@ -32,6 +32,7 @@ export const createAnalysisSchema = z.object({
   display: z
     .object({
       display_name: z.string().trim().min(1).max(256).optional(),
+      english_name: z.string().trim().min(1).max(256).optional(),
       logo_url: z.string().trim().url().optional(),
       country: z.string().trim().min(2).max(8).optional(),
     })

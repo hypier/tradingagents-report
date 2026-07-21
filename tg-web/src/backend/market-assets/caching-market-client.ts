@@ -74,14 +74,18 @@ export class CachingMarketAssetClient implements MarketAssetClient {
     private readonly cache: Cache,
   ) {}
 
-  searchMarkets(query: string): Promise<MarketSearchHit[]> {
-    return this.inner.searchMarkets(query).then(async (hits) => {
+  searchMarkets(
+    query: string,
+    lang?: 'en' | 'zh',
+  ): Promise<MarketSearchHit[]> {
+    return this.inner.searchMarkets(query, lang).then(async (hits) => {
       await Promise.all(
         hits.map((hit) =>
           this.writeIdentity({
             ticker: hit.display_ticker,
             display_ticker: hit.display_ticker,
             display_name: hit.display_name,
+            ...(hit.english_name ? { english_name: hit.english_name } : {}),
             ...(hit.logo_url ? { logo_url: hit.logo_url } : {}),
           }),
         ),
@@ -143,6 +147,9 @@ export class CachingMarketAssetClient implements MarketAssetClient {
       ticker: snapshot.ticker,
       display_ticker: snapshot.display_ticker ?? snapshot.ticker,
       display_name: snapshot.display_name,
+      ...(snapshot.english_name
+        ? { english_name: snapshot.english_name }
+        : {}),
       ...(snapshot.logo_url ? { logo_url: snapshot.logo_url } : {}),
     });
     return snapshot;
@@ -189,6 +196,9 @@ export class CachingMarketAssetClient implements MarketAssetClient {
       ticker,
       display_ticker: identity.display_ticker,
       display_name: identity.display_name,
+      ...(identity.english_name
+        ? { english_name: identity.english_name }
+        : {}),
       ...(identity.logo_url ? { logo_url: identity.logo_url } : {}),
     };
     await this.cache.set(

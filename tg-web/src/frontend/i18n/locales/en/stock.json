@@ -3,7 +3,7 @@
     "title": "Invalid instrument",
     "body": "This stock symbol could not be resolved."
   },
-  "backToQuotes": "Market Quotes",
+  "back": "Back",
   "actions": {
     "analyze": "Run analysis",
     "analyzeUnsupported": "This exchange is not available for analysis yet.",

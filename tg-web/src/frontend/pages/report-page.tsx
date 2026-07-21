@@ -119,11 +119,20 @@ function reportTabIcon(key: string) {
 function reportIdentity(job: AnalysisDetail | undefined) {
   const ticker = job?.ticker ? formatDisplayTicker(job.ticker) : null;
   const displayName = job?.display?.display_name?.trim() || null;
+  const englishName = job?.display?.english_name?.trim() || null;
   const logoUrl = job?.display?.logo_url?.trim() || null;
   const exchange = job?.exchange?.trim() || null;
   const country = job?.display?.country?.trim() || null;
   const language = job?.output_language?.trim() || null;
-  return { ticker, displayName, logoUrl, exchange, country, language };
+  return {
+    ticker,
+    displayName,
+    englishName,
+    logoUrl,
+    exchange,
+    country,
+    language,
+  };
 }
 
 function getReportScrollParent() {
@@ -409,6 +418,7 @@ export function ReportPage() {
               density="header"
               nameAs="h1"
               name={identity.displayName}
+              secondaryName={identity.englishName}
               ticker={identity.ticker || title}
               trailing={
                 <>

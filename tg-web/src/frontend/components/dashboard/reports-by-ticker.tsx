@@ -9,7 +9,7 @@ import {
   decisionBadgeVariant,
   formatDecisionLabel,
 } from '@/frontend/lib/format-decision';
-import { formatLocaleCalendarDate } from '@/frontend/lib/format-locale';
+import { formatLocaleCalendarDate, parseSortableDateInput } from '@/frontend/lib/format-locale';
 import { formatDisplayTicker } from '@/shared/listing';
 import type { AnalysisJob, AssetIdentity } from '../../lib/research';
 
@@ -45,9 +45,9 @@ function instrumentLogo(
 }
 
 function jobSortTime(job: AnalysisJob) {
-  return new Date(
+  return parseSortableDateInput(
     job.trade_date ?? job.updated_at ?? job.created_at ?? 0,
-  ).getTime();
+  );
 }
 
 /** Group jobs by ticker; newest trade date first within and across groups. */

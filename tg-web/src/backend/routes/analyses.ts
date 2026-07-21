@@ -80,6 +80,9 @@ export function analysisRoutes(dependencies: AppDependencies) {
                 ...(input.display.display_name
                   ? { display_name: input.display.display_name }
                   : {}),
+                ...(input.display.english_name
+                  ? { english_name: input.display.english_name }
+                  : {}),
                 ...(input.display.logo_url
                   ? { logo_url: input.display.logo_url }
                   : {}),
@@ -252,9 +255,10 @@ export function analysisRoutes(dependencies: AppDependencies) {
         400,
       );
     }
+    const lang = context.req.query('lang') === 'zh' ? 'zh' : 'en';
     return context.json(
       apiSuccess(
-        await dependencies.marketAssets.searchMarkets(query),
+        await dependencies.marketAssets.searchMarkets(query, lang),
         context.get('requestId'),
       ),
     );
@@ -350,7 +354,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
       context.req.query('market_code') ?? context.req.query('market') ?? '';
     const tab = context.req.query('tab') ?? 'active';
     const lang = context.req.query('lang') === 'zh' ? 'zh' : 'en';
-    const count = Number(context.req.query('count') ?? '20');
+    const count = Number(context.req.query('count') ?? '50');
     const start = Number(context.req.query('start') ?? '0');
     if (!marketCode.trim()) {
       return context.json(
@@ -382,7 +386,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
           await dependencies.marketAssets.getStockLeaderboard({
             marketCode,
             tab,
-            count: Number.isFinite(count) ? count : 20,
+            count: Number.isFinite(count) ? count : 50,
             start: Number.isFinite(start) ? start : 0,
             lang,
           }),

@@ -38,7 +38,7 @@ export const getMarketBoard = (
   const params = new URLSearchParams({
     market_code: input.marketCode,
     tab: input.tab ?? 'active',
-    count: String(input.count ?? 20),
+    count: String(input.count ?? 50),
     start: String(input.start ?? 0),
     lang: input.lang ?? 'en',
   });

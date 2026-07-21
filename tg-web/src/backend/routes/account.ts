@@ -5,6 +5,7 @@ import { LEGAL_DOCUMENT_VERSIONS } from '../account/contract';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import { apiSuccess } from '../../shared/contracts';
+import { isValidTimezone } from '../../shared/timezone';
 
 const preferencesSchema = z.object({
   interfaceLanguage: z.enum(['en', 'zh-CN']),
@@ -14,7 +15,7 @@ const preferencesSchema = z.object({
     .trim()
     .min(1)
     .max(64)
-    .refine(isTimezone, 'Invalid timezone'),
+    .refine(isValidTimezone, 'Invalid timezone'),
   defaultMarket: z.enum(['US', 'HK', 'CN', 'CRYPTO']),
 });
 
@@ -82,13 +83,4 @@ export function accountRoutes(dependencies: AppDependencies) {
   });
 
   return app;
-}
-
-function isTimezone(value: string) {
-  try {
-    new Intl.DateTimeFormat('en', { timeZone: value }).format();
-    return true;
-  } catch {
-    return false;
-  }
 }

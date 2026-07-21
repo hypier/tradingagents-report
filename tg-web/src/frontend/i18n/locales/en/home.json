@@ -12,7 +12,7 @@
   },
   "tradeDate": {
     "label": "Analysis date",
-    "hint": "Uses your account timezone. Cannot be after today."
+    "hint": "Uses the selected market timezone when available (otherwise your account timezone). Cannot be after today."
   },
   "analystTeam": "Research nodes",
   "analystTeamHint": "Toggle agents included in this run.",

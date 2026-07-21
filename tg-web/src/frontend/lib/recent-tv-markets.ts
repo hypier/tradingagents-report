@@ -58,3 +58,9 @@ export function rememberTvMarket(code: string): string[] {
   writeCodes(next);
   return next;
 }
+
+/** Clear the local recent-markets cache. */
+export function clearRecentTvMarkets(): string[] {
+  writeCodes([]);
+  return [];
+}

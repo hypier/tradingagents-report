@@ -45,10 +45,13 @@ export function TradingViewAdvancedChart({
   symbol,
   className,
   height = 420,
+  timezone = 'Etc/UTC',
 }: {
   symbol: string;
   className?: string;
   height?: number;
+  /** IANA timezone for the chart axis (prefer market session TZ). */
+  timezone?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -78,7 +81,7 @@ export function TradingViewAdvancedChart({
           autosize: true,
           symbol,
           interval: 'D',
-          timezone: 'Etc/UTC',
+          timezone,
           theme: isDark ? 'dark' : 'light',
           style: '1',
           locale,
@@ -111,7 +114,7 @@ export function TradingViewAdvancedChart({
       cancelled = true;
       host.replaceChildren();
     };
-  }, [symbol, isDark, locale, t]);
+  }, [symbol, isDark, locale, t, timezone]);
 
   return (
     <div

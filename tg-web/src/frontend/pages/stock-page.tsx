@@ -23,6 +23,8 @@ import {
 import { useLiveQuote } from '../hooks/use-live-quote';
 import { useJobMarketIdentities } from '../hooks/use-market-identities';
 import { formatLocaleDateTimeValue } from '../lib/format-locale';
+import { getDisplayTimezone } from '../lib/display-timezone';
+import { fetchPublicConfig } from '../lib/public-config';
 import { cn } from '../lib/utils';
 import { listResearch } from '../lib/research';
 import {
@@ -31,6 +33,8 @@ import {
   removeWatchlistItem,
 } from '../lib/watchlist';
 import { isSupportedExchange, listingForQuoteView } from '@/shared/listing';
+import { marketFromExchange } from '@/shared/market-codes';
+import { resolveMarketTimezone } from '@/shared/timezone';
 
 export function StockPage() {
   const { t } = useTranslation(['stock', 'common']);
@@ -77,6 +81,16 @@ export function StockPage() {
     queryFn: () => getWatchlist(),
     staleTime: 60_000,
   });
+  const publicConfig = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => fetchPublicConfig(),
+    staleTime: 60_000,
+  });
+  const chartTimezone = resolveMarketTimezone(
+    marketFromExchange(listing?.exchange),
+    publicConfig.data?.markets,
+    getDisplayTimezone(),
+  );
 
   const existingItem = watchlist.data?.data.groups
     .flatMap((group) => group.items)
@@ -110,6 +124,10 @@ export function StockPage() {
     existingItem?.displayName?.trim() ||
     listing?.display_ticker ||
     '';
+  const englishName =
+    quote?.english_name?.trim() ||
+    reportDisplay?.english_name?.trim() ||
+    undefined;
   const logoUrl =
     quote?.logo_url?.trim() ||
     reportDisplay?.logo_url?.trim() ||
@@ -147,14 +165,23 @@ export function StockPage() {
             <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
               <div className="flex min-w-0 items-center gap-2.5">
                 <Button
-                  asChild
+                  type="button"
                   variant="ghost"
                   size="icon"
                   className="size-8 shrink-0 text-muted-foreground"
+                  aria-label={t('back')}
+                  onClick={() => {
+                    const historyIndex = (
+                      window.history.state as { idx?: number } | null
+                    )?.idx;
+                    if (typeof historyIndex === 'number' && historyIndex > 0) {
+                      navigate(-1);
+                      return;
+                    }
+                    navigate('/quotes');
+                  }}
                 >
-                  <Link to="/quotes" aria-label={t('backToQuotes')}>
-                    <ArrowLeft className="size-4" />
-                  </Link>
+                  <ArrowLeft className="size-4" />
                 </Button>
 
                 <InstrumentLogo
@@ -169,6 +196,7 @@ export function StockPage() {
                     density="header"
                     nameAs="h1"
                     name={displayName}
+                    secondaryName={englishName}
                     ticker={listing.provider_symbol ?? listing.display_ticker}
                     nameClassName="text-lg"
                     tickerClassName="mt-0.5 text-xs"
@@ -332,7 +360,11 @@ export function StockPage() {
         </header>
 
         <PageBody>
-          <TradingViewAdvancedChart symbol={providerSymbol} height={420} />
+          <TradingViewAdvancedChart
+            symbol={providerSymbol}
+            height={420}
+            timezone={chartTimezone}
+          />
 
           <ReportsTable
             jobs={reports.data?.data ?? []}

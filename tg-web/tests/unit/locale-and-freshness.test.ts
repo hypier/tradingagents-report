@@ -10,6 +10,12 @@ import {
   parseUpdateModeDelaySeconds,
   snapshotFreshness,
 } from '../../src/frontend/lib/snapshot-freshness';
+import {
+  formatTimezoneOptionLabel,
+  isValidTimezone,
+  listTimezoneSelectOptions,
+  resolveMarketTimezone,
+} from '../../src/shared/timezone';
 
 describe('locale preference mapping', () => {
   it('maps UI locales to account interface languages', () => {
@@ -27,6 +33,36 @@ describe('locale preference mapping', () => {
 describe('todayInTimezone', () => {
   it('returns a YYYY-MM-DD calendar date', () => {
     expect(todayInTimezone('UTC')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe('resolveMarketTimezone', () => {
+  it('prefers public market metadata over builtins', () => {
+    expect(
+      resolveMarketTimezone('US', [{ code: 'US', timezone: 'America/Chicago' }], 'UTC'),
+    ).toBe('America/Chicago');
+  });
+
+  it('falls back to product-market builtins then account timezone', () => {
+    expect(resolveMarketTimezone('CN', [], 'America/New_York')).toBe(
+      'Asia/Shanghai',
+    );
+    expect(resolveMarketTimezone(null, [], 'Asia/Tokyo')).toBe('Asia/Tokyo');
+  });
+
+  it('validates IANA timezones', () => {
+    expect(isValidTimezone('Asia/Shanghai')).toBe(true);
+    expect(isValidTimezone('Not/AZone')).toBe(false);
+  });
+
+  it('builds timezone select options with labels and extras', () => {
+    const options = listTimezoneSelectOptions('Pacific/Honolulu');
+    const values = options.map(([value]) => value);
+    expect(values).toContain('Asia/Shanghai');
+    expect(values).toContain('UTC');
+    expect(values).toContain('Pacific/Honolulu');
+    expect(formatTimezoneOptionLabel('Asia/Shanghai')).toMatch(/Shanghai/);
+    expect(formatTimezoneOptionLabel('Asia/Shanghai')).toMatch(/Asia\/Shanghai/);
   });
 });
 

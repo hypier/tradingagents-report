@@ -10,6 +10,7 @@
     "dialogTitle": "Select market",
     "dialogDescription": "Browse equity markets by continent.",
     "recent": "Frequently used",
+    "clearRecent": "Clear",
     "catalogCount": "{{count}} markets",
     "continents": {
       "north_america": "North America",

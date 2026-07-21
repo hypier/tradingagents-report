@@ -117,6 +117,39 @@ describe('TradingViewMarketClient', () => {
     });
   });
 
+  it('keeps localized display_name and exposes english_name from quote', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            symbol: 'HKEX:700',
+            data: {
+              lp: 476.4,
+              ch: -1.4,
+              chp: -0.29,
+              currency_code: 'HKD',
+              lp_time: 1784165400,
+              update_mode: 'delayed_streaming_900',
+              short_name: '0700',
+              local_description: '騰訊控股',
+              description: 'Tencent Holdings Ltd.',
+              logoid: 'tencent',
+            },
+          },
+        }),
+      ),
+    );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.getSnapshot('HKEX:700')).resolves.toMatchObject({
+      display_ticker: '0700.HK',
+      display_name: '騰訊控股',
+      english_name: 'Tencent Holdings Ltd.',
+      last_price: 476.4,
+    });
+  });
+
   it('resolves Yahoo-suffixed tickers locally without Core', async () => {
     const fetchMock = vi
       .fn()
@@ -235,6 +268,64 @@ describe('TradingViewMarketClient', () => {
         is_primary_listing: false,
       },
     ]);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('lang=en');
+  });
+
+  it('merges english_name when searching in Chinese', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              markets: [
+                {
+                  symbol: '700',
+                  full_name: 'HKEX:700',
+                  description: '騰訊控股',
+                  is_primary_listing: true,
+                  logo: { style: 'single', logoid: 'tencent' },
+                },
+              ],
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              markets: [
+                {
+                  symbol: '700',
+                  full_name: 'HKEX:700',
+                  description: 'Tencent Holdings Ltd.',
+                  is_primary_listing: true,
+                  logo: { style: 'single', logoid: 'tencent' },
+                },
+              ],
+            },
+          }),
+        ),
+      );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.searchMarkets('0700', 'zh')).resolves.toEqual([
+      {
+        ticker: '0700.HK',
+        exchange: 'HKEX',
+        symbol: '700',
+        display_ticker: '0700.HK',
+        provider_symbol: 'HKEX:700',
+        display_name: '騰訊控股',
+        english_name: 'Tencent Holdings Ltd.',
+        logo_url: 'https://tv-logo.tradingviewapi.com/logo/tencent.svg',
+        is_primary_listing: true,
+      },
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('returns a direct public logo URL from a market search result', async () => {

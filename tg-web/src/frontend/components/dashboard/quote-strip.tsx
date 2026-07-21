@@ -19,6 +19,7 @@ export type QuoteStripData = {
   ticker: string;
   display_ticker?: string;
   display_name?: string;
+  english_name?: string;
   last_price?: number;
   change?: number;
   change_percent?: number;
@@ -139,6 +140,7 @@ export function QuoteStrip({
           <InstrumentIdentity
             density="row"
             name={quote.display_name}
+            secondaryName={quote.english_name}
             ticker={
               quote.display_ticker ?? formatDisplayTicker(quote.ticker)
             }

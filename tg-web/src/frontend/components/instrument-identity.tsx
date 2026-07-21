@@ -10,6 +10,12 @@ const nameStyles: Record<Density, string> = {
   header: 'truncate text-xl font-semibold tracking-tight text-foreground',
 };
 
+const secondaryInlineStyles: Record<Density, string> = {
+  compact: 'font-normal text-[11px] text-muted-foreground',
+  row: 'font-normal text-xs text-muted-foreground',
+  header: 'font-normal text-sm text-muted-foreground',
+};
+
 const tickerStyles: Record<Density, string> = {
   compact:
     'mt-0.5 block truncate font-mono text-[11px] tracking-wide text-muted-foreground',
@@ -20,6 +26,7 @@ const tickerStyles: Record<Density, string> = {
 /**
  * Canonical instrument label: company name on top, ticker code below.
  * When name is missing, ticker occupies the primary line only.
+ * Optional `secondaryName` is appended inline after a localized title.
  */
 export function InstrumentIdentity({
   name,
@@ -29,6 +36,7 @@ export function InstrumentIdentity({
   className,
   nameClassName,
   tickerClassName,
+  secondaryName,
   trailing,
   tickerSuffix,
   onTickerClick,
@@ -41,6 +49,8 @@ export function InstrumentIdentity({
   className?: string;
   nameClassName?: string;
   tickerClassName?: string;
+  /** English / common name when primary `name` is localized. */
+  secondaryName?: string | null;
   /** Badges / actions aligned with the name row (headers). */
   trailing?: ReactNode;
   /** Extra mono meta after the ticker (e.g. provider symbol). */
@@ -51,7 +61,12 @@ export function InstrumentIdentity({
 }) {
   const code = ticker.trim();
   const normalizedName = name?.trim() || '';
+  const normalizedSecondary = secondaryName?.trim() || '';
   const primary = normalizedName || code;
+  const showSecondary =
+    Boolean(normalizedSecondary) &&
+    normalizedSecondary !== primary &&
+    normalizedSecondary.toLowerCase() !== primary.toLowerCase();
   // Name on top; ticker below when we have a distinct name, or extra meta (provider).
   const showTickerLine =
     Boolean(code) &&
@@ -73,6 +88,11 @@ export function InstrumentIdentity({
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <NameTag className={cn(nameStyles[density], nameClassName)}>
           {primary}
+          {showSecondary ? (
+            <span className={cn('ml-1.5', secondaryInlineStyles[density])}>
+              {normalizedSecondary}
+            </span>
+          ) : null}
         </NameTag>
         {trailing}
       </div>
