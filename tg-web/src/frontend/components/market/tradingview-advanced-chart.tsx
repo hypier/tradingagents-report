@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { CandlestickChart, ChartLine } from 'lucide-react';
+import { CandlestickChart, ChartLine, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import {
   CandlestickSeries,
@@ -8,19 +8,24 @@ import {
   HistogramSeries,
   LineSeries,
   LineStyle,
+  TickMarkType,
   createChart,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
+  type TickMarkFormatter,
+  type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/frontend/components/ui/button';
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@/frontend/components/ui/toggle-group';
+import { toIntlLocale } from '@/frontend/i18n/locales';
 import {
   getMarketOhlcv,
   type MarketOhlcvBar,
@@ -214,6 +219,71 @@ function legendFromBar(
   };
 }
 
+function visiblePriceRange(
+  chart: IChartApi,
+  bars: MarketOhlcvBar[],
+): { from: number; to: number } | null {
+  const current = chart.priceScale('right').getVisibleRange();
+  if (current && current.to > current.from) return current;
+  if (!bars.length) return null;
+  const logical = chart.timeScale().getVisibleLogicalRange();
+  const start = logical
+    ? Math.max(0, Math.floor(logical.from))
+    : 0;
+  const end = logical
+    ? Math.min(bars.length - 1, Math.ceil(logical.to))
+    : bars.length - 1;
+  let low = Number.POSITIVE_INFINITY;
+  let high = Number.NEGATIVE_INFINITY;
+  for (let index = start; index <= end; index += 1) {
+    const bar = bars[index];
+    if (!bar) continue;
+    low = Math.min(low, bar.low);
+    high = Math.max(high, bar.high);
+  }
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  if (high <= low) {
+    const pad = Math.abs(high) * 0.02 || 1;
+    return { from: low - pad, to: high + pad };
+  }
+  const pad = (high - low) * 0.06;
+  return { from: low - pad, to: high + pad };
+}
+
+function zoomTimeAround(
+  chart: IChartApi,
+  host: HTMLElement,
+  clientX: number,
+  factor: number,
+  barCount: number,
+) {
+  const ts = chart.timeScale();
+  const logical = ts.getVisibleLogicalRange();
+  if (!logical) return;
+  const width = Math.max(host.clientWidth, 1);
+  const ratio = Math.min(1, Math.max(0, (clientX - host.getBoundingClientRect().left) / width));
+  const anchor = logical.from + (logical.to - logical.from) * ratio;
+  const span = Math.max(
+    4,
+    Math.min(Math.max(barCount, 4), (logical.to - logical.from) * factor),
+  );
+  ts.setVisibleLogicalRange({
+    from: anchor - span * ratio,
+    to: anchor + span * (1 - ratio),
+  });
+}
+
+function zoomPrice(chart: IChartApi, bars: MarketOhlcvBar[], factor: number) {
+  const scale = chart.priceScale('right');
+  const range = visiblePriceRange(chart, bars);
+  if (!range) return;
+  const mid = (range.from + range.to) / 2;
+  const half = ((range.to - range.from) / 2) * factor;
+  if (!Number.isFinite(half) || half <= 0) return;
+  scale.setAutoScale(false);
+  scale.setVisibleRange({ from: mid - half, to: mid + half });
+}
+
 function barAtTime(
   bars: MarketOhlcvBar[],
   time: number,
@@ -222,6 +292,100 @@ function barAtTime(
     if (bars[index]!.time === time) return bars[index];
   }
   return undefined;
+}
+
+function chartTimeToDate(time: Time): Date {
+  if (typeof time === 'number') return new Date(time * 1_000);
+  if (typeof time === 'string') return new Date(`${time}T00:00:00Z`);
+  return new Date(Date.UTC(time.year, time.month - 1, time.day));
+}
+
+function formatChartInstant(
+  date: Date,
+  intlLocale: string,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions,
+) {
+  try {
+    return new Intl.DateTimeFormat(intlLocale, { timeZone, ...options }).format(
+      date,
+    );
+  } catch {
+    return new Intl.DateTimeFormat(intlLocale, options).format(date);
+  }
+}
+
+function createTickMarkFormatter(
+  intlLocale: string,
+  timeZone: string,
+): TickMarkFormatter {
+  return (time, tickMarkType) => {
+    const date = chartTimeToDate(time);
+    switch (tickMarkType) {
+      case TickMarkType.Year:
+        return formatChartInstant(date, intlLocale, timeZone, {
+          year: 'numeric',
+        });
+      case TickMarkType.Month:
+        return formatChartInstant(date, intlLocale, timeZone, {
+          month: 'short',
+        });
+      case TickMarkType.DayOfMonth:
+        return formatChartInstant(date, intlLocale, timeZone, {
+          month: 'short',
+          day: 'numeric',
+        });
+      case TickMarkType.Time:
+        return formatChartInstant(date, intlLocale, timeZone, {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+      case TickMarkType.TimeWithSeconds:
+        return formatChartInstant(date, intlLocale, timeZone, {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        });
+      default:
+        return null;
+    }
+  };
+}
+
+function formatCrosshairTime(
+  unixSeconds: number,
+  intlLocale: string,
+  timeZone: string,
+  interval: ChartInterval,
+) {
+  const date = new Date(unixSeconds * 1_000);
+  const isIntraday =
+    interval === '5' ||
+    interval === '15' ||
+    interval === '30' ||
+    interval === '60';
+  if (interval === 'M') {
+    return formatChartInstant(date, intlLocale, timeZone, {
+      year: 'numeric',
+      month: 'short',
+    });
+  }
+  if (isIntraday) {
+    return formatChartInstant(date, intlLocale, timeZone, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  }
+  return formatChartInstant(date, intlLocale, timeZone, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 /**
@@ -262,8 +426,9 @@ export function MarketTrendChart({
   const hoveringRef = useRef(false);
   const titleId = useId();
   const { resolvedTheme } = useTheme();
-  const { t } = useTranslation('stock');
+  const { i18n, t } = useTranslation('stock');
   const isDark = resolvedTheme === 'dark';
+  const intlLocale = toIntlLocale(i18n.language);
   const [interval, setInterval] = useState<ChartInterval>(defaultInterval);
   const [style, setStyle] = useState<ChartStyle>('candle');
   const [maVisible, setMaVisible] = useState<MaVisibility>(DEFAULT_MA_VISIBLE);
@@ -410,18 +575,25 @@ export function MarketTrendChart({
         secondsVisible: false,
         rightOffset: 4,
         minBarSpacing: 4,
+        tickMarkFormatter: createTickMarkFormatter(intlLocale, timezone),
+      },
+      handleScale: {
+        // Custom wheel handler below — keep pinch + axis drag.
+        mouseWheel: false,
+        pinch: true,
+        axisPressedMouseMove: { time: true, price: true },
+        axisDoubleClickReset: { time: true, price: true },
+      },
+      handleScroll: {
+        mouseWheel: false,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
       },
       localization: {
+        locale: intlLocale,
         timeFormatter: (time: number) =>
-          new Intl.DateTimeFormat(undefined, {
-            timeZone: timezone,
-            month: 'short',
-            day: 'numeric',
-            ...(isIntraday
-              ? { hour: '2-digit', minute: '2-digit', hour12: false }
-              : {}),
-            ...(interval === 'M' ? { year: 'numeric', month: 'short' } : {}),
-          }).format(new Date(time * 1_000)),
+          formatCrosshairTime(time, intlLocale, timezone, interval),
       },
     });
 
@@ -490,6 +662,25 @@ export function MarketTrendChart({
     ma20Ref.current = ma20;
     priceLineRef.current = null;
 
+    // Stronger, explicit wheel zoom (LC defaults feel subtle because price auto-scales).
+    // Wheel → time zoom; Alt/Option + wheel → price zoom (candles + MA).
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const bars = barsRef.current;
+      if (!bars.length) return;
+      // Trackpads send tiny deltas — amplify so zoom is obvious.
+      const steps = Math.max(1, Math.min(4, Math.round(Math.abs(event.deltaY) / 40)));
+      const zoomIn = event.deltaY < 0;
+      const factor = zoomIn ? 1 / 1.18 ** steps : 1.18 ** steps;
+      if (event.altKey) {
+        zoomPrice(chart, bars, factor);
+        return;
+      }
+      zoomTimeAround(chart, host, event.clientX, factor, bars.length);
+    };
+    host.addEventListener('wheel', onWheel, { passive: false, capture: true });
+
     chart.subscribeCrosshairMove((param) => {
       const time =
         typeof param.time === 'number'
@@ -522,6 +713,7 @@ export function MarketTrendChart({
     }
 
     return () => {
+      host.removeEventListener('wheel', onWheel, true);
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
@@ -534,7 +726,7 @@ export function MarketTrendChart({
     };
     // paintChart closes over lastPrice/style/isDark; remount covers style/theme.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional remount deps
-  }, [isDark, interval, timezone, isIntraday, style]);
+  }, [isDark, interval, timezone, isIntraday, style, intlLocale]);
 
   useEffect(() => {
     const bars = ohlcv.data?.bars;
@@ -591,6 +783,32 @@ export function MarketTrendChart({
     !ohlcv.isLoading && (ohlcv.isError || !(ohlcv.data?.bars.length ?? 0));
   const closeUp = legend ? legend.close >= legend.open : true;
 
+  const zoomBy = (direction: 'in' | 'out', axis: 'time' | 'price') => {
+    const chart = chartRef.current;
+    const host = containerRef.current;
+    const bars = barsRef.current;
+    if (!chart || !host || !bars.length) return;
+    const factor = direction === 'in' ? 1 / 1.35 : 1.35;
+    if (axis === 'price') {
+      zoomPrice(chart, bars, factor);
+      return;
+    }
+    zoomTimeAround(
+      chart,
+      host,
+      host.getBoundingClientRect().left + host.clientWidth * 0.7,
+      factor,
+      bars.length,
+    );
+  };
+
+  const resetZoom = () => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    chart.priceScale('right').setAutoScale(true);
+    chart.timeScale().fitContent();
+  };
+
   return (
     <div
       className={cn('overflow-hidden border border-border bg-card', className)}
@@ -604,6 +822,12 @@ export function MarketTrendChart({
           >
             {t('chart.title')}
           </h2>
+          <span
+            className="hidden max-w-[9rem] truncate font-mono text-[10px] text-muted-foreground sm:inline"
+            title={timezone}
+          >
+            {timezone}
+          </span>
           <ToggleGroup
             type="single"
             size="sm"
@@ -664,6 +888,63 @@ export function MarketTrendChart({
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+          <div className="hidden items-center border border-border sm:flex">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-7 rounded-none p-0"
+              aria-label={t('chart.zoomIn')}
+              title={t('chart.zoomIn')}
+              onClick={() => zoomBy('in', 'time')}
+            >
+              <ZoomIn className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-7 rounded-none p-0"
+              aria-label={t('chart.zoomOut')}
+              title={t('chart.zoomOut')}
+              onClick={() => zoomBy('out', 'time')}
+            >
+              <ZoomOut className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-7 rounded-none px-1 font-mono text-[10px] font-semibold"
+              aria-label={t('chart.zoomPrice')}
+              title={t('chart.zoomPriceHint')}
+              onClick={() => zoomBy('in', 'price')}
+            >
+              Y+
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-7 rounded-none px-1 font-mono text-[10px] font-semibold"
+              aria-label={t('chart.zoomPriceOut')}
+              title={t('chart.zoomPriceHint')}
+              onClick={() => zoomBy('out', 'price')}
+            >
+              Y−
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-7 rounded-none p-0"
+              aria-label={t('chart.zoomReset')}
+              title={t('chart.zoomReset')}
+              onClick={resetZoom}
+            >
+              <Maximize2 className="size-3.5" />
+            </Button>
+          </div>
         </div>
         <ToggleGroup
           type="single"

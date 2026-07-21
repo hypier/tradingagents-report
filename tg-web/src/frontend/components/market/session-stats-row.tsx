@@ -53,7 +53,7 @@ export function SessionStatsRow({
           <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
             {t(`stats.${key}`)}
           </span>
-          <span className="font-mono text-sm tabular-nums text-foreground">
+          <span className="font-mono text-base font-semibold tabular-nums tracking-tight text-foreground">
             {values[key] !== undefined ? formatLocaleNumber(values[key]) : '—'}
           </span>
         </div>

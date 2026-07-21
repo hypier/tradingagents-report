@@ -47,6 +47,12 @@
       "line": "Line"
     },
     "ma": "Moving averages",
+    "zoomIn": "Zoom in (time)",
+    "zoomOut": "Zoom out (time)",
+    "zoomPrice": "Zoom in (price)",
+    "zoomPriceOut": "Zoom out (price)",
+    "zoomPriceHint": "Price zoom — also Alt + scroll on chart",
+    "zoomReset": "Reset zoom",
     "intervals": {
       "5m": "5m",
       "15m": "15m",

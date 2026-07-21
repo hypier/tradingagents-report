@@ -47,6 +47,12 @@
       "line": "折线"
     },
     "ma": "均线",
+    "zoomIn": "放大（时间）",
+    "zoomOut": "缩小（时间）",
+    "zoomPrice": "放大（价格）",
+    "zoomPriceOut": "缩小（价格）",
+    "zoomPriceHint": "纵向缩放价格与均线，也可在图上按 Option/Alt + 滚轮",
+    "zoomReset": "重置缩放",
     "intervals": {
       "5m": "5分",
       "15m": "15分",
