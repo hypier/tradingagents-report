@@ -300,12 +300,12 @@ export function ReportsTable({
           <TableRow className="hover:bg-transparent">
             {isTasks ? (
               <>
-                <TableHead className="w-[5.5rem] pl-5 lg:pl-6">
+                <TableHead className="w-[8rem] pl-5 lg:pl-6">
                   {t('tasks:table.status')}
                 </TableHead>
-                <TableHead className="min-w-0">{t('table.instrument')}</TableHead>
-                <TableHead className="w-[7.5rem]">{t('tasks:table.submitted')}</TableHead>
-                <TableHead className="w-[5rem]">{t('tasks:table.duration')}</TableHead>
+                <TableHead className="min-w-0 pl-2">{t('table.instrument')}</TableHead>
+                <TableHead className="w-[9.5rem]">{t('tasks:table.submitted')}</TableHead>
+                <TableHead className="w-[5.5rem] pl-2">{t('tasks:table.duration')}</TableHead>
                 <TableHead className="w-[7rem]">{t('tasks:table.step')}</TableHead>
                 <TableHead className="w-16 pr-5 text-right lg:pr-6">
                   {t('tasks:table.open')}
@@ -362,7 +362,7 @@ export function ReportsTable({
                         : () => onOpenReport(job.id)
                     }
                   >
-                    <TableCell className="w-[5.5rem] pl-5 lg:pl-6">
+                    <TableCell className="w-[8rem] pl-5 lg:pl-6">
                       <Badge
                         variant={statusVariant(job.status)}
                         className="w-fit"
@@ -372,7 +372,7 @@ export function ReportsTable({
                         })}
                       </Badge>
                     </TableCell>
-                    <TableCell className="min-w-0">
+                    <TableCell className="min-w-0 pl-2">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <InstrumentLogo
                           symbol={instrumentTicker(job, identities)}
@@ -388,13 +388,13 @@ export function ReportsTable({
                         />
                       </div>
                     </TableCell>
-                    <TableCell className="w-[7.5rem] font-mono text-xs tabular-nums text-muted-foreground">
+                    <TableCell className="w-[9.5rem] font-mono text-xs tabular-nums text-muted-foreground">
                       {formatCompactSubmitted(
                         job.created_at,
                         t('table.notAvailable'),
                       )}
                     </TableCell>
-                    <TableCell className="w-[5rem]">
+                    <TableCell className="w-[5.5rem] pl-2">
                       <span
                         className={
                           duration === '—'
