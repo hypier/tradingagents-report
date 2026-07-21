@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   ListChecks,
   ListTodo,
+  CandlestickChart,
   Shield,
   SlidersHorizontal,
   UserRound,
@@ -41,6 +42,7 @@ type NavLeaf = {
     | 'nav.desk'
     | 'nav.tasks'
     | 'nav.reports'
+    | 'nav.quotes'
     | 'nav.watchlist'
     | 'nav.billing'
     | 'nav.account'
@@ -62,9 +64,17 @@ const researchNavigation: NavLeaf[] = [
   { titleKey: 'nav.reports', icon: FileText, href: '/reports' },
 ];
 
-const marketNavigation: NavLeaf[] = [
-  { titleKey: 'nav.watchlist', icon: ListChecks, href: '/watchlist' },
-];
+const quotesNavigation: NavLeaf = {
+  titleKey: 'nav.quotes',
+  icon: CandlestickChart,
+  href: '/quotes',
+};
+
+const watchlistNavigation: NavLeaf = {
+  titleKey: 'nav.watchlist',
+  icon: ListChecks,
+  href: '/watchlist',
+};
 
 const accountNavigation: NavLeaf[] = [
   { titleKey: 'nav.billing', icon: CreditCard, href: '/billing' },
@@ -118,6 +128,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   });
   const showWatchlist =
     publicConfig.isLoading || publicConfig.data?.features.watchlist !== false;
+  const marketNavigation = showWatchlist
+    ? [quotesNavigation, watchlistNavigation]
+    : [quotesNavigation];
   const availableCredits = billing.data?.data.usage?.availableCredits;
   const periodEnd = billing.data?.data.usage?.periodEnd;
 
@@ -165,27 +178,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {showWatchlist ? (
-          <>
-            <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
-            <SidebarGroup className="gap-1 p-0">
-              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
-                {t('nav.marketGroup')}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5 px-0">
-                  {marketNavigation.map((item) => (
-                    <FlatNavItem
-                      key={item.href}
-                      item={item}
-                      pathname={location.pathname}
-                    />
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
-        ) : null}
+        <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
+        <SidebarGroup className="gap-1 p-0">
+          <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+            {t('nav.marketGroup')}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5 px-0">
+              {marketNavigation.map((item) => (
+                <FlatNavItem
+                  key={item.href}
+                  item={item}
+                  pathname={location.pathname}
+                />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
 

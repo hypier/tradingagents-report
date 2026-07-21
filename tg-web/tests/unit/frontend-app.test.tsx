@@ -70,6 +70,25 @@ it('renders the standard dashboard navigation shell', () => {
   ).toBe(true);
 });
 
+it('renders Quotes above Watchlist in the market nav group', () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  const quotesLinks = screen.getAllByRole('link', { name: 'Market Quotes' });
+  const watchlistLinks = screen.getAllByRole('link', { name: 'Watchlist' });
+  expect(quotesLinks.length).toBeGreaterThan(0);
+  expect(watchlistLinks.length).toBeGreaterThan(0);
+  expect(quotesLinks[0]!.getAttribute('href')).toBe('/quotes');
+  expect(watchlistLinks[0]!.getAttribute('href')).toBe('/watchlist');
+  expect(
+    quotesLinks[0]!.compareDocumentPosition(watchlistLinks[0]!) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
 it('renders an injected account menu in the dashboard header', () => {
   render(
     <MemoryRouter initialEntries={['/']}>

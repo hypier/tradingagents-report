@@ -5,6 +5,7 @@ import {
   listingFromParts,
   listingFromProviderSymbol,
   resolveListingTicker,
+  resolveMarketCurrency,
 } from '../../src/shared/listing';
 
 describe('listing helpers', () => {
@@ -31,6 +32,14 @@ describe('listing helpers', () => {
       display_ticker: 'AAPL',
       provider_symbol: null,
     });
+  });
+
+  it('falls back to POINT when quote currency is missing', () => {
+    expect(resolveMarketCurrency(undefined)).toBe('POINT');
+    expect(resolveMarketCurrency('')).toBe('POINT');
+    expect(resolveMarketCurrency(null)).toBe('POINT');
+    expect(resolveMarketCurrency('HKD')).toBe('HKD');
+    expect(resolveMarketCurrency('usd')).toBe('USD');
   });
 
   it('formats display tickers for UI fallbacks', () => {

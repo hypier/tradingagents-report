@@ -19,7 +19,7 @@ const EXCHANGE_ALIASES: Record<string, string> = {
   ROCO: 'TPEX',
 };
 
-const US_EXCHANGES = new Set(['NASDAQ', 'NYSE', 'AMEX']);
+const US_EXCHANGES = new Set(['NASDAQ', 'NYSE', 'AMEX', 'OTC', 'ARCA']);
 
 const SUFFIX_TO_EXCHANGE: Record<string, string> = {
   '.HK': 'HKEX',
@@ -58,6 +58,16 @@ export function normalizeExchange(exchange: string): string {
 export function isSupportedExchange(exchange: string): boolean {
   const normalized = normalizeExchange(exchange);
   return normalized in EXCHANGE_TO_SUFFIX || US_EXCHANGES.has(normalized);
+}
+
+/**
+ * Use vendor currency when present; otherwise show index points as `POINT`.
+ * Do not invent FX codes from exchange maps.
+ */
+export function resolveMarketCurrency(quotedCurrency?: string | null): string {
+  const quoted = quotedCurrency?.trim() ?? '';
+  if (quoted) return quoted.toUpperCase();
+  return 'POINT';
 }
 
 /** Build a listing from a confirmed exchange + symbol (e.g. TV selection). */

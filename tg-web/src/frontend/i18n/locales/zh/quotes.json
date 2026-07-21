@@ -1,0 +1,59 @@
+{
+  "heading": "市场行情",
+  "subtitle": "全球股票市场",
+  "empty": "当前榜单暂无股票。",
+  "marketPicker": {
+    "label": "市场",
+    "placeholder": "选择市场",
+    "search": "搜索市场或代码",
+    "empty": "没有匹配的市场",
+    "dialogTitle": "选择市场",
+    "dialogDescription": "按大洲浏览股票市场。",
+    "catalogCount": "共 {{count}} 个市场",
+    "continents": {
+      "north_america": "北美",
+      "europe": "欧洲",
+      "asia_oceania": "亚洲与大洋洲",
+      "middle_east_africa": "中东与非洲",
+      "south_america": "南美"
+    }
+  },
+  "summary": {
+    "symbols": "{{count}} 只标的",
+    "asOf": "数据截至 {{time}}",
+    "source": "TradingView"
+  },
+  "tabs": {
+    "all_stocks": "全部",
+    "gainers": "涨幅榜",
+    "losers": "跌幅榜",
+    "active": "成交活跃",
+    "unusual_volume": "异常成交量",
+    "most_volatile": "波动最大",
+    "best_performing": "表现最佳",
+    "large_cap": "大盘股",
+    "small_cap": "小盘股",
+    "high_dividend": "高股息",
+    "overbought": "超买",
+    "oversold": "超卖",
+    "52wk_high": "52周新高",
+    "52wk_low": "52周新低"
+  },
+  "columns": {
+    "rank": "排名",
+    "asset": "标的",
+    "last": "最新价",
+    "change": "涨跌幅",
+    "volume": "成交量",
+    "relVol": "相对量",
+    "mktCap": "市值",
+    "analyst": "评级"
+  },
+  "errors": {
+    "loadTitle": "无法加载行情",
+    "loadBody": "TradingView 行情可能暂不可用，请稍后重试。"
+  },
+  "toasts": {
+    "unsupportedExchange": "该交易所暂不支持分析。"
+  }
+}

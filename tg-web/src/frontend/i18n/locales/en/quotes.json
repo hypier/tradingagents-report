@@ -1,0 +1,59 @@
+{
+  "heading": "Market Quotes",
+  "subtitle": "Global equity floor",
+  "empty": "No stocks in this board yet.",
+  "marketPicker": {
+    "label": "Market",
+    "placeholder": "Select market",
+    "search": "Search markets or codes",
+    "empty": "No matching markets",
+    "dialogTitle": "Select market",
+    "dialogDescription": "Browse equity markets by continent.",
+    "catalogCount": "{{count}} markets",
+    "continents": {
+      "north_america": "North America",
+      "europe": "Europe",
+      "asia_oceania": "Asia & Oceania",
+      "middle_east_africa": "Middle East & Africa",
+      "south_america": "South America"
+    }
+  },
+  "summary": {
+    "symbols": "{{count}} symbols",
+    "asOf": "Data as of {{time}}",
+    "source": "TradingView"
+  },
+  "tabs": {
+    "all_stocks": "All stocks",
+    "gainers": "Top gainers",
+    "losers": "Biggest losers",
+    "active": "Most active",
+    "unusual_volume": "Unusual volume",
+    "most_volatile": "Most volatile",
+    "best_performing": "Best performing",
+    "large_cap": "Large-cap",
+    "small_cap": "Small-cap",
+    "high_dividend": "High dividend",
+    "overbought": "Overbought",
+    "oversold": "Oversold",
+    "52wk_high": "52-week high",
+    "52wk_low": "52-week low"
+  },
+  "columns": {
+    "rank": "Rank",
+    "asset": "Asset",
+    "last": "Last",
+    "change": "Change",
+    "volume": "Volume",
+    "relVol": "Rel Vol",
+    "mktCap": "Mkt Cap",
+    "analyst": "Analyst"
+  },
+  "errors": {
+    "loadTitle": "Unable to load market data",
+    "loadBody": "TradingView market data may be unavailable. Try again shortly."
+  },
+  "toasts": {
+    "unsupportedExchange": "This exchange is not available for analysis yet."
+  }
+}

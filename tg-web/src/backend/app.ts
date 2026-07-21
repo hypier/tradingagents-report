@@ -84,6 +84,9 @@ export function createApp(dependencies: AppDependencies) {
   app.use('/api/market-search', requireAuth(dependencies));
   app.use('/api/market-snapshot', requireAuth(dependencies));
   app.use('/api/market-identities', requireAuth(dependencies));
+  app.use('/api/market-markets', requireAuth(dependencies));
+  app.use('/api/market-board', requireAuth(dependencies));
+  app.use('/api/market-tape', requireAuth(dependencies));
   app.route('/api', authRoutes());
   app.route('/api', accountRoutes(dependencies));
   app.route('/api', adminRoutes(dependencies));

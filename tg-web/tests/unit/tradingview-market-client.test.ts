@@ -216,4 +216,112 @@ describe('TradingViewMarketClient', () => {
     ]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('lists persisted TradingView market catalog with display names', async () => {
+    const fetchMock = vi.fn();
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    const markets = await client.listMarkets('zh');
+    expect(markets.length).toBeGreaterThan(60);
+    expect(markets.find((market) => market.code === 'america')).toEqual({
+      code: 'america',
+      displayName: '美国',
+    });
+    expect(markets.find((market) => market.code === 'hongkong')).toEqual({
+      code: 'hongkong',
+      displayName: '香港',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('parses a stock leaderboard into board items', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            totalCount: 100,
+            data: [
+              {
+                rank: 1,
+                symbol: 'NASDAQ:AAPL',
+                name: 'AAPL',
+                description: 'Apple Inc.',
+                exchange: 'NASDAQ',
+                price: 200,
+                change: 1.5,
+                currency: 'USD',
+                volume: 1_000_000,
+                relativevolume: 1.2,
+                marketcap: 3e12,
+                analystrating: 'Buy',
+                logoid: 'apple',
+              },
+            ],
+            metadata: {
+              tab: { id: 'active', title: 'Most active' },
+              market: { name: 'United States', market_code: 'america' },
+            },
+          },
+        }),
+      ),
+    );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(
+      client.getStockLeaderboard({
+        marketCode: 'america',
+        tab: 'active',
+        count: 20,
+        lang: 'en',
+      }),
+    ).resolves.toMatchObject({
+      marketCode: 'america',
+      tab: 'active',
+      totalCount: 100,
+      marketName: 'United States',
+      tabTitle: 'Most active',
+      items: [
+        {
+          symbol: 'NASDAQ:AAPL',
+          name: 'AAPL',
+          price: 200,
+          change_percent: 1.5,
+          linkable: true,
+        },
+      ],
+    });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      '/api/leaderboard/stocks?',
+    );
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('market_code=america');
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('tab=active');
+  });
+
+  it('creates a short-lived TradingView SSE stream token', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          token: 'jwt-abc',
+          sseUrl: 'https://ws.tradingviewapi.com/sse/stream',
+          expiresAt: 1_700_000_000_000,
+        }),
+      ),
+    );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.createStreamToken()).resolves.toEqual({
+      token: 'jwt-abc',
+      sseUrl: 'https://ws.tradingviewapi.com/sse/stream',
+      expiresAt: 1_700_000_000_000,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://tradingview-data1.p.rapidapi.com/api/token/generate',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ 'token-jwt-type': '1' }),
+      }),
+    );
+  });
 });

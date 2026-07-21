@@ -1,8 +1,22 @@
+import type {
+  MarketBoardItem,
+  MarketBoardPayload,
+  MarketTapePayload,
+  MarketTapeQuote,
+} from '../../shared/market-board';
+import {
+  indexDisplayName,
+  isStockLeaderboardTab,
+  listTvMarkets,
+  MARKET_TAPE_SYMBOLS,
+  type StockLeaderboardTab,
+} from '../../shared/market-codes';
 import {
   formatDisplayTicker,
   isSupportedExchange,
   listingFromProviderSymbol,
   resolveListingTicker,
+  resolveMarketCurrency,
   type MarketSearchHit,
   type ResolvedListing,
 } from '../../shared/listing';
@@ -23,6 +37,10 @@ export type MarketSnapshot = MarketAssetIdentity & {
   currency: string;
   change?: number;
   change_percent: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  volume?: number;
   as_of?: string;
   update_mode?: string;
   /** Vendor feed delay in seconds from `update_mode` (0 = streaming). */
@@ -30,10 +48,34 @@ export type MarketSnapshot = MarketAssetIdentity & {
   source: 'tradingview';
 };
 
+export type StockLeaderboardQuery = {
+  marketCode: string;
+  tab: StockLeaderboardTab;
+  count?: number;
+  start?: number;
+  lang?: string;
+};
+
+/** Short-lived JWT for TradingView SSE / WebSocket quote streams. */
+export type MarketStreamToken = {
+  token: string;
+  sseUrl: string;
+  expiresAt: number;
+};
+
 export interface MarketAssetClient {
   searchMarkets(query: string): Promise<MarketSearchHit[]>;
   getIdentities(tickers: string[]): Promise<MarketAssetIdentity[]>;
   getSnapshot(providerSymbol: string): Promise<MarketSnapshot>;
+  listMarkets(locale?: 'en' | 'zh'): Promise<
+    Array<{ code: string; displayName: string }>
+  >;
+  getStockLeaderboard(query: StockLeaderboardQuery): Promise<MarketBoardPayload>;
+  getMarketTape(
+    marketCode: string,
+    locale?: 'en' | 'zh',
+  ): Promise<MarketTapePayload>;
+  createStreamToken(): Promise<MarketStreamToken>;
 }
 
 type FetchImplementation = (
@@ -83,6 +125,148 @@ export class TradingViewMarketClient implements MarketAssetClient {
 
   async getIdentities(tickers: string[]): Promise<MarketAssetIdentity[]> {
     return Promise.all(tickers.map((ticker) => this.getIdentity(ticker)));
+  }
+
+  async listMarkets(
+    locale: 'en' | 'zh' = 'en',
+  ): Promise<Array<{ code: string; displayName: string }>> {
+    return listTvMarkets(locale).map(({ code, displayName }) => ({
+      code,
+      displayName,
+    }));
+  }
+
+  async getStockLeaderboard(
+    query: StockLeaderboardQuery,
+  ): Promise<MarketBoardPayload> {
+    const marketCode = query.marketCode.trim().toLowerCase();
+    const tab = query.tab;
+    if (!this.apiKey) {
+      throw new Error('TradingView market data is not configured');
+    }
+    if (!marketCode || !isStockLeaderboardTab(tab)) {
+      throw new Error('Invalid market leaderboard request');
+    }
+
+    const count = Math.min(Math.max(query.count ?? 20, 1), 150);
+    const start = Math.max(query.start ?? 0, 0);
+    const lang = query.lang === 'zh' ? 'zh' : 'en';
+    const params = new URLSearchParams({
+      tab,
+      market_code: marketCode,
+      columnset: 'overview',
+      start: String(start),
+      count: String(count),
+      lang,
+    });
+    const response = await this.request(
+      `/api/leaderboard/stocks?${params.toString()}`,
+    );
+    if (!response.ok) {
+      throw new Error('TradingView leaderboard request failed');
+    }
+    return parseLeaderboardPayload(await response.json(), marketCode, tab, lang);
+  }
+
+  async getMarketTape(
+    marketCode: string,
+    locale: 'en' | 'zh' = 'en',
+  ): Promise<MarketTapePayload> {
+    const normalized = marketCode.trim().toLowerCase();
+    if (!this.apiKey) {
+      throw new Error('TradingView market data is not configured');
+    }
+    if (!normalized) {
+      throw new Error('market_code is required');
+    }
+
+    const curated = MARKET_TAPE_SYMBOLS[normalized];
+    if (curated) {
+      const symbols = uniqueSymbols([...curated.pinned, ...curated.tape]);
+      const quotes = await this.getQuotesBatch(symbols, locale);
+      const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
+      const withIndexName = (symbol: string) => {
+        const quote = bySymbol.get(symbol);
+        if (!quote) return undefined;
+        const display = indexDisplayName(symbol, locale);
+        return display ? { ...quote, name: display } : quote;
+      };
+      return {
+        marketCode: normalized,
+        pinned: curated.pinned
+          .map(withIndexName)
+          .filter((quote): quote is MarketTapeQuote => Boolean(quote)),
+        tape: curated.tape
+          .map(withIndexName)
+          .filter((quote): quote is MarketTapeQuote => Boolean(quote)),
+      };
+    }
+
+    const board = await this.getStockLeaderboard({
+      marketCode: normalized,
+      tab: 'active',
+      count: 12,
+      lang: locale,
+    });
+    const tape = board.items.map((item) => boardItemToTapeQuote(item));
+    return {
+      marketCode: normalized,
+      pinned: tape.slice(0, 4),
+      tape,
+    };
+  }
+
+  async getQuotesBatch(
+    symbols: string[],
+    locale: 'en' | 'zh' = 'en',
+  ): Promise<MarketTapeQuote[]> {
+    const normalized = uniqueSymbols(symbols).slice(0, 10);
+    if (!this.apiKey || !normalized.length) return [];
+
+    try {
+      const response = await this.request('/api/quote/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbols: normalized,
+          session: 'regular',
+          fields: 'all',
+        }),
+      });
+      if (response.ok) {
+        const parsed = readBatchQuotes(await response.json(), locale);
+        if (parsed.length) return parsed;
+      }
+    } catch {
+      // Fall through to sequential snapshots.
+    }
+
+    const quotes: MarketTapeQuote[] = [];
+    for (const symbol of normalized) {
+      try {
+        const quote = await this.quoteProviderSymbol(symbol, locale);
+        if (quote) quotes.push(quote);
+      } catch {
+        // Skip symbols that fail to resolve.
+      }
+    }
+    return quotes;
+  }
+
+  /** Quote EXCHANGE:SYMBOL without requiring product listing support. */
+  private async quoteProviderSymbol(
+    providerSymbol: string,
+    locale: 'en' | 'zh' = 'en',
+  ): Promise<MarketTapeQuote | undefined> {
+    const symbol = providerSymbol.trim().toUpperCase();
+    if (!symbol.includes(':')) return undefined;
+    const response = await this.request(
+      `/api/quote/${encodeURIComponent(symbol)}?session=regular&fields=all`,
+    );
+    if (!response.ok) return undefined;
+    const data = readQuote(await response.json());
+    if (!data) return undefined;
+    return quoteRecordToTape(symbol, data, locale);
   }
 
   async getSnapshot(providerSymbol: string): Promise<MarketSnapshot> {
@@ -143,6 +327,10 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const quoteTime = numberValue(quote?.lp_time);
     const updateMode = stringValue(quote?.update_mode) || undefined;
     const delaySeconds = parseUpdateModeDelaySeconds(updateMode);
+    const open = numberValue(quote?.open_price);
+    const high = numberValue(quote?.high_price);
+    const low = numberValue(quote?.low_price);
+    const volume = numberValue(quote?.volume);
     return {
       ticker: listing.display_ticker,
       display_ticker: listing.display_ticker,
@@ -151,9 +339,13 @@ export class TradingViewMarketClient implements MarketAssetClient {
         ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logoid)}.svg` }
         : {}),
       last_price: lastPrice,
-      currency: stringValue(quote?.currency_code).toUpperCase() || 'USD',
+      currency: resolveMarketCurrency(stringValue(quote?.currency_code)),
       ...(change !== undefined ? { change } : {}),
       change_percent: changePercent,
+      ...(open !== undefined ? { open } : {}),
+      ...(high !== undefined ? { high } : {}),
+      ...(low !== undefined ? { low } : {}),
+      ...(volume !== undefined ? { volume } : {}),
       ...(quoteTime
         ? { as_of: new Date(quoteTime * 1_000).toISOString() }
         : {}),
@@ -161,6 +353,35 @@ export class TradingViewMarketClient implements MarketAssetClient {
       ...(delaySeconds !== null ? { delay_seconds: delaySeconds } : {}),
       source: 'tradingview',
     };
+  }
+
+  async createStreamToken(): Promise<MarketStreamToken> {
+    if (!this.apiKey) {
+      throw new Error('TradingView market data is not configured');
+    }
+
+    const response = await this.request('/api/token/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // 1 = 30 minutes — short enough to rotate; client reconnects before expiry.
+      body: JSON.stringify({ 'token-jwt-type': '1' }),
+    });
+    if (!response.ok) {
+      throw new Error('TradingView stream token request failed');
+    }
+
+    const payload = await response.json();
+    if (!isRecord(payload)) {
+      throw new Error('TradingView stream token response is invalid');
+    }
+    const token = stringValue(payload.token);
+    const sseUrl = stringValue(payload.sseUrl);
+    const expiresAt = numberValue(payload.expiresAt);
+    if (!token || !sseUrl || expiresAt === undefined) {
+      throw new Error('TradingView stream token response is incomplete');
+    }
+
+    return { token, sseUrl, expiresAt };
   }
 
   private async getIdentity(ticker: string): Promise<MarketAssetIdentity> {
@@ -225,15 +446,17 @@ export class TradingViewMarketClient implements MarketAssetClient {
     }
   }
 
-  private request(path: string) {
+  private request(path: string, init?: RequestInit) {
     if (!this.apiKey)
       throw new Error('TradingView market data is not configured');
     return this.fetchImplementation(`${API_BASE_URL}${path}`, {
+      ...init,
       headers: {
         'x-rapidapi-host': API_HOST,
         'x-rapidapi-key': this.apiKey,
+        ...(init?.headers ?? {}),
       },
-      signal: AbortSignal.timeout(5_000),
+      signal: init?.signal ?? AbortSignal.timeout(8_000),
     });
   }
 }
@@ -317,6 +540,169 @@ function readQuote(payload: unknown): Record<string, unknown> | undefined {
     return undefined;
   }
   return payload.data.data;
+}
+
+function parseLeaderboardPayload(
+  payload: unknown,
+  marketCode: string,
+  tab: StockLeaderboardTab,
+  locale: 'en' | 'zh' = 'en',
+): MarketBoardPayload {
+  if (!isRecord(payload) || !isRecord(payload.data)) {
+    return { marketCode, tab, totalCount: 0, items: [] };
+  }
+  const root = payload.data;
+  const totalCount =
+    typeof root.totalCount === 'number' && Number.isFinite(root.totalCount)
+      ? root.totalCount
+      : 0;
+  const metadata = isRecord(root.metadata) ? root.metadata : undefined;
+  const marketMeta = metadata && isRecord(metadata.market) ? metadata.market : undefined;
+  const tabMeta = metadata && isRecord(metadata.tab) ? metadata.tab : undefined;
+  const rows = Array.isArray(root.data) ? root.data : [];
+  const items: MarketBoardItem[] = [];
+  for (const row of rows) {
+    if (!isRecord(row)) continue;
+    const item = toBoardItem(row, locale);
+    if (item) items.push(item);
+  }
+  return {
+    marketCode,
+    tab,
+    totalCount,
+    ...(stringValue(marketMeta?.name)
+      ? { marketName: stringValue(marketMeta?.name) }
+      : {}),
+    ...(stringValue(tabMeta?.title)
+      ? { tabTitle: stringValue(tabMeta?.title) }
+      : {}),
+    items,
+  };
+}
+
+function toBoardItem(
+  row: Record<string, unknown>,
+  locale: 'en' | 'zh' = 'en',
+): MarketBoardItem | undefined {
+  const symbol = stringValue(row.symbol).toUpperCase();
+  if (!symbol.includes(':')) return undefined;
+  const [exchangeRaw, nameRaw] = symbol.split(':', 2);
+  const exchange = exchangeRaw?.trim() ?? '';
+  const name =
+    stringValue(row.name) || nameRaw?.trim() || symbol.split(':')[1] || symbol;
+  const description =
+    stringValue(row.description) || name;
+  const price = numberValue(row.price) ?? numberValue(row.close);
+  const changePercent = numberValue(row.change);
+  if (price === undefined || changePercent === undefined) return undefined;
+
+  const logo =
+    (isRecord(row.logo) ? stringValue(row.logo.logoid) : '') ||
+    stringValue(row.logoid);
+  const rank =
+    typeof row.rank === 'number' && Number.isFinite(row.rank) ? row.rank : 0;
+  const volume = numberValue(row.volume);
+  const relativeVolume =
+    numberValue(row.relativevolume) ?? numberValue(row.relative_volume_10d_calc);
+  const marketCap = numberValue(row.marketcap) ?? numberValue(row.market_cap_basic);
+  const analyst =
+    stringValue(row.analystrating) || stringValue(row.analystrating_tr);
+
+  return {
+    rank,
+    symbol,
+    name,
+    description,
+    exchange,
+    ...(logo
+      ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logo)}.svg` }
+      : {}),
+    price,
+    change_percent: changePercent,
+    currency: resolveMarketCurrency(stringValue(row.currency)),
+    ...(volume !== undefined ? { volume } : {}),
+    ...(relativeVolume !== undefined ? { relative_volume: relativeVolume } : {}),
+    ...(marketCap !== undefined ? { market_cap: marketCap } : {}),
+    ...(analyst ? { analyst_rating: analyst } : {}),
+    linkable: Boolean(exchange) && isSupportedExchange(exchange),
+  };
+}
+
+function readBatchQuotes(
+  payload: unknown,
+  locale: 'en' | 'zh' = 'en',
+): MarketTapeQuote[] {
+  if (!isRecord(payload) || !isRecord(payload.data)) return [];
+  const rows = Array.isArray(payload.data.data) ? payload.data.data : [];
+  const quotes: MarketTapeQuote[] = [];
+  for (const row of rows) {
+    if (!isRecord(row) || row.success === false) continue;
+    const symbol = stringValue(row.symbol).toUpperCase();
+    const data = isRecord(row.data) ? row.data : undefined;
+    if (!symbol || !data) continue;
+    const quote = quoteRecordToTape(symbol, data, locale);
+    if (quote) quotes.push(quote);
+  }
+  return quotes;
+}
+
+function quoteRecordToTape(
+  symbol: string,
+  data: Record<string, unknown>,
+  locale: 'en' | 'zh' = 'en',
+): MarketTapeQuote | undefined {
+  const price = numberValue(data.lp);
+  const changePercent = numberValue(data.chp);
+  if (price === undefined || changePercent === undefined) return undefined;
+  const exchange = symbol.includes(':') ? symbol.split(':', 2)[0]! : '';
+  const ticker = symbol.includes(':') ? symbol.split(':', 2)[1]! : symbol;
+  const shortName = stringValue(data.short_name);
+  const description =
+    stringValue(data.local_description) || stringValue(data.description);
+  // Prefer human title when short_name is just the ticker code (common for indices).
+  const shortLooksLikeCode =
+    !shortName || shortName.toUpperCase() === ticker.toUpperCase();
+  const name = shortLooksLikeCode
+    ? description || shortName || ticker
+    : shortName || description || ticker;
+  const logo =
+    (isRecord(data.logo) ? stringValue(data.logo.logoid) : '') ||
+    stringValue(data.logoid);
+  return {
+    symbol,
+    name,
+    ...(exchange ? { exchange } : {}),
+    ...(logo
+      ? { logo_url: `${LOGO_BASE_URL}/${encodeLogoPath(logo)}.svg` }
+      : {}),
+    price,
+    change_percent: changePercent,
+    currency: resolveMarketCurrency(stringValue(data.currency_code)),
+    linkable: Boolean(exchange) && isSupportedExchange(exchange),
+  };
+}
+
+function boardItemToTapeQuote(item: MarketBoardItem): MarketTapeQuote {
+  return {
+    symbol: item.symbol,
+    name: item.description || item.name,
+    exchange: item.exchange,
+    ...(item.logo_url ? { logo_url: item.logo_url } : {}),
+    price: item.price,
+    change_percent: item.change_percent,
+    currency: item.currency,
+    linkable: item.linkable,
+  };
+}
+
+function uniqueSymbols(symbols: string[]) {
+  return [
+    ...new Set(
+      symbols
+        .map((symbol) => symbol.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function tickerSymbols(symbol: string): Set<string> {

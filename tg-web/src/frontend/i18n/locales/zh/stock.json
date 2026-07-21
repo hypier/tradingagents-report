@@ -3,6 +3,7 @@
     "title": "无效标的",
     "body": "无法解析该股票代码。"
   },
+  "backToQuotes": "市场行情",
   "actions": {
     "analyze": "开始分析",
     "addWatchlist": "加入自选",
@@ -16,8 +17,19 @@
   },
   "quote": {
     "title": "最新行情",
+    "live": "实时",
+    "connecting": "连接中…",
     "errorTitle": "行情不可用",
     "errorBody": "无法加载该上市标的的行情数据。"
+  },
+  "stats": {
+    "open": "开盘",
+    "high": "最高",
+    "low": "最低",
+    "volume": "成交量"
+  },
+  "chart": {
+    "title": "趋势图"
   },
   "reports": {
     "title": "研究报告",

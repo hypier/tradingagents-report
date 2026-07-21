@@ -78,6 +78,10 @@ export type MarketSnapshot = {
   currency?: string;
   change?: number;
   change_percent?: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  volume?: number;
   as_of?: string;
   update_mode?: string;
   delay_seconds?: number;
@@ -244,6 +248,17 @@ export const getMarketSnapshot = (
     `/api/market-snapshot?symbol=${encodeURIComponent(providerSymbol)}`,
     fetchImplementation,
   );
+
+export type MarketStreamToken = {
+  token: string;
+  sseUrl: string;
+  expiresAt: number;
+};
+
+/** Short-lived JWT for TradingView SSE quote streams (RapidAPI key stays on BFF). */
+export const createMarketStreamToken = (
+  fetchImplementation?: FetchImplementation,
+) => read<MarketStreamToken>('/api/market-stream-token', fetchImplementation);
 
 export const searchMarkets = (
   query: string,

@@ -2,7 +2,10 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { resolveCreditUnits } from '../../shared/analysis-credits';
-import { marketFromExchange } from '../../shared/market-codes';
+import {
+  isStockLeaderboardTab,
+  marketFromExchange,
+} from '../../shared/market-codes';
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
@@ -306,6 +309,125 @@ export function analysisRoutes(dependencies: AppDependencies) {
         context.get('requestId'),
       ),
     );
+  });
+
+  app.get('/market-markets', async (context) => {
+    const lang = context.req.query('lang') === 'zh' ? 'zh' : 'en';
+    return context.json(
+      apiSuccess(
+        {
+          markets: await dependencies.marketAssets.listMarkets(lang),
+        },
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.get('/market-board', async (context) => {
+    const marketCode =
+      context.req.query('market_code') ?? context.req.query('market') ?? '';
+    const tab = context.req.query('tab') ?? 'active';
+    const lang = context.req.query('lang') === 'zh' ? 'zh' : 'en';
+    const count = Number(context.req.query('count') ?? '20');
+    const start = Number(context.req.query('start') ?? '0');
+    if (!marketCode.trim()) {
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'market_code is required',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
+    }
+    if (!isStockLeaderboardTab(tab)) {
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'tab is invalid',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
+    }
+    try {
+      return context.json(
+        apiSuccess(
+          await dependencies.marketAssets.getStockLeaderboard({
+            marketCode,
+            tab,
+            count: Number.isFinite(count) ? count : 20,
+            start: Number.isFinite(start) ? start : 0,
+            lang,
+          }),
+          context.get('requestId'),
+        ),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to load market board';
+      if (message.includes('not configured')) {
+        throw new AppError('SERVICE_UNAVAILABLE', 503, message, error);
+      }
+      throw new AppError('BAD_GATEWAY', 502, message, error);
+    }
+  });
+
+  app.get('/market-tape', async (context) => {
+    const marketCode =
+      context.req.query('market_code') ?? context.req.query('market') ?? '';
+    const lang = context.req.query('lang') === 'zh' ? 'zh' : 'en';
+    if (!marketCode.trim()) {
+      return context.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'market_code is required',
+            requestId: context.get('requestId'),
+          },
+        },
+        400,
+      );
+    }
+    try {
+      return context.json(
+        apiSuccess(
+          await dependencies.marketAssets.getMarketTape(marketCode, lang),
+          context.get('requestId'),
+        ),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to load market tape';
+      if (message.includes('not configured')) {
+        throw new AppError('SERVICE_UNAVAILABLE', 503, message, error);
+      }
+      throw new AppError('BAD_GATEWAY', 502, message, error);
+    }
+  });
+
+  app.get('/market-stream-token', async (context) => {
+    try {
+      return context.json(
+        apiSuccess(
+          await dependencies.marketAssets.createStreamToken(),
+          context.get('requestId'),
+        ),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to create market stream token';
+      if (message.includes('not configured')) {
+        throw new AppError('SERVICE_UNAVAILABLE', 503, message, error);
+      }
+      throw new AppError('BAD_GATEWAY', 502, message, error);
+    }
   });
 
   return app;

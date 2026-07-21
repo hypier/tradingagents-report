@@ -25,6 +25,7 @@ function headerTitleKey(pathname: string) {
   if (pathname.startsWith('/reports/')) return 'header.report' as const;
   if (pathname.startsWith('/reports')) return 'header.reports' as const;
   if (pathname.startsWith('/watchlist')) return 'header.watchlist' as const;
+  if (pathname.startsWith('/quotes')) return 'header.quotes' as const;
   if (pathname.startsWith('/stocks/')) return 'header.stock' as const;
   if (pathname.startsWith('/tasks')) return 'header.tasks' as const;
   return 'header.desk' as const;
@@ -36,6 +37,7 @@ function pageOwnsTitle(pathname: string) {
   if (pathname === '/tasks') return true;
   if (pathname === '/reports' || pathname.startsWith('/reports/')) return true;
   if (pathname === '/watchlist') return true;
+  if (pathname === '/quotes') return true;
   if (pathname === '/billing') return true;
   if (pathname === '/account') return true;
   if (pathname.startsWith('/stocks/')) return true;

@@ -19,6 +19,7 @@ import { AccountPage } from '../pages/account-page';
 import { LegalPage } from '../pages/legal-page';
 import { SharedReportPage } from '../pages/shared-report-page';
 import { WatchlistPage } from '../pages/watchlist-page';
+import { QuotesPage } from '../pages/quotes-page';
 import { StockPage } from '../pages/stock-page';
 import { TasksPage } from '../pages/tasks-page';
 
@@ -27,6 +28,7 @@ export function AppRouter() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/tasks" element={<TasksPage />} />
+      <Route path="/quotes" element={<QuotesPage />} />
       <Route path="/watchlist" element={<WatchlistPage />} />
       <Route path="/stocks/:providerSymbol" element={<StockPage />} />
       <Route path="/admin" element={<AdminOverviewPage />} />

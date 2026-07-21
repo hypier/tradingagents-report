@@ -3,6 +3,7 @@
     "title": "Invalid instrument",
     "body": "This stock symbol could not be resolved."
   },
+  "backToQuotes": "Market Quotes",
   "actions": {
     "analyze": "Run analysis",
     "addWatchlist": "Add to watchlist",
@@ -16,8 +17,19 @@
   },
   "quote": {
     "title": "Latest quote",
+    "live": "Live",
+    "connecting": "Connecting…",
     "errorTitle": "Quote unavailable",
     "errorBody": "Market data could not be loaded for this listing."
+  },
+  "stats": {
+    "open": "Open",
+    "high": "High",
+    "low": "Low",
+    "volume": "Volume"
+  },
+  "chart": {
+    "title": "Trend chart"
   },
   "reports": {
     "title": "Research reports",

@@ -257,6 +257,10 @@ function fakeDependencies(
       searchMarkets: vi.fn(),
       getIdentities: vi.fn(),
       getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
     },
     logger: new Logger(),
     clerkPublishableKey: 'pk_test_public',
@@ -1002,6 +1006,10 @@ describe('createApp', () => {
         searchMarkets: vi.fn(),
         getIdentities: vi.fn(),
         getSnapshot: vi.fn(),
+        listMarkets: vi.fn().mockResolvedValue([]),
+        getStockLeaderboard: vi.fn(),
+        getMarketTape: vi.fn(),
+        createStreamToken: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1045,6 +1053,10 @@ describe('createApp', () => {
         searchMarkets: vi.fn(),
         getIdentities: vi.fn(),
         getSnapshot: vi.fn(),
+        listMarkets: vi.fn().mockResolvedValue([]),
+        getStockLeaderboard: vi.fn(),
+        getMarketTape: vi.fn(),
+        createStreamToken: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1167,6 +1179,10 @@ describe('createApp', () => {
         searchMarkets: vi.fn(),
         getIdentities: vi.fn(),
         getSnapshot: vi.fn(),
+        listMarkets: vi.fn().mockResolvedValue([]),
+        getStockLeaderboard: vi.fn(),
+        getMarketTape: vi.fn(),
+        createStreamToken: vi.fn(),
       },
     });
     const app = createApp(dependencies);
@@ -1233,6 +1249,10 @@ describe('createApp', () => {
         },
       ]),
       getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1259,6 +1279,10 @@ describe('createApp', () => {
       ]),
       getIdentities: vi.fn(),
       getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1283,6 +1307,10 @@ describe('createApp', () => {
         change_percent: 1.65,
         source: 'tradingview',
       }),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
     };
     const app = createApp(fakeDependencies({ marketAssets }));
 
@@ -1295,6 +1323,146 @@ describe('createApp', () => {
       data: { ticker: '0700.HK', last_price: 481.8 },
     });
     expect(marketAssets.getSnapshot).toHaveBeenCalledWith('HKEX:700');
+  });
+
+  it('returns TradingView market codes for the quotes desk', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([
+        { code: 'america', displayName: 'United States' },
+        { code: 'japan', displayName: 'Japan' },
+      ]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request('/api/market-markets?lang=en');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        markets: [
+          { code: 'america', displayName: 'United States' },
+          { code: 'japan', displayName: 'Japan' },
+        ],
+      },
+    });
+    expect(marketAssets.listMarkets).toHaveBeenCalledWith('en');
+  });
+
+  it('returns a market board for a TradingView market_code', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn().mockResolvedValue({
+        marketCode: 'hongkong',
+        tab: 'active',
+        totalCount: 12,
+        items: [
+          {
+            rank: 1,
+            symbol: 'HKEX:700',
+            name: '700',
+            description: 'Tencent',
+            exchange: 'HKEX',
+            price: 400,
+            change_percent: 1.2,
+            currency: 'HKD',
+            linkable: true,
+          },
+        ],
+      }),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn(),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request(
+      '/api/market-board?market_code=hongkong&tab=active',
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        marketCode: 'hongkong',
+        items: [{ symbol: 'HKEX:700' }],
+      },
+    });
+    expect(marketAssets.getStockLeaderboard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        marketCode: 'hongkong',
+        tab: 'active',
+      }),
+    );
+  });
+
+  it('returns a market tape for a TradingView market_code', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      createStreamToken: vi.fn(),
+      getMarketTape: vi.fn().mockResolvedValue({
+        marketCode: 'america',
+        pinned: [
+          {
+            symbol: 'SP:SPX',
+            name: 'S&P 500',
+            price: 5000,
+            change_percent: 0.2,
+            currency: 'USD',
+            linkable: false,
+          },
+        ],
+        tape: [],
+      }),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request('/api/market-tape?market_code=america');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { marketCode: 'america', pinned: [{ symbol: 'SP:SPX' }] },
+    });
+    expect(marketAssets.getMarketTape).toHaveBeenCalledWith('america', 'en');
+  });
+
+  it('returns a TradingView SSE stream token', async () => {
+    const marketAssets = {
+      searchMarkets: vi.fn(),
+      getIdentities: vi.fn(),
+      getSnapshot: vi.fn(),
+      listMarkets: vi.fn().mockResolvedValue([]),
+      getStockLeaderboard: vi.fn(),
+      getMarketTape: vi.fn(),
+      createStreamToken: vi.fn().mockResolvedValue({
+        token: 'jwt-test',
+        sseUrl: 'https://ws.tradingviewapi.com/sse/stream',
+        expiresAt: 1_700_000_000_000,
+      }),
+    };
+    const app = createApp(fakeDependencies({ marketAssets }));
+
+    const response = await app.request('/api/market-stream-token');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        token: 'jwt-test',
+        sseUrl: 'https://ws.tradingviewapi.com/sse/stream',
+        expiresAt: 1_700_000_000_000,
+      },
+    });
+    expect(marketAssets.createStreamToken).toHaveBeenCalled();
   });
 
   it('returns JSON for an unknown API path instead of the SPA document', async () => {
