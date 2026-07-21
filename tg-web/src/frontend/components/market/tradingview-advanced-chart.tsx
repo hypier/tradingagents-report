@@ -822,12 +822,6 @@ export function MarketTrendChart({
           >
             {t('chart.title')}
           </h2>
-          <span
-            className="hidden max-w-[9rem] truncate font-mono text-[10px] text-muted-foreground sm:inline"
-            title={timezone}
-          >
-            {timezone}
-          </span>
           <ToggleGroup
             type="single"
             size="sm"
@@ -946,28 +940,36 @@ export function MarketTrendChart({
             </Button>
           </div>
         </div>
-        <ToggleGroup
-          type="single"
-          size="sm"
-          variant="outline"
-          spacing={0}
-          value={interval}
-          onValueChange={(value) => {
-            if (value) setInterval(value as ChartInterval);
-          }}
-          aria-label={t('chart.interval')}
-          className="rounded-none"
-        >
-          {CHART_INTERVALS.map((item) => (
-            <ToggleGroupItem
-              key={item.value}
-              value={item.value}
-              className="h-7 min-w-9 rounded-none px-2 font-mono text-[11px] tabular-nums data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-            >
-              {t(`chart.intervals.${item.labelKey}`)}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className="hidden max-w-[9rem] truncate font-mono text-[10px] text-muted-foreground sm:inline"
+            title={timezone}
+          >
+            {timezone}
+          </span>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            variant="outline"
+            spacing={0}
+            value={interval}
+            onValueChange={(value) => {
+              if (value) setInterval(value as ChartInterval);
+            }}
+            aria-label={t('chart.interval')}
+            className="rounded-none"
+          >
+            {CHART_INTERVALS.map((item) => (
+              <ToggleGroupItem
+                key={item.value}
+                value={item.value}
+                className="h-7 min-w-9 rounded-none px-2 font-mono text-[11px] tabular-nums data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                {t(`chart.intervals.${item.labelKey}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
       </div>
       <div className="relative w-full" style={{ height }}>
         {legend ? (
