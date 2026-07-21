@@ -44,6 +44,7 @@ __all__ = [
     "get_instrument_context_from_state",
     "get_language_instruction",
     "get_transaction_proposal_instruction",
+    "get_section_recommendation_instruction",
     "create_msg_delete",
 ]
 
@@ -66,13 +67,18 @@ def get_language_instruction() -> str:
     return (
         f" Write your entire response in {lang}, including all headings, "
         f"section titles, and labels. Do not leave English template phrases "
-        f"such as 'FINAL TRANSACTION PROPOSAL', 'Overall Sentiment', "
-        f"'Recommendation', or 'Rationale'."
+        f"such as 'TRANSACTION PROPOSAL', 'FINAL TRANSACTION PROPOSAL', "
+        f"'Overall Sentiment', 'Recommendation', or 'Rationale'."
     )
 
 
 def get_transaction_proposal_instruction() -> str:
-    """Return the multi-agent stop-signal sentence in the active report language."""
+    """Remind analysts that the trader proposal marker is not their job.
+
+    Graph routing no longer greps for this phrase; it remains only so
+    free-text analysts do not steal the Trader's chrome and confuse readers
+    who treat the first ``…建议`` they see as the portfolio decision.
+    """
     from tradingagents.agents.utils.report_i18n import (
         get_report_language,
         get_transaction_proposal_phrase,
@@ -81,9 +87,35 @@ def get_transaction_proposal_instruction() -> str:
     phrase = get_transaction_proposal_phrase()
     actions = "**买入/持有/卖出**" if get_report_language() == "chinese" else "**BUY/HOLD/SELL**"
     return (
-        f" If you or any other assistant has the {phrase}: {actions} "
-        f"or deliverable, prefix your response with {phrase}: "
-        f"{actions} so the team knows to stop."
+        f" Do not conclude or prefix your report with {phrase}. "
+        f"That label is reserved for the Trader's later {actions} deliverable. "
+        f"Your section only supplies analyst evidence for later debate — "
+        f"it is not the team's final portfolio decision."
+    )
+
+
+def get_section_recommendation_instruction(section: str) -> str:
+    """Tell an analyst how to label a directional view for its own section."""
+    from tradingagents.agents.utils.report_i18n import (
+        get_analyst_recommendation_phrase,
+        get_report_language,
+        get_transaction_proposal_phrase,
+    )
+
+    label = get_analyst_recommendation_phrase(section)
+    reserved = get_transaction_proposal_phrase()
+    if get_report_language() == "chinese":
+        return (
+            f" 若需要给出方向性结论，请使用「{label}：…」作为小节标题，"
+            f"并写明这仅代表本环节观点，不是组合最终决策。"
+            f"不要使用「{reserved}」或「最终交易建议」这类措辞。"
+        )
+    return (
+        f" If you state a directional view, conclude with "
+        f"'{label}: …' and make clear it is only this section's view, "
+        f"not the team's final portfolio decision. "
+        f"Do not use '{reserved}', 'FINAL TRANSACTION PROPOSAL', "
+        f"or 'final trading recommendation' wording."
     )
 
 

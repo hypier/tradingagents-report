@@ -34,6 +34,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_language_instruction,
     get_news,
+    get_section_recommendation_instruction,
     get_transaction_proposal_instruction,
 )
 from tradingagents.agents.utils.structured import (
@@ -180,6 +181,7 @@ Fill the following fields:
 - **confidence**: low / medium / high, based on data quality and sample size.
 - **narrative**: Full source-by-source breakdown, divergences, dominant narrative themes, catalysts and risks, and a markdown summary table of key sentiment signals (direction, source, supporting evidence).
 
+{get_section_recommendation_instruction("sentiment")}
 {get_language_instruction()}"""
 
 

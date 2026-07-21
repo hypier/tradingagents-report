@@ -71,11 +71,24 @@ export function ReportTabsNav({
     const active = node.querySelector<HTMLElement>(
       '[role="tab"][aria-selected="true"]',
     );
-    active?.scrollIntoView({
-      behavior: 'smooth',
-      inline: 'nearest',
-      block: 'nearest',
-    });
+    if (!active) return;
+
+    // Center the active tab in the scroller so narrow viewports keep
+    // neighbors reachable on both sides after a click.
+    const scrollerRect = node.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const activeCenter =
+      activeRect.left -
+      scrollerRect.left +
+      node.scrollLeft +
+      activeRect.width / 2;
+    const maxScroll = Math.max(0, node.scrollWidth - node.clientWidth);
+    const target = Math.max(
+      0,
+      Math.min(activeCenter - node.clientWidth / 2, maxScroll),
+    );
+    if (Math.abs(target - node.scrollLeft) < 2) return;
+    node.scrollTo({ left: target, behavior: 'smooth' });
   }, [activeTab]);
 
   function scrollByPage(direction: -1 | 1) {

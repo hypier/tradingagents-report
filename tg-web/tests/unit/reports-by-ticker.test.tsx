@@ -49,6 +49,9 @@ it('renders ticker headers with dated report rows', () => {
             status: 'succeeded',
             trade_date: '2026-07-21',
             decision: 'Buy',
+            output_language: 'Chinese',
+            analysts: ['market', 'fundamentals'],
+            updated_at: '2026-07-21T10:00:00Z',
             display: { display_name: 'Apple Inc.' },
           },
           {
@@ -69,6 +72,8 @@ it('renders ticker headers with dated report rows', () => {
   expect(screen.getByText('Apple Inc.')).toBeInTheDocument();
   expect(screen.getByText('2 reports')).toBeInTheDocument();
   expect(screen.getByText('Buy')).toHaveAttribute('data-variant', 'up');
+  expect(screen.getByText('Chinese · 中文')).toBeInTheDocument();
+  expect(screen.getByText('Market, Fundamentals')).toBeInTheDocument();
 
   const rows = screen.getAllByRole('button');
   const dateRow = rows.find((row) => within(row).queryByText('Buy'));

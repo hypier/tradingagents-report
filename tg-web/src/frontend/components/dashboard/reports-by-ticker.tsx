@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { InstrumentIdentity } from '../instrument-identity';
@@ -9,7 +9,12 @@ import {
   decisionBadgeVariant,
   formatDecisionLabel,
 } from '@/frontend/lib/format-decision';
-import { formatLocaleCalendarDate, parseSortableDateInput } from '@/frontend/lib/format-locale';
+import {
+  formatLocaleCalendarDate,
+  formatLocaleDateTime,
+  parseSortableDateInput,
+} from '@/frontend/lib/format-locale';
+import { formatOutputLanguage } from '@/frontend/lib/format-output-language';
 import { formatDisplayTicker } from '@/shared/listing';
 import type { AnalysisJob, AssetIdentity } from '../../lib/research';
 
@@ -84,6 +89,15 @@ export function ReportsByTicker({
   const { t } = useTranslation(['reports', 'common']);
   const groups = groupJobsByTicker(jobs);
 
+  function formatAnalystTeam(analysts?: string[] | null) {
+    if (!analysts?.length) return t('table.configuredTeam');
+    return analysts
+      .map((analyst) =>
+        t(`common:analysts.${analyst}`, { defaultValue: analyst }),
+      )
+      .join(', ');
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col gap-3 px-5 py-4 lg:px-6">
@@ -119,9 +133,9 @@ export function ReportsByTicker({
         return (
           <section
             key={group.ticker}
-            className="min-w-0 border border-border bg-card"
+            className="min-w-0 overflow-hidden border border-border bg-card"
           >
-            <header className="flex items-center gap-2.5 px-3 py-2.5">
+            <header className="flex items-center gap-2.5 bg-muted/45 px-3 py-2.5">
               <InstrumentLogo
                 symbol={ticker}
                 logoUrl={logoUrl}
@@ -134,12 +148,15 @@ export function ReportsByTicker({
                 name={name}
                 ticker={ticker}
               />
-              <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+              <Badge
+                variant="secondary"
+                className="shrink-0 font-mono text-[11px] tabular-nums"
+              >
                 {t('byTicker.reportCount', { count: group.jobs.length })}
-              </span>
+              </Badge>
             </header>
 
-            <ul className="border-t border-border">
+            <ul className="border-t border-border bg-background">
               {group.jobs.map((job, index) => {
                 const label = formatDecisionLabel(
                   job.decision,
@@ -155,7 +172,7 @@ export function ReportsByTicker({
                     <div
                       role="button"
                       tabIndex={0}
-                      className="grid cursor-pointer grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-3 py-2 pr-3 pl-12 text-left transition-colors hover:bg-muted/30"
+                      className="flex cursor-pointer items-center gap-3 py-2.5 pr-3 pl-12 text-left transition-colors hover:bg-muted/30"
                       aria-label={t('table.viewReportFor', {
                         ticker: job.ticker,
                       })}
@@ -167,13 +184,17 @@ export function ReportsByTicker({
                         }
                       }}
                     >
-                      <span className="font-mono text-sm tabular-nums text-foreground/90">
+                      <span className="inline-flex w-[6.75rem] shrink-0 items-center gap-1.5 font-mono text-sm tabular-nums text-foreground/90">
+                        <FileText
+                          className="size-3.5 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
                         {formatLocaleCalendarDate(
                           job.trade_date,
                           t('table.notAvailable'),
                         )}
                       </span>
-                      <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="w-[5.75rem] shrink-0">
                         {label ? (
                           <Badge
                             variant={decisionBadgeVariant(job.decision)}
@@ -185,6 +206,35 @@ export function ReportsByTicker({
                           <span className="text-xs text-muted-foreground">
                             {t('table.noConclusion')}
                           </span>
+                        )}
+                      </span>
+                      <span className="hidden w-[7rem] shrink-0 sm:block">
+                        {job.output_language?.trim() ? (
+                          <Badge
+                            variant="outline"
+                            className="h-5 max-w-full truncate px-1.5 text-[11px]"
+                          >
+                            {formatOutputLanguage(
+                              job.output_language,
+                              (key, options) => t(`common:${key}`, options),
+                            )}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {t('table.notAvailable')}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground md:block"
+                        title={formatAnalystTeam(job.analysts)}
+                      >
+                        {formatAnalystTeam(job.analysts)}
+                      </span>
+                      <span className="hidden shrink-0 font-mono text-xs tabular-nums text-muted-foreground lg:inline">
+                        {formatLocaleDateTime(
+                          job.updated_at ?? job.created_at,
+                          t('table.notAvailable'),
                         )}
                       </span>
                       <ChevronRight

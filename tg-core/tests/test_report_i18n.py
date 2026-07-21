@@ -19,10 +19,14 @@ from tradingagents.agents.schemas import (
 )
 from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
+    get_section_recommendation_instruction,
     get_transaction_proposal_instruction,
 )
 from tradingagents.agents.utils.rating import parse_rating
-from tradingagents.agents.utils.report_i18n import normalize_report_language
+from tradingagents.agents.utils.report_i18n import (
+    get_analyst_recommendation_phrase,
+    normalize_report_language,
+)
 from tradingagents.dataflows.config import set_config
 
 
@@ -68,7 +72,8 @@ class TestChineseRenderHelpers:
         )
         assert "**操作**: 持有" in md
         assert "**理由**: 观望为主。" in md
-        assert "最终交易建议: **持有**" in md
+        assert "交易执行建议: **持有**" in md
+        assert "最终交易建议" not in md
         assert "FINAL TRANSACTION PROPOSAL" not in md
 
     def test_pm_decision_labels(self):
@@ -131,16 +136,32 @@ class TestLanguagePromptHelpers:
         out = get_language_instruction()
         assert "Chinese" in out
         assert "headings" in out
-        assert "FINAL TRANSACTION PROPOSAL" in out
+        assert "TRANSACTION PROPOSAL" in out
 
-    def test_chinese_transaction_phrase(self):
+    def test_chinese_transaction_phrase_forbids_trader_chrome(self):
         set_config({"output_language": "Chinese"})
         out = get_transaction_proposal_instruction()
-        assert "最终交易建议" in out
+        assert "交易执行建议" in out
+        assert "Do not conclude or prefix" in out
         assert "买入/持有/卖出" in out
+        assert "最终交易建议" not in out  # phrase itself renamed
         assert "FINAL TRANSACTION PROPOSAL" not in out
 
-    def test_english_transaction_phrase(self):
+    def test_english_transaction_phrase_forbids_trader_chrome(self):
         out = get_transaction_proposal_instruction()
-        assert "FINAL TRANSACTION PROPOSAL" in out
+        assert "TRANSACTION PROPOSAL" in out
+        assert "Do not conclude or prefix" in out
         assert "BUY/HOLD/SELL" in out
+
+    def test_market_section_recommendation_chinese(self):
+        set_config({"output_language": "Chinese"})
+        assert get_analyst_recommendation_phrase("market") == "市场分析建议"
+        out = get_section_recommendation_instruction("market")
+        assert "市场分析建议" in out
+        assert "最终交易建议" in out  # explicit ban of the old wording
+        assert "组合最终决策" in out
+
+    def test_market_section_recommendation_english(self):
+        out = get_section_recommendation_instruction("market")
+        assert "Market Analysis Recommendation" in out
+        assert "final portfolio decision" in out

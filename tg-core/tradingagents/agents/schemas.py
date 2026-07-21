@@ -165,9 +165,10 @@ def render_trader_proposal(proposal: TraderProposal) -> str:
     """Render a TraderProposal to markdown.
 
     The trailing transaction-proposal line is preserved for backward
-    compatibility with the analyst stop-signal text. Its wording follows
-    ``output_language`` (English ``FINAL TRANSACTION PROPOSAL`` or Chinese
-    ``最终交易建议``).
+    compatibility with older prompts and greps. Its wording follows
+    ``output_language`` (English ``TRANSACTION PROPOSAL`` or Chinese
+    ``交易执行建议``). It is the Trader's execution view — not the
+    Portfolio Manager's final rating.
     """
     labels = report_labels()
     action = localize_report_value(proposal.action.value)

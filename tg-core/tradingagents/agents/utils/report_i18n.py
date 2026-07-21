@@ -4,7 +4,7 @@ Analyst/researcher prose already follows ``output_language`` via
 ``get_language_instruction``. Structured agents, however, fill typed schemas
 and then go through Python ``render_*`` helpers that historically hard-coded
 English labels (``Recommendation``, ``Overall Sentiment``,
-``FINAL TRANSACTION PROPOSAL``, …). Those helpers read the active config here
+``TRANSACTION PROPOSAL``, …). Those helpers read the active config here
 so a Chinese run no longer mixes English template chrome into an otherwise
 localized report.
 
@@ -40,7 +40,12 @@ _LABELS_EN: dict[str, str] = {
     "entry_price": "Entry Price",
     "stop_loss": "Stop Loss",
     "position_sizing": "Position Sizing",
-    "final_transaction_proposal": "FINAL TRANSACTION PROPOSAL",
+    # Trader deliverable — not the portfolio-manager final decision.
+    "final_transaction_proposal": "TRANSACTION PROPOSAL",
+    "market_analysis_recommendation": "Market Analysis Recommendation",
+    "sentiment_analysis_recommendation": "Sentiment Analysis Recommendation",
+    "news_analysis_recommendation": "News Analysis Recommendation",
+    "fundamentals_analysis_recommendation": "Fundamentals Analysis Recommendation",
     "rating": "Rating",
     "executive_summary": "Executive Summary",
     "investment_thesis": "Investment Thesis",
@@ -60,7 +65,12 @@ _LABELS_ZH: dict[str, str] = {
     "entry_price": "入场价",
     "stop_loss": "止损",
     "position_sizing": "仓位",
-    "final_transaction_proposal": "最终交易建议",
+    # 交易员交付物 — 不是组合经理的最终决策。
+    "final_transaction_proposal": "交易执行建议",
+    "market_analysis_recommendation": "市场分析建议",
+    "sentiment_analysis_recommendation": "情绪分析建议",
+    "news_analysis_recommendation": "新闻分析建议",
+    "fundamentals_analysis_recommendation": "基本面分析建议",
     "rating": "评级",
     "executive_summary": "执行摘要",
     "investment_thesis": "投资论点",
@@ -69,6 +79,14 @@ _LABELS_ZH: dict[str, str] = {
     "overall_sentiment": "整体情绪",
     "score": "得分",
     "confidence": "置信度",
+}
+
+# Analyst section → report chrome key for a scoped directional view.
+_ANALYST_RECOMMENDATION_KEYS: dict[str, str] = {
+    "market": "market_analysis_recommendation",
+    "sentiment": "sentiment_analysis_recommendation",
+    "news": "news_analysis_recommendation",
+    "fundamentals": "fundamentals_analysis_recommendation",
 }
 
 # Display values for structured enums. Keys are the English canonical forms.
@@ -129,8 +147,22 @@ def localize_report_value(value: str, language: str | None = None) -> str:
 
 
 def get_transaction_proposal_phrase(language: str | None = None) -> str:
-    """Stop-signal / trailing proposal phrase used in analyst + trader prompts."""
+    """Trader trailing-proposal phrase (also referenced in analyst prompts)."""
     return report_labels(language)["final_transaction_proposal"]
+
+
+def get_analyst_recommendation_phrase(
+    section: str,
+    language: str | None = None,
+) -> str:
+    """Return the section-scoped recommendation label for an analyst report."""
+    key = _ANALYST_RECOMMENDATION_KEYS.get(section)
+    if key is None:
+        raise ValueError(
+            f"Unknown analyst section {section!r}; expected one of "
+            f"{sorted(_ANALYST_RECOMMENDATION_KEYS)}"
+        )
+    return report_labels(language)[key]
 
 
 # Extra label spellings accepted by API decision-field parsers. Kept here so
