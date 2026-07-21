@@ -1,7 +1,11 @@
 import { useTheme } from 'next-themes';
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/frontend/components/ui/toggle-group';
 import { cn } from '@/frontend/lib/utils';
 
 declare global {
@@ -13,6 +17,20 @@ declare global {
 }
 
 const SCRIPT_SRC = 'https://s3.tradingview.com/tv.js';
+
+/** TradingView Advanced Chart interval codes. */
+export const CHART_INTERVALS = [
+  { value: '5', labelKey: '5m' },
+  { value: '15', labelKey: '15m' },
+  { value: '60', labelKey: '1H' },
+  { value: 'D', labelKey: '1D' },
+  { value: 'W', labelKey: '1W' },
+  { value: 'M', labelKey: '1M' },
+] as const;
+
+export type ChartInterval = (typeof CHART_INTERVALS)[number]['value'];
+
+const DEFAULT_INTERVAL: ChartInterval = 'D';
 
 function loadTradingViewScript(): Promise<void> {
   if (window.TradingView) return Promise.resolve();
@@ -37,8 +55,8 @@ function loadTradingViewScript(): Promise<void> {
 
 /**
  * TradingView Advanced Chart embed (tv.js).
- * Keeps the native top toolbar so users can switch intervals;
- * hides the side drawing toolbar for a denser research layout.
+ * Interval is controlled by an external toggle — the free widget does not
+ * expose a reliable resolution API without remounting.
  * Symbol must be EXCHANGE:TICKER (e.g. NASDAQ:MU).
  */
 export function TradingViewAdvancedChart({
@@ -46,12 +64,14 @@ export function TradingViewAdvancedChart({
   className,
   height = 420,
   timezone = 'Etc/UTC',
+  defaultInterval = DEFAULT_INTERVAL,
 }: {
   symbol: string;
   className?: string;
   height?: number;
   /** IANA timezone for the chart axis (prefer market session TZ). */
   timezone?: string;
+  defaultInterval?: ChartInterval;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -59,6 +79,7 @@ export function TradingViewAdvancedChart({
   const { i18n, t } = useTranslation('stock');
   const isDark = resolvedTheme === 'dark';
   const locale = i18n.language.toLowerCase().startsWith('zh') ? 'zh_CN' : 'en';
+  const [interval, setInterval] = useState<ChartInterval>(defaultInterval);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -80,7 +101,7 @@ export function TradingViewAdvancedChart({
         new window.TradingView.widget({
           autosize: true,
           symbol,
-          interval: 'D',
+          interval,
           timezone,
           theme: isDark ? 'dark' : 'light',
           style: '1',
@@ -88,12 +109,12 @@ export function TradingViewAdvancedChart({
           toolbar_bg: isDark ? '#0E141B' : '#ffffff',
           enable_publishing: false,
           allow_symbol_change: false,
-          // Top toolbar owns interval / range switching on the free widget.
-          hide_top_toolbar: false,
+          // External ToggleGroup owns interval; keep TV chrome minimal.
+          hide_top_toolbar: true,
           hide_side_toolbar: true,
           hide_legend: false,
           save_image: false,
-          withdateranges: true,
+          withdateranges: false,
           details: false,
           hotlist: false,
           calendar: false,
@@ -114,17 +135,42 @@ export function TradingViewAdvancedChart({
       cancelled = true;
       host.replaceChildren();
     };
-  }, [symbol, isDark, locale, t, timezone]);
+  }, [symbol, interval, isDark, locale, t, timezone]);
 
   return (
     <div
       className={cn('overflow-hidden border border-border bg-card', className)}
       aria-labelledby={titleId}
     >
-      <div className="border-b border-border px-3 py-2">
-        <h2 id={titleId} className="text-sm font-semibold tracking-tight">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-1.5">
+        <h2
+          id={titleId}
+          className="shrink-0 text-sm font-semibold tracking-tight"
+        >
           {t('chart.title')}
         </h2>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          variant="outline"
+          spacing={0}
+          value={interval}
+          onValueChange={(value) => {
+            if (value) setInterval(value as ChartInterval);
+          }}
+          aria-label={t('chart.interval')}
+          className="rounded-none"
+        >
+          {CHART_INTERVALS.map((item) => (
+            <ToggleGroupItem
+              key={item.value}
+              value={item.value}
+              className="h-7 min-w-9 rounded-none px-2 font-mono text-[11px] tabular-nums"
+            >
+              {t(`chart.intervals.${item.labelKey}`)}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
       <div ref={containerRef} className="w-full" style={{ height }} />
     </div>

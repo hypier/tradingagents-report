@@ -38,7 +38,16 @@
   },
   "chart": {
     "title": "Trend chart",
-    "unavailable": "TradingView chart unavailable"
+    "unavailable": "TradingView chart unavailable",
+    "interval": "Chart interval",
+    "intervals": {
+      "5m": "5m",
+      "15m": "15m",
+      "1H": "1H",
+      "1D": "1D",
+      "1W": "1W",
+      "1M": "1M"
+    }
   },
   "reports": {
     "title": "Research reports",
