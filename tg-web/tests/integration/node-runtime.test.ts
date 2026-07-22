@@ -65,11 +65,6 @@ function fakeDependencies(): AppDependencies {
       markets: fakeMarketsRepository(),
       creditRules: fakeCreditRulesRepository(),
       audit: fakeAuditRepository(),
-      modelPrices: {
-        list: vi.fn().mockResolvedValue([]),
-        upsert: vi.fn(),
-        delete: vi.fn(),
-      },
       llmCatalog: {
         listProviders: vi.fn().mockResolvedValue([]),
         getProvider: vi.fn().mockResolvedValue(null),

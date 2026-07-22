@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   analysisJobs,
-  llmModelPrices,
   llmProviders,
   llmModels,
   accountUsers,
@@ -22,7 +21,6 @@ import {
 describe('Core table mappings', () => {
   it('maps Core-owned and LLM catalog table names', () => {
     expect(getTableName(analysisJobs)).toBe('analysis_jobs');
-    expect(getTableName(llmModelPrices)).toBe('llm_model_prices');
     expect(getTableName(llmProviders)).toBe('llm_providers');
     expect(getTableName(llmModels)).toBe('llm_models');
   });

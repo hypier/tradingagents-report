@@ -461,7 +461,7 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 
 ## 10. Token 使用量与费用统计
 
-`tradingagents.llm_clients.token_usage.TokenUsageCallback` 汇总 LangChain 返回的 token usage。`tradingagents.llm_clients.pricing.calculate_cost` 负责纯成本计算；`infrastructure/llm_prices.py` 读取 `llm_model_prices`（启动时可 seed 内置 fallback）。分析 job 将汇总结果保存到 PostgreSQL：
+`tradingagents.llm_clients.token_usage.TokenUsageCallback` 汇总 LangChain 返回的 token usage。`tradingagents.llm_clients.pricing.calculate_cost` 负责纯成本计算；`infrastructure/llm_prices.py` 从 `llm_models` JOIN `llm_providers` 读取单价。分析 job 将汇总结果保存到 PostgreSQL：
 
 - `tokens_used`：总 token 数，优先使用模型返回的 `total_tokens`。
 - `token_usage.prompt_tokens`：输入 token 数。
@@ -469,7 +469,7 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 - `token_usage.reasoning_tokens`：推理 token 数，取决于模型是否返回该字段。
 - `token_usage.by_model`：按模型名聚合的 token 明细。
 - `performance_metrics.token_usage`：结果格式中的同一份 token 明细，便于前端统一读取。
-- `actual_amount_usd` / `cost_usd`：按已缓存模型价格和实际 token usage 估算的美元金额。
+- `actual_amount_usd` / `cost_usd`：按 `llm_models` 目录单价和实际 token usage 估算的美元金额。
 - `cost_breakdown`：按模型拆分的输入、缓存输入、缓存写入、输出 token 与费用明细。
 - `performance_metrics.cost_breakdown`：结果格式中的同一份费用明细。
 

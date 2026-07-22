@@ -6,7 +6,7 @@
 
 ## 1. 概述
 
-本库共 20 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。支付由 Stripe 托管，本库保存订阅镜像、积分账本与 webhook 幂等日志。
+本库共 19 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。支付由 Stripe 托管，本库保存订阅镜像、积分账本与 webhook 幂等日志。
 
 ### 1.1 域划分
 
@@ -15,7 +15,7 @@
 | 账户 | `account_users` | Clerk 同步资料与偏好 |
 | 计费 / 积分 | `billing_subscriptions`, `credit_accounts`, `credit_billing_settings`, `credit_billing_setting_events`, `referral_relationships`, `credit_reservations`, `credit_ledger_entries`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events`, `credit_rules` | Stripe 订阅、积分钱包、预留结算、推荐奖励、计费配置 |
 | 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化 |
-| LLM | `llm_model_prices`, `llm_providers`, `llm_models` | 模型单价缓存、提供商凭据、对用户开放的模型目录 |
+| LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
 | 自选股 | `watchlist_items` | 每用户收藏的标的 |
 | 产品配置 / 审计 | `product_settings`, `market_metadata`, `admin_audit_events` | 功能开关、市场元数据、管理员审计 |
 
@@ -230,21 +230,7 @@ erDiagram
         jsonb params
         jsonb capabilities
     }
-
-    llm_model_prices {
-        text provider PK
-        text model PK
-        text billing_mode PK
-        text context_tier PK
-        text currency
-        int unit_tokens
-        numeric input_price
-        numeric output_price
-        text source_url
-    }
 ```
-
-> `llm_model_prices` 为成本估算用的单价缓存，主键为 `(provider, model, billing_mode, context_tier)`，与 `llm_models` 无外键关联（可独立导入/抓取）。
 
 ### 2.6 自选股
 
@@ -355,7 +341,6 @@ flowchart TB
     subgraph LLM["LLM"]
         LP[llm_providers]
         LM[llm_models]
-        LMP[llm_model_prices]
     end
 
     subgraph Watchlist["自选股"]
@@ -681,31 +666,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.13 `llm_model_prices`
-
-用于成本估算的 LLM 模型单价缓存。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `provider` | `text` | N | — | **复合 PK**。LLM 提供商键（openai、anthropic 等） |
-| `model` | `text` | N | — | **复合 PK**。提供商内的模型 ID |
-| `billing_mode` | `text` | N | `'standard'` | **复合 PK**。计费通道，如 standard / batch |
-| `context_tier` | `text` | N | `'short'` | **复合 PK**。上下文长度档位，如 short / long |
-| `currency` | `text` | N | `'USD'` | 单价对应的 ISO 货币代码 |
-| `unit_tokens` | `integer` | N | `1000000` | 单价所对应的 token 基数 |
-| `input_price` | `numeric(18,8)` | N | — | 每 `unit_tokens` 的输入 token 价格 |
-| `cached_input_price` | `numeric(18,8)` | Y | — | 每 `unit_tokens` 的缓存输入价格 |
-| `cache_write_price` | `numeric(18,8)` | Y | — | 每 `unit_tokens` 的 cache-write 价格 |
-| `output_price` | `numeric(18,8)` | N | — | 每 `unit_tokens` 的输出 token 价格 |
-| `source_url` | `text` | N | — | 该行抓取/导入所依据的官方定价页 URL |
-| `created_at` | `timestamptz` | N | `now()` | 创建时间 |
-| `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
-
-**主键**：`(provider, model, billing_mode, context_tier)`
-
----
-
-### 3.14 `llm_providers`
+### 3.13 `llm_providers`
 
 管理员配置的 LLM 提供商实例（含加密 API Key）。
 
@@ -732,7 +693,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.15 `llm_models`
+### 3.14 `llm_models`
 
 管理员纳管的 LLM 模型目录；`enabled` 表示对用户开放。
 
@@ -769,7 +730,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.16 `watchlist_items`
+### 3.15 `watchlist_items`
 
 用户自选股收藏条目（按 listing 字段去规范化，无分组与标签）。
 
@@ -797,7 +758,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.17 `product_settings`
+### 3.16 `product_settings`
 
 产品级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook）。
 
@@ -810,7 +771,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.18 `market_metadata`
+### 3.17 `market_metadata`
 
 可管理的市场元数据。
 
@@ -828,7 +789,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.19 `credit_rules`
+### 3.18 `credit_rules`
 
 按市场 / 分析师数量解析分析额度消耗。
 
@@ -854,7 +815,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.20 `admin_audit_events`
+### 3.19 `admin_audit_events`
 
 管理员与关键产品操作的通用审计日志。
 

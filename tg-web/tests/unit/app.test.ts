@@ -257,11 +257,6 @@ function fakeDependencies(
         }),
         list: vi.fn().mockResolvedValue([]),
       },
-      modelPrices: {
-        list: vi.fn().mockResolvedValue([]),
-        upsert: vi.fn(),
-        delete: vi.fn(),
-      },
       llmCatalog: {
         listProviders: vi.fn().mockResolvedValue([
           {
@@ -2140,11 +2135,6 @@ describe('createApp', () => {
         audit: {
           record: vi.fn(),
           list: vi.fn().mockResolvedValue([]),
-        },
-        modelPrices: {
-          list: vi.fn().mockResolvedValue([]),
-          upsert: vi.fn(),
-          delete: vi.fn(),
         },
         llmCatalog: {
           listProviders: vi.fn().mockResolvedValue([]),

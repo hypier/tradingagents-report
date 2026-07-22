@@ -128,7 +128,7 @@ network. `tg-web` connects to the Core services by their Compose service names.
 
 ## Data and cache boundaries
 
-The mapped `analysis_jobs`, `llm_model_prices`, `llm_providers`, and `llm_models`
+The mapped `analysis_jobs`, `llm_providers`, and `llm_models`
 tables are owned by `tg-web` Drizzle migrations. Configure the shared database
 in `tg-web/.env` as `DATABASE_URL`, then run `pnpm db:migrate` manually.
 Migrations do not run on Compose, `./start.sh`, or Web process startup. Core

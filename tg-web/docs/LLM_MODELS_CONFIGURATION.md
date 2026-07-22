@@ -5,7 +5,7 @@
 **范围边界（严格）**
 
 - **本期只做模型配置**：提供商、API Key、模型目录、默认可选模型、用户选型、去掉 Core 侧模型刷新工人。
-- **价格计算 / 积分预扣 / `calculate_cost` / 任务 `cost_usd` 结算：本期一律不改。**
+- **积分预扣公式本期不改**；成本估算仍走 `calculate_cost`，但单价改为从 `llm_models` 读取（删除 `llm_model_prices`）。
 - **不做旧版兼容**：开发时直接改表、改 API、改 UI；不保留启动爬价、环境变量 Key 回退或双读路径。
 
 落地后同步更新 `PRODUCT_FUNCTIONS.md`、`tg-core/docs/API_SERVICE.md`、`tg-core/docs/FUNCTIONAL_BACKLOG.md` §1。
@@ -21,7 +21,7 @@
 
 ## 2. 非目标
 
-- 不修改价格计算、成本回填、积分预估与结算逻辑。
+- 不修改积分预估与预扣公式；`calculate_cost` 公式不变，单价数据源改为 `llm_models`。
 - 不实现每用户自带 Key、不实现多租户凭据隔离。
 - 不把行情数据源（TradingView 等）并入本页。
 - 不保留「距上次成功 N 小时自动爬价」或启动后台线程。
@@ -56,7 +56,7 @@ Core
   → 不负责模型目录 CRUD、不负责爬价、不写 llm_pricing_sources
 ```
 
-价格字段落在 `llm_models` 上，供管理端展示与后续「价格计算」功能使用；**本期 Core / 计费代码不消费这些字段做结算变更。**
+价格字段落在 `llm_models` 上；Core 通过 `infrastructure/llm_prices.py` 从 `llm_models` JOIN `llm_providers` 读取单价，供 `calculate_cost` 估算任务成本。
 
 ## 5. 删除项（直接删，无兼容）
 
@@ -65,10 +65,9 @@ Core
 | `start_pricing_refresh` / `_refresh_pricing_safely` | `tg-core/api/app.py` |
 | `application/pricing.refresh_and_backfill_model_prices` 的启动调用 | 整段刷新编排若仅服务工人，则删除该用例及仅被其使用的辅助代码 |
 | 表 `llm_pricing_sources` | Drizzle 迁移删除；Core `require_schema` / `_REQUIRED_TABLES` 去掉该表；仓库中所有读写与测试一并删 |
+| 表 `llm_model_prices` | 独立单价缓存表删除；Core 改为从 `llm_models` 读价 |
 | 管理页「价格源」区块 | 拆为 `/admin/llm/providers` 与 `/admin/llm/models` 列表页 |
 | 从环境变量读取 LLM API Key 作为产品运行路径 | 产品分析路径改为只读 DB；CLI 本地开发若仍用 env，与产品路径分离，不在本文强制保留产品回退 |
-
-`llm_model_prices` 与 `calculate_cost`：**本期不动**（属价格计算功能）。工人删掉后该表不再被自动填充；是否在后续价格功能中改为读 `llm_models` 另开需求。
 
 ## 6. 数据模型
 
@@ -118,7 +117,7 @@ Core
 
 唯一约束：`(provider_id, model)`。
 
-开放不强制已有价格（价格计算本期不改）；是否提示「未同步价格」由管理端 UX 决定。
+开放不强制已有价格（无单价时该模型不参与 Core 成本估算）；是否提示「未同步价格」由管理端 UX 决定。
 
 ### 6.3 默认分析模型
 
@@ -138,6 +137,7 @@ Core
 ### 6.4 直接删除
 
 - 表 `llm_pricing_sources`：删除。
+- 表 `llm_model_prices`：删除；单价以 `llm_models` 为准，Core 经 `infrastructure/llm_prices.py` 读取。
 - 不新增「价格源」替代表。
 
 ## 7. 管理端（`/admin/llm/providers` · `/admin/llm/models`）
@@ -179,7 +179,7 @@ Core
 | 读 Key | 执行分析前按 `config.llm_provider`（目录实例 id）从 `llm_providers` 解密 API Key，并改写为 `driver` 供工厂使用；缺失则任务失败，错误可定位且不泄露 Key。 |
 | 读模型 | 使用请求中的 `quick_think_llm` / `deep_think_llm`；**不**在 Core 内维护开放目录（目录校验在 tg-web）。 |
 | 工厂 | 仍走 `llm_clients`；`api_key` / `backend_url` 来自 DB 行，而非 `PROVIDER_API_KEY_ENV` 产品路径。 |
-| 成本 | 不改。 |
+| 成本 | `infrastructure/llm_prices.py` 从 `llm_models` JOIN `llm_providers` 读单价；`calculate_cost` 逻辑本身不变。 |
 
 tg-web 与 Core 共用同一 PostgreSQL 中的 `llm_providers`（及必要时的解密约定）。解密密钥通过双方部署配置注入同一应用主密钥，或仅 Core 持有解密能力且 tg-web 只写密文——推荐：**加解密逻辑与主密钥仅在服务端共享库/约定一致，tg-web 写入密文，Core 读取解密**。
 
@@ -223,8 +223,8 @@ tg-web 与 Core 共用同一 PostgreSQL 中的 `llm_providers`（及必要时的
 - 管理员可配置提供商 API Key（仅掩码回读），可新建/编辑模型并手动同步或手填价格与参数。
 - 仅开放模型出现在用户目录；两个默认模型在未选择时生效。
 - 用户提交分析后，Core 使用库内该提供商 Key 完成调用；无 Key 时失败清晰。
-- 管理 API、任务 config、日志、审计中无 API Key 明文。
-- **价格计算相关代码与行为与改前一致**（本需求未改结算）。
+- Core 通过 `infrastructure/llm_prices.py` 从 `llm_models` 读单价做成本估算；管理 API、任务 config、日志、审计中无 API Key 明文。
+- **`calculate_cost` 公式不变**；单价数据源为 `llm_models`（不再使用 `llm_model_prices`）。
 
 ## 13. 现状锚点
 
@@ -247,5 +247,6 @@ tg-web 与 Core 共用同一 PostgreSQL 中的 `llm_providers`（及必要时的
 | 默认模型 | 管理员指定两个（快速 + 深度） |
 | Core 职责 | 按请求读 Key 并分析；模型运营移出 Core |
 | `llm_pricing_sources` | 直接删除 |
-| 价格计算 | 本期不改 |
+| `llm_model_prices` | 直接删除；Core 改读 `llm_models` |
+| 价格计算 | `calculate_cost` 公式不改；单价数据源改为 `llm_models` |
 | 旧版兼容 | 不需要，直接改 |

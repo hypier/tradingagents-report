@@ -248,6 +248,7 @@ def test_run_claimed_job_records_progress_costs_and_success(monkeypatch, caplog,
     succeeded = {}
     command = {}
     row = _job_row(tmp_path)
+    _stub_claimed_job_runtime(monkeypatch)
 
     class Tracker:
         def summary(self):
@@ -297,6 +298,7 @@ def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, caplo
     succeeded = []
     row = _job_row(tmp_path)
     row["request"]["config_overrides"] = {"llm_provider": "anthropic"}
+    _stub_claimed_job_runtime(monkeypatch)
 
     class Tracker:
         def summary(self):
@@ -331,6 +333,7 @@ def test_run_claimed_job_loads_prices_for_configured_provider(monkeypatch, caplo
 def test_run_claimed_job_marks_graph_failure(monkeypatch, caplog, tmp_path):
     failed = {}
     row = _job_row(tmp_path)
+    _stub_claimed_job_runtime(monkeypatch)
 
     class Tracker:
         def summary(self):
@@ -362,6 +365,7 @@ def test_run_claimed_job_marks_graph_failure(monkeypatch, caplog, tmp_path):
 def test_run_claimed_job_marks_failed_when_pricing_lookup_also_fails(monkeypatch, tmp_path):
     failed = []
     row = _job_row(tmp_path)
+    _stub_claimed_job_runtime(monkeypatch)
 
     class Tracker:
         def summary(self):
@@ -401,6 +405,7 @@ def test_run_claimed_job_marks_failed_when_successful_analysis_cannot_be_priced(
 ):
     failed = []
     row = _job_row(tmp_path)
+    _stub_claimed_job_runtime(monkeypatch)
 
     class Tracker:
         def summary(self):
@@ -446,6 +451,7 @@ def test_run_claimed_job_only_warns_when_success_state_transition_conflicts(
     monkeypatch, caplog, tmp_path
 ):
     row = _job_row(tmp_path)
+    _stub_claimed_job_runtime(monkeypatch)
 
     class Tracker:
         def summary(self):
@@ -478,6 +484,23 @@ def _job_row(results_dir: Path) -> dict:
         "trade_date": date(2026, 1, 15),
         "asset_type": "stock",
         "analysts": ["market"],
-        "request": {"config_overrides": {}},
+        "request": {"config_overrides": {"llm_provider": "openai"}},
         "config": {"results_dir": str(results_dir), "llm_provider": "openai"},
     }
+
+
+def _stub_claimed_job_runtime(monkeypatch):
+    monkeypatch.setattr(
+        jobs.analysis_jobs,
+        "is_cancel_requested",
+        lambda _job_id: False,
+    )
+    monkeypatch.setattr(
+        jobs.llm_providers,
+        "get_provider_runtime_config",
+        lambda catalog_id: {
+            "provider": catalog_id or "openai",
+            "driver": catalog_id or "openai",
+            "api_key": "test-key",
+        },
+    )

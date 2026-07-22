@@ -40,13 +40,13 @@ describe('Node database', () => {
         'queued',
         '{}'::jsonb
       );
-      INSERT INTO llm_model_prices (
-        provider, model, input_price, output_price, source_url
-      ) VALUES ('openai', 'gpt-test', 1.25, 2.5, 'https://example.test/pricing');
       INSERT INTO llm_providers (id, driver, display_name, enabled)
       VALUES ('openai', 'openai', 'OpenAI', true);
-      INSERT INTO llm_models (provider_id, model, display_name, role, enabled)
-      VALUES ('openai', 'gpt-test', 'GPT Test', 'both', true);
+      INSERT INTO llm_models (
+        provider_id, model, display_name, role, enabled,
+        input_price, output_price
+      )
+      VALUES ('openai', 'gpt-test', 'GPT Test', 'both', true, 1.25, 2.5);
     `);
     database = createNodeDatabase(connectionString);
   }, 120_000);
@@ -61,9 +61,6 @@ describe('Node database', () => {
     await expect(database.healthcheck()).resolves.toBeUndefined();
     await expect(
       database.analysisJobs.list({ limit: 10, offset: 0 }),
-    ).resolves.toHaveLength(1);
-    await expect(
-      database.modelPrices.list({ provider: 'openai' }),
     ).resolves.toHaveLength(1);
     await expect(database.llmCatalog.listProviders()).resolves.toHaveLength(1);
     await expect(database.llmCatalog.listModels()).resolves.toHaveLength(1);

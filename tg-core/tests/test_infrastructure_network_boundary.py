@@ -26,6 +26,8 @@ def test_infrastructure_imports_and_sql_calls_do_not_use_http_clients(monkeypatc
         def fetchone(self):
             if "information_schema.tables" in self.sql:
                 return {"n": 3}
+            if "information_schema.columns" in self.sql:
+                return {"n": 4}
             return {"id": "job-id"}
 
         def fetchall(self):
