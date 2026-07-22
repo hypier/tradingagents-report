@@ -115,7 +115,7 @@ flowchart LR
 
 - 记录管理员操作、Stripe 回调、订阅状态变更、额度变动和关键任务状态迁移。
 - 提供可检索的系统错误、数据源错误和支付同步错误。
-- 监控任务执行、额度扣减和回调处理的异常，支持告警接入。
+- 监控任务执行、额度扣减和回调处理的异常。
 
 ## 6. 后续功能：报告 AI 对话
 
@@ -147,19 +147,19 @@ flowchart LR
 - `/billing` 展示套餐周期积分、支持市场、功能、订阅状态、可用/已消费积分、周期结束日和账本明细。分析提交前只校验可用积分是否**严格大于** `analysisBalanceThreshold`（不做预扣）；成功或用户取消时按实际 `cost_usd` 与创建时冻结的汇率/加价扣分，系统失败不扣。
 - 支付回调写入 `stripe_webhook_events`，额度发放与消费写入不可变账本并使用唯一幂等键。分析请求 UUID 同时作为 Core `request_id`，重试不会创建重复 job。
 - 管理员可在 `/admin/billing` 查看 Stripe 连接与 Webhook 配置状态，创建带周期积分、支持市场和功能元数据的循环套餐并停用价格。配置 `BILLING_CONFIG_ENCRYPTION_KEY` 后，管理员可在页面验证、替换或清除 Stripe API Key 与 Webhook Secret；密钥使用 AES-GCM 加密后保存，API 仅返回掩码与配置来源。
-- 管理员在「分析计费」维护余额门槛、每美元积分与加价基点（`system_settings.billing`）；在独立区块分别维护注册/推荐/活动奖励（`system_settings.rewards`，积分数直接配置、可独立开关）。变更写入 `admin_audit_events`。
+- 管理员在「分析计费」维护余额门槛、每美元积分与加价基点（`system_settings.billing`）；注册/推荐奖励在「系统设置」独立配置（`system_settings.rewards`，积分数直接配置、可独立开关）。变更写入 `admin_audit_events`。
 - 管理员可通过 Stripe API 幂等初始化每月 20、50、100 美元三档标准套餐，分别在有效支付周期发放 2,000、5,000、10,000 积分；初始化会升级旧版套餐 metadata，使存量订阅在后续付款周期获得新积分，重复初始化不会创建重复 Product 或 Price，配置冲突会明确报错。
 - 分析列表与详情经 `analysis_jobs.clerk_user_id` 按 Clerk 用户隔离；用户只能查看自己的任务与报告。
 - 管理员运营概览 `/admin`：展示注册用户数、有效订阅、周期内分析量/成功率、额度消耗与队列积压，以及 Stripe 连接健康摘要。
 - 管理员用户钻取 `/admin/users/:userId`：查看订阅/额度账本与近期任务，可停用或恢复账号（Clerk ban/unban），并可按幂等键手动调整额度（写入 `adjustment` 账本）。
 - `/admin/users` 显示可用积分；额度调整在 `/admin/users/:userId` 完成。
 - 管理员任务列表 `/admin/analyses`：跨用户按状态/标的/用户筛选；对失败任务可发起受控重试——校验所有者余额门槛并以新 `request_id` 提交替换 job（非 Core 原地重试）。
-- 系统设置：维护公告、功能开关（自选）、免责声明版本与正文覆盖、告警 webhook URL（仅存储不发送）。
+- 系统设置：默认 LLM 模型，以及注册/推荐积分奖励（`system_settings.rewards`）。
 - 市场配置管理 `/admin/markets`（表 `market_configs`）；`/api/public-config` 返回已启用市场列表；账户默认市场与套餐支持市场均对齐同一市场码目录。
 - 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key 与开放状态；默认快速/深度模型在 `/admin/settings`（系统设置键 `llm`）；用户分析页从开放目录选型。
 - 操作日志 `/admin/audit`：记录管理员写操作（系统设置、市场配置、模型、用户角色、积分调整等）；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
 
-当前尚未实现报告 AI 对话，以及告警 webhook 的实际外发通知。
+当前尚未实现报告 AI 对话。
 
 分析 job 仍由 Core 统一持久化。产品侧在创建 job 时写入 `clerk_user_id` 与 `credit_pricing`；Core 在 billable 终态事务内扣积分。Core 的服务级 API 本身仍不提供终端用户鉴权。产品与计费表结构由 tg-web Drizzle 迁移维护，Core 不执行 DDL。
 

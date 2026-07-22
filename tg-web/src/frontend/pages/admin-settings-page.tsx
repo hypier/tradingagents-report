@@ -5,6 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import {
+  DEFAULT_REWARDS_SETTINGS,
+  type RewardsSettings,
+} from '@/shared/product-credits';
 import { AdminGate } from '@/frontend/components/admin-gate';
 import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
 import {
@@ -23,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/frontend/components/ui/select';
+import { Skeleton } from '@/frontend/components/ui/skeleton';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { listAdminLlmModels } from '@/frontend/lib/admin-llm';
@@ -30,6 +35,10 @@ import {
   getAdminSettings,
   updateAdminSettings,
 } from '@/frontend/lib/admin-ops';
+import {
+  getRewardsSettings,
+  updateRewardsSettings,
+} from '@/frontend/lib/billing';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -38,14 +47,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 type SettingsForm = {
-  maintenanceEnabled: boolean;
-  maintenanceEn: string;
-  maintenanceZh: string;
-  watchlist: boolean;
-  disclaimerVersion: string;
-  disclaimerEn: string;
-  disclaimerZh: string;
-  webhookUrl: string;
   defaultQuickModelId: string;
   defaultDeepModelId: string;
 };
@@ -60,23 +61,23 @@ export function AdminSettingsPage() {
     queryFn: () => getAdminSettings(),
     enabled: isAdmin,
   });
+  const rewardsSettings = useQuery({
+    queryKey: ['admin-rewards-settings'],
+    queryFn: () => getRewardsSettings(),
+    enabled: isAdmin,
+  });
   const modelsQuery = useQuery({
     queryKey: ['admin-llm-models'],
     queryFn: () => listAdminLlmModels(),
     enabled: isAdmin,
   });
   const [form, setForm] = useState<SettingsForm>({
-    maintenanceEnabled: false,
-    maintenanceEn: '',
-    maintenanceZh: '',
-    watchlist: true,
-    disclaimerVersion: '',
-    disclaimerEn: '',
-    disclaimerZh: '',
-    webhookUrl: '',
     defaultQuickModelId: '',
     defaultDeepModelId: '',
   });
+  const [rewardsForm, setRewardsForm] = useState<RewardsSettings>(
+    DEFAULT_REWARDS_SETTINGS,
+  );
   const enabledModels = (modelsQuery.data?.data.models ?? []).filter(
     (model) => model.enabled,
   );
@@ -84,23 +85,8 @@ export function AdminSettingsPage() {
   useEffect(() => {
     const data = settings.data?.data;
     if (!data) return;
-    const maintenance = asRecord(data.maintenance);
-    const message = asRecord(maintenance.message);
-    const features = asRecord(data.features);
-    const disclaimer = asRecord(data.disclaimer);
-    const markdown = asRecord(disclaimer.markdown);
-    const alerts = asRecord(data.alerts);
     const llm = asRecord(data.llm);
     setForm({
-      maintenanceEnabled: Boolean(maintenance.enabled),
-      maintenanceEn: typeof message.en === 'string' ? message.en : '',
-      maintenanceZh: typeof message.zh === 'string' ? message.zh : '',
-      watchlist: features.watchlist !== false,
-      disclaimerVersion:
-        typeof disclaimer.version === 'string' ? disclaimer.version : '',
-      disclaimerEn: typeof markdown.en === 'string' ? markdown.en : '',
-      disclaimerZh: typeof markdown.zh === 'string' ? markdown.zh : '',
-      webhookUrl: typeof alerts.webhookUrl === 'string' ? alerts.webhookUrl : '',
       defaultQuickModelId:
         typeof llm.defaultQuickModelId === 'string'
           ? llm.defaultQuickModelId
@@ -112,25 +98,15 @@ export function AdminSettingsPage() {
     });
   }, [settings.data?.data]);
 
+  useEffect(() => {
+    const value = rewardsSettings.data?.data;
+    if (!value) return;
+    setRewardsForm(value);
+  }, [rewardsSettings.data]);
+
   const saveSettings = useMutation({
     mutationFn: () => {
-      const patch: Record<string, unknown> = {
-        maintenance: {
-          enabled: form.maintenanceEnabled,
-          message: { en: form.maintenanceEn, zh: form.maintenanceZh },
-        },
-        features: {
-          watchlist: form.watchlist,
-        },
-        disclaimer: {
-          version: form.disclaimerVersion.trim() || null,
-          markdown: {
-            en: form.disclaimerEn.trim() || null,
-            zh: form.disclaimerZh.trim() || null,
-          },
-        },
-        alerts: { webhookUrl: form.webhookUrl.trim() },
-      };
+      const patch: Record<string, unknown> = {};
       if (form.defaultQuickModelId && form.defaultDeepModelId) {
         patch.llm = {
           defaultQuickModelId: form.defaultQuickModelId,
@@ -148,6 +124,24 @@ export function AdminSettingsPage() {
     },
     onError: (error: Error) =>
       toast.error(error.message || t('settings.saveError')),
+  });
+
+  const saveRewards = useMutation({
+    mutationFn: () =>
+      updateRewardsSettings({
+        ...rewardsForm,
+        // Campaign is not edited on this page; preserve stored value.
+        campaign:
+          rewardsSettings.data?.data.campaign ??
+          DEFAULT_REWARDS_SETTINGS.campaign,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['admin-rewards-settings'],
+      });
+      toast.success(t('settings.rewards.saved'));
+    },
+    onError: () => toast.error(t('settings.rewards.saveError')),
   });
 
   function onSave(event: FormEvent) {
@@ -178,210 +172,232 @@ export function AdminSettingsPage() {
             <AlertDescription>{t('settings.loadError.body')}</AlertDescription>
           </Alert>
         ) : (
-          <form onSubmit={onSave} className="flex flex-col gap-5">
-            <SectionPanel
-              title={t('settings.maintenanceTitle')}
-              description={t('settings.maintenanceDescription')}
-            >
-              <FieldGroup>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={form.maintenanceEnabled}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => ({
-                        ...current,
-                        maintenanceEnabled: checked === true,
-                      }))
-                    }
-                  />
-                  {t('settings.maintenanceEnabled')}
-                </label>
-                <Field>
-                  <FieldLabel>{t('settings.messageEn')}</FieldLabel>
-                  <Input
-                    value={form.maintenanceEn}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        maintenanceEn: event.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel>{t('settings.messageZh')}</FieldLabel>
-                  <Input
-                    value={form.maintenanceZh}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        maintenanceZh: event.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-              </FieldGroup>
-            </SectionPanel>
-
-            <SectionPanel title={t('settings.featuresTitle')}>
-              <div className="flex flex-col gap-3">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={form.watchlist}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => ({
-                        ...current,
-                        watchlist: checked === true,
-                      }))
-                    }
-                  />
-                  {t('settings.featureWatchlist')}
-                </label>
-              </div>
-            </SectionPanel>
-
-            <SectionPanel title={t('settings.disclaimerTitle')}>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel>{t('settings.disclaimerVersion')}</FieldLabel>
-                  <Input
-                    value={form.disclaimerVersion}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        disclaimerVersion: event.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel>{t('settings.disclaimerEn')}</FieldLabel>
-                  <textarea
-                    className="min-h-28 w-full rounded-none border border-input bg-transparent px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                    value={form.disclaimerEn}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        disclaimerEn: event.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel>{t('settings.disclaimerZh')}</FieldLabel>
-                  <textarea
-                    className="min-h-28 w-full rounded-none border border-input bg-transparent px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                    value={form.disclaimerZh}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        disclaimerZh: event.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-              </FieldGroup>
-            </SectionPanel>
-
-            <SectionPanel title={t('settings.alertsTitle')}>
-              <Field>
-                <FieldLabel>{t('settings.webhookUrl')}</FieldLabel>
-                <Input
-                  value={form.webhookUrl}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      webhookUrl: event.target.value,
-                    }))
-                  }
-                  placeholder="https://"
-                />
-              </Field>
-            </SectionPanel>
-
-            <SectionPanel
-              title={t('settings.llmDefaultsTitle')}
-              description={t('settings.llmDefaultsDescription')}
-            >
-              {enabledModels.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {t('settings.llmDefaultsEmpty')}{' '}
-                  <Link
-                    to="/admin/llm/models"
-                    className="underline underline-offset-2"
-                  >
-                    {t('settings.llmDefaultsEmptyCta')}
-                  </Link>
-                </p>
-              ) : (
-                <FieldGroup className="sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel>{t('settings.defaultQuickModel')}</FieldLabel>
-                    <Select
-                      value={form.defaultQuickModelId || undefined}
-                      onValueChange={(value) =>
-                        setForm((current) => ({
-                          ...current,
-                          defaultQuickModelId: value,
-                        }))
-                      }
+          <div className="flex flex-col gap-5">
+            <form onSubmit={onSave} className="flex flex-col gap-5">
+              <SectionPanel
+                title={t('settings.llmDefaultsTitle')}
+                description={t('settings.llmDefaultsDescription')}
+              >
+                {enabledModels.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t('settings.llmDefaultsEmpty')}{' '}
+                    <Link
+                      to="/admin/llm/models"
+                      className="underline underline-offset-2"
                     >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={t('settings.defaultQuickModel')}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {enabledModels.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.displayName} ({model.model})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('settings.defaultDeepModel')}</FieldLabel>
-                    <Select
-                      value={form.defaultDeepModelId || undefined}
-                      onValueChange={(value) =>
-                        setForm((current) => ({
-                          ...current,
-                          defaultDeepModelId: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={t('settings.defaultDeepModel')}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {enabledModels.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.displayName} ({model.model})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </FieldGroup>
-              )}
-            </SectionPanel>
-
-            <div className="flex justify-end">
-              <Button type="submit" disabled={saveSettings.isPending}>
-                {saveSettings.isPending ? (
-                  <Spinner data-icon="inline-start" />
+                      {t('settings.llmDefaultsEmptyCta')}
+                    </Link>
+                  </p>
                 ) : (
-                  <Save data-icon="inline-start" />
+                  <FieldGroup className="sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel>{t('settings.defaultQuickModel')}</FieldLabel>
+                      <Select
+                        value={form.defaultQuickModelId || undefined}
+                        onValueChange={(value) =>
+                          setForm((current) => ({
+                            ...current,
+                            defaultQuickModelId: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={t('settings.defaultQuickModel')}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {enabledModels.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.displayName} ({model.model})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field>
+                      <FieldLabel>{t('settings.defaultDeepModel')}</FieldLabel>
+                      <Select
+                        value={form.defaultDeepModelId || undefined}
+                        onValueChange={(value) =>
+                          setForm((current) => ({
+                            ...current,
+                            defaultDeepModelId: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={t('settings.defaultDeepModel')}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {enabledModels.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.displayName} ({model.model})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </FieldGroup>
                 )}
-                {t('settings.save')}
-              </Button>
+              </SectionPanel>
+
+              <div className="flex justify-end">
+                <Button type="submit" disabled={saveSettings.isPending}>
+                  {saveSettings.isPending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <Save data-icon="inline-start" />
+                  )}
+                  {t('settings.save')}
+                </Button>
+              </div>
+            </form>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <h2 className="text-base font-medium tracking-tight">
+                  {t('settings.rewards.title')}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t('settings.rewards.description')}
+                </p>
+              </div>
+              <RewardsSettingsEditor
+                value={rewardsForm}
+                loading={rewardsSettings.isLoading}
+                pending={saveRewards.isPending}
+                onChange={setRewardsForm}
+                onSubmit={() => saveRewards.mutate()}
+              />
             </div>
-          </form>
+          </div>
         )}
       </PageFrame>
     </AdminGate>
+  );
+}
+
+function RewardsSettingsEditor({
+  value,
+  loading,
+  pending,
+  onChange,
+  onSubmit,
+}: {
+  value: RewardsSettings;
+  loading: boolean;
+  pending: boolean;
+  onChange(next: RewardsSettings): void;
+  onSubmit(): void;
+}) {
+  const { t } = useTranslation('admin');
+
+  if (loading) return <Skeleton className="h-48 w-full" />;
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+      className="flex flex-col gap-4"
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RewardChannelCard
+          title={t('settings.rewards.signup.title')}
+          description={t('settings.rewards.signup.description')}
+          enabled={value.signup.enabled}
+          points={value.signup.points}
+          onEnabledChange={(enabled) =>
+            onChange({
+              ...value,
+              signup: { ...value.signup, enabled },
+            })
+          }
+          onPointsChange={(points) =>
+            onChange({
+              ...value,
+              signup: { ...value.signup, points },
+            })
+          }
+        />
+        <RewardChannelCard
+          title={t('settings.rewards.referral.title')}
+          description={t('settings.rewards.referral.description')}
+          enabled={value.referral.enabled}
+          points={value.referral.points}
+          onEnabledChange={(enabled) =>
+            onChange({
+              ...value,
+              referral: { ...value.referral, enabled },
+            })
+          }
+          onPointsChange={(points) =>
+            onChange({
+              ...value,
+              referral: { ...value.referral, points },
+            })
+          }
+        />
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={pending}>
+          {pending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <Save data-icon="inline-start" />
+          )}
+          {t('settings.rewards.save')}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function RewardChannelCard({
+  title,
+  description,
+  enabled,
+  points,
+  onEnabledChange,
+  onPointsChange,
+}: {
+  title: string;
+  description: string;
+  enabled: boolean;
+  points: number;
+  onEnabledChange(enabled: boolean): void;
+  onPointsChange(points: number): void;
+}) {
+  const { t } = useTranslation('admin');
+  return (
+    <SectionPanel title={title} description={description}>
+      <FieldGroup className="gap-3">
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={enabled}
+            onCheckedChange={(checked) => onEnabledChange(checked === true)}
+          />
+          {t('settings.rewards.enabled')}
+        </label>
+        <Field>
+          <FieldLabel>{t('settings.rewards.points')}</FieldLabel>
+          <Input
+            type="number"
+            min="0"
+            step="1"
+            value={points}
+            onChange={(event) =>
+              onPointsChange(
+                Math.max(0, Math.floor(Number(event.target.value) || 0)),
+              )
+            }
+          />
+        </Field>
+      </FieldGroup>
+    </SectionPanel>
   );
 }

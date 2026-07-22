@@ -64,7 +64,6 @@
       "connection": "Connection",
       "plans": "Plans",
       "credits": "Analysis billing",
-      "rewards": "Rewards",
       "events": "Stripe events"
     },
     "events": {
@@ -513,7 +512,7 @@
   "settings": {
     "title": "System settings",
     "heading": "System settings",
-    "subtitle": "Maintenance, features, disclaimer, alerts, default LLM models, and credit rules.",
+    "subtitle": "Default LLM models and signup/referral credit rewards.",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage system settings."
@@ -522,19 +521,6 @@
       "title": "Unable to load settings",
       "body": "Check database connectivity and retry."
     },
-    "maintenanceTitle": "Maintenance",
-    "maintenanceDescription": "Show a banner while maintenance is enabled.",
-    "maintenanceEnabled": "Maintenance mode enabled",
-    "messageEn": "Message (EN)",
-    "messageZh": "Message (ZH)",
-    "featuresTitle": "Feature flags",
-    "featureWatchlist": "Watchlist",
-    "disclaimerTitle": "Disclaimer",
-    "disclaimerVersion": "Version",
-    "disclaimerEn": "Markdown (EN)",
-    "disclaimerZh": "Markdown (ZH)",
-    "alertsTitle": "Alerts",
-    "webhookUrl": "Webhook URL",
     "llmDefaultsTitle": "Default analysis models",
     "llmDefaultsDescription": "Stored as system setting key llm. Used when the user does not pick models.",
     "llmDefaultsEmpty": "No open models yet.",
@@ -545,27 +531,22 @@
     "save": "Save settings",
     "saved": "Settings saved.",
     "saveError": "Unable to save settings.",
-    "creditRulesTitle": "Credit rules",
-    "creditRulesDescription": "Units charged by market and analyst count.",
-    "ruleLabel": "Label",
-    "ruleMarket": "Market (optional)",
-    "ruleMin": "Min analysts",
-    "ruleMax": "Max analysts",
-    "ruleUnits": "Units",
-    "addRule": "Add rule",
-    "deleteRule": "Delete rule",
-    "ruleCreated": "Credit rule created.",
-    "ruleCreateError": "Unable to create credit rule.",
-    "ruleDeleted": "Credit rule deleted.",
-    "ruleDeleteError": "Unable to delete credit rule.",
-    "yes": "Yes",
-    "no": "No",
-    "columns": {
-      "label": "Label",
-      "market": "Market",
-      "analysts": "Analysts",
-      "units": "Units",
-      "enabled": "Enabled"
+    "rewards": {
+      "title": "Credit rewards",
+      "description": "Stored in system_settings.rewards. Signup and referral are independent and do not affect analysis charging.",
+      "enabled": "Enabled",
+      "points": "Points",
+      "save": "Save rewards settings",
+      "saved": "Rewards settings saved.",
+      "saveError": "Unable to save rewards settings.",
+      "signup": {
+        "title": "Signup reward",
+        "description": "Points granted on a new user's first visit."
+      },
+      "referral": {
+        "title": "Referral reward",
+        "description": "Points granted to the referrer when an invite succeeds."
+      }
     }
   },
   "markets": {

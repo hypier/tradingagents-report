@@ -6,18 +6,19 @@
 
 ## 1. 概述
 
-本库共 14 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。支付由 Stripe 托管，本库保存订阅镜像、积分账本与 webhook 幂等日志。分析计费配置与奖励配置分别保存在 `system_settings` 的 `billing` / `rewards` 键中；不再使用预扣表或独立计费配置表。
+本库共 14 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。**计费**与**积分**分属两个域：Stripe 订阅/支付镜像归计费；钱包、账本与分析扣分归积分。分析扣分汇率与门槛保存在 `system_settings.billing`，奖励保存在 `system_settings.rewards`；不再使用预扣表或独立计费配置表。
 
 ### 1.1 域划分
 
 | 域 | 物理表 | 说明 |
 | --- | --- | --- |
 | 账户 | `account_users` | Clerk 同步资料、偏好与推荐关系（`referred_by_clerk_user_id`） |
-| 计费 / 积分 | `billing_subscriptions`, `credit_accounts`, `credit_ledger_entries`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events` | Stripe 订阅、积分钱包与账本；分析门槛/汇率见 `system_settings.billing` |
+| 计费 | `billing_subscriptions`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events` | Stripe 订阅镜像、Webhook 幂等、提供商凭据；周期发分写入积分账本（跨域写） |
+| 积分 | `credit_accounts`, `credit_ledger_entries` | 可用/已消费余额与不可变流水；分析门槛/汇率见 `system_settings.billing`，奖励见 `system_settings.rewards`；结算快照在 `analysis_jobs.credit_pricing` |
 | 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化（含 `clerk_user_id` / `credit_pricing`） |
 | LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
 | 自选股 | `watchlist_items` | 每用户收藏的标的 |
-| 系统设置 / 市场 / 操作日志 | `system_settings`, `market_configs`, `admin_audit_events` | 含 `billing`/`rewards`、市场配置、管理员操作日志 |
+| 系统设置 / 市场 / 操作日志 | `system_settings`, `market_configs`, `admin_audit_events` | 含 `billing`（积分域配置）/`rewards`（积分域配置）、市场配置、管理员操作日志 |
 
 ### 1.2 约定
 
@@ -27,7 +28,7 @@
 | 时间戳 | 带时区（`timestamptz`），常见字段为 `created_at` / `updated_at` |
 | 软删除 | 当前 schema 无通用 soft-delete |
 | 密文 | Stripe / LLM API Key 以 ciphertext 字段存储，不以明文落库 |
-| 金额 / 积分 | 美元多为 `numeric`；积分为 `bigint`（`mode: 'number'`） |
+| 金额 / 积分 | 计费侧美元多为 `numeric`；积分侧余额与流水为 `bigint`（`mode: 'number'`） |
 | 级联 | 指向 `account_users` / `llm_providers` 的外键多为 `ON DELETE CASCADE` |
 
 ---
@@ -110,15 +111,13 @@ erDiagram
     }
 ```
 
-### 2.3 计费、积分与推荐
+### 2.3 计费（Stripe 订阅与支付）
+
+订阅与支付状态由 Stripe 权威持有；本域只保存本地镜像与凭据审计。周期发分等副作用写入**积分**域账本，不在本 ER 中混画钱包表。
 
 ```mermaid
 erDiagram
     account_users ||--o{ billing_subscriptions : subscriptions
-    account_users ||--|| credit_accounts : wallet
-    account_users ||--o{ credit_ledger_entries : entries
-    account_users ||--o{ account_users : "referred_by"
-    account_users ||--o{ analysis_jobs : owns
 
     billing_subscriptions {
         text stripe_subscription_id PK
@@ -129,6 +128,42 @@ erDiagram
         int cancel_at_period_end
         timestamptz current_period_end
     }
+
+    stripe_webhook_events {
+        text stripe_event_id PK
+        text event_type
+        text status
+        jsonb payload
+        timestamptz received_at
+        timestamptz processed_at
+    }
+
+    billing_provider_configs {
+        text provider PK
+        text secret_key_ciphertext
+        text webhook_secret_ciphertext
+        text updated_by_clerk_user_id
+    }
+
+    billing_config_audit_events {
+        uuid id PK
+        text provider
+        text action
+        text actor_clerk_user_id
+        timestamptz created_at
+    }
+```
+
+### 2.4 积分（钱包、账本与分析扣分）
+
+积分域持有余额与流水。分析提交门槛与汇率配置在 `system_settings.billing`；注册/推荐/活动奖励在 `system_settings.rewards`。产品 job 的所有者与扣分快照挂在 `analysis_jobs`（分析任务域），终态由 Core 写 consume 流水。
+
+```mermaid
+erDiagram
+    account_users ||--|| credit_accounts : wallet
+    account_users ||--o{ credit_ledger_entries : entries
+    account_users ||--o{ account_users : "referred_by"
+    account_users ||--o{ analysis_jobs : owns
 
     credit_accounts {
         text clerk_user_id PK_FK
@@ -156,7 +191,7 @@ erDiagram
     }
 ```
 
-### 2.4 分析任务
+### 2.5 分析任务
 
 ```mermaid
 erDiagram
@@ -178,7 +213,7 @@ erDiagram
     }
 ```
 
-### 2.5 LLM 目录与单价
+### 2.6 LLM 目录与单价
 
 ```mermaid
 erDiagram
@@ -209,7 +244,7 @@ erDiagram
     }
 ```
 
-### 2.6 自选股
+### 2.7 自选股
 
 ```mermaid
 erDiagram
@@ -228,34 +263,12 @@ erDiagram
     }
 ```
 
-### 2.7 Stripe / 计费配置与系统设置（无用户 FK 或弱关联）
+### 2.8 系统设置 / 市场 / 操作日志（无用户 FK 或弱关联）
+
+计费域表（Webhook、提供商凭据）见 §2.3；此处只列配置与审计载体。`system_settings` 的 `billing` / `rewards` 键逻辑上归属**积分**域。
 
 ```mermaid
 erDiagram
-    stripe_webhook_events {
-        text stripe_event_id PK
-        text event_type
-        text status
-        jsonb payload
-        timestamptz received_at
-        timestamptz processed_at
-    }
-
-    billing_provider_configs {
-        text provider PK
-        text secret_key_ciphertext
-        text webhook_secret_ciphertext
-        text updated_by_clerk_user_id
-    }
-
-    billing_config_audit_events {
-        uuid id PK
-        text provider
-        text action
-        text actor_clerk_user_id
-        timestamptz created_at
-    }
-
     system_settings {
         text key PK
         jsonb value
@@ -283,7 +296,7 @@ erDiagram
     }
 ```
 
-### 2.8 域级组件图（逻辑归属）
+### 2.9 域级组件图（逻辑归属）
 
 ```mermaid
 flowchart TB
@@ -291,12 +304,16 @@ flowchart TB
         PU[account_users]
     end
 
-    subgraph Billing["计费 / 积分"]
+    subgraph Billing["计费"]
         BS[billing_subscriptions]
-        CA[credit_accounts]
-        CL[credit_ledger_entries]
         SWE[stripe_webhook_events]
         BPC[billing_provider_configs]
+        BCA[billing_config_audit_events]
+    end
+
+    subgraph Credits["积分"]
+        CA[credit_accounts]
+        CL[credit_ledger_entries]
     end
 
     subgraph Analysis["分析任务"]
@@ -319,9 +336,12 @@ flowchart TB
     end
 
     PU --> Billing
+    PU --> Credits
     PU --> Watchlist
     PU -->|clerk_user_id| AJ
-    PS -.->|billing / rewards| Billing
+    Billing -.->|invoice grant| Credits
+    AJ -.->|终态 consume| Credits
+    PS -.->|billing / rewards| Credits
     LP --> LM
 ```
 
@@ -378,7 +398,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ### 3.2 `billing_subscriptions`
 
-Stripe 订阅的本地镜像，用于访问权限校验。
+**域：计费。** Stripe 订阅的本地镜像，用于访问权限校验。周期付费成功后由 Webhook 向**积分**域发放套餐积分。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -405,7 +425,7 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ### 3.3 `credit_accounts`
 
-每用户分析积分余额（可用 / 预留遗留列 / 已消费）。提交分析不再预扣；`reserved_credits` 保留列但新路径不再写入。
+**域：积分。** 每用户分析积分余额（可用 / 预留遗留列 / 已消费）。提交分析不再预扣；`reserved_credits` 保留列但新路径不再写入。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -419,7 +439,7 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ### 3.4 `credit_ledger_entries`
 
-追加写的积分变动流水（发放、消费、人工调整等）。注册赠送与推荐奖励分别使用 `reference_type = signup_grant` / `referral_reward`；奖励积分数写在 `metadata`。分析消费使用 `reference_type = analysis_job`，幂等键 `analysis:<job_id>:consume`。
+**域：积分。** 追加写的积分变动流水（发放、消费、人工调整等）。注册赠送与推荐奖励分别使用 `reference_type = signup_grant` / `referral_reward`；奖励积分数写在 `metadata`。分析消费使用 `reference_type = analysis_job`，幂等键 `analysis:<job_id>:consume`。Stripe 周期发分使用 `stripe_invoice` 等引用（由计费域事件触发写入）。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -448,7 +468,7 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ### 3.5 `stripe_webhook_events`
 
-Stripe webhook 投递日志，用于幂等处理。
+**域：计费。** Stripe webhook 投递日志，用于幂等处理。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -465,7 +485,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ### 3.6 `billing_provider_configs`
 
-管理员维护的计费提供商凭据（当前为 Stripe，密文存储）。
+**域：计费。** 管理员维护的计费提供商凭据（当前为 Stripe，密文存储）。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -480,7 +500,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ### 3.7 `billing_config_audit_events`
 
-计费提供商配置变更的审计流水。
+**域：计费。** 计费提供商配置变更的审计流水。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -641,21 +661,74 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ### 3.12 `system_settings`（导出名：`systemSettings`）
 
-系统级 JSON 设置。除维护公告、功能开关、免责声明、告警 webhook、默认 LLM 外，还承载分析计费与奖励配置：
+系统级 JSON 设置（一行一个 `key`）。除维护公告、功能开关、免责声明、告警 webhook、默认 LLM 外，还承载**积分域**配置（物理上存本表，逻辑归属积分域）：
 
-- `billing`：`analysisBalanceThreshold`、`pointsPerUsd`、`markupBasisPoints`（分析扣费只读此键）
-- `rewards`：`signup` / `referral` / `campaign` 各自 `{ enabled, points, ... }`，彼此独立，不影响计费
+| `key` | 域 | 用途 |
+| --- | --- | --- |
+| `billing` | 积分 | 分析提交门槛与终态扣分汇率/加价（与 Stripe「计费域」无关，仅配置键名） |
+| `rewards` | 积分 | 注册 / 推荐 / 活动奖励；各类独立开关与积分数 |
+| `maintenance` / `features` / `disclaimer` / `alerts` / `llm` | 系统 | 运维与产品开关（见各管理端页面） |
 
-计费与奖励变更写入 `admin_audit_events`（如 `billing.settings.update`、`rewards.settings.update`）。
+积分相关变更写入 `admin_audit_events`（如 `billing.settings.update`、`rewards.settings.update`）。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `key` | `text` | N | — | **PK**。设置键（如 `billing`、`rewards`、`maintenance`、`features`、`disclaimer`、`alerts`、`llm`） |
-| `value` | `jsonb` | N | — | JSON 配置值 |
+| `key` | `text` | N | — | **PK**。设置键（见上表） |
+| `value` | `jsonb` | N | — | 该键对应的 JSON 配置值 |
 | `updated_by` | `text` | Y | — | 最近更新人 |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 
----
+#### `key = billing`（分析扣分）
+
+分析扣费**只读**此键；提交校验与创建 job 时冻结到 `analysis_jobs.credit_pricing`。
+
+```json
+{
+  "analysisBalanceThreshold": 0,
+  "pointsPerUsd": "100",
+  "markupBasisPoints": 1000
+}
+```
+
+| `value` 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `analysisBalanceThreshold` | `number`（整数 ≥ 0） | `0` | 可用积分须**严格大于**此值才能发起分析（安全垫，非「最少扣多少」） |
+| `pointsPerUsd` | `string`（numeric） | `"100"` | 每 1 美元 `cost_usd` → 多少积分（未加价前） |
+| `markupBasisPoints` | `number`（整数 ≥ 0） | `1000` | 扣除倍率（基点）；`1000` = 再加价 10% |
+
+扣分公式：`cost_usd <= 0 → 0`；否则 `max(1, ceil(cost_usd × pointsPerUsd × (1 + markupBasisPoints/10000)))`。
+
+#### `key = rewards`（注册 / 推荐 / 活动奖励）
+
+奖励与分析扣分**严格分开**；各类彼此独立，可单独关停或设为 0。积分数直接配置，不经美元汇率。无本行或某类 `enabled=false`：该类不发分，其它类与 `billing` 不受影响。
+
+```json
+{
+  "signup": { "enabled": true, "points": 500 },
+  "referral": { "enabled": true, "points": 200 },
+  "campaign": {
+    "enabled": false,
+    "points": 0,
+    "label": "",
+    "code": null
+  }
+}
+```
+
+| 子对象 | 含义 | 发放时机（约定） |
+| --- | --- | --- |
+| `signup` | **注册奖励**：新用户首访是否赠送、赠多少积分 | 首访 onboarding；账本 `reference_type = signup_grant`，幂等键 `signup:<userId>:grant` |
+| `referral` | **推荐奖励**：有效邀请是否给邀请人发分、发多少（与注册奖励独立开关） | 被邀请人首访绑定成功后；账本 `reference_type = referral_reward`，幂等键 `referral:<inviteeId>:reward` |
+| `campaign` | **活动奖励**（配置预留，管理端暂不展示）：运营活动单独开关与积分数；可带 `label` / `code` | 首期仅落配置与发放钩子；未启用则完全忽略 |
+
+| 子对象字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | signup/referral `true`；campaign `false` | 是否发放该类奖励 |
+| `points` | `number`（整数 ≥ 0） | signup `500`；referral `200`；campaign `0` | 直接积分数 |
+| `label`（仅 `campaign`） | `string` | `""` | 活动展示名 |
+| `code`（仅 `campaign`） | `string \| null` | `null` | 活动码标识；空串存为 `null` |
+
+迁移约定：旧 `credit_billing_settings.signup_grant_*` → `rewards.signup`；旧 `referral_reward_*` → `rewards.referral`；`campaign` 默认关闭。
 
 ### 3.13 `market_configs`（导出名：`marketConfigs`）
 

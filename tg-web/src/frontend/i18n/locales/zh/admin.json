@@ -64,7 +64,6 @@
       "connection": "连接",
       "plans": "套餐",
       "credits": "分析计费",
-      "rewards": "奖励",
       "events": "Stripe 事件"
     },
     "events": {
@@ -513,7 +512,7 @@
   "settings": {
     "title": "系统设置",
     "heading": "系统设置",
-    "subtitle": "维护公告、功能开关、免责声明、告警、默认 LLM 模型与额度规则。",
+    "subtitle": "默认 LLM 模型与注册/推荐积分奖励。",
     "accessRequired": {
       "title": "需要管理员权限",
       "body": "当前账号没有管理系统设置的权限。"
@@ -522,19 +521,6 @@
       "title": "无法加载设置",
       "body": "请检查数据库连接后重试。"
     },
-    "maintenanceTitle": "维护模式",
-    "maintenanceDescription": "开启后在应用中显示维护横幅。",
-    "maintenanceEnabled": "启用维护模式",
-    "messageEn": "英文提示",
-    "messageZh": "中文提示",
-    "featuresTitle": "功能开关",
-    "featureWatchlist": "自选股",
-    "disclaimerTitle": "免责声明",
-    "disclaimerVersion": "版本",
-    "disclaimerEn": "Markdown（英文）",
-    "disclaimerZh": "Markdown（中文）",
-    "alertsTitle": "告警",
-    "webhookUrl": "Webhook URL",
     "llmDefaultsTitle": "默认分析模型",
     "llmDefaultsDescription": "写入系统设置键 llm；用户未自行选择模型时使用。",
     "llmDefaultsEmpty": "尚无开放模型。",
@@ -545,27 +531,22 @@
     "save": "保存设置",
     "saved": "设置已保存。",
     "saveError": "无法保存设置。",
-    "creditRulesTitle": "额度规则",
-    "creditRulesDescription": "按市场与分析师数量计费。",
-    "ruleLabel": "名称",
-    "ruleMarket": "市场（可选）",
-    "ruleMin": "最少分析师",
-    "ruleMax": "最多分析师",
-    "ruleUnits": "额度",
-    "addRule": "添加规则",
-    "deleteRule": "删除规则",
-    "ruleCreated": "额度规则已创建。",
-    "ruleCreateError": "无法创建额度规则。",
-    "ruleDeleted": "额度规则已删除。",
-    "ruleDeleteError": "无法删除额度规则。",
-    "yes": "是",
-    "no": "否",
-    "columns": {
-      "label": "名称",
-      "market": "市场",
-      "analysts": "分析师数",
-      "units": "额度",
-      "enabled": "启用"
+    "rewards": {
+      "title": "积分奖励",
+      "description": "配置写入 system_settings.rewards；注册与推荐彼此独立，不影响分析扣分。",
+      "enabled": "启用",
+      "points": "积分",
+      "save": "保存奖励设置",
+      "saved": "奖励设置已保存。",
+      "saveError": "无法保存奖励设置。",
+      "signup": {
+        "title": "注册奖励",
+        "description": "新用户首访时发放的积分。"
+      },
+      "referral": {
+        "title": "推荐奖励",
+        "description": "邀请成功时发给邀请人的积分。"
+      }
     }
   },
   "markets": {

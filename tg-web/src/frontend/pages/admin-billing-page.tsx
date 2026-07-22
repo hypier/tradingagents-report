@@ -7,7 +7,6 @@ import {
   Clipboard,
   Coins,
   CreditCard,
-  Gift,
   PackagePlus,
   Save,
   ScrollText,
@@ -22,8 +21,6 @@ import { toast } from 'sonner';
 import { PRODUCT_MARKET_CODES } from '@/shared/product-markets';
 import {
   DEFAULT_BILLING_SETTINGS,
-  DEFAULT_REWARDS_SETTINGS,
-  type RewardsSettings,
 } from '@/shared/product-credits';
 import type {
   BillingInterval,
@@ -92,11 +89,9 @@ import {
   createBillingPlan,
   getAnalysisBillingSettings,
   getBillingSettings,
-  getRewardsSettings,
   listAdminStripeEvents,
   provisionDefaultBillingPlans,
   updateAnalysisBillingSettings,
-  updateRewardsSettings,
   updateStripeConfiguration,
   type AdminStripeWebhookEvent,
 } from '@/frontend/lib/billing';
@@ -105,7 +100,6 @@ const BILLING_TABS = [
   'connection',
   'plans',
   'credits',
-  'rewards',
   'events',
 ] as const;
 type BillingTab = (typeof BILLING_TABS)[number];
@@ -166,9 +160,6 @@ export function AdminBillingPage() {
     markupPercent: String(DEFAULT_BILLING_SETTINGS.markupBasisPoints / 100),
     sampleCostUsd: '1',
   });
-  const [rewardsForm, setRewardsForm] = useState<RewardsSettings>(
-    DEFAULT_REWARDS_SETTINGS,
-  );
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const isAdmin = session.data?.data.user.role === 'admin';
@@ -180,11 +171,6 @@ export function AdminBillingPage() {
   const analysisSettings = useQuery({
     queryKey: ['admin-analysis-billing-settings'],
     queryFn: () => getAnalysisBillingSettings(),
-    enabled: isAdmin,
-  });
-  const rewardsSettings = useQuery({
-    queryKey: ['admin-rewards-settings'],
-    queryFn: () => getRewardsSettings(),
     enabled: isAdmin,
   });
 
@@ -199,21 +185,12 @@ export function AdminBillingPage() {
     }));
   }, [analysisSettings.data]);
 
-  useEffect(() => {
-    const value = rewardsSettings.data?.data;
-    if (!value) return;
-    setRewardsForm(value);
-  }, [rewardsSettings.data]);
-
   const refresh = () => {
     void queryClient.invalidateQueries({
       queryKey: ['admin-billing-settings'],
     });
     void queryClient.invalidateQueries({
       queryKey: ['admin-analysis-billing-settings'],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ['admin-rewards-settings'],
     });
     void queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
   };
@@ -274,14 +251,6 @@ export function AdminBillingPage() {
       toast.success(t('billing.credits.saved'));
     },
     onError: () => toast.error(t('billing.credits.saveError')),
-  });
-  const saveRewardsSettings = useMutation({
-    mutationFn: () => updateRewardsSettings(rewardsForm),
-    onSuccess: () => {
-      refresh();
-      toast.success(t('billing.rewards.saved'));
-    },
-    onError: () => toast.error(t('billing.rewards.saveError')),
   });
 
   const data = settings.data?.data;
@@ -361,12 +330,6 @@ export function AdminBillingPage() {
                 className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
               >
                 <Coins data-icon="inline-start" /> {t('billing.tabs.credits')}
-              </TabsTrigger>
-              <TabsTrigger
-                value="rewards"
-                className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
-              >
-                <Gift data-icon="inline-start" /> {t('billing.tabs.rewards')}
               </TabsTrigger>
               <TabsTrigger
                 value="events"
@@ -588,15 +551,6 @@ export function AdminBillingPage() {
                   setAnalysisForm((current) => ({ ...current, ...values }))
                 }
                 onSubmit={() => saveAnalysisSettings.mutate()}
-              />
-            </TabsContent>
-            <TabsContent value="rewards" className="pt-3">
-              <RewardsSettingsEditor
-                value={rewardsForm}
-                loading={rewardsSettings.isLoading}
-                pending={saveRewardsSettings.isPending}
-                onChange={setRewardsForm}
-                onSubmit={() => saveRewardsSettings.mutate()}
               />
             </TabsContent>
             <TabsContent value="events" className="pt-3">
@@ -905,213 +859,6 @@ function AnalysisSettingsEditor({
           </Field>
         </FieldGroup>
       </form>
-    </SectionPanel>
-  );
-}
-
-function RewardsSettingsEditor({
-  value,
-  loading,
-  pending,
-  onChange,
-  onSubmit,
-}: {
-  value: RewardsSettings;
-  loading: boolean;
-  pending: boolean;
-  onChange(next: RewardsSettings): void;
-  onSubmit(): void;
-}) {
-  const { t } = useTranslation('admin');
-
-  if (loading) return <Skeleton className="h-72 w-full" />;
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-      className="flex flex-col gap-4"
-    >
-      <div className="grid gap-4 lg:grid-cols-3">
-        <RewardChannelCard
-          title={t('billing.rewards.signup.title')}
-          description={t('billing.rewards.signup.description')}
-          enabled={value.signup.enabled}
-          points={value.signup.points}
-          onEnabledChange={(enabled) =>
-            onChange({
-              ...value,
-              signup: { ...value.signup, enabled },
-            })
-          }
-          onPointsChange={(points) =>
-            onChange({
-              ...value,
-              signup: { ...value.signup, points },
-            })
-          }
-        />
-        <RewardChannelCard
-          title={t('billing.rewards.referral.title')}
-          description={t('billing.rewards.referral.description')}
-          enabled={value.referral.enabled}
-          points={value.referral.points}
-          onEnabledChange={(enabled) =>
-            onChange({
-              ...value,
-              referral: { ...value.referral, enabled },
-            })
-          }
-          onPointsChange={(points) =>
-            onChange({
-              ...value,
-              referral: { ...value.referral, points },
-            })
-          }
-        />
-        <SectionPanel
-          title={t('billing.rewards.campaign.title')}
-          description={t('billing.rewards.campaign.description')}
-        >
-          <FieldGroup className="gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={value.campaign.enabled}
-                onCheckedChange={(checked) =>
-                  onChange({
-                    ...value,
-                    campaign: {
-                      ...value.campaign,
-                      enabled: checked === true,
-                    },
-                  })
-                }
-              />
-              {t('billing.rewards.enabled')}
-            </label>
-            <Field>
-              <FieldLabel htmlFor="campaign-points">
-                {t('billing.rewards.points')}
-              </FieldLabel>
-              <Input
-                id="campaign-points"
-                type="number"
-                min="0"
-                step="1"
-                value={value.campaign.points}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    campaign: {
-                      ...value.campaign,
-                      points: Math.max(
-                        0,
-                        Math.floor(Number(event.target.value) || 0),
-                      ),
-                    },
-                  })
-                }
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="campaign-label">
-                {t('billing.rewards.campaign.label')}
-              </FieldLabel>
-              <Input
-                id="campaign-label"
-                value={value.campaign.label}
-                maxLength={100}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    campaign: {
-                      ...value.campaign,
-                      label: event.target.value,
-                    },
-                  })
-                }
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="campaign-code">
-                {t('billing.rewards.campaign.code')}
-              </FieldLabel>
-              <Input
-                id="campaign-code"
-                value={value.campaign.code ?? ''}
-                maxLength={64}
-                placeholder={t('billing.rewards.campaign.codePlaceholder')}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    campaign: {
-                      ...value.campaign,
-                      code: event.target.value.trim() || null,
-                    },
-                  })
-                }
-              />
-            </Field>
-          </FieldGroup>
-        </SectionPanel>
-      </div>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
-          {pending ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <Save data-icon="inline-start" />
-          )}
-          {t('billing.rewards.save')}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function RewardChannelCard({
-  title,
-  description,
-  enabled,
-  points,
-  onEnabledChange,
-  onPointsChange,
-}: {
-  title: string;
-  description: string;
-  enabled: boolean;
-  points: number;
-  onEnabledChange(enabled: boolean): void;
-  onPointsChange(points: number): void;
-}) {
-  const { t } = useTranslation('admin');
-  return (
-    <SectionPanel title={title} description={description}>
-      <FieldGroup className="gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={enabled}
-            onCheckedChange={(checked) => onEnabledChange(checked === true)}
-          />
-          {t('billing.rewards.enabled')}
-        </label>
-        <Field>
-          <FieldLabel>{t('billing.rewards.points')}</FieldLabel>
-          <Input
-            type="number"
-            min="0"
-            step="1"
-            value={points}
-            onChange={(event) =>
-              onPointsChange(
-                Math.max(0, Math.floor(Number(event.target.value) || 0)),
-              )
-            }
-          />
-        </Field>
-      </FieldGroup>
     </SectionPanel>
   );
 }
