@@ -16,7 +16,6 @@ import { queryClient } from '../../src/frontend/app/query-client';
 import i18n from '../../src/frontend/i18n';
 
 const account = vi.hoisted(() => ({
-  acceptLegalDocuments: vi.fn(),
   getAccountProfile: vi.fn(),
   getReferralSummary: vi.fn(),
   updateAccountPreferences: vi.fn(),
@@ -59,13 +58,6 @@ beforeEach(async () => {
         timezone: 'UTC',
         defaultMarket: 'US',
         stripeCustomerId: null,
-        consents: [],
-        hasCurrentConsents: false,
-      },
-      legalVersions: {
-        risk_disclaimer: '2026-07-18',
-        terms: '2026-07-20',
-        privacy: '2026-07-18',
       },
     },
     requestId: 'request-1',

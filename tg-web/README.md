@@ -73,9 +73,8 @@ truth for payment state; PostgreSQL is the source of truth for subscription
 snapshots, credit reservations, and the credit ledger.
 
 `/account` embeds Clerk's profile manager for names, avatars, credentials,
-social accounts, and sessions. Product preferences and versioned acceptance of
-the risk disclaimer, terms, and privacy policy are stored locally. Passwords
-and Clerk session credentials are never stored by TG-web.
+social accounts, and sessions. Product preferences are stored locally.
+Passwords and Clerk session credentials are never stored by TG-web.
 
 Administrators use `/admin/billing` to inspect connection and webhook status,
 create recurring Stripe Products and Prices, and archive active Prices. When
@@ -137,7 +136,7 @@ connects with `TRADINGAGENTS_DATABASE_URL` and uses the same tables through SQL;
 it does not create or alter them.
 
 Core startup also idempotently creates the shared product tables used by the
-BFF: `product_users`, `user_consents`, `billing_subscriptions`,
+BFF: `product_users`, `billing_subscriptions`,
 `credit_accounts`, `credit_reservations`, `credit_ledger_entries`, and
 `stripe_webhook_events`. TG-web owns product writes to these tables. The only
 Core-side product write is settlement of an optional credit reservation in the

@@ -111,8 +111,6 @@ describe('Cloudflare Worker runtime', () => {
         syncUser: vi.fn(),
         getProfile: vi.fn(),
         updatePreferences: vi.fn(),
-        recordConsents: vi.fn(),
-        hasCurrentConsents: vi.fn(),
       },
       billing: {
         setStripeCustomerId: vi.fn(),
@@ -148,16 +146,8 @@ describe('Cloudflare Worker runtime', () => {
       },
       watchlist: {
         getSnapshot: vi.fn(),
-        ensureDefaultGroup: vi.fn(),
-        createGroup: vi.fn(),
-        renameGroup: vi.fn(),
-        deleteGroup: vi.fn(),
         addItem: vi.fn(),
         removeItem: vi.fn(),
-        reorderItems: vi.fn(),
-        createTag: vi.fn(),
-        deleteTag: vi.fn(),
-        setItemTags: vi.fn(),
         findItemByProviderSymbol: vi.fn(),
       },
       reportMeta: {

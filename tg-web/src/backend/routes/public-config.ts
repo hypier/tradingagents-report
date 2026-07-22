@@ -5,7 +5,6 @@ import type { AppDependencies } from '../app';
 import type { RequestIdEnvironment } from '../logging/request-id';
 import { apiSuccess } from '../../shared/contracts';
 import { resolveCreditUnits } from '../../shared/analysis-credits';
-import { LEGAL_DOCUMENT_VERSIONS } from '../account/contract';
 
 const FALLBACK_MARKETS = [
   { code: 'US', displayName: 'United States', enabled: true },
@@ -47,11 +46,6 @@ export function publicConfigRoutes(dependencies: AppDependencies) {
             sessionNotes: null,
           }));
 
-    const disclaimerVersion =
-      typeof disclaimer.version === 'string' && disclaimer.version
-        ? disclaimer.version
-        : LEGAL_DOCUMENT_VERSIONS.risk_disclaimer;
-
     return context.json(
       apiSuccess(
         {
@@ -74,10 +68,6 @@ export function publicConfigRoutes(dependencies: AppDependencies) {
             shareLinks: features.shareLinks !== false,
           },
           markets: enabledMarkets,
-          legalVersions: {
-            ...LEGAL_DOCUMENT_VERSIONS,
-            risk_disclaimer: disclaimerVersion,
-          },
           disclaimerMarkdown: {
             en:
               typeof asRecord(disclaimer.markdown).en === 'string'

@@ -94,10 +94,9 @@ export function StockPage() {
     getDisplayTimezone(),
   );
 
-  const existingItem = watchlist.data?.data.groups
-    .flatMap((group) => group.items)
-    .find((item) => item.providerSymbol === providerSymbol);
-  const defaultGroupId = watchlist.data?.data.groups[0]?.id;
+  const existingItem = watchlist.data?.data.items.find(
+    (item) => item.providerSymbol === providerSymbol,
+  );
 
   const addItem = useMutation({
     mutationFn: (input: Parameters<typeof addWatchlistItem>[0]) =>
@@ -352,11 +351,10 @@ export function StockPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={!defaultGroupId || addItem.isPending}
+                  disabled={addItem.isPending}
                   onClick={() => {
-                    if (!defaultGroupId || !listing) return;
+                    if (!listing) return;
                     addItem.mutate({
-                      groupId: defaultGroupId,
                       exchange: listing.exchange ?? '',
                       symbol: listing.symbol,
                       displayTicker: listing.display_ticker,

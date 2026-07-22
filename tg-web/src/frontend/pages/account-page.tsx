@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { UserProfile } from '@clerk/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Save, ShieldCheck } from 'lucide-react';
+import { Copy, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import type {
-  LegalDocumentType,
   AccountPreferences,
   ReferralSummary,
 } from '@/backend/account/contract';
@@ -19,12 +17,10 @@ import {
   AlertTitle,
 } from '@/frontend/components/ui/alert';
 import { Button } from '@/frontend/components/ui/button';
-import { Checkbox } from '@/frontend/components/ui/checkbox';
 import {
   Field,
   FieldGroup,
   FieldLabel,
-  FieldTitle,
 } from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
 import {
@@ -38,7 +34,6 @@ import {
 import { Skeleton } from '@/frontend/components/ui/skeleton';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import {
-  acceptLegalDocuments,
   getAccountProfile,
   getReferralSummary,
   updateAccountPreferences,
@@ -47,12 +42,6 @@ import { setDisplayTimezone } from '@/frontend/lib/display-timezone';
 import { cn } from '@/frontend/lib/utils';
 import { interfaceLanguageToUiLocale } from '@/frontend/i18n/locales';
 import { listTimezoneSelectOptions } from '@/shared/timezone';
-
-const legalDocuments: Array<[LegalDocumentType, string]> = [
-  ['risk_disclaimer', 'risk-disclaimer'],
-  ['terms', 'terms'],
-  ['privacy', 'privacy'],
-];
 
 export function AccountPage() {
   const { t, i18n } = useTranslation('account');
@@ -68,7 +57,6 @@ export function AccountPage() {
   const [preferences, setPreferences] = useState<AccountPreferences | null>(
     null,
   );
-  const [accepted, setAccepted] = useState<LegalDocumentType[]>([]);
   useEffect(() => {
     const current = profile.data?.data.profile;
     if (current) {
@@ -78,15 +66,6 @@ export function AccountPage() {
         timezone: current.timezone,
         defaultMarket: current.defaultMarket,
       });
-      setAccepted(
-        current.consents
-          .filter(
-            (consent) =>
-              profile.data?.data.legalVersions[consent.documentType] ===
-              consent.documentVersion,
-          )
-          .map((consent) => consent.documentType),
-      );
     }
   }, [profile.data]);
   const refresh = () =>
@@ -102,14 +81,6 @@ export function AccountPage() {
       toast.success(t('preferences.saved'));
     },
     onError: () => toast.error(t('preferences.saveError')),
-  });
-  const consent = useMutation({
-    mutationFn: acceptLegalDocuments,
-    onSuccess: () => {
-      void refresh();
-      toast.success(t('legal.recorded'));
-    },
-    onError: () => toast.error(t('legal.recordError')),
   });
   const timezoneOptions = useMemo(
     () => listTimezoneSelectOptions(preferences?.timezone),
@@ -244,65 +215,6 @@ export function AccountPage() {
               isLoading={referral.isLoading}
               summary={referral.data?.data}
             />
-            <SectionPanel
-              title={t('legal.title')}
-              description={t('legal.description')}
-            >
-                <FieldGroup>
-                  {legalDocuments.map(([type, path]) => (
-                    <Field key={type} orientation="horizontal">
-                      <Checkbox
-                        id={`consent-${type}`}
-                        checked={accepted.includes(type)}
-                        onCheckedChange={(checked) =>
-                          setAccepted((current) =>
-                            checked
-                              ? [...new Set([...current, type])]
-                              : current.filter((item) => item !== type),
-                          )
-                        }
-                      />
-                      <div className="flex flex-col gap-1">
-                        <FieldTitle>
-                          <label htmlFor={`consent-${type}`}>
-                            {t('legal.acceptPrefix')}{' '}
-                            <Link
-                              className="underline underline-offset-4"
-                              to={`/legal/${path}`}
-                            >
-                              {t(`legal.documents.${type}`)}
-                            </Link>
-                          </label>
-                        </FieldTitle>
-                        <p className="text-xs text-muted-foreground">
-                          {t('legal.version', {
-                            version: profile.data!.data.legalVersions[type],
-                          })}
-                        </p>
-                      </div>
-                    </Field>
-                  ))}
-                  <Field className="items-end">
-                    <Button
-                      disabled={
-                        accepted.length !== 3 ||
-                        consent.isPending ||
-                        profile.data?.data.profile.hasCurrentConsents
-                      }
-                      onClick={() => consent.mutate(accepted)}
-                    >
-                      {consent.isPending ? (
-                        <Spinner data-icon="inline-start" />
-                      ) : (
-                        <ShieldCheck data-icon="inline-start" />
-                      )}
-                      {profile.data?.data.profile.hasCurrentConsents
-                        ? t('legal.current')
-                        : t('legal.record')}
-                    </Button>
-                  </Field>
-                </FieldGroup>
-            </SectionPanel>
             <SectionPanel
               title={t('clerk.title')}
               description={t('clerk.description')}

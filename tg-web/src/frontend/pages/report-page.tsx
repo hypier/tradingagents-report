@@ -294,10 +294,9 @@ export function ReportPage() {
   const identity = reportIdentity(job);
   const listing = listingForJob(job);
   const providerSymbol = listing?.provider_symbol ?? null;
-  const defaultGroupId = watchlist.data?.data.groups[0]?.id;
-  const watchlistItem = watchlist.data?.data.groups
-    .flatMap((group) => group.items)
-    .find((item) => item.providerSymbol === providerSymbol);
+  const watchlistItem = watchlist.data?.data.items.find(
+    (item) => item.providerSymbol === providerSymbol,
+  );
   const isArchived = Boolean(job?.is_archived ?? job?.isArchived);
   const creditUnits = job?.credit_units ?? ANALYSIS_CREDIT_UNITS;
   const tradeDate =
@@ -540,9 +539,7 @@ export function ReportPage() {
                       variant={watchlistItem ? 'default' : 'outline'}
                       size="icon-sm"
                       disabled={
-                        addWatchlist.isPending ||
-                        removeWatchlist.isPending ||
-                        (!watchlistItem && !defaultGroupId)
+                        addWatchlist.isPending || removeWatchlist.isPending
                       }
                       aria-label={
                         watchlistItem
@@ -554,9 +551,8 @@ export function ReportPage() {
                           removeWatchlist.mutate(watchlistItem.id);
                           return;
                         }
-                        if (!defaultGroupId || !listing.provider_symbol) return;
+                        if (!listing.provider_symbol) return;
                         addWatchlist.mutate({
-                          groupId: defaultGroupId,
                           exchange: listing.exchange ?? '',
                           symbol: listing.symbol,
                           displayTicker: listing.display_ticker,

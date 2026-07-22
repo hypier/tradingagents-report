@@ -1,17 +1,15 @@
 /**
  * 账户领域持久化。
  *
- * 负责从 Clerk 同步本地用户资料、偏好设置与法律文档同意。
+ * 负责从 Clerk 同步本地用户资料与偏好设置。
  * 创建用户时会同时确保存在余额为 0 的 `credit_accounts` 行。
  */
-import { desc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import {
-  LEGAL_DOCUMENT_VERSIONS,
-  type AccountPreferences,
-  type AccountProfile,
-  type LegalDocumentType,
+import type {
+  AccountPreferences,
+  AccountProfile,
 } from '../account/contract';
 import type { AuthUser } from '../auth/contract';
 import { createReferralCode } from './referral-code';
@@ -20,22 +18,13 @@ import * as schema from './schema';
 export interface AccountRepository {
   /** 将 Clerk 身份 upsert 到账户表，并确保积分钱包存在。 */
   syncUser(user: AuthUser): Promise<void>;
-  /** 加载账户设置页所需的资料与同意历史。 */
+  /** 加载账户设置页所需的资料。 */
   getProfile(clerkUserId: string): Promise<AccountProfile>;
   /** 持久化界面/报告偏好字段，并返回刷新后的资料。 */
   updatePreferences(
     clerkUserId: string,
     preferences: AccountPreferences,
   ): Promise<AccountProfile>;
-  /** 记录对当前法律文档版本的同意。 */
-  recordConsents(input: {
-    clerkUserId: string;
-    documentTypes: LegalDocumentType[];
-    ipAddress: string | null;
-    userAgent: string | null;
-  }): Promise<AccountProfile>;
-  /** 当 LEGAL_DOCUMENT_VERSIONS 中的每份文档均已同意时返回 true。 */
-  hasCurrentConsents(clerkUserId: string): Promise<boolean>;
 }
 
 export class AccountRepositoryError extends Error {
@@ -62,24 +51,17 @@ export function createAccountRepository(database: Database): AccountRepository {
         'Account profile not found',
       );
     }
-    const consents = await database
-      .select({
-        documentType: schema.userConsents.documentType,
-        documentVersion: schema.userConsents.documentVersion,
-        acceptedAt: schema.userConsents.acceptedAt,
-      })
-      .from(schema.userConsents)
-      .where(eq(schema.userConsents.clerkUserId, clerkUserId))
-      .orderBy(desc(schema.userConsents.acceptedAt));
-
-    const versions = await resolveLegalVersions(database);
     return {
-      ...user,
+      clerkUserId: user.clerkUserId,
+      displayName: user.displayName,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
       interfaceLanguage:
         user.interfaceLanguage as AccountProfile['interfaceLanguage'],
+      reportLanguage: user.reportLanguage,
+      timezone: user.timezone,
       defaultMarket: user.defaultMarket as AccountProfile['defaultMarket'],
-      consents,
-      hasCurrentConsents: hasEveryCurrentConsent(consents, versions),
+      stripeCustomerId: user.stripeCustomerId,
     };
   };
 
@@ -127,67 +109,5 @@ export function createAccountRepository(database: Database): AccountRepository {
       }
       return getProfile(clerkUserId);
     },
-
-    async recordConsents(input) {
-      const versions = await resolveLegalVersions(database);
-      await database
-        .insert(schema.userConsents)
-        .values(
-          input.documentTypes.map((documentType) => ({
-            clerkUserId: input.clerkUserId,
-            documentType,
-            documentVersion: versions[documentType],
-            ipAddress: input.ipAddress,
-            userAgent: input.userAgent,
-          })),
-        )
-        .onConflictDoNothing();
-      return getProfile(input.clerkUserId);
-    },
-
-    async hasCurrentConsents(clerkUserId) {
-      const rows = await database
-        .select({
-          documentType: schema.userConsents.documentType,
-          documentVersion: schema.userConsents.documentVersion,
-        })
-        .from(schema.userConsents)
-        .where(eq(schema.userConsents.clerkUserId, clerkUserId));
-      const versions = await resolveLegalVersions(database);
-      return hasEveryCurrentConsent(rows, versions);
-    },
   };
-}
-
-async function resolveLegalVersions(database: Database) {
-  const [row] = await database
-    .select()
-    .from(schema.productSettings)
-    .where(eq(schema.productSettings.key, 'disclaimer'))
-    .limit(1);
-  const value = row?.value;
-  const version =
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { version?: unknown }).version === 'string' &&
-    (value as { version: string }).version
-      ? (value as { version: string }).version
-      : LEGAL_DOCUMENT_VERSIONS.risk_disclaimer;
-  return {
-    ...LEGAL_DOCUMENT_VERSIONS,
-    risk_disclaimer: version,
-  };
-}
-
-function hasEveryCurrentConsent(
-  rows: Array<{ documentType: LegalDocumentType; documentVersion: string }>,
-  versions: Record<LegalDocumentType, string> = LEGAL_DOCUMENT_VERSIONS,
-) {
-  return (Object.keys(versions) as LegalDocumentType[]).every((documentType) =>
-    rows.some(
-      (row) =>
-        row.documentType === documentType &&
-        row.documentVersion === versions[documentType],
-    ),
-  );
 }

@@ -779,20 +779,14 @@ export function HomePage() {
                   {create.isError && (
                     <Alert variant="destructive">
                       <AlertTitle>
-                        {createErrorCode === 'CONSENT_REQUIRED'
-                          ? t('submit.consentRequiredTitle')
-                          : createErrorCode === 'INSUFFICIENT_CREDITS' ||
-                              createErrorCode === 'SUBSCRIPTION_REQUIRED'
-                            ? t('submit.creditsRequiredTitle')
-                            : t('submit.errorTitle')}
+                        {createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                        createErrorCode === 'SUBSCRIPTION_REQUIRED'
+                          ? t('submit.creditsRequiredTitle')
+                          : t('submit.errorTitle')}
                       </AlertTitle>
                       <AlertDescription>
-                        {createErrorCode === 'CONSENT_REQUIRED' ? (
-                          <Link className="underline" to="/account">
-                            {t('submit.consentRequiredBody')}
-                          </Link>
-                        ) : createErrorCode === 'INSUFFICIENT_CREDITS' ||
-                          createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
+                        {createErrorCode === 'INSUFFICIENT_CREDITS' ||
+                        createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
                           <Link className="underline" to="/billing">
                             {t('submit.creditsRequiredBody')}
                           </Link>

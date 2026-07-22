@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { LEGAL_DOCUMENT_VERSIONS } from '../account/contract';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import { apiSuccess } from '../../shared/contracts';
@@ -17,13 +16,6 @@ const preferencesSchema = z.object({
     .max(64)
     .refine(isValidTimezone, 'Invalid timezone'),
   defaultMarket: z.enum(['US', 'HK', 'CN', 'CRYPTO']),
-});
-
-const consentSchema = z.object({
-  documentTypes: z
-    .array(z.enum(['risk_disclaimer', 'terms', 'privacy']))
-    .min(1)
-    .transform((types) => [...new Set(types)]),
 });
 
 export function accountRoutes(dependencies: AppDependencies) {
@@ -47,7 +39,6 @@ export function accountRoutes(dependencies: AppDependencies) {
           profile: await dependencies.database.account.getProfile(
             context.get('auth').userId,
           ),
-          legalVersions: LEGAL_DOCUMENT_VERSIONS,
         },
         context.get('requestId'),
       ),
@@ -69,27 +60,6 @@ export function accountRoutes(dependencies: AppDependencies) {
         ),
         context.get('requestId'),
       ),
-    );
-  });
-
-  app.post('/account/consents', async (context) => {
-    const input = consentSchema.safeParse(
-      await context.req.json().catch(() => null),
-    );
-    if (!input.success) {
-      throw new AppError('INVALID_CONSENT', 400, 'Invalid consent record');
-    }
-    return context.json(
-      apiSuccess(
-        await dependencies.database.account.recordConsents({
-          clerkUserId: context.get('auth').userId,
-          documentTypes: input.data.documentTypes,
-          ipAddress: context.req.header('cf-connecting-ip') ?? null,
-          userAgent: context.req.header('user-agent') ?? null,
-        }),
-        context.get('requestId'),
-      ),
-      201,
     );
   });
 

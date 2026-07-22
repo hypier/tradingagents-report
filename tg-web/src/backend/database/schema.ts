@@ -10,6 +10,7 @@
  * - 分析任务：与 tg-core 共享的 job 持久化
  * - LLM 定价：模型单价缓存（成本计算用）
  * - LLM 目录：提供商凭据与对用户开放的模型
+ * - 自选股：每用户收藏的标的（单表）
  */
 import { desc, sql } from 'drizzle-orm';
 import {
@@ -70,39 +71,6 @@ export const accountUsers = pgTable(
       .on(table.stripeCustomerId)
       .where(sql`${table.stripeCustomerId} is not null`),
     uniqueIndex('product_users_referral_code_key').on(table.referralCode),
-  ],
-);
-
-/** 法律文档的版本化同意记录。 */
-export const userConsents = pgTable(
-  'user_consents',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    /** 所属 Clerk 用户。 */
-    clerkUserId: text('clerk_user_id')
-      .notNull()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    /** 文档类型：risk_disclaimer | terms | privacy。 */
-    documentType: text('document_type')
-      .$type<'risk_disclaimer' | 'terms' | 'privacy'>()
-      .notNull(),
-    /** 用户接受的文档版本号（如 `2026-07-18`）。 */
-    documentVersion: text('document_version').notNull(),
-    /** 同意记录写入时间。 */
-    acceptedAt: timestamp('accepted_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    /** 同意时的客户端 IP（审计）。 */
-    ipAddress: text('ip_address'),
-    /** 同意时的客户端 User-Agent（审计）。 */
-    userAgent: text('user_agent'),
-  },
-  (table) => [
-    uniqueIndex('user_consents_document_key').on(
-      table.clerkUserId,
-      table.documentType,
-      table.documentVersion,
-    ),
   ],
 );
 
@@ -658,39 +626,11 @@ export const llmModels = pgTable(
   ],
 );
 
-/** 用户自选股分组。 */
-export const watchlistGroups = pgTable(
-  'watchlist_groups',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    clerkUserId: text('clerk_user_id')
-      .notNull()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    sortOrder: integer('sort_order').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    index('watchlist_groups_user_sort_idx').on(
-      table.clerkUserId,
-      table.sortOrder,
-    ),
-  ],
-);
-
-/** 用户自选股条目（按 listing 字段去规范化）。 */
+/** 用户自选股 / 收藏标的（单表，无分组与标签）。 */
 export const watchlistItems = pgTable(
   'watchlist_items',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    groupId: uuid('group_id')
-      .notNull()
-      .references(() => watchlistGroups.id, { onDelete: 'cascade' }),
     clerkUserId: text('clerk_user_id')
       .notNull()
       .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
@@ -700,7 +640,6 @@ export const watchlistItems = pgTable(
     providerSymbol: text('provider_symbol').notNull(),
     displayName: text('display_name').notNull(),
     logoUrl: text('logo_url'),
-    notes: text('notes'),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -710,8 +649,8 @@ export const watchlistItems = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex('watchlist_items_group_provider_key').on(
-      table.groupId,
+    uniqueIndex('watchlist_items_user_provider_key').on(
+      table.clerkUserId,
       table.providerSymbol,
     ),
     index('watchlist_items_user_sort_idx').on(
@@ -721,44 +660,7 @@ export const watchlistItems = pgTable(
   ],
 );
 
-/** 用户自选股标签。 */
-export const watchlistTags = pgTable(
-  'watchlist_tags',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    clerkUserId: text('clerk_user_id')
-      .notNull()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    color: text('color'),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    uniqueIndex('watchlist_tags_user_name_key').on(
-      table.clerkUserId,
-      table.name,
-    ),
-  ],
-);
-
-export const watchlistItemTags = pgTable(
-  'watchlist_item_tags',
-  {
-    itemId: uuid('item_id')
-      .notNull()
-      .references(() => watchlistItems.id, { onDelete: 'cascade' }),
-    tagId: uuid('tag_id')
-      .notNull()
-      .references(() => watchlistTags.id, { onDelete: 'cascade' }),
-  },
-  (table) => [
-    primaryKey({ columns: [table.itemId, table.tagId] }),
-  ],
-);
-
-/** 每用户报告元数据（归档等）。收藏语义已统一到自选股。 */
+/** 每用户报告元数据（归档等）。 */
 export const userReportMeta = pgTable(
   'user_report_meta',
   {

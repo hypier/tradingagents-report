@@ -196,9 +196,7 @@ export function WatchlistPage() {
     onError: () => toast.error(t('toasts.removeError')),
   });
 
-  const groups = watchlist.data?.data.groups ?? [];
-  const defaultGroupId = groups[0]?.id;
-  const items = groups.flatMap((group) => group.items);
+  const items = watchlist.data?.data.items ?? [];
   const listItems = [...items].sort(
     (a, b) =>
       parseSortableDateInput(b.createdAt) - parseSortableDateInput(a.createdAt),
@@ -236,9 +234,8 @@ export function WatchlistPage() {
   }
 
   function handleAdd() {
-    if (!pendingInstrument || !defaultGroupId || alreadySaved) return;
+    if (!pendingInstrument || alreadySaved) return;
     addItem.mutate({
-      groupId: defaultGroupId,
       exchange: pendingInstrument.exchange,
       symbol: pendingInstrument.symbol,
       displayTicker: pendingInstrument.display_ticker,
@@ -286,7 +283,6 @@ export function WatchlistPage() {
                 className="shrink-0 sm:self-stretch"
                 disabled={
                   !pendingInstrument ||
-                  !defaultGroupId ||
                   alreadySaved ||
                   addItem.isPending
                 }

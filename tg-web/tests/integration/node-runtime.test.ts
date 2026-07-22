@@ -130,8 +130,6 @@ function fakeAccountRepository() {
     syncUser: vi.fn(),
     getProfile: vi.fn(),
     updatePreferences: vi.fn(),
-    recordConsents: vi.fn(),
-    hasCurrentConsents: vi.fn().mockResolvedValue(true),
   };
 }
 
@@ -169,17 +167,9 @@ function fakeAnalysisJobsRepository() {
 
 function fakeWatchlistRepository() {
   return {
-    getSnapshot: vi.fn().mockResolvedValue({ groups: [], tags: [] }),
-    ensureDefaultGroup: vi.fn(),
-    createGroup: vi.fn(),
-    renameGroup: vi.fn(),
-    deleteGroup: vi.fn(),
+    getSnapshot: vi.fn().mockResolvedValue({ items: [] }),
     addItem: vi.fn(),
     removeItem: vi.fn(),
-    reorderItems: vi.fn(),
-    createTag: vi.fn(),
-    deleteTag: vi.fn(),
-    setItemTags: vi.fn(),
     findItemByProviderSymbol: vi.fn(),
   };
 }

@@ -27,7 +27,6 @@ export type PublicConfig = {
     shareLinks: boolean;
   };
   markets: PublicMarket[];
-  legalVersions: Record<string, string>;
   disclaimerMarkdown: { en: string | null; zh: string | null };
   creditRules: PublicCreditRule[];
 };
@@ -39,7 +38,6 @@ const defaultPublicConfig = (
   maintenance: { enabled: false, message: { en: '', zh: '' } },
   features: { watchlist: true, shareLinks: true },
   markets: [],
-  legalVersions: {},
   disclaimerMarkdown: { en: null, zh: null },
   creditRules: [],
 });
@@ -60,7 +58,6 @@ function parsePublicConfig(data: Record<string, unknown>): PublicConfig | null {
   const message = asRecord(maintenance.message);
   const features = asRecord(data.features);
   const disclaimerMarkdown = asRecord(data.disclaimerMarkdown);
-  const legalVersions = asRecord(data.legalVersions);
 
   return {
     ...base,
@@ -98,11 +95,6 @@ function parsePublicConfig(data: Record<string, unknown>): PublicConfig | null {
           ];
         })
       : [],
-    legalVersions: Object.fromEntries(
-      Object.entries(legalVersions).filter(
-        (entry): entry is [string, string] => typeof entry[1] === 'string',
-      ),
-    ),
     disclaimerMarkdown: {
       en:
         typeof disclaimerMarkdown.en === 'string'

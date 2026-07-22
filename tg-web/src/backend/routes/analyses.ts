@@ -55,15 +55,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
     }
     const input = parsed.data;
     const clerkUserId = context.get('auth').userId;
-    if (
-      !(await dependencies.database.account.hasCurrentConsents(clerkUserId))
-    ) {
-      throw new AppError(
-        'CONSENT_REQUIRED',
-        403,
-        'Accept the current legal documents before running an analysis',
-      );
-    }
     const resolved = await resolveAnalysisLlm(
       dependencies,
       {

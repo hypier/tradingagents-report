@@ -64,6 +64,13 @@
       "when": 1784650000000,
       "tag": "0008_llm_providers_driver",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784660000000,
+      "tag": "0009_watchlist_flatten_drop_consents",
+      "breakpoints": true
     }
   ]
 }

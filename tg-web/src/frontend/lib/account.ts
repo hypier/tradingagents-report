@@ -1,6 +1,4 @@
 import type {
-  LEGAL_DOCUMENT_VERSIONS,
-  LegalDocumentType,
   AccountPreferences,
   AccountProfile,
   ReferralSummary,
@@ -8,7 +6,6 @@ import type {
 
 type AccountPayload = {
   profile: AccountProfile;
-  legalVersions: typeof LEGAL_DOCUMENT_VERSIONS;
 };
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -28,11 +25,4 @@ export const updateAccountPreferences = (preferences: AccountPreferences) =>
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(preferences),
-  });
-
-export const acceptLegalDocuments = (documentTypes: LegalDocumentType[]) =>
-  request<AccountProfile>('/api/account/consents', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ documentTypes }),
   });

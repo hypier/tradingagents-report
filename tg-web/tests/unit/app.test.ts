@@ -93,8 +93,6 @@ function fakeDependencies(
         syncUser: vi.fn().mockResolvedValue(undefined),
         getProfile: vi.fn(),
         updatePreferences: vi.fn(),
-        recordConsents: vi.fn(),
-        hasCurrentConsents: vi.fn().mockResolvedValue(true),
       },
       billing: {
         setStripeCustomerId: vi.fn().mockResolvedValue(undefined),
@@ -180,17 +178,9 @@ function fakeDependencies(
         }),
       },
       watchlist: {
-        getSnapshot: vi.fn().mockResolvedValue({ groups: [], tags: [] }),
-        ensureDefaultGroup: vi.fn(),
-        createGroup: vi.fn(),
-        renameGroup: vi.fn(),
-        deleteGroup: vi.fn(),
+        getSnapshot: vi.fn().mockResolvedValue({ items: [] }),
         addItem: vi.fn(),
         removeItem: vi.fn(),
-        reorderItems: vi.fn(),
-        createTag: vi.fn(),
-        deleteTag: vi.fn(),
-        setItemTags: vi.fn(),
         findItemByProviderSymbol: vi.fn(),
       },
       reportMeta: {
@@ -595,43 +585,6 @@ describe('createApp', () => {
       },
     });
     expect(dependencies.auth.getUser).toHaveBeenCalledWith('user-1');
-  });
-
-  it('records versioned legal consent for the local account profile', async () => {
-    const dependencies = fakeDependencies();
-    vi.mocked(dependencies.database.account.recordConsents).mockResolvedValue({
-      clerkUserId: 'user-1',
-      displayName: 'Test User',
-      email: 'test@example.test',
-      avatarUrl: '',
-      interfaceLanguage: 'en',
-      reportLanguage: 'English',
-      timezone: 'UTC',
-      defaultMarket: 'US',
-      stripeCustomerId: null,
-      consents: [],
-      hasCurrentConsents: true,
-    });
-    const app = createApp(dependencies);
-
-    const response = await app.request('/api/account/consents', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'user-agent': 'test-agent',
-      },
-      body: JSON.stringify({
-        documentTypes: ['risk_disclaimer', 'terms', 'privacy'],
-      }),
-    });
-
-    expect(response.status).toBe(201);
-    expect(dependencies.database.account.recordConsents).toHaveBeenCalledWith({
-      clerkUserId: 'user-1',
-      documentTypes: ['risk_disclaimer', 'terms', 'privacy'],
-      ipAddress: null,
-      userAgent: 'test-agent',
-    });
   });
 
   it('returns the current user referral summary', async () => {
@@ -1605,33 +1558,6 @@ describe('createApp', () => {
     });
   });
 
-  it('blocks analysis until current legal documents are accepted', async () => {
-    const dependencies = fakeDependencies();
-    vi.mocked(
-      dependencies.database.account.hasCurrentConsents,
-    ).mockResolvedValue(false);
-    const app = createApp(dependencies);
-
-    const response = await app.request('/api/analyses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ticker: 'AAPL',
-        tradeDate: '2026-07-15',
-        analysts: ['market'],
-      }),
-    });
-
-    expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({
-      error: { code: 'CONSENT_REQUIRED' },
-    });
-    expect(
-      dependencies.database.billing.reserveAnalysis,
-    ).not.toHaveBeenCalled();
-    expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
-  });
-
   it('releases a new credit reservation when Core rejects the request', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.core.submitAnalysis).mockRejectedValue(
@@ -2236,8 +2162,6 @@ describe('createApp', () => {
           syncUser: vi.fn(),
           getProfile: vi.fn(),
           updatePreferences: vi.fn(),
-          recordConsents: vi.fn(),
-          hasCurrentConsents: vi.fn(),
         },
         billing: {
           setStripeCustomerId: vi.fn(),
@@ -2275,16 +2199,8 @@ describe('createApp', () => {
         },
         watchlist: {
           getSnapshot: vi.fn(),
-          ensureDefaultGroup: vi.fn(),
-          createGroup: vi.fn(),
-          renameGroup: vi.fn(),
-          deleteGroup: vi.fn(),
           addItem: vi.fn(),
           removeItem: vi.fn(),
-          reorderItems: vi.fn(),
-          createTag: vi.fn(),
-          deleteTag: vi.fn(),
-          setItemTags: vi.fn(),
           findItemByProviderSymbol: vi.fn(),
         },
         reportMeta: {
