@@ -447,16 +447,12 @@ export const systemSettings = pgTable('system_settings', {
     .defaultNow(),
 });
 
-/** 可运营市场配置（启停、展示名、时区、币种、时段说明与免责声明）。 */
+/** 可运营市场配置（启停、展示名、时区）。 */
 export const marketConfigs = pgTable('market_configs', {
   code: text('code').primaryKey(),
   enabled: integer('enabled').notNull().default(1),
   displayName: text('display_name').notNull(),
   timezone: text('timezone').notNull(),
-  currency: text('currency').notNull(),
-  sessionNotes: text('session_notes'),
-  disclaimer: text('disclaimer'),
-  sortOrder: integer('sort_order').notNull().default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

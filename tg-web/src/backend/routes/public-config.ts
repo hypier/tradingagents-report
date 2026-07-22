@@ -26,15 +26,11 @@ export function publicConfigRoutes(dependencies: AppDependencies) {
             code: row.code,
             displayName: row.displayName,
             timezone: row.timezone,
-            currency: row.currency,
-            sessionNotes: row.sessionNotes,
           }))
         : PRODUCT_MARKET_CATALOG.filter((row) => row.enabled).map((row) => ({
             code: row.code,
             displayName: row.displayName,
             timezone: row.timezone,
-            currency: row.currency,
-            sessionNotes: row.sessionNotes,
           }));
 
     return context.json(

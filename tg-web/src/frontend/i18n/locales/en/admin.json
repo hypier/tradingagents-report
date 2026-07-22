@@ -544,7 +544,7 @@
   "markets": {
     "title": "Market config",
     "heading": "Market config",
-    "subtitle": "Enable operable markets and edit display fields (backed by market_configs).",
+    "subtitle": "Enable operable markets and edit display name and timezone (backed by market_configs).",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage market config."
@@ -553,26 +553,33 @@
       "title": "Unable to load market config",
       "body": "Check database connectivity and retry."
     },
-    "listTitle": "Markets",
-    "listDescription": "Select a row to edit, or create a new market code.",
-    "createTitle": "Create or update market",
-    "editTitle": "Editing {{code}}",
-    "edit": "Edit",
-    "new": "New",
-    "save": "Save market",
-    "saved": "Market saved.",
-    "saveError": "Unable to save market.",
+    "empty": "No markets configured yet.",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "sortOrder": "Sort order",
-    "sessionNotes": "Session notes",
-    "disclaimer": "Disclaimer",
-    "columns": {
-      "code": "Code",
-      "name": "Name",
+    "addTitle": "Add market",
+    "editTitle": "Edit market",
+    "formDescription": "Configure market code, display name, and timezone.",
+    "fields": {
+      "code": "Market code",
+      "displayName": "Display name",
       "timezone": "Timezone",
-      "currency": "Currency",
-      "enabled": "Status"
+      "enabled": "Enable this market",
+      "enabledHint": "When disabled, this market will not appear in user-facing options."
+    },
+    "actions": {
+      "add": "Add market",
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "saved": "Market saved.",
+      "saveError": "Unable to save market."
+    },
+    "columns": {
+      "market": "Market",
+      "timezone": "Timezone",
+      "status": "Status"
     }
   },
   "audit": {

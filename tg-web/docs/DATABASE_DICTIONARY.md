@@ -266,8 +266,6 @@ erDiagram
         int enabled
         text display_name
         text timezone
-        text currency
-        int sort_order
     }
 
     admin_audit_events {
@@ -686,11 +684,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 | `code` | `text` | N | — | **PK**。市场代码（如 US / HK / CN / CRYPTO） |
 | `enabled` | `integer` | N | `1` | 是否启用（1/0） |
 | `display_name` | `text` | N | — | 展示名 |
-| `timezone` | `text` | N | — | 市场时区 |
-| `currency` | `text` | N | — | 计价货币 |
-| `session_notes` | `text` | Y | — | 交易时段说明 |
-| `disclaimer` | `text` | Y | — | 市场免责声明 |
-| `sort_order` | `integer` | N | `0` | 排序 |
+| `timezone` | `text` | N | — | 市场时区（交易日上限与图表会话） |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 
 ---

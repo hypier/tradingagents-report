@@ -7,10 +7,6 @@ export type AdminMarket = {
   enabled: boolean | number;
   displayName: string;
   timezone: string;
-  currency: string;
-  sessionNotes: string | null;
-  disclaimer: string | null;
-  sortOrder: number;
   updatedAt?: string | Date;
 };
 

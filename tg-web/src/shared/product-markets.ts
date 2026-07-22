@@ -2,7 +2,7 @@
  * Canonical product-market catalog.
  *
  * Must stay in sync with `market_configs` seed rows
- * (`drizzle/0003_p3_product_ops.sql` insert + later renames).
+ * (`drizzle/0003_p3_product_ops.sql` insert + later renames/simplifications).
  * Runtime truth is the `market_configs` table; this module is the
  * typed fallback / validation source used when DB rows are unavailable.
  */
@@ -14,10 +14,6 @@ export type ProductMarketDefinition = {
   code: ProductMarketCode;
   displayName: string;
   timezone: string;
-  currency: string;
-  sessionNotes: string;
-  disclaimer: string | null;
-  sortOrder: number;
   enabled: boolean;
 };
 
@@ -26,40 +22,24 @@ export const PRODUCT_MARKET_CATALOG: readonly ProductMarketDefinition[] = [
     code: 'US',
     displayName: 'United States',
     timezone: 'America/New_York',
-    currency: 'USD',
-    sessionNotes: 'Regular session 09:30–16:00 ET',
-    disclaimer: null,
-    sortOrder: 10,
     enabled: true,
   },
   {
     code: 'HK',
     displayName: 'Hong Kong',
     timezone: 'Asia/Hong_Kong',
-    currency: 'HKD',
-    sessionNotes: 'Regular session 09:30–16:00 HKT',
-    disclaimer: null,
-    sortOrder: 20,
     enabled: true,
   },
   {
     code: 'CN',
     displayName: 'China A-shares',
     timezone: 'Asia/Shanghai',
-    currency: 'CNY',
-    sessionNotes: 'Regular session 09:30–15:00 CST',
-    disclaimer: null,
-    sortOrder: 30,
     enabled: true,
   },
   {
     code: 'CRYPTO',
     displayName: 'Crypto',
     timezone: 'UTC',
-    currency: 'USD',
-    sessionNotes: '24/7 trading',
-    disclaimer: null,
-    sortOrder: 40,
     enabled: true,
   },
 ] as const;

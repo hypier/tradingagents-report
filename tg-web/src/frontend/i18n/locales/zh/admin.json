@@ -544,7 +544,7 @@
   "markets": {
     "title": "市场配置",
     "heading": "市场配置",
-    "subtitle": "启停可运营市场并编辑展示信息（与 market_configs 一致）。",
+    "subtitle": "启停可运营市场并编辑展示信息与时区（与 market_configs 一致）。",
     "accessRequired": {
       "title": "需要管理员权限",
       "body": "当前账号没有管理市场配置的权限。"
@@ -553,26 +553,33 @@
       "title": "无法加载市场配置",
       "body": "请检查数据库连接后重试。"
     },
-    "listTitle": "市场列表",
-    "listDescription": "选择一行进行编辑，或创建新的市场代码。",
-    "createTitle": "创建或更新市场",
-    "editTitle": "正在编辑 {{code}}",
-    "edit": "编辑",
-    "new": "新建",
-    "save": "保存市场",
-    "saved": "市场已保存。",
-    "saveError": "无法保存市场。",
+    "empty": "尚未配置市场。",
     "enabled": "已启用",
     "disabled": "已停用",
-    "sortOrder": "排序",
-    "sessionNotes": "交易时段说明",
-    "disclaimer": "免责声明",
-    "columns": {
-      "code": "代码",
-      "name": "名称",
+    "addTitle": "添加市场",
+    "editTitle": "编辑市场",
+    "formDescription": "配置市场代码、展示名称与时区。",
+    "fields": {
+      "code": "市场代码",
+      "displayName": "显示名称",
       "timezone": "时区",
-      "currency": "货币",
-      "enabled": "状态"
+      "enabled": "启用该市场",
+      "enabledHint": "停用后，该市场不会出现在用户可选范围中。"
+    },
+    "actions": {
+      "add": "添加市场",
+      "edit": "编辑",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "toast": {
+      "saved": "市场已保存。",
+      "saveError": "无法保存市场。"
+    },
+    "columns": {
+      "market": "市场",
+      "timezone": "时区",
+      "status": "状态"
     }
   },
   "audit": {

@@ -27,7 +27,6 @@ describe('product markets catalog', () => {
       expect(seedSql).toContain(`('${row.code}',`);
       expect(seedSql).toContain(row.displayName);
       expect(seedSql).toContain(row.timezone);
-      expect(seedSql).toContain(row.currency);
     }
   });
 });

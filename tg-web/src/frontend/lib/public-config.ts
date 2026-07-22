@@ -4,8 +4,6 @@ export type PublicMarket = {
   code: string;
   displayName: string;
   timezone: string | null;
-  currency: string | null;
-  sessionNotes: string | null;
 };
 
 export type PublicConfig = {
@@ -73,12 +71,6 @@ function parsePublicConfig(data: Record<string, unknown>): PublicConfig | null {
                   : item.code,
               timezone:
                 typeof item.timezone === 'string' ? item.timezone : null,
-              currency:
-                typeof item.currency === 'string' ? item.currency : null,
-              sessionNotes:
-                typeof item.sessionNotes === 'string'
-                  ? item.sessionNotes
-                  : null,
             },
           ];
         })

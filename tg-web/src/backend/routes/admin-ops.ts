@@ -55,10 +55,6 @@ const marketUpsertSchema = z.object({
     .min(1)
     .max(64)
     .refine(isValidTimezone, 'Invalid timezone'),
-  currency: z.string().trim().min(1).max(16),
-  sessionNotes: z.string().trim().max(2000).nullable().optional(),
-  disclaimer: z.string().trim().max(5000).nullable().optional(),
-  sortOrder: z.number().int().min(0).max(10_000),
 });
 
 const auditQuerySchema = z.object({

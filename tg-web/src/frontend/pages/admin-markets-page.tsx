@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save } from 'lucide-react';
+import { Pencil, Plus, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
-import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
+import { PageFrame } from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -14,7 +14,15 @@ import {
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
 import { Checkbox } from '@/frontend/components/ui/checkbox';
-import { Field, FieldGroup, FieldLabel } from '@/frontend/components/ui/field';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/frontend/components/ui/dialog';
+import { Field, FieldLabel } from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import {
@@ -25,6 +33,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/frontend/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/frontend/components/ui/tooltip';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import {
   listAdminMarkets,
@@ -37,22 +50,14 @@ type MarketForm = {
   enabled: boolean;
   displayName: string;
   timezone: string;
-  currency: string;
-  sessionNotes: string;
-  disclaimer: string;
-  sortOrder: number;
 };
 
-const emptyForm: MarketForm = {
+const emptyForm = (): MarketForm => ({
   code: '',
   enabled: true,
   displayName: '',
   timezone: 'UTC',
-  currency: 'USD',
-  sessionNotes: '',
-  disclaimer: '',
-  sortOrder: 0,
-};
+});
 
 function toForm(market: AdminMarket): MarketForm {
   return {
@@ -60,10 +65,6 @@ function toForm(market: AdminMarket): MarketForm {
     enabled: Boolean(market.enabled),
     displayName: market.displayName,
     timezone: market.timezone,
-    currency: market.currency,
-    sessionNotes: market.sessionNotes ?? '',
-    disclaimer: market.disclaimer ?? '',
-    sortOrder: market.sortOrder,
   };
 }
 
@@ -77,8 +78,30 @@ export function AdminMarketsPage() {
     queryFn: () => listAdminMarkets(),
     enabled: isAdmin,
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<MarketForm>(emptyForm);
-  const [editing, setEditing] = useState<string | null>(null);
+
+  const items = markets.data?.data ?? [];
+  const canSave = Boolean(form.code.trim() && form.displayName.trim());
+
+  const openCreate = () => {
+    setEditing(false);
+    setForm(emptyForm());
+    setDialogOpen(true);
+  };
+
+  const openEdit = (market: AdminMarket) => {
+    setEditing(true);
+    setForm(toForm(market));
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditing(false);
+    setForm(emptyForm());
+  };
 
   const save = useMutation({
     mutationFn: () =>
@@ -86,25 +109,17 @@ export function AdminMarketsPage() {
         enabled: form.enabled,
         displayName: form.displayName.trim(),
         timezone: form.timezone.trim(),
-        currency: form.currency.trim(),
-        sessionNotes: form.sessionNotes.trim() || null,
-        disclaimer: form.disclaimer.trim() || null,
-        sortOrder: form.sortOrder,
       }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-markets'] });
-      void queryClient.invalidateQueries({ queryKey: ['public-config'] });
-      toast.success(t('markets.saved'));
-      setEditing(form.code.trim().toUpperCase());
+    onSuccess: async () => {
+      toast.success(t('markets.toast.saved'));
+      closeDialog();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-markets'] }),
+        queryClient.invalidateQueries({ queryKey: ['public-config'] }),
+      ]);
     },
-    onError: () => toast.error(t('markets.saveError')),
+    onError: () => toast.error(t('markets.toast.saveError')),
   });
-
-  function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!form.code.trim() || !form.displayName.trim()) return;
-    save.mutate();
-  }
 
   return (
     <AdminGate
@@ -115,209 +130,197 @@ export function AdminMarketsPage() {
       <PageFrame
         title={t('markets.heading')}
         description={t('markets.subtitle')}
+        bodyClassName="gap-0 p-0"
+        actions={
+          <Button type="button" size="sm" onClick={openCreate}>
+            <Plus data-icon="inline-start" />
+            {t('markets.actions.add')}
+          </Button>
+        }
       >
         {markets.isError ? (
-          <Alert variant="destructive">
-            <AlertTitle>{t('markets.loadError.title')}</AlertTitle>
-            <AlertDescription>{t('markets.loadError.body')}</AlertDescription>
-          </Alert>
+          <div className="px-5 py-4 lg:px-6">
+            <Alert variant="destructive">
+              <AlertTitle>{t('markets.loadError.title')}</AlertTitle>
+              <AlertDescription>{t('markets.loadError.body')}</AlertDescription>
+            </Alert>
+          </div>
         ) : (
-          <>
-            <SectionPanel
-              title={t('markets.listTitle')}
-              description={t('markets.listDescription')}
-            >
-              <Table>
-                <TableHeader>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-5 lg:pl-6">
+                    {t('markets.columns.market')}
+                  </TableHead>
+                  <TableHead>{t('markets.columns.timezone')}</TableHead>
+                  <TableHead>{t('markets.columns.status')}</TableHead>
+                  <TableHead className="w-[1%] whitespace-nowrap pr-5 lg:pr-6" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
                   <TableRow>
-                    <TableHead>{t('markets.columns.code')}</TableHead>
-                    <TableHead>{t('markets.columns.name')}</TableHead>
-                    <TableHead>{t('markets.columns.timezone')}</TableHead>
-                    <TableHead>{t('markets.columns.currency')}</TableHead>
-                    <TableHead>{t('markets.columns.enabled')}</TableHead>
-                    <TableHead />
+                    <TableCell
+                      colSpan={4}
+                      className="pl-5 text-muted-foreground lg:pl-6"
+                    >
+                      {t('markets.empty')}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(markets.data?.data ?? []).map((market) => (
-                    <TableRow key={market.code} className="h-11">
-                      <TableCell className="font-mono text-xs tracking-wide">
-                        {market.code}
+                ) : (
+                  items.map((market) => (
+                    <TableRow key={market.code}>
+                      <TableCell className="pl-5 lg:pl-6">
+                        <div className="min-w-0">
+                          <div className="font-medium">{market.displayName}</div>
+                          <div className="font-mono text-xs tracking-wide text-muted-foreground">
+                            {market.code}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell>{market.displayName}</TableCell>
-                      <TableCell>{market.timezone}</TableCell>
                       <TableCell className="font-mono text-xs">
-                        {market.currency}
+                        {market.timezone}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={market.enabled ? 'secondary' : 'outline'}
-                        >
+                        <Badge variant={market.enabled ? 'up' : 'outline'}>
                           {market.enabled
                             ? t('markets.enabled')
                             : t('markets.disabled')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditing(market.code);
-                            setForm(toForm(market));
-                          }}
-                        >
-                          {t('markets.edit')}
-                        </Button>
+                      <TableCell className="pr-5 text-right lg:pr-6">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="outline"
+                              aria-label={t('markets.actions.edit')}
+                              onClick={() => openEdit(market)}
+                            >
+                              <Pencil />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={6}>
+                            {t('markets.actions.edit')}
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </SectionPanel>
-
-            <SectionPanel
-              title={
-                editing
-                  ? t('markets.editTitle', { code: editing })
-                  : t('markets.createTitle')
-              }
-            >
-              <form onSubmit={onSubmit}>
-                <FieldGroup>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Field>
-                      <FieldLabel>{t('markets.columns.code')}</FieldLabel>
-                      <Input
-                        value={form.code}
-                        disabled={Boolean(editing)}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            code: event.target.value.toUpperCase(),
-                          }))
-                        }
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>{t('markets.columns.name')}</FieldLabel>
-                      <Input
-                        value={form.displayName}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            displayName: event.target.value,
-                          }))
-                        }
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>{t('markets.columns.timezone')}</FieldLabel>
-                      <Input
-                        value={form.timezone}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            timezone: event.target.value,
-                          }))
-                        }
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>{t('markets.columns.currency')}</FieldLabel>
-                      <Input
-                        value={form.currency}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            currency: event.target.value.toUpperCase(),
-                          }))
-                        }
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>{t('markets.sortOrder')}</FieldLabel>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={form.sortOrder}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            sortOrder: Number(event.target.value) || 0,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <label className="flex items-end gap-2 pb-2 text-sm">
-                      <Checkbox
-                        checked={form.enabled}
-                        onCheckedChange={(checked) =>
-                          setForm((current) => ({
-                            ...current,
-                            enabled: checked === true,
-                          }))
-                        }
-                      />
-                      {t('markets.enabled')}
-                    </label>
-                  </div>
-                  <Field>
-                    <FieldLabel>{t('markets.sessionNotes')}</FieldLabel>
-                    <Input
-                      value={form.sessionNotes}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          sessionNotes: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('markets.disclaimer')}</FieldLabel>
-                    <textarea
-                      className="min-h-24 w-full rounded-none border border-input bg-transparent px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                      value={form.disclaimer}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          disclaimer: event.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <div className="flex gap-2">
-                    <Button type="submit" disabled={save.isPending}>
-                      {save.isPending ? (
-                        <Spinner data-icon="inline-start" />
-                      ) : (
-                        <Save data-icon="inline-start" />
-                      )}
-                      {t('markets.save')}
-                    </Button>
-                    {editing ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setEditing(null);
-                          setForm(emptyForm);
-                        }}
-                      >
-                        {t('markets.new')}
-                      </Button>
-                    ) : null}
-                  </div>
-                </FieldGroup>
-              </form>
-            </SectionPanel>
-          </>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
+
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            if (!open) closeDialog();
+            else setDialogOpen(true);
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {editing ? t('markets.editTitle') : t('markets.addTitle')}
+              </DialogTitle>
+              <DialogDescription>
+                {t('markets.formDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2 sm:grid-cols-2">
+              <Field>
+                <FieldLabel>{t('markets.fields.code')}</FieldLabel>
+                <Input
+                  value={form.code}
+                  disabled={editing}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      code: event.target.value.toUpperCase(),
+                    }))
+                  }
+                  className="font-mono"
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel>{t('markets.fields.displayName')}</FieldLabel>
+                <Input
+                  value={form.displayName}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      displayName: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </Field>
+              <Field className="sm:col-span-2">
+                <FieldLabel>{t('markets.fields.timezone')}</FieldLabel>
+                <Input
+                  value={form.timezone}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      timezone: event.target.value,
+                    }))
+                  }
+                  className="font-mono"
+                  required
+                />
+              </Field>
+              <Field
+                orientation="horizontal"
+                className="items-center gap-3 border border-border bg-muted/20 px-3 py-2.5 sm:col-span-2"
+              >
+                <Checkbox
+                  checked={form.enabled}
+                  onCheckedChange={(checked) =>
+                    setForm((current) => ({
+                      ...current,
+                      enabled: checked === true,
+                    }))
+                  }
+                  id="market-enabled"
+                  className="size-4 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <FieldLabel
+                    htmlFor="market-enabled"
+                    className="cursor-pointer font-medium"
+                  >
+                    {t('markets.fields.enabled')}
+                  </FieldLabel>
+                  <p className="text-xs text-muted-foreground">
+                    {t('markets.fields.enabledHint')}
+                  </p>
+                </div>
+              </Field>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeDialog}>
+                {t('markets.actions.cancel')}
+              </Button>
+              <Button
+                type="button"
+                disabled={!canSave || save.isPending}
+                onClick={() => save.mutate()}
+              >
+                {save.isPending ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <Save data-icon="inline-start" />
+                )}
+                {t('markets.actions.save')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </PageFrame>
     </AdminGate>
   );

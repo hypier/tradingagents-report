@@ -34,10 +34,6 @@ export type MarketsRepository = {
     enabled: boolean;
     displayName: string;
     timezone: string;
-    currency: string;
-    sessionNotes?: string | null;
-    disclaimer?: string | null;
-    sortOrder: number;
   }): Promise<MarketConfig>;
   setEnabled(code: string, enabled: boolean): Promise<MarketConfig | undefined>;
 };
@@ -113,12 +109,12 @@ export function createMarketsRepository(database: Database): MarketsRepository {
           .select()
           .from(schema.marketConfigs)
           .where(eq(schema.marketConfigs.enabled, 1))
-          .orderBy(schema.marketConfigs.sortOrder);
+          .orderBy(schema.marketConfigs.code);
       }
       return database
         .select()
         .from(schema.marketConfigs)
-        .orderBy(schema.marketConfigs.sortOrder);
+        .orderBy(schema.marketConfigs.code);
     },
     async get(code) {
       const [row] = await database
@@ -136,10 +132,6 @@ export function createMarketsRepository(database: Database): MarketsRepository {
           enabled: input.enabled ? 1 : 0,
           displayName: input.displayName,
           timezone: input.timezone,
-          currency: input.currency,
-          sessionNotes: input.sessionNotes ?? null,
-          disclaimer: input.disclaimer ?? null,
-          sortOrder: input.sortOrder,
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
@@ -148,10 +140,6 @@ export function createMarketsRepository(database: Database): MarketsRepository {
             enabled: input.enabled ? 1 : 0,
             displayName: input.displayName,
             timezone: input.timezone,
-            currency: input.currency,
-            sessionNotes: input.sessionNotes ?? null,
-            disclaimer: input.disclaimer ?? null,
-            sortOrder: input.sortOrder,
             updatedAt: new Date(),
           },
         })
