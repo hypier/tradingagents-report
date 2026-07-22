@@ -104,7 +104,7 @@ export function TickerTape({
   );
 }
 
-/** Elevated index strip — card surface; name quiet, price + change lead. */
+/** Elevated index strip — name above code; price + change on the right. */
 export function PinnedIndices({
   items,
   updatedAt,
@@ -128,6 +128,7 @@ export function PinnedIndices({
       >
         {items.map((quote, index) => {
           const label = symbolLabel(quote.symbol);
+          const displayName = quote.name?.trim() || label;
           const changeLabel = `${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%`;
           const isUp = quote.change_percent > 0;
           const isDown = quote.change_percent < 0;
@@ -135,7 +136,7 @@ export function PinnedIndices({
             <div
               key={updatedAt}
               className={cn(
-                'flex h-12 min-w-0 items-center gap-2.5 px-3 quote-flash sm:px-4',
+                'flex min-h-14 min-w-0 items-center gap-2.5 px-3 py-2 quote-flash sm:px-4',
                 index % 2 === 1 && 'border-l border-border',
                 index > 0 && 'lg:border-l lg:border-border',
                 index >= 2 &&
@@ -151,10 +152,21 @@ export function PinnedIndices({
                 size="sm"
                 className="hidden shrink-0 sm:flex"
               />
-              <p className="min-w-0 flex-1 truncate font-mono text-xs tracking-wide text-muted-foreground">
-                {label}
-              </p>
-              <div className="flex shrink-0 items-baseline gap-2 font-mono">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium tracking-tight text-foreground">
+                  {displayName}
+                </p>
+                <p className="mt-0.5 truncate font-mono text-[11px] tracking-wide text-muted-foreground">
+                  {label}
+                  {quote.currency ? (
+                    <span className="text-muted-foreground/70">
+                      {' '}
+                      / {quote.currency}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-0.5 font-mono">
                 <p className="text-sm font-semibold tabular-nums tracking-tight text-foreground">
                   {formatLocaleNumber(quote.price)}
                 </p>

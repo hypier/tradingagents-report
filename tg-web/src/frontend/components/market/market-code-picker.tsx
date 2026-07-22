@@ -144,7 +144,7 @@ export function MarketCodePicker({
       <Button
         type="button"
         variant="outline"
-        className="h-11 w-full justify-between rounded-none px-3 font-normal"
+        className="h-12 w-full justify-between rounded-none px-3 font-normal"
         onClick={() => {
           setRecentCodes(loadRecentTvMarkets());
           setOpen(true);

@@ -197,15 +197,21 @@ export function QuotesPage() {
                 <div
                   key={index}
                   className={cn(
-                    'flex h-12 items-center gap-2 px-3 sm:px-4',
+                    'flex min-h-14 items-center gap-2.5 px-3 py-2 sm:px-4',
                     index % 2 === 1 && 'border-l border-border',
                     index >= 2 && 'border-t border-border lg:border-t-0',
                     index > 0 && 'lg:border-l lg:border-border',
                   )}
                 >
                   <Skeleton className="hidden size-6 shrink-0 rounded-none sm:block" />
-                  <Skeleton className="h-3 w-16 rounded-none" />
-                  <Skeleton className="ml-auto h-3 w-14 rounded-none" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <Skeleton className="h-3 w-20 rounded-none" />
+                    <Skeleton className="h-2.5 w-14 rounded-none" />
+                  </div>
+                  <div className="ml-auto space-y-1.5">
+                    <Skeleton className="ml-auto h-3 w-14 rounded-none" />
+                    <Skeleton className="ml-auto h-2.5 w-10 rounded-none" />
+                  </div>
                 </div>
               ))}
             </div>
