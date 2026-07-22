@@ -542,43 +542,53 @@
     }
   },
   "markets": {
-    "title": "市场配置",
-    "heading": "市场配置",
-    "subtitle": "启停可运营市场并编辑展示信息与时区（与 market_configs 一致）。",
+    "title": "分析交易所",
+    "heading": "分析交易所",
+    "subtitle": "配置允许发起分析的交易所白名单。",
     "accessRequired": {
       "title": "需要管理员权限",
-      "body": "当前账号没有管理市场配置的权限。"
+      "body": "当前账号没有管理分析交易所的权限。"
     },
     "loadError": {
-      "title": "无法加载市场配置",
+      "title": "无法加载分析交易所",
       "body": "请检查数据库连接后重试。"
     },
-    "empty": "尚未配置市场。",
+    "empty": "尚未配置可分析交易所。从清单中添加后即可作为分析门禁。",
     "enabled": "已启用",
     "disabled": "已停用",
-    "addTitle": "添加市场",
-    "editTitle": "编辑市场",
-    "formDescription": "配置市场代码、展示名称与时区。",
+    "addTitle": "添加交易所",
+    "editTitle": "编辑交易所",
+    "formDescription": "从交易所清单中选择并启用；仅已启用的交易所可发起分析。",
+    "deleteTitle": "移除交易所",
+    "deleteBody": "确定将「{{name}}」从分析白名单中移除吗？",
     "fields": {
-      "code": "市场代码",
+      "catalogSearch": "搜索清单",
+      "catalogSearchPlaceholder": "代码、名称或分组",
+      "exchange": "交易所",
+      "exchangePlaceholder": "选择交易所",
       "displayName": "显示名称",
-      "timezone": "时区",
-      "enabled": "启用该市场",
-      "enabledHint": "停用后，该市场不会出现在用户可选范围中。"
+      "market": "所属市场",
+      "marketNone": "未指定",
+      "enabled": "允许分析",
+      "enabledHint": "停用后，该交易所的标的无法发起分析，也不会出现在分析搜索结果中。"
     },
     "actions": {
-      "add": "添加市场",
+      "add": "添加交易所",
       "edit": "编辑",
+      "delete": "移除",
+      "confirmDelete": "确认移除",
       "save": "保存",
       "cancel": "取消"
     },
     "toast": {
-      "saved": "市场已保存。",
-      "saveError": "无法保存市场。"
+      "saved": "交易所已保存。",
+      "saveError": "无法保存交易所。",
+      "deleted": "交易所已移除。",
+      "deleteError": "无法移除交易所。"
     },
     "columns": {
-      "market": "市场",
-      "timezone": "时区",
+      "exchange": "交易所",
+      "market": "所属市场",
       "status": "状态"
     }
   },

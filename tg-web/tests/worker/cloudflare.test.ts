@@ -153,11 +153,12 @@ describe('Cloudflare Worker runtime', () => {
         set: vi.fn(),
         setMany: vi.fn(),
       },
-      markets: {
+      analysisExchanges: {
         list: vi.fn().mockResolvedValue([]),
         get: vi.fn(),
+        isEnabled: vi.fn().mockResolvedValue(true),
         upsert: vi.fn(),
-        setEnabled: vi.fn(),
+        remove: vi.fn().mockResolvedValue(true),
       },
       audit: {
         record: vi.fn(),

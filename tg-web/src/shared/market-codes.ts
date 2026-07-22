@@ -1,8 +1,13 @@
-/** 交易所代码到产品市场的粗粒度映射。 */
+/**
+ * 交易所代码到所属市场（US/HK/CN）的粗粒度映射（代码回退）。
+ * 运行时优先使用 analysis_exchanges.market / public-config.exchanges。
+ */
 const EXCHANGE_TO_MARKET: Record<string, string> = {
   NASDAQ: 'US',
   NYSE: 'US',
   AMEX: 'US',
+  OTC: 'US',
+  ARCA: 'US',
   HKEX: 'HK',
   SSE: 'CN',
   SZSE: 'CN',

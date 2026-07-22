@@ -13,8 +13,8 @@ import {
   type AccountRepository,
   type AnalysisJobsRepository,
   type AdminAuditRepository,
+  type AnalysisExchangesRepository,
   type BillingRepository,
-  type MarketsRepository,
   type LlmCatalogRepository,
   type SystemSettingsRepository,
   type ReferralRepository,
@@ -32,7 +32,7 @@ export type DatabaseHealth = {
   referrals: ReferralRepository;
   watchlist: WatchlistRepository;
   settings: SystemSettingsRepository;
-  markets: MarketsRepository;
+  analysisExchanges: AnalysisExchangesRepository;
   audit: AdminAuditRepository;
 };
 

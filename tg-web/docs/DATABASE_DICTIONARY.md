@@ -18,7 +18,7 @@
 | 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化（含 `clerk_user_id` / `credit_pricing`） |
 | LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
 | 自选股 | `watchlist_items` | 每用户收藏的标的 |
-| 系统设置 / 市场 / 操作日志 | `system_settings`, `market_configs`, `admin_audit_events` | 含 `billing`（积分域配置）/`rewards`（积分域配置）、市场配置、管理员操作日志 |
+| 系统设置 / 分析交易所 / 操作日志 | `system_settings`, `analysis_exchanges`, `admin_audit_events` | 含 `billing`（积分域配置）/`rewards`（积分域配置）、分析交易所白名单、管理员操作日志 |
 
 ### 1.2 约定
 
@@ -248,7 +248,7 @@ erDiagram
     }
 ```
 
-### 2.8 系统设置 / 市场 / 操作日志（无用户 FK 或弱关联）
+### 2.8 系统设置 / 分析交易所 / 操作日志（无用户 FK 或弱关联）
 
 计费域表（Webhook）见 §2.3；此处只列配置与审计载体。`system_settings` 的 `billing` / `rewards` 键逻辑上归属**积分**域。
 
@@ -261,11 +261,11 @@ erDiagram
         timestamptz updated_at
     }
 
-    market_configs {
-        text code PK
+    analysis_exchanges {
+        text exchange PK
         int enabled
         text display_name
-        text timezone
+        text market
     }
 
     admin_audit_events {
@@ -310,9 +310,9 @@ flowchart TB
         WI[watchlist_items]
     end
 
-    subgraph Config["系统设置 / 市场 / 操作日志"]
+    subgraph Config["系统设置 / 分析交易所 / 操作日志"]
         PS[system_settings]
-        MM[market_configs]
+        AE[analysis_exchanges]
         AAE[admin_audit_events]
     end
 
@@ -675,16 +675,16 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 迁移约定：旧 `credit_billing_settings.signup_grant_*` → `rewards.signup`；旧 `referral_reward_*` → `rewards.referral`；`campaign` 默认关闭。
 
-### 3.11 `market_configs`（导出名：`marketConfigs`）
+### 3.11 `analysis_exchanges`（导出名：`analysisExchanges`）
 
-可运营市场配置。与代码侧 `shared/product-markets.ts` 的 `PRODUCT_MARKET_CATALOG` 保持同一套市场码；运行时以本表为准，代码目录仅作校验与空库回退。
+分析可用交易所白名单。候选清单来自 `shared/exchanges.json`；运行时以本表启用行为门禁。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `code` | `text` | N | — | **PK**。市场代码（如 US / HK / CN / CRYPTO） |
-| `enabled` | `integer` | N | `1` | 是否启用（1/0） |
+| `exchange` | `text` | N | — | **PK**。交易所代码（如 NASDAQ / HKEX / SSE） |
+| `enabled` | `integer` | N | `1` | 是否允许分析（1/0） |
 | `display_name` | `text` | N | — | 展示名 |
-| `timezone` | `text` | N | — | 市场时区（交易日上限与图表会话） |
+| `market` | `text` | Y | — | 所属市场：来自 `exchanges.json` 的 `country` 大写（如 US / JP），加密货币为 CRYPTO；用于账户默认市场推导 |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 
 ---

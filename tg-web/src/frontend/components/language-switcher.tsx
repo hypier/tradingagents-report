@@ -22,7 +22,6 @@ import {
   updateAccountPreferences,
 } from '@/frontend/lib/account';
 import { cn } from '@/frontend/lib/utils';
-import type { ProductMarketCode } from '@/shared/product-markets';
 
 export function LanguageSwitcher({ className }: { className?: string }) {
   const { t, i18n } = useTranslation('common');
@@ -37,7 +36,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           profile: {
             reportLanguage: string;
             timezone: string;
-            defaultMarket: ProductMarketCode;
+            defaultMarket: string;
           };
         };
       }>(['account-profile']);

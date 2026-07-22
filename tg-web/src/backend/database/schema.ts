@@ -50,7 +50,7 @@ export const accountUsers = pgTable(
     reportLanguage: text('report_language').notNull().default('English'),
     /** 本地时间展示用的 IANA 时区。 */
     timezone: text('timezone').notNull().default('UTC'),
-    /** 默认市场：与 `market_configs.code` / `PRODUCT_MARKET_CODES` 对齐。 */
+    /** 默认市场：与启用交易所的 `market`（catalog country / CRYPTO）对齐。 */
     defaultMarket: text('default_market').notNull().default('US'),
     /** 关联的 Stripe Customer ID（`cus_...`）；创建前为 null。 */
     stripeCustomerId: text('stripe_customer_id'),
@@ -447,12 +447,13 @@ export const systemSettings = pgTable('system_settings', {
     .defaultNow(),
 });
 
-/** 可运营市场配置（启停、展示名、时区）。 */
-export const marketConfigs = pgTable('market_configs', {
-  code: text('code').primaryKey(),
+/** 分析可用交易所白名单（启停门禁；所属市场用于账户默认市场推导）。 */
+export const analysisExchanges = pgTable('analysis_exchanges', {
+  exchange: text('exchange').primaryKey(),
   enabled: integer('enabled').notNull().default(1),
   displayName: text('display_name').notNull(),
-  timezone: text('timezone').notNull(),
+  /** 所属市场：catalog country 大写（如 US/JP）或 CRYPTO；与账户 defaultMarket 对齐。 */
+  market: text('market'),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

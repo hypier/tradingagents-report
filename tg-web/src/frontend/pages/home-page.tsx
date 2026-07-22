@@ -46,14 +46,12 @@ import {
   type LlmCatalog,
   type LlmCatalogModel,
 } from '../lib/llm-catalog';
-import { fetchPublicConfig } from '../lib/public-config';
 import { todayInTimezone } from '../i18n/locales';
 import { cn } from '../lib/utils';
 import { listingFromProviderSymbol } from '@/shared/listing';
-import { marketFromExchange } from '@/shared/market-codes';
 import {
   guessBrowserTimezone,
-  resolveMarketTimezone,
+  resolveTimezoneForExchange,
 } from '@/shared/timezone';
 import {
   createResearch,
@@ -151,11 +149,6 @@ export function HomePage() {
   const profile = useQuery({
     queryKey: ['account-profile'],
     queryFn: getAccountProfile,
-  });
-  const publicConfig = useQuery({
-    queryKey: ['public-config'],
-    queryFn: () => fetchPublicConfig(),
-    staleTime: 60_000,
   });
   const billing = useQuery({
     queryKey: ['billing-overview'],
@@ -323,12 +316,10 @@ export function HomePage() {
   const pipelineJob = active ?? optimisticJob ?? finishedWatched;
   const showPipeline = Boolean(pipelineJob);
   const availableCredits = billing.data?.data.usage?.availableCredits ?? 0;
-  const selectedMarket = marketFromExchange(instrument?.exchange);
   const accountTimezone =
     profile.data?.data.profile.timezone ?? guessBrowserTimezone();
-  const tradeDateTimezone = resolveMarketTimezone(
-    selectedMarket,
-    publicConfig.data?.markets,
+  const tradeDateTimezone = resolveTimezoneForExchange(
+    instrument?.exchange,
     accountTimezone,
   );
   const maxTradeDate = todayInTimezone(tradeDateTimezone);

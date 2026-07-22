@@ -2,11 +2,18 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { apiSuccess } from '../../shared/contracts';
+import {
+  defaultDisplayNameForExchange,
+  getExchangeCatalogEntry,
+  listCatalogMarketCodes,
+  suggestMarket,
+} from '../../shared/exchange-catalog';
 import { LLM_SETTINGS_KEY } from '../../shared/llm-providers';
-import { isValidTimezone } from '../../shared/timezone';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import { validateLlmDefaults } from '../llm/llm-defaults';
+
+const CATALOG_MARKET_CODES = new Set(listCatalogMarketCodes());
 
 const settingsPatchSchema = z.object({
   maintenance: z
@@ -45,16 +52,21 @@ const settingsPatchSchema = z.object({
     .optional(),
 });
 
-const marketUpsertSchema = z.object({
-  code: z.string().trim().min(1).max(16),
+const exchangeUpsertSchema = z.object({
+  exchange: z.string().trim().min(1).max(32),
   enabled: z.boolean(),
   displayName: z.string().trim().min(1).max(100),
-  timezone: z
+  market: z
     .string()
     .trim()
-    .min(1)
-    .max(64)
-    .refine(isValidTimezone, 'Invalid timezone'),
+    .toUpperCase()
+    .max(16)
+    .nullable()
+    .optional()
+    .transform((value) => {
+      if (!value) return null;
+      return CATALOG_MARKET_CODES.has(value) ? value : null;
+    }),
 });
 
 const auditQuerySchema = z.object({
@@ -88,10 +100,10 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
     const actor = context.get('auth').userId;
     const patch = { ...input.data };
     if (patch.llm) {
-      patch.llm = await validateLlmDefaults(
+      patch.llm = (await validateLlmDefaults(
         dependencies.database.llmCatalog,
         patch.llm,
-      );
+      )) as typeof patch.llm;
     }
     const entries = Object.entries(patch)
       .filter(([, value]) => value !== undefined)
@@ -119,30 +131,72 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
   app.get('/admin/markets', async (context) => {
     return context.json(
       apiSuccess(
-        await dependencies.database.markets.list(),
+        await dependencies.database.analysisExchanges.list(),
         context.get('requestId'),
       ),
     );
   });
 
-  app.put('/admin/markets/:code', async (context) => {
+  app.put('/admin/markets/:exchange', async (context) => {
     const body = await context.req.json().catch(() => null);
-    const input = marketUpsertSchema.safeParse({
+    const exchangeParam = context.req.param('exchange').trim().toUpperCase();
+    const catalog = getExchangeCatalogEntry(exchangeParam);
+    if (!catalog) {
+      throw new AppError(
+        'INVALID_REQUEST',
+        400,
+        'Exchange is not in the catalog',
+      );
+    }
+    const input = exchangeUpsertSchema.safeParse({
       ...(isRecord(body) ? body : {}),
-      code: context.req.param('code'),
+      exchange: exchangeParam,
+      displayName:
+        typeof (body as { displayName?: unknown } | null)?.displayName ===
+        'string'
+          ? (body as { displayName: string }).displayName
+          : defaultDisplayNameForExchange(exchangeParam),
+      market:
+        (body as { market?: unknown } | null)?.market !== undefined
+          ? (body as { market: unknown }).market
+          : suggestMarket(catalog.country, { group: catalog.group }),
     });
     if (!input.success) {
-      throw new AppError('INVALID_REQUEST', 400, 'Invalid market payload');
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid exchange payload');
     }
-    const market = await dependencies.database.markets.upsert(input.data);
+    const row = await dependencies.database.analysisExchanges.upsert({
+      exchange: input.data.exchange,
+      enabled: input.data.enabled,
+      displayName: input.data.displayName,
+      market:
+        input.data.market ??
+        suggestMarket(catalog.country, { group: catalog.group }),
+    });
     await dependencies.database.audit.record({
       actorClerkUserId: context.get('auth').userId,
-      action: 'markets.upsert',
-      targetType: 'market',
-      targetId: market.code,
-      metadata: { enabled: Boolean(market.enabled) },
+      action: 'analysis_exchanges.upsert',
+      targetType: 'analysis_exchange',
+      targetId: row.exchange,
+      metadata: { enabled: Boolean(row.enabled) },
     });
-    return context.json(apiSuccess(market, context.get('requestId')));
+    return context.json(apiSuccess(row, context.get('requestId')));
+  });
+
+  app.delete('/admin/markets/:exchange', async (context) => {
+    const exchange = context.req.param('exchange').trim().toUpperCase();
+    const removed =
+      await dependencies.database.analysisExchanges.remove(exchange);
+    if (!removed) {
+      throw new AppError('NOT_FOUND', 404, 'Exchange not configured');
+    }
+    await dependencies.database.audit.record({
+      actorClerkUserId: context.get('auth').userId,
+      action: 'analysis_exchanges.delete',
+      targetType: 'analysis_exchange',
+      targetId: exchange,
+      metadata: {},
+    });
+    return context.json(apiSuccess({ exchange }, context.get('requestId')));
   });
 
   app.get('/admin/datasources', async (context) => {

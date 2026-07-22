@@ -25,7 +25,7 @@ import { useLiveQuote } from '../hooks/use-live-quote';
 import { useJobMarketIdentities } from '../hooks/use-market-identities';
 import { formatLocaleDateTimeValue } from '../lib/format-locale';
 import { getDisplayTimezone } from '../lib/display-timezone';
-import { fetchPublicConfig } from '../lib/public-config';
+import { fetchPublicConfig, enabledExchangeSet } from '../lib/public-config';
 import { cn } from '../lib/utils';
 import { listResearch } from '../lib/research';
 import {
@@ -33,10 +33,9 @@ import {
   getWatchlist,
   removeWatchlistItem,
 } from '../lib/watchlist';
-import { isSupportedExchange, listingForQuoteView } from '@/shared/listing';
-import { marketFromExchange } from '@/shared/market-codes';
+import { listingForQuoteView } from '@/shared/listing';
 import { normalizeMarketSession } from '@/shared/market-session';
-import { resolveMarketTimezone } from '@/shared/timezone';
+import { resolveTimezoneForExchange } from '@/shared/timezone';
 
 export function StockPage() {
   const { t } = useTranslation(['stock', 'common']);
@@ -51,8 +50,17 @@ export function StockPage() {
   } catch {
     listing = null;
   }
+
+  const publicConfig = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => fetchPublicConfig(),
+    staleTime: 60_000,
+  });
   const analyzable = Boolean(
-    listing?.exchange && isSupportedExchange(listing.exchange),
+    listing?.exchange &&
+      enabledExchangeSet(publicConfig.data?.exchanges).has(
+        listing.exchange.toUpperCase(),
+      ),
   );
 
   const {
@@ -82,14 +90,8 @@ export function StockPage() {
     queryFn: () => getWatchlist(),
     staleTime: 60_000,
   });
-  const publicConfig = useQuery({
-    queryKey: ['public-config'],
-    queryFn: () => fetchPublicConfig(),
-    staleTime: 60_000,
-  });
-  const chartTimezone = resolveMarketTimezone(
-    marketFromExchange(listing?.exchange),
-    publicConfig.data?.markets,
+  const chartTimezone = resolveTimezoneForExchange(
+    listing?.exchange,
     getDisplayTimezone(),
   );
 

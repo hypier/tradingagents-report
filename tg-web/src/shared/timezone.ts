@@ -1,4 +1,10 @@
 import { PRODUCT_MARKET_TIMEZONES as CATALOG_TIMEZONES } from './product-markets';
+import {
+  getExchangeCatalogEntry,
+  resolveExchangeTimezone,
+  suggestMarket,
+} from './exchange-catalog';
+import { marketFromExchange } from './market-codes';
 
 /** Built-in product-market → IANA fallbacks when public market config is missing. */
 export const PRODUCT_MARKET_TIMEZONES: Record<string, string> = {
@@ -112,27 +118,42 @@ export type MarketTimezoneSource = {
 };
 
 /**
- * Resolve the session/calendar timezone for a product market code.
- * Prefers public market config, then built-in catalog, then fallback.
+ * Resolve the session/calendar timezone for a market code (US/HK/CN).
+ * Prefers built-in catalog, then fallback.
  */
 export function resolveMarketTimezone(
   marketCode: string | null | undefined,
-  markets: MarketTimezoneSource[] | null | undefined,
+  _markets?: MarketTimezoneSource[] | null | undefined,
   fallback?: string | null,
 ): string {
   const code = marketCode?.trim().toUpperCase();
-  if (code && markets?.length) {
-    const row = markets.find(
-      (market) => market.code.trim().toUpperCase() === code,
-    );
-    if (row?.timezone && isValidTimezone(row.timezone)) {
-      return row.timezone;
-    }
-  }
   if (code) {
     const builtin = PRODUCT_MARKET_TIMEZONES[code];
     if (builtin) return builtin;
   }
   if (fallback && isValidTimezone(fallback)) return fallback;
   return guessBrowserTimezone();
+}
+
+/** Resolve timezone for an exchange using catalog country / market mapping. */
+export function resolveTimezoneForExchange(
+  exchange: string | null | undefined,
+  fallback?: string | null,
+): string {
+  if (!exchange) {
+    return fallback && isValidTimezone(fallback)
+      ? fallback
+      : guessBrowserTimezone();
+  }
+  const catalog = getExchangeCatalogEntry(exchange);
+  const market =
+    suggestMarket(catalog?.country, { group: catalog?.group }) ||
+    marketFromExchange(exchange);
+  const zone = resolveExchangeTimezone({
+    market,
+    country: catalog?.country,
+    fallback:
+      fallback && isValidTimezone(fallback) ? fallback : guessBrowserTimezone(),
+  });
+  return isValidTimezone(zone) ? zone : guessBrowserTimezone();
 }

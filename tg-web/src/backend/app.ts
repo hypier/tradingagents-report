@@ -46,7 +46,7 @@ export type AppDependencies = {
     | 'analysisJobs'
     | 'watchlist'
     | 'settings'
-    | 'markets'
+    | 'analysisExchanges'
     | 'audit'
     | 'llmCatalog'
   >;

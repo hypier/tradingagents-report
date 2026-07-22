@@ -1,10 +1,7 @@
 /**
- * Canonical product-market catalog.
- *
- * Must stay in sync with `market_configs` seed rows
- * (`drizzle/0003_p3_product_ops.sql` insert + later renames/simplifications).
- * Runtime truth is the `market_configs` table; this module is the
- * typed fallback / validation source used when DB rows are unavailable.
+ * Billing plan metadata market codes (US/HK/CN/CRYPTO).
+ * Account `defaultMarket` and analysis exchange `market` come from the
+ * exchange catalog country (or CRYPTO), not this fixed list.
  */
 export const PRODUCT_MARKET_CODES = ['US', 'HK', 'CN', 'CRYPTO'] as const;
 

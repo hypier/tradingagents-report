@@ -1,7 +1,6 @@
-import type { ProductMarketCode } from '../../shared/product-markets';
-
 export type InterfaceLanguage = 'en' | 'zh-CN';
-export type DefaultMarket = ProductMarketCode;
+/** Catalog country code (e.g. US/HK/JP) or CRYPTO; derived from enabled exchanges. */
+export type DefaultMarket = string;
 
 export type AccountProfile = {
   clerkUserId: string;

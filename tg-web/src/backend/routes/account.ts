@@ -4,7 +4,6 @@ import { z } from 'zod';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
 import { apiSuccess } from '../../shared/contracts';
-import { PRODUCT_MARKET_CODES } from '../../shared/product-markets';
 import { isValidTimezone } from '../../shared/timezone';
 
 const preferencesSchema = z.object({
@@ -16,7 +15,8 @@ const preferencesSchema = z.object({
     .min(1)
     .max(64)
     .refine(isValidTimezone, 'Invalid timezone'),
-  defaultMarket: z.enum(PRODUCT_MARKET_CODES),
+  /** From enabled exchange `market` (catalog country / CRYPTO), not a fixed enum. */
+  defaultMarket: z.string().trim().min(1).max(16).toUpperCase(),
 });
 
 export function accountRoutes(dependencies: AppDependencies) {

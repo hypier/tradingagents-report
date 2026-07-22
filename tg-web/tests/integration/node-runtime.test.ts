@@ -61,7 +61,7 @@ function fakeDependencies(): AppDependencies {
       analysisJobs: fakeAnalysisJobsRepository(),
       watchlist: fakeWatchlistRepository(),
       settings: fakeSettingsRepository(),
-      markets: fakeMarketsRepository(),
+      analysisExchanges: fakeAnalysisExchangesRepository(),
       audit: fakeAuditRepository(),
       llmCatalog: {
         listProviders: vi.fn().mockResolvedValue([]),
@@ -172,12 +172,13 @@ function fakeSettingsRepository() {
   };
 }
 
-function fakeMarketsRepository() {
+function fakeAnalysisExchangesRepository() {
   return {
     list: vi.fn().mockResolvedValue([]),
     get: vi.fn(),
+    isEnabled: vi.fn().mockResolvedValue(true),
     upsert: vi.fn(),
-    setEnabled: vi.fn(),
+    remove: vi.fn().mockResolvedValue(true),
   };
 }
 

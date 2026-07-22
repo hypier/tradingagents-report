@@ -43,6 +43,7 @@ import { fetchPublicConfig } from '@/frontend/lib/public-config';
 import { cn } from '@/frontend/lib/utils';
 import { interfaceLanguageToUiLocale } from '@/frontend/i18n/locales';
 import { PRODUCT_MARKET_CATALOG } from '@/shared/product-markets';
+import { marketsFromEnabledExchanges } from '@/frontend/lib/public-config';
 import { listTimezoneSelectOptions } from '@/shared/timezone';
 
 export function AccountPage() {
@@ -93,11 +94,16 @@ export function AccountPage() {
     [preferences?.timezone],
   );
   const marketOptions = useMemo(() => {
-    const fromConfig = publicConfig.data?.markets ?? [];
+    const fromExchanges = marketsFromEnabledExchanges(
+      publicConfig.data?.exchanges,
+    );
     const rows =
-      fromConfig.length > 0
-        ? fromConfig
-        : PRODUCT_MARKET_CATALOG.filter((row) => row.enabled);
+      fromExchanges.length > 0
+        ? fromExchanges
+        : PRODUCT_MARKET_CATALOG.filter((row) => row.enabled).map((row) => ({
+            code: row.code,
+            displayName: row.displayName,
+          }));
     return rows.map((row) => {
       const code = row.code;
       const localizedKey = `preferences.markets.${code}` as const;
@@ -107,7 +113,7 @@ export function AccountPage() {
         localized || row.displayName || code,
       ] as [string, string];
     });
-  }, [publicConfig.data?.markets, t]);
+  }, [publicConfig.data?.exchanges, t]);
 
   return (
     <AppShell>

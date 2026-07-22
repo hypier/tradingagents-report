@@ -35,7 +35,9 @@ describe('public config client', () => {
               message: { en: 'Down', zh: '维护中' },
             },
             features: { watchlist: false },
-            markets: [{ code: 'US', displayName: 'United States' }],
+            exchanges: [
+              { exchange: 'NASDAQ', displayName: 'NASDAQ', market: 'US' },
+            ],
           },
           requestId: 'req-2',
         }),
@@ -49,7 +51,9 @@ describe('public config client', () => {
         message: { en: 'Down', zh: '维护中' },
       },
       features: { watchlist: false },
-      markets: [{ code: 'US', displayName: 'United States' }],
+      exchanges: [
+        { exchange: 'NASDAQ', displayName: 'NASDAQ', market: 'US' },
+      ],
     });
   });
 

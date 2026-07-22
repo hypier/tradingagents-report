@@ -35,7 +35,7 @@
     "adminAnalyses": "Analysis jobs",
     "adminBilling": "Payment settings",
     "adminSettings": "System settings",
-    "adminMarkets": "Market config",
+    "adminMarkets": "Analysis exchanges",
     "adminAudit": "Operation log",
     "adminLlm": "Model settings",
     "adminLlmProviders": "Providers",
@@ -60,7 +60,7 @@
     "adminLlmProviders": "Providers",
     "adminLlmModels": "Models",
     "adminSettings": "System settings",
-    "adminMarkets": "Market config",
+    "adminMarkets": "Analysis exchanges",
     "adminAudit": "Operation log"
   },
   "disclaimer": {

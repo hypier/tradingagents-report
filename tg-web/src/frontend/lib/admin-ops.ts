@@ -2,11 +2,11 @@ type FetchImplementation = typeof fetch;
 
 export type SystemSettings = Record<string, Record<string, unknown>>;
 
-export type AdminMarket = {
-  code: string;
+export type AdminAnalysisExchange = {
+  exchange: string;
   enabled: boolean | number;
   displayName: string;
-  timezone: string;
+  market: string | null;
   updatedAt?: string | Date;
 };
 
@@ -94,21 +94,38 @@ export const updateAdminSettings = (
   );
 
 export const listAdminMarkets = (fetchImplementation?: FetchImplementation) =>
-  read<AdminMarket[]>('/api/admin/markets', fetchImplementation);
+  read<AdminAnalysisExchange[]>('/api/admin/markets', fetchImplementation);
 
 export const upsertAdminMarket = (
-  code: string,
-  input: Omit<AdminMarket, 'code' | 'updatedAt'> & { code?: string },
+  exchange: string,
+  input: {
+    enabled: boolean;
+    displayName: string;
+    market?: string | null;
+  },
   fetchImplementation?: FetchImplementation,
 ) =>
-  send<AdminMarket>(
-    `/api/admin/markets/${encodeURIComponent(code)}`,
+  send<AdminAnalysisExchange>(
+    `/api/admin/markets/${encodeURIComponent(exchange)}`,
     {
       method: 'PUT',
-      body: { ...input, code },
+      body: { ...input, exchange },
     },
     fetchImplementation,
   );
+
+export const deleteAdminMarket = (
+  exchange: string,
+  fetchImplementation?: FetchImplementation,
+) =>
+  send<{ exchange: string }>(
+    `/api/admin/markets/${encodeURIComponent(exchange)}`,
+    { method: 'DELETE' },
+    fetchImplementation,
+  );
+
+/** @deprecated Use AdminAnalysisExchange */
+export type AdminMarket = AdminAnalysisExchange;
 
 export const getAdminDatasources = (
   fetchImplementation?: FetchImplementation,

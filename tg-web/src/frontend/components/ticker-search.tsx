@@ -18,7 +18,7 @@ import { Input } from './ui/input';
 import { Spinner } from './ui/spinner';
 import { cn } from '../lib/utils';
 import { normalizeUiLocale } from '@/frontend/i18n/locales';
-import type { ProductMarketCode } from '@/shared/product-markets';
+import { exchangesForMarket } from '@/shared/exchange-catalog';
 import {
   searchMarkets,
   type MarketSearchHit,
@@ -30,15 +30,8 @@ type TickerSearchProps = {
   value: SelectedInstrument | null;
   onChange: (instrument: SelectedInstrument | null) => void;
   className?: string;
-  /** Prefer listings from this product market when ranking search hits. */
-  preferredMarket?: ProductMarketCode;
-};
-
-const MARKET_EXCHANGES: Record<ProductMarketCode, string[]> = {
-  US: ['NASDAQ', 'NYSE', 'AMEX'],
-  HK: ['HKEX'],
-  CN: ['SSE', 'SZSE'],
-  CRYPTO: [],
+  /** Prefer listings from this catalog market when ranking search hits. */
+  preferredMarket?: string;
 };
 
 function toInstrument(hit: MarketSearchHit): SelectedInstrument | null {
@@ -321,11 +314,17 @@ function rankMarketHits(
   preferredMarket?: TickerSearchProps['preferredMarket'],
 ) {
   if (!preferredMarket) return hits;
-  const preferred = new Set(MARKET_EXCHANGES[preferredMarket]);
+  const preferred = new Set(exchangesForMarket(preferredMarket));
   if (preferred.size === 0) return hits;
   return [...hits].sort((left, right) => {
-    const leftScore = left.exchange && preferred.has(left.exchange) ? 1 : 0;
-    const rightScore = right.exchange && preferred.has(right.exchange) ? 1 : 0;
+    const leftScore =
+      left.exchange && preferred.has(left.exchange.trim().toUpperCase())
+        ? 1
+        : 0;
+    const rightScore =
+      right.exchange && preferred.has(right.exchange.trim().toUpperCase())
+        ? 1
+        : 0;
     return rightScore - leftScore;
   });
 }

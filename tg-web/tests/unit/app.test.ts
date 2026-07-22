@@ -202,19 +202,12 @@ function fakeDependencies(
         set: vi.fn(),
         setMany: vi.fn().mockResolvedValue({}),
       },
-      markets: {
-        list: vi.fn().mockResolvedValue([
-          {
-            code: 'US',
-            enabled: 1,
-            displayName: 'United States',
-            timezone: 'America/New_York',
-            updatedAt: new Date(),
-          },
-        ]),
+      analysisExchanges: {
+        list: vi.fn().mockResolvedValue([]),
         get: vi.fn(),
+        isEnabled: vi.fn().mockResolvedValue(true),
         upsert: vi.fn(),
-        setEnabled: vi.fn(),
+        remove: vi.fn().mockResolvedValue(true),
       },
       audit: {
         record: vi.fn().mockResolvedValue({
@@ -2055,11 +2048,12 @@ describe('createApp', () => {
           set: vi.fn(),
           setMany: vi.fn(),
         },
-        markets: {
+        analysisExchanges: {
           list: vi.fn().mockResolvedValue([]),
           get: vi.fn(),
+          isEnabled: vi.fn().mockResolvedValue(true),
           upsert: vi.fn(),
-          setEnabled: vi.fn(),
+          remove: vi.fn().mockResolvedValue(true),
         },
         audit: {
           record: vi.fn(),

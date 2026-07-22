@@ -4,6 +4,8 @@ import { z } from 'zod';
 import type { MarketTapeQuote } from '../../shared/market-board';
 import { isStockLeaderboardTab } from '../../shared/market-codes';
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
+import { DEFAULT_ANALYSIS_EXCHANGE_SEEDS } from '../../shared/exchange-catalog';
+import { normalizeExchange } from '../../shared/listing';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { BillingRepositoryError } from '../database/billing-repository';
 import type { AnalysisJob } from '../database/repositories';
@@ -74,6 +76,26 @@ export function analysisRoutes(dependencies: AppDependencies) {
             : {}),
         }
       : undefined;
+
+    const exchangeForGate =
+      instrument?.exchange ??
+      (input.ticker.includes(':')
+        ? input.ticker.split(':', 1)[0]?.trim().toUpperCase()
+        : undefined);
+    if (exchangeForGate) {
+      const allowed = await isAnalysisExchangeEnabled(
+        dependencies,
+        exchangeForGate,
+      );
+      if (!allowed) {
+        throw new AppError(
+          'INVALID_REQUEST',
+          400,
+          `Exchange ${exchangeForGate} is not enabled for analysis`,
+        );
+      }
+    }
+
     // Core requires ticker and instrument to resolve to the same listing.
     // Bare symbols like "AAPL" resolve with exchange=null and conflict with
     // NASDAQ:AAPL-style instruments from the watchlist/search UI.
@@ -212,9 +234,13 @@ export function analysisRoutes(dependencies: AppDependencies) {
       );
     }
     const lang = context.req.query('lang') === 'zh' ? 'zh' : 'en';
+    const hits = await dependencies.marketAssets.searchMarkets(query, lang);
+    const enabled = await listEnabledAnalysisExchangeCodes(dependencies);
     return context.json(
       apiSuccess(
-        await dependencies.marketAssets.searchMarkets(query, lang),
+        hits.filter(
+          (hit) => hit.exchange && enabled.has(hit.exchange.toUpperCase()),
+        ),
         context.get('requestId'),
       ),
     );
@@ -652,4 +678,31 @@ function billingError(error: unknown): AppError {
     'Unable to verify analysis credit balance',
     error,
   );
+}
+
+async function listEnabledAnalysisExchangeCodes(
+  dependencies: AppDependencies,
+): Promise<Set<string>> {
+  const rows = await dependencies.database.analysisExchanges
+    .list()
+    .catch(() => []);
+  if (rows.length === 0) {
+    return new Set(
+      DEFAULT_ANALYSIS_EXCHANGE_SEEDS.map((code) => code.toUpperCase()),
+    );
+  }
+  return new Set(
+    rows
+      .filter((row) => row.enabled)
+      .map((row) => row.exchange.trim().toUpperCase()),
+  );
+}
+
+async function isAnalysisExchangeEnabled(
+  dependencies: AppDependencies,
+  exchange: string,
+): Promise<boolean> {
+  const normalized = normalizeExchange(exchange);
+  const enabled = await listEnabledAnalysisExchangeCodes(dependencies);
+  return enabled.has(normalized);
 }

@@ -35,7 +35,7 @@
     "adminAnalyses": "分析任务",
     "adminBilling": "支付设置",
     "adminSettings": "系统设置",
-    "adminMarkets": "市场配置",
+    "adminMarkets": "分析交易所",
     "adminAudit": "操作日志",
     "adminLlm": "模型设置",
     "adminLlmProviders": "供应商",
@@ -60,7 +60,7 @@
     "adminLlmProviders": "供应商",
     "adminLlmModels": "模型",
     "adminSettings": "系统设置",
-    "adminMarkets": "市场配置",
+    "adminMarkets": "分析交易所",
     "adminAudit": "操作日志"
   },
   "disclaimer": {

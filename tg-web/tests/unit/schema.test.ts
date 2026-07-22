@@ -12,7 +12,7 @@ import {
   stripeWebhookEvents,
   billingSubscriptions,
   systemSettings,
-  marketConfigs,
+  analysisExchanges,
   adminAuditEvents,
 } from '../../src/backend/database/schema';
 
@@ -32,9 +32,9 @@ describe('Core table mappings', () => {
     expect(getTableName(systemSettings)).toBe('system_settings');
   });
 
-  it('maps system settings, market configs, and operation log tables', () => {
+  it('maps system settings, analysis exchanges, and operation log tables', () => {
     expect(getTableName(systemSettings)).toBe('system_settings');
-    expect(getTableName(marketConfigs)).toBe('market_configs');
+    expect(getTableName(analysisExchanges)).toBe('analysis_exchanges');
     expect(getTableName(adminAuditEvents)).toBe('admin_audit_events');
   });
 

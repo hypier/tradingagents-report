@@ -1,5 +1,5 @@
 /**
- * P3 产品运营仓库：系统设置、市场配置、操作日志。
+ * P3 产品运营仓库：系统设置、分析交易所门禁、操作日志。
  */
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -8,7 +8,7 @@ import * as schema from './schema';
 
 type Database = NodePgDatabase<typeof schema>;
 
-export type MarketConfig = typeof schema.marketConfigs.$inferSelect;
+export type AnalysisExchange = typeof schema.analysisExchanges.$inferSelect;
 export type AdminAuditEvent = typeof schema.adminAuditEvents.$inferSelect;
 export type SystemSetting = typeof schema.systemSettings.$inferSelect;
 
@@ -26,16 +26,17 @@ export type SystemSettingsRepository = {
   ): Promise<Record<string, Record<string, unknown>>>;
 };
 
-export type MarketsRepository = {
-  list(input?: { enabledOnly?: boolean }): Promise<MarketConfig[]>;
-  get(code: string): Promise<MarketConfig | undefined>;
+export type AnalysisExchangesRepository = {
+  list(input?: { enabledOnly?: boolean }): Promise<AnalysisExchange[]>;
+  get(exchange: string): Promise<AnalysisExchange | undefined>;
+  isEnabled(exchange: string): Promise<boolean>;
   upsert(input: {
-    code: string;
+    exchange: string;
     enabled: boolean;
     displayName: string;
-    timezone: string;
-  }): Promise<MarketConfig>;
-  setEnabled(code: string, enabled: boolean): Promise<MarketConfig | undefined>;
+    market?: string | null;
+  }): Promise<AnalysisExchange>;
+  remove(exchange: string): Promise<boolean>;
 };
 
 export type AdminAuditRepository = {
@@ -101,58 +102,66 @@ export function createSystemSettingsRepository(
   };
 }
 
-export function createMarketsRepository(database: Database): MarketsRepository {
+export function createAnalysisExchangesRepository(
+  database: Database,
+): AnalysisExchangesRepository {
   return {
     list(input) {
       if (input?.enabledOnly) {
         return database
           .select()
-          .from(schema.marketConfigs)
-          .where(eq(schema.marketConfigs.enabled, 1))
-          .orderBy(schema.marketConfigs.code);
+          .from(schema.analysisExchanges)
+          .where(eq(schema.analysisExchanges.enabled, 1))
+          .orderBy(schema.analysisExchanges.exchange);
       }
       return database
         .select()
-        .from(schema.marketConfigs)
-        .orderBy(schema.marketConfigs.code);
+        .from(schema.analysisExchanges)
+        .orderBy(schema.analysisExchanges.exchange);
     },
-    async get(code) {
+    async get(exchange) {
       const [row] = await database
         .select()
-        .from(schema.marketConfigs)
-        .where(eq(schema.marketConfigs.code, code))
+        .from(schema.analysisExchanges)
+        .where(eq(schema.analysisExchanges.exchange, exchange.toUpperCase()))
         .limit(1);
       return row;
     },
+    async isEnabled(exchange) {
+      const row = await this.get(exchange);
+      return Boolean(row && row.enabled);
+    },
     async upsert(input) {
+      const exchange = input.exchange.trim().toUpperCase();
       const [row] = await database
-        .insert(schema.marketConfigs)
+        .insert(schema.analysisExchanges)
         .values({
-          code: input.code.toUpperCase(),
+          exchange,
           enabled: input.enabled ? 1 : 0,
           displayName: input.displayName,
-          timezone: input.timezone,
+          market: input.market?.trim().toUpperCase() || null,
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
-          target: schema.marketConfigs.code,
+          target: schema.analysisExchanges.exchange,
           set: {
             enabled: input.enabled ? 1 : 0,
             displayName: input.displayName,
-            timezone: input.timezone,
+            market: input.market?.trim().toUpperCase() || null,
             updatedAt: new Date(),
           },
         })
         .returning();
       return row;
     },
-    async setEnabled(code, enabled) {
-      const [row] = await database
-        .update(schema.marketConfigs)
-        .set({ enabled: enabled ? 1 : 0, updatedAt: new Date() })
-        .where(eq(schema.marketConfigs.code, code))
+    async remove(exchange) {
+      const rows = await database
+        .delete(schema.analysisExchanges)
+        .where(
+          eq(schema.analysisExchanges.exchange, exchange.trim().toUpperCase()),
+        )
         .returning();
-      return row;
+      return rows.length > 0;
     },
   };
 }

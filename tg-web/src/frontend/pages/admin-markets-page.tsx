@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Save } from 'lucide-react';
+import { Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -24,6 +24,13 @@ import {
 } from '@/frontend/components/ui/dialog';
 import { Field, FieldLabel } from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/frontend/components/ui/select';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import {
   Table,
@@ -40,31 +47,39 @@ import {
 } from '@/frontend/components/ui/tooltip';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import {
+  deleteAdminMarket,
   listAdminMarkets,
   upsertAdminMarket,
-  type AdminMarket,
+  type AdminAnalysisExchange,
 } from '@/frontend/lib/admin-ops';
+import {
+  defaultDisplayNameForExchange,
+  getExchangeCatalogEntry,
+  listCatalogMarketCodes,
+  listExchangeCatalog,
+  suggestMarket,
+} from '@/shared/exchange-catalog';
 
-type MarketForm = {
-  code: string;
+type ExchangeForm = {
+  exchange: string;
   enabled: boolean;
   displayName: string;
-  timezone: string;
+  market: string;
 };
 
-const emptyForm = (): MarketForm => ({
-  code: '',
+const emptyForm = (): ExchangeForm => ({
+  exchange: '',
   enabled: true,
   displayName: '',
-  timezone: 'UTC',
+  market: '',
 });
 
-function toForm(market: AdminMarket): MarketForm {
+function toForm(row: AdminAnalysisExchange): ExchangeForm {
   return {
-    code: market.code,
-    enabled: Boolean(market.enabled),
-    displayName: market.displayName,
-    timezone: market.timezone,
+    exchange: row.exchange,
+    enabled: Boolean(row.enabled),
+    displayName: row.displayName,
+    market: row.market ?? '',
   };
 }
 
@@ -73,27 +88,52 @@ export function AdminMarketsPage() {
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const isAdmin = session.data?.data.user.role === 'admin';
-  const markets = useQuery({
-    queryKey: ['admin-markets'],
+  const exchanges = useQuery({
+    queryKey: ['admin-analysis-exchanges'],
     queryFn: () => listAdminMarkets(),
     enabled: isAdmin,
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<MarketForm>(emptyForm);
+  const [deleteTarget, setDeleteTarget] =
+    useState<AdminAnalysisExchange | null>(null);
+  const [form, setForm] = useState<ExchangeForm>(emptyForm);
+  const [catalogQuery, setCatalogQuery] = useState('');
 
-  const items = markets.data?.data ?? [];
-  const canSave = Boolean(form.code.trim() && form.displayName.trim());
+  const items = exchanges.data?.data ?? [];
+  const configured = useMemo(
+    () => new Set(items.map((row) => row.exchange.toUpperCase())),
+    [items],
+  );
+  const catalogOptions = useMemo(() => {
+    const needle = catalogQuery.trim().toLowerCase();
+    return listExchangeCatalog().filter((entry) => {
+      if (configured.has(entry.value.toUpperCase()) && !editing) return false;
+      if (!needle) return true;
+      return (
+        entry.value.toLowerCase().includes(needle) ||
+        entry.name.toLowerCase().includes(needle) ||
+        entry.desc.toLowerCase().includes(needle) ||
+        entry.group.toLowerCase().includes(needle) ||
+        entry.country.toLowerCase().includes(needle)
+      );
+    });
+  }, [catalogQuery, configured, editing]);
+  const catalogMarketCodes = useMemo(() => listCatalogMarketCodes(), []);
+
+  const canSave = Boolean(form.exchange.trim() && form.displayName.trim());
 
   const openCreate = () => {
     setEditing(false);
     setForm(emptyForm());
+    setCatalogQuery('');
     setDialogOpen(true);
   };
 
-  const openEdit = (market: AdminMarket) => {
+  const openEdit = (row: AdminAnalysisExchange) => {
     setEditing(true);
-    setForm(toForm(market));
+    setForm(toForm(row));
+    setCatalogQuery('');
     setDialogOpen(true);
   };
 
@@ -101,31 +141,51 @@ export function AdminMarketsPage() {
     setDialogOpen(false);
     setEditing(false);
     setForm(emptyForm());
+    setCatalogQuery('');
   };
 
   const save = useMutation({
     mutationFn: () =>
-      upsertAdminMarket(form.code.trim().toUpperCase(), {
+      upsertAdminMarket(form.exchange.trim().toUpperCase(), {
         enabled: form.enabled,
         displayName: form.displayName.trim(),
-        timezone: form.timezone.trim(),
+        market: form.market.trim() || null,
       }),
     onSuccess: async () => {
       toast.success(t('markets.toast.saved'));
       closeDialog();
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-markets'] }),
+        queryClient.invalidateQueries({
+          queryKey: ['admin-analysis-exchanges'],
+        }),
         queryClient.invalidateQueries({ queryKey: ['public-config'] }),
       ]);
     },
-    onError: () => toast.error(t('markets.toast.saveError')),
+    onError: (error: Error) =>
+      toast.error(error.message || t('markets.toast.saveError')),
+  });
+
+  const remove = useMutation({
+    mutationFn: (exchange: string) => deleteAdminMarket(exchange),
+    onSuccess: async () => {
+      toast.success(t('markets.toast.deleted'));
+      setDeleteTarget(null);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['admin-analysis-exchanges'],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['public-config'] }),
+      ]);
+    },
+    onError: (error: Error) =>
+      toast.error(error.message || t('markets.toast.deleteError')),
   });
 
   return (
     <AdminGate
       accessTitle={t('markets.accessRequired.title')}
       accessBody={t('markets.accessRequired.body')}
-      loading={markets.isLoading}
+      loading={exchanges.isLoading}
     >
       <PageFrame
         title={t('markets.heading')}
@@ -138,7 +198,7 @@ export function AdminMarketsPage() {
           </Button>
         }
       >
-        {markets.isError ? (
+        {exchanges.isError ? (
           <div className="px-5 py-4 lg:px-6">
             <Alert variant="destructive">
               <AlertTitle>{t('markets.loadError.title')}</AlertTitle>
@@ -151,9 +211,9 @@ export function AdminMarketsPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-5 lg:pl-6">
-                    {t('markets.columns.market')}
+                    {t('markets.columns.exchange')}
                   </TableHead>
-                  <TableHead>{t('markets.columns.timezone')}</TableHead>
+                  <TableHead>{t('markets.columns.market')}</TableHead>
                   <TableHead>{t('markets.columns.status')}</TableHead>
                   <TableHead className="w-[1%] whitespace-nowrap pr-5 lg:pr-6" />
                 </TableRow>
@@ -169,43 +229,61 @@ export function AdminMarketsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((market) => (
-                    <TableRow key={market.code}>
+                  items.map((row) => (
+                    <TableRow key={row.exchange}>
                       <TableCell className="pl-5 lg:pl-6">
                         <div className="min-w-0">
-                          <div className="font-medium">{market.displayName}</div>
+                          <div className="font-medium">{row.displayName}</div>
                           <div className="font-mono text-xs tracking-wide text-muted-foreground">
-                            {market.code}
+                            {row.exchange}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
-                        {market.timezone}
+                        {row.market || '—'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={market.enabled ? 'up' : 'outline'}>
-                          {market.enabled
+                        <Badge variant={row.enabled ? 'up' : 'outline'}>
+                          {row.enabled
                             ? t('markets.enabled')
                             : t('markets.disabled')}
                         </Badge>
                       </TableCell>
                       <TableCell className="pr-5 text-right lg:pr-6">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              size="icon-sm"
-                              variant="outline"
-                              aria-label={t('markets.actions.edit')}
-                              onClick={() => openEdit(market)}
-                            >
-                              <Pencil />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {t('markets.actions.edit')}
-                          </TooltipContent>
-                        </Tooltip>
+                        <div className="inline-flex flex-nowrap items-center justify-end gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="outline"
+                                aria-label={t('markets.actions.edit')}
+                                onClick={() => openEdit(row)}
+                              >
+                                <Pencil />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" sideOffset={6}>
+                              {t('markets.actions.edit')}
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="destructive"
+                                aria-label={t('markets.actions.delete')}
+                                onClick={() => setDeleteTarget(row)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" sideOffset={6}>
+                              {t('markets.actions.delete')}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -231,22 +309,61 @@ export function AdminMarketsPage() {
                 {t('markets.formDescription')}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-2 sm:grid-cols-2">
-              <Field>
-                <FieldLabel>{t('markets.fields.code')}</FieldLabel>
-                <Input
-                  value={form.code}
-                  disabled={editing}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      code: event.target.value.toUpperCase(),
-                    }))
-                  }
-                  className="font-mono"
-                  required
-                />
-              </Field>
+            <div className="grid gap-4 py-2">
+              {!editing ? (
+                <>
+                  <Field>
+                    <FieldLabel>{t('markets.fields.catalogSearch')}</FieldLabel>
+                    <Input
+                      value={catalogQuery}
+                      onChange={(event) => setCatalogQuery(event.target.value)}
+                      placeholder={t('markets.fields.catalogSearchPlaceholder')}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel>{t('markets.fields.exchange')}</FieldLabel>
+                    <Select
+                      value={form.exchange || undefined}
+                      onValueChange={(value) => {
+                        const catalog = getExchangeCatalogEntry(value);
+                        setForm({
+                          exchange: value,
+                          enabled: true,
+                          displayName: defaultDisplayNameForExchange(value),
+                          market:
+                            suggestMarket(catalog?.country, {
+                              group: catalog?.group,
+                            }) ?? '',
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={t('markets.fields.exchangePlaceholder')}
+                        />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {catalogOptions.slice(0, 80).map((entry) => (
+                          <SelectItem key={entry.value} value={entry.value}>
+                            <span className="flex min-w-0 flex-col items-start">
+                              <span className="font-medium">{entry.name}</span>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {entry.value}
+                                {entry.group ? ` · ${entry.group}` : ''}
+                              </span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </>
+              ) : (
+                <Field>
+                  <FieldLabel>{t('markets.fields.exchange')}</FieldLabel>
+                  <Input value={form.exchange} disabled className="font-mono" />
+                </Field>
+              )}
               <Field>
                 <FieldLabel>{t('markets.fields.displayName')}</FieldLabel>
                 <Input
@@ -260,23 +377,35 @@ export function AdminMarketsPage() {
                   required
                 />
               </Field>
-              <Field className="sm:col-span-2">
-                <FieldLabel>{t('markets.fields.timezone')}</FieldLabel>
-                <Input
-                  value={form.timezone}
-                  onChange={(event) =>
+              <Field>
+                <FieldLabel>{t('markets.fields.market')}</FieldLabel>
+                <Select
+                  value={form.market || '__none__'}
+                  onValueChange={(value) =>
                     setForm((current) => ({
                       ...current,
-                      timezone: event.target.value,
+                      market: value === '__none__' ? '' : value,
                     }))
                   }
-                  className="font-mono"
-                  required
-                />
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="__none__">
+                      {t('markets.fields.marketNone')}
+                    </SelectItem>
+                    {catalogMarketCodes.map((code) => (
+                      <SelectItem key={code} value={code}>
+                        {code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field
                 orientation="horizontal"
-                className="items-center gap-3 border border-border bg-muted/20 px-3 py-2.5 sm:col-span-2"
+                className="items-center gap-3 border border-border bg-muted/20 px-3 py-2.5"
               >
                 <Checkbox
                   checked={form.enabled}
@@ -286,12 +415,12 @@ export function AdminMarketsPage() {
                       enabled: checked === true,
                     }))
                   }
-                  id="market-enabled"
+                  id="exchange-enabled"
                   className="size-4 shrink-0"
                 />
                 <div className="min-w-0 flex-1">
                   <FieldLabel
-                    htmlFor="market-enabled"
+                    htmlFor="exchange-enabled"
                     className="cursor-pointer font-medium"
                   >
                     {t('markets.fields.enabled')}
@@ -317,6 +446,44 @@ export function AdminMarketsPage() {
                   <Save data-icon="inline-start" />
                 )}
                 {t('markets.actions.save')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('markets.deleteTitle')}</DialogTitle>
+              <DialogDescription>
+                {t('markets.deleteBody', {
+                  name: deleteTarget?.displayName ?? deleteTarget?.exchange ?? '',
+                })}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteTarget(null)}
+              >
+                {t('markets.actions.cancel')}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={!deleteTarget || remove.isPending}
+                onClick={() => {
+                  if (!deleteTarget) return;
+                  remove.mutate(deleteTarget.exchange);
+                }}
+              >
+                {t('markets.actions.confirmDelete')}
               </Button>
             </DialogFooter>
           </DialogContent>

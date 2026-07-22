@@ -3,15 +3,20 @@ import { Hono } from 'hono';
 import type { AppDependencies } from '../app';
 import type { RequestIdEnvironment } from '../logging/request-id';
 import { apiSuccess } from '../../shared/contracts';
-import { PRODUCT_MARKET_CATALOG } from '../../shared/product-markets';
+import {
+  DEFAULT_ANALYSIS_EXCHANGE_SEEDS,
+  defaultDisplayNameForExchange,
+  getExchangeCatalogEntry,
+  suggestMarket,
+} from '../../shared/exchange-catalog';
 
 export function publicConfigRoutes(dependencies: AppDependencies) {
   const app = new Hono<RequestIdEnvironment>();
 
   app.get('/public-config', async (context) => {
-    const [settingsRaw, markets] = await Promise.all([
+    const [settingsRaw, exchanges] = await Promise.all([
       dependencies.database.settings.getAll().catch(() => ({})),
-      dependencies.database.markets
+      dependencies.database.analysisExchanges
         .list({ enabledOnly: true })
         .catch(() => []),
     ]);
@@ -20,18 +25,23 @@ export function publicConfigRoutes(dependencies: AppDependencies) {
     const maintenance = asRecord(settings.maintenance);
     const features = asRecord(settings.features);
     const disclaimer = asRecord(settings.disclaimer);
-    const enabledMarkets =
-      markets.length > 0
-        ? markets.map((row) => ({
-            code: row.code,
+    const enabledExchanges =
+      exchanges.length > 0
+        ? exchanges.map((row) => ({
+            exchange: row.exchange,
             displayName: row.displayName,
-            timezone: row.timezone,
+            market: row.market,
           }))
-        : PRODUCT_MARKET_CATALOG.filter((row) => row.enabled).map((row) => ({
-            code: row.code,
-            displayName: row.displayName,
-            timezone: row.timezone,
-          }));
+        : DEFAULT_ANALYSIS_EXCHANGE_SEEDS.map((exchange) => {
+            const catalog = getExchangeCatalogEntry(exchange);
+            return {
+              exchange,
+              displayName: defaultDisplayNameForExchange(exchange),
+              market: suggestMarket(catalog?.country, {
+                group: catalog?.group,
+              }),
+            };
+          });
 
     return context.json(
       apiSuccess(
@@ -53,7 +63,7 @@ export function publicConfigRoutes(dependencies: AppDependencies) {
           features: {
             watchlist: features.watchlist !== false,
           },
-          markets: enabledMarkets,
+          exchanges: enabledExchanges,
           disclaimerMarkdown: {
             en:
               typeof asRecord(disclaimer.markdown).en === 'string'

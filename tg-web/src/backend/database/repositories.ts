@@ -24,10 +24,10 @@ import {
 } from './llm-catalog-repository';
 import {
   createAdminAuditRepository,
-  createMarketsRepository,
+  createAnalysisExchangesRepository,
   createSystemSettingsRepository,
   type AdminAuditRepository,
-  type MarketsRepository,
+  type AnalysisExchangesRepository,
   type SystemSettingsRepository,
 } from './product-ops-repository';
 import {
@@ -43,7 +43,7 @@ export type { AccountRepository } from './account-repository';
 export type { BillingRepository } from './billing-repository';
 export type {
   AdminAuditRepository,
-  MarketsRepository,
+  AnalysisExchangesRepository,
   SystemSettingsRepository,
 } from './product-ops-repository';
 export type { ReferralRepository } from './referral-repository';
@@ -138,7 +138,7 @@ export function createRepositories(database: Database): {
   referrals: ReferralRepository;
   watchlist: WatchlistRepository;
   settings: SystemSettingsRepository;
-  markets: MarketsRepository;
+  analysisExchanges: AnalysisExchangesRepository;
   audit: AdminAuditRepository;
 } {
   return {
@@ -147,7 +147,7 @@ export function createRepositories(database: Database): {
     referrals: createReferralRepository(database),
     watchlist: createWatchlistRepository(database),
     settings: createSystemSettingsRepository(database),
-    markets: createMarketsRepository(database),
+    analysisExchanges: createAnalysisExchangesRepository(database),
     audit: createAdminAuditRepository(database),
     llmCatalog: createLlmCatalogRepository(database),
     analysisJobs: {

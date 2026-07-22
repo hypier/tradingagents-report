@@ -1,9 +1,9 @@
 type FetchImplementation = typeof fetch;
 
-export type PublicMarket = {
-  code: string;
+export type PublicExchange = {
+  exchange: string;
   displayName: string;
-  timezone: string | null;
+  market: string | null;
 };
 
 export type PublicConfig = {
@@ -15,7 +15,7 @@ export type PublicConfig = {
   features: {
     watchlist: boolean;
   };
-  markets: PublicMarket[];
+  exchanges: PublicExchange[];
   disclaimerMarkdown: { en: string | null; zh: string | null };
 };
 
@@ -25,7 +25,7 @@ const defaultPublicConfig = (
   clerkPublishableKey,
   maintenance: { enabled: false, message: { en: '', zh: '' } },
   features: { watchlist: true },
-  markets: [],
+  exchanges: [],
   disclaimerMarkdown: { en: null, zh: null },
 });
 
@@ -58,19 +58,23 @@ function parsePublicConfig(data: Record<string, unknown>): PublicConfig | null {
     features: {
       watchlist: features.watchlist !== false,
     },
-    markets: Array.isArray(data.markets)
-      ? data.markets.flatMap((row) => {
+    exchanges: Array.isArray(data.exchanges)
+      ? data.exchanges.flatMap((row) => {
           const item = asRecord(row);
-          if (typeof item.code !== 'string' || !item.code.trim()) return [];
+          if (typeof item.exchange !== 'string' || !item.exchange.trim()) {
+            return [];
+          }
           return [
             {
-              code: item.code,
+              exchange: item.exchange.trim().toUpperCase(),
               displayName:
                 typeof item.displayName === 'string'
                   ? item.displayName
-                  : item.code,
-              timezone:
-                typeof item.timezone === 'string' ? item.timezone : null,
+                  : item.exchange,
+              market:
+                typeof item.market === 'string' && item.market.trim()
+                  ? item.market.trim().toUpperCase()
+                  : null,
             },
           ];
         })
@@ -114,4 +118,27 @@ export async function resolveClerkPublishableKey(
   const runtime = await fetchPublicConfig(fetchImplementation);
   const key = runtime?.clerkPublishableKey || vitePublishableKey?.trim();
   return key || null;
+}
+
+export function enabledExchangeSet(
+  exchanges: PublicExchange[] | null | undefined,
+): Set<string> {
+  return new Set(
+    (exchanges ?? []).map((row) => row.exchange.trim().toUpperCase()),
+  );
+}
+
+export function marketsFromEnabledExchanges(
+  exchanges: PublicExchange[] | null | undefined,
+): Array<{ code: string; displayName: string }> {
+  const byMarket = new Map<string, string>();
+  for (const row of exchanges ?? []) {
+    const market = row.market?.trim().toUpperCase();
+    if (!market || byMarket.has(market)) continue;
+    byMarket.set(market, market);
+  }
+  return [...byMarket.entries()].map(([code]) => ({
+    code,
+    displayName: code,
+  }));
 }

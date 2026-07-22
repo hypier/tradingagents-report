@@ -127,6 +127,13 @@
       "when": 1784740000000,
       "tag": "0017_simplify_market_configs",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784750000000,
+      "tag": "0018_analysis_exchanges",
+      "breakpoints": true
     }
   ]
 }

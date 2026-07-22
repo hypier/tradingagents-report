@@ -542,43 +542,53 @@
     }
   },
   "markets": {
-    "title": "Market config",
-    "heading": "Market config",
-    "subtitle": "Enable operable markets and edit display name and timezone (backed by market_configs).",
+    "title": "Analysis exchanges",
+    "heading": "Analysis exchanges",
+    "subtitle": "Whitelist exchanges that can start analysis.",
     "accessRequired": {
       "title": "Administrator access required",
-      "body": "Your account does not have permission to manage market config."
+      "body": "Your account does not have permission to manage analysis exchanges."
     },
     "loadError": {
-      "title": "Unable to load market config",
+      "title": "Unable to load analysis exchanges",
       "body": "Check database connectivity and retry."
     },
-    "empty": "No markets configured yet.",
+    "empty": "No analysis exchanges configured. Add from the catalog to enable the gate.",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "addTitle": "Add market",
-    "editTitle": "Edit market",
-    "formDescription": "Configure market code, display name, and timezone.",
+    "addTitle": "Add exchange",
+    "editTitle": "Edit exchange",
+    "formDescription": "Pick an exchange from the catalog. Only enabled exchanges can start analysis.",
+    "deleteTitle": "Remove exchange",
+    "deleteBody": "Remove “{{name}}” from the analysis whitelist?",
     "fields": {
-      "code": "Market code",
+      "catalogSearch": "Search catalog",
+      "catalogSearchPlaceholder": "Code, name, or group",
+      "exchange": "Exchange",
+      "exchangePlaceholder": "Select exchange",
       "displayName": "Display name",
-      "timezone": "Timezone",
-      "enabled": "Enable this market",
-      "enabledHint": "When disabled, this market will not appear in user-facing options."
+      "market": "Market",
+      "marketNone": "Unspecified",
+      "enabled": "Allow analysis",
+      "enabledHint": "When disabled, symbols on this exchange cannot start analysis and are filtered from analysis search."
     },
     "actions": {
-      "add": "Add market",
+      "add": "Add exchange",
       "edit": "Edit",
+      "delete": "Remove",
+      "confirmDelete": "Remove",
       "save": "Save",
       "cancel": "Cancel"
     },
     "toast": {
-      "saved": "Market saved.",
-      "saveError": "Unable to save market."
+      "saved": "Exchange saved.",
+      "saveError": "Unable to save exchange.",
+      "deleted": "Exchange removed.",
+      "deleteError": "Unable to remove exchange."
     },
     "columns": {
+      "exchange": "Exchange",
       "market": "Market",
-      "timezone": "Timezone",
       "status": "Status"
     }
   },
