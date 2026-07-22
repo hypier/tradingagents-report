@@ -13,6 +13,7 @@ import {
   getAnalystIcon,
   Languages,
 } from '../components/icons/research-icons';
+import { LlmProviderMark } from '../components/llm-provider-mark';
 import { TickerSearch } from '../components/ticker-search';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -40,7 +41,11 @@ import {
 import { getAccountProfile } from '../lib/account';
 import { getBillingOverview } from '../lib/billing';
 import { OUTPUT_LANGUAGE_IDS, formatOutputLanguage } from '../lib/format-output-language';
-import { getLlmCatalog } from '../lib/llm-catalog';
+import {
+  getLlmCatalog,
+  type LlmCatalog,
+  type LlmCatalogModel,
+} from '../lib/llm-catalog';
 import { fetchPublicConfig } from '../lib/public-config';
 import { todayInTimezone } from '../i18n/locales';
 import { cn } from '../lib/utils';
@@ -84,6 +89,27 @@ function saveReportsRailOpen(open: boolean) {
   } catch {
     // Ignore quota / privacy mode failures.
   }
+}
+
+function pickDefaultModelId(
+  catalog: LlmCatalog | undefined,
+  role: 'quick' | 'deep',
+  preferredId: string | null | undefined,
+  providerId?: string,
+) {
+  if (!catalog) return undefined;
+  const matches = (model: LlmCatalogModel) => {
+    if (role === 'quick' ? !model.canQuick : !model.canDeep) return false;
+    if (providerId && model.providerId !== providerId) return false;
+    return true;
+  };
+  if (preferredId) {
+    const preferred = catalog.models.find(
+      (model) => model.id === preferredId && matches(model),
+    );
+    if (preferred) return preferred.id;
+  }
+  return catalog.models.find(matches)?.id;
 }
 
 function instrumentFromProviderSymbol(
@@ -144,11 +170,27 @@ export function HomePage() {
   useEffect(() => {
     const catalog = llmCatalog.data?.data;
     if (!catalog) return;
-    if (!quickModelId && catalog.defaults.defaultQuickModelId) {
-      setQuickModelId(catalog.defaults.defaultQuickModelId);
+
+    const nextQuickId =
+      quickModelId ||
+      pickDefaultModelId(catalog, 'quick', catalog.defaults.defaultQuickModelId);
+    if (!quickModelId && nextQuickId) {
+      setQuickModelId(nextQuickId);
     }
-    if (!deepModelId && catalog.defaults.defaultDeepModelId) {
-      setDeepModelId(catalog.defaults.defaultDeepModelId);
+
+    const quickProviderId = catalog.models.find(
+      (model) => model.id === nextQuickId,
+    )?.providerId;
+    const nextDeepId =
+      deepModelId ||
+      pickDefaultModelId(
+        catalog,
+        'deep',
+        catalog.defaults.defaultDeepModelId,
+        quickProviderId,
+      );
+    if (!deepModelId && nextDeepId) {
+      setDeepModelId(nextDeepId);
     }
   }, [deepModelId, llmCatalog.data?.data, quickModelId]);
 
@@ -296,7 +338,24 @@ export function HomePage() {
     setTradeDate((current) => (current > maxTradeDate ? maxTradeDate : current));
   }, [maxTradeDate, prefsReady]);
 
-  const catalogModels = llmCatalog.data?.data.models ?? [];
+  const catalog = llmCatalog.data?.data;
+  const catalogModels = catalog?.models ?? [];
+  const catalogProviders = catalog?.providers ?? [];
+  const providerDriverById = new Map(
+    catalogProviders.map((provider) => [provider.id, provider.driver]),
+  );
+  const modelOption = (model: LlmCatalogModel) => {
+    const driver = providerDriverById.get(model.providerId) ?? model.providerId;
+    return (
+      <span className="flex min-w-0 items-center gap-2">
+        <LlmProviderMark
+          providerId={driver}
+          className="size-5 border-0 bg-transparent"
+        />
+        <span className="truncate font-mono text-sm">{model.model}</span>
+      </span>
+    );
+  };
   const quickModels = catalogModels.filter((model) => model.canQuick);
   const deepModels = catalogModels.filter(
     (model) =>
@@ -305,7 +364,12 @@ export function HomePage() {
         model.providerId ===
           catalogModels.find((item) => item.id === quickModelId)?.providerId),
   );
-  const modelsReady = Boolean(quickModelId && deepModelId);
+  const modelsReady = Boolean(
+    quickModelId &&
+      deepModelId &&
+      quickModels.some((model) => model.id === quickModelId) &&
+      deepModels.some((model) => model.id === deepModelId),
+  );
 
   const pendingResearchInput =
     instrument && analysts.length && outputLanguage && tradeDate && modelsReady
@@ -570,7 +634,13 @@ export function HomePage() {
                             {t('models.quick')}
                           </FieldLabel>
                           <Select
-                            value={quickModelId || undefined}
+                            value={
+                              quickModels.some(
+                                (model) => model.id === quickModelId,
+                              )
+                                ? quickModelId
+                                : undefined
+                            }
                             onValueChange={(value) => {
                               setQuickModelId(value);
                               const providerId = catalogModels.find(
@@ -579,18 +649,30 @@ export function HomePage() {
                               const deep = catalogModels.find(
                                 (model) => model.id === deepModelId,
                               );
-                              if (deep && deep.providerId !== providerId) {
-                                setDeepModelId('');
+                              if (
+                                deep &&
+                                providerId &&
+                                deep.providerId !== providerId
+                              ) {
+                                const fallbackDeep = pickDefaultModelId(
+                                  catalog,
+                                  'deep',
+                                  catalog?.defaults.defaultDeepModelId,
+                                  providerId,
+                                );
+                                setDeepModelId(fallbackDeep ?? '');
                               }
                             }}
                           >
-                            <SelectTrigger id="quick-model">
-                              <SelectValue />
+                            <SelectTrigger id="quick-model" className="w-full">
+                              <SelectValue
+                                placeholder={t('models.selectQuick')}
+                              />
                             </SelectTrigger>
                             <SelectContent>
                               {quickModels.map((model) => (
                                 <SelectItem key={model.id} value={model.id}>
-                                  {model.displayName}
+                                  {modelOption(model)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -601,16 +683,24 @@ export function HomePage() {
                             {t('models.deep')}
                           </FieldLabel>
                           <Select
-                            value={deepModelId || undefined}
+                            value={
+                              deepModels.some(
+                                (model) => model.id === deepModelId,
+                              )
+                                ? deepModelId
+                                : undefined
+                            }
                             onValueChange={setDeepModelId}
                           >
-                            <SelectTrigger id="deep-model">
-                              <SelectValue />
+                            <SelectTrigger id="deep-model" className="w-full">
+                              <SelectValue
+                                placeholder={t('models.selectDeep')}
+                              />
                             </SelectTrigger>
                             <SelectContent>
                               {deepModels.map((model) => (
                                 <SelectItem key={model.id} value={model.id}>
-                                  {model.displayName}
+                                  {modelOption(model)}
                                 </SelectItem>
                               ))}
                             </SelectContent>

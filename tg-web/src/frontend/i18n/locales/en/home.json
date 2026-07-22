@@ -21,6 +21,8 @@
     "hint": "Choose quick and deep models from the same provider.",
     "quick": "Quick model",
     "deep": "Deep model",
+    "selectQuick": "Select quick model",
+    "selectDeep": "Select deep model",
     "unavailable": "No models are open yet. Ask an administrator."
   },
   "analysts": {

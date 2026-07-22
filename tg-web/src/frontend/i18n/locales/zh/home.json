@@ -21,6 +21,8 @@
     "hint": "选择快速与深度模型；须属于同一提供商。",
     "quick": "快速模型",
     "deep": "深度模型",
+    "selectQuick": "选择快速模型",
+    "selectDeep": "选择深度模型",
     "unavailable": "管理员尚未开放可用模型。"
   },
   "analysts": {
