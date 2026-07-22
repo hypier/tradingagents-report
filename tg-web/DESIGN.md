@@ -98,8 +98,8 @@ One cool carbon-neutral system. Do not mix warm cream with cool slate.
 
 Density 8 mandate: **all numbers are monospace** — prices, percents, credits, timestamps, IDs, quantities.
 
-- **Display / UI headings:** system UI stack — track-tight (`-0.02em`), weight 600–700. In-app page titles ~`18–22px`. Hierarchy via weight and color.
-- **Body / UI:** system stack (`system-ui` → `-apple-system` / `Segoe UI` → `PingFang SC` / `Microsoft YaHei`), weight **400 (Regular)** default — root / body **`14px`**, leading `1.45–1.55`. Emphasized UI uses 500; titles 600–700. Prose blocks max ~65ch. macOS CJK uses PingFang; Windows uses YaHei.
+- **Display / UI headings:** TradingView-style system stack — track-tight (`-0.02em`), weight 600–700. In-app page titles ~`18–22px`. Hierarchy via weight and color.
+- **Body / UI:** `-apple-system, BlinkMacSystemFont, Trebuchet MS, Roboto, Ubuntu, sans-serif` (same as [TradingView](https://cn.tradingview.com/)), weight **400** default — root / body **`14px`** / ~`18px` leading (TV dense UI); marketing-scale copy elsewhere uses `16/24`. Emphasized UI uses 500; titles 600. `font-feature-settings: "tnum", "lnum"`. CJK falls through to the system UI font (PingFang / Segoe / YaHei).
 - **Mono:** system mono (`ui-monospace` → `SF Mono` / Menlo / Consolas) — tabular figures. Tables `11–13px`; hero quote price ~`22–28px`.
 - **Report long-form:** same sans stack, `1.0625rem`, leading `1.65–1.7` on Cool Paper. Section titles weight 600. No prestige serif.
 
@@ -342,7 +342,7 @@ Glance test: *With logo removed, does this still read as equity research softwar
 | Fall | `#F43F5E` | Negative data |
 | Report bg | `#EEF2F6` | Long-form reading |
 | Radius | `0` | Rectangular controls / panels |
-| Font UI | System UI stack | system-ui / PingFang SC / YaHei |
+| Font UI | TV system stack | `-apple-system`, Trebuchet MS, Roboto, Ubuntu |
 | Font Data | System mono | All numbers, tickers, credits |
 | Logo (row) | `28×28` square | Tasks, library, desk rail |
 | Control h | `44px` (`h-11`) | Input / select / date |
