@@ -208,9 +208,9 @@ const adminSections: AdminNavSection[] = [
 ];
 
 const floorNavButtonClass = cn(
-  'relative h-11 rounded-none px-3.5 text-base font-medium tracking-wide',
+  'relative h-11 rounded-none px-3.5 text-base font-normal tracking-wide',
   'text-sidebar-foreground/85 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
-  'data-active:bg-sidebar-accent data-active:font-semibold data-active:text-sidebar-primary',
+  'data-active:bg-sidebar-accent data-active:font-normal data-active:text-sidebar-primary',
   'data-active:hover:bg-sidebar-accent data-active:hover:text-sidebar-primary',
   'before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-none before:bg-transparent before:content-[""]',
   'data-active:before:bg-sidebar-primary',
@@ -507,9 +507,9 @@ function NestedNavGroup({
                     asChild
                     isActive={isActive}
                     className={cn(
-                      'h-9 rounded-none px-3 text-sm',
+                      'h-9 rounded-none px-3 text-sm font-normal',
                       isActive
-                        ? 'bg-sidebar-accent font-semibold text-sidebar-primary'
+                        ? 'bg-sidebar-accent text-sidebar-primary'
                         : 'text-sidebar-foreground/80',
                     )}
                   >

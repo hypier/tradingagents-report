@@ -147,10 +147,10 @@ export function AdminMarketsPage() {
     }
     for (const [group, rows] of byGroup) {
       rows.sort((left, right) => {
-        const leftOn = enabledSet.has(left.value.trim().toUpperCase()) ? 0 : 1;
-        const rightOn = enabledSet.has(right.value.trim().toUpperCase())
-          ? 0
-          : 1;
+        // Pin order to the last saved whitelist so draft toggles do not jump
+        // cards around; after save, `savedSet` updates and reorders.
+        const leftOn = savedSet.has(left.value.trim().toUpperCase()) ? 0 : 1;
+        const rightOn = savedSet.has(right.value.trim().toUpperCase()) ? 0 : 1;
         if (leftOn !== rightOn) return leftOn - rightOn;
         return left.name.localeCompare(right.name);
       });
@@ -162,6 +162,7 @@ export function AdminMarketsPage() {
     catalogRows,
     enabledSet,
     query,
+    savedSet,
     selectionFilter,
   ]);
 
@@ -484,6 +485,7 @@ export function AdminMarketsPage() {
                             logoUrl={exchangeLogoUrl(entry.value)}
                             alt={title}
                             size="lg"
+                            className="border border-border bg-background"
                           />
                           <span className="min-w-0 flex-1">
                             <span className="flex items-start justify-between gap-2">

@@ -210,7 +210,7 @@ Canonical size matches the research-desk recent-runs rail — **reuse everywhere
 ### Navigation & shell
 
 - Desktop left sidebar: Pit Panel, tight item spacing, brand lockup top.
-- Nav items: brighter readable text (`~85%` of Hot Ink), denser hit target (`h-11`, body `text-base`). Admin is a **separate flat group**, not nested under Account.
+- Nav items: brighter readable text (`~85%` of Hot Ink), denser hit target (`h-11`, body `text-base`), **regular weight** (not medium/semibold — active state via amber rail + color only). Admin is a **separate flat group**, not nested under Account.
 - Top bar: utilities only when the page owns the title (theme, language, Clerk account, Sign out). No pill-stat clutter.
 - Mobile: single column + sheet menu; touch targets ≥ 44px.
 
