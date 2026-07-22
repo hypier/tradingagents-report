@@ -53,8 +53,6 @@ export type AnalysisJob = {
   display?: InstrumentDisplay | null;
   output_language?: string | null;
   credit_units?: number | null;
-  is_favorite?: boolean;
-  is_archived?: boolean;
 };
 
 export type AnalysisEvent = {
@@ -69,10 +67,6 @@ export type AnalysisDetail = AnalysisJob & {
   usage?: Record<string, unknown> | null;
   result?: Record<string, unknown> | null;
   credit_units?: number | null;
-  isFavorite?: boolean;
-  isArchived?: boolean;
-  is_favorite?: boolean;
-  is_archived?: boolean;
 };
 
 export type MarketSnapshot = {
@@ -208,7 +202,6 @@ export const listResearch = (
     tradeDateFrom?: string;
     tradeDateTo?: string;
     watchlist?: boolean;
-    archived?: boolean;
   } = {},
   fetchImplementation?: FetchImplementation,
 ) => {
@@ -223,41 +216,12 @@ export const listResearch = (
   if (params.watchlist !== undefined) {
     search.set('watchlist', String(params.watchlist));
   }
-  if (params.archived !== undefined) {
-    search.set('archived', String(params.archived));
-  }
 
   return read<AnalysisJob[]>(
     `/api/analyses${search.size ? `?${search}` : ''}`,
     fetchImplementation,
   );
 };
-
-export const updateResearchMeta = (
-  id: string,
-  input: {
-    isFavorite?: boolean;
-    isArchived?: boolean;
-    notes?: string | null;
-  },
-  fetchImplementation: FetchImplementation = fetch,
-) =>
-  fetchImplementation(`/api/analyses/${encodeURIComponent(id)}/meta`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  }).then(async (response) => {
-    if (!response.ok) throw new Error('Unable to update report meta');
-    return response.json() as Promise<{
-      data: {
-        isFavorite: boolean;
-        isArchived: boolean;
-        notes: string | null;
-      };
-      requestId: string;
-    }>;
-  });
-
 
 export const getResearch = (
   id: string,

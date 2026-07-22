@@ -7,7 +7,6 @@ import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { buildBillingSignature } from '../billing/credit-pricing';
 import { BillingRepositoryError } from '../database/billing-repository';
-import { metaFlags } from '../database/report-meta-repository';
 import type { AnalysisJob } from '../database/repositories';
 import { AppError } from '../errors/app-error';
 import { resolveAnalysisLlm } from '../llm/resolve-analysis-models';
@@ -177,12 +176,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
         : query.watchlist === 'false'
           ? false
           : undefined;
-    const archived =
-      query.archived === 'true'
-        ? true
-        : query.archived === 'false'
-          ? false
-          : undefined;
 
     const rows = await dependencies.database.analysisJobs.listForUser({
       clerkUserId,
@@ -192,8 +185,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
       tradeDateFrom: query.trade_date_from?.trim() || undefined,
       tradeDateTo: query.trade_date_to?.trim() || undefined,
       watchlist: watchlist === true ? true : undefined,
-      archived:
-        archived === true ? true : archived === false ? false : undefined,
       limit,
       offset,
     });
@@ -203,8 +194,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
         rows.map((row) =>
           toPublicJob(row.job, {
             creditUnits: row.creditUnits,
-            isFavorite: row.isFavorite,
-            isArchived: row.isArchived,
           }),
         ),
         context.get('requestId'),
@@ -217,7 +206,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
     const id = context.req.param('id');
     await requireOwnedAnalysis(dependencies, clerkUserId, id);
     const data = await dependencies.core.getAnalysis(id);
-    const meta = await dependencies.database.reportMeta.get(clerkUserId, id);
     const creditUnits =
       await dependencies.database.analysisJobs.getReservationUnits(
         clerkUserId,
@@ -227,7 +215,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
       apiSuccess(
         {
           ...(isRecord(data) ? data : {}),
-          ...metaFlags(meta),
           credit_units: creditUnits,
         },
         context.get('requestId'),
@@ -253,27 +240,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
     await requireOwnedAnalysis(dependencies, clerkUserId, id);
     const data = await dependencies.core.cancelAnalysis(id);
     return context.json(apiSuccess(data, context.get('requestId')));
-  });
-
-  app.patch('/analyses/:id/meta', async (context) => {
-    const clerkUserId = context.get('auth').userId;
-    const id = context.req.param('id');
-    await requireOwnedAnalysis(dependencies, clerkUserId, id);
-    const input = z
-      .object({
-        isFavorite: z.boolean().optional(),
-        isArchived: z.boolean().optional(),
-        notes: z.string().trim().max(500).nullable().optional(),
-      })
-      .parse(await context.req.json());
-    const meta = await dependencies.database.reportMeta.upsert({
-      clerkUserId,
-      analysisJobId: id,
-      ...input,
-    });
-    return context.json(
-      apiSuccess(metaFlags(meta), context.get('requestId')),
-    );
   });
 
   app.get('/market-search', async (context) => {
@@ -658,8 +624,6 @@ function toPublicJob(
   job: AnalysisJob,
   extras: {
     creditUnits: number | null;
-    isFavorite: boolean;
-    isArchived: boolean;
   },
 ) {
   const request = isRecord(job.request) ? job.request : {};
@@ -692,8 +656,6 @@ function toPublicJob(
     started_at: job.startedAt,
     finished_at: job.finishedAt,
     credit_units: extras.creditUnits,
-    is_favorite: extras.isFavorite,
-    is_archived: extras.isArchived,
   };
 }
 

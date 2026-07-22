@@ -54,7 +54,6 @@ type SettingsForm = {
   maintenanceEn: string;
   maintenanceZh: string;
   watchlist: boolean;
-  shareLinks: boolean;
   disclaimerVersion: string;
   disclaimerEn: string;
   disclaimerZh: string;
@@ -98,7 +97,6 @@ export function AdminSettingsPage() {
     maintenanceEn: '',
     maintenanceZh: '',
     watchlist: true,
-    shareLinks: true,
     disclaimerVersion: '',
     disclaimerEn: '',
     disclaimerZh: '',
@@ -126,7 +124,6 @@ export function AdminSettingsPage() {
       maintenanceEn: typeof message.en === 'string' ? message.en : '',
       maintenanceZh: typeof message.zh === 'string' ? message.zh : '',
       watchlist: features.watchlist !== false,
-      shareLinks: features.shareLinks !== false,
       disclaimerVersion:
         typeof disclaimer.version === 'string' ? disclaimer.version : '',
       disclaimerEn: typeof markdown.en === 'string' ? markdown.en : '',
@@ -152,7 +149,6 @@ export function AdminSettingsPage() {
         },
         features: {
           watchlist: form.watchlist,
-          shareLinks: form.shareLinks,
         },
         disclaimer: {
           version: form.disclaimerVersion.trim() || null,
@@ -296,18 +292,6 @@ export function AdminSettingsPage() {
                     }
                   />
                   {t('settings.featureWatchlist')}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={form.shareLinks}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => ({
-                        ...current,
-                        shareLinks: checked === true,
-                      }))
-                    }
-                  />
-                  {t('settings.featureShareLinks')}
                 </label>
               </div>
             </SectionPanel>

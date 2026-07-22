@@ -169,6 +169,11 @@ def cancel_job(job_id: UUID | str) -> str | None:
 def _run_claimed_job(row: dict[str, Any]) -> None:
     tracker = TokenUsageCallback()
     config = dict(row.get("config") or {})
+    catalog_provider_id = str(
+        (row.get("request") or {}).get("config_overrides", {}).get("llm_provider")
+        or config.get("llm_provider")
+        or ""
+    )
 
     def record_progress(event: Any) -> None:
         if analysis_jobs.is_cancel_requested(row["id"]):
@@ -196,8 +201,9 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         if analysis_jobs.is_cancel_requested(row["id"]):
             raise JobCancelled("Cancelled by user")
         config = build_config(row["request"].get("config_overrides") or {})
+        catalog_provider_id = str(config.get("llm_provider") or catalog_provider_id)
         provider_runtime = llm_providers.get_provider_runtime_config(
-            str(config.get("llm_provider") or "")
+            catalog_provider_id
         )
         config["api_key"] = provider_runtime["api_key"]
         if provider_runtime.get("backend_url"):
@@ -217,7 +223,9 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             on_event=record_progress,
         )
         usage = tracker.summary()
-        costs = _calculate_cost_safely(usage, config, row["id"])
+        costs = _calculate_cost_safely(
+            usage, config, row["id"], provider_id=catalog_provider_id
+        )
         if analysis_jobs.is_cancel_requested(row["id"]):
             updated = analysis_jobs.mark_failed(
                 job_id=row["id"],
@@ -269,7 +277,9 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
     except JobCancelled as exc:
         logger.info("Analysis job cancelled job=%s ticker=%s", row["id"], row["ticker"])
         usage = tracker.summary()
-        costs = _calculate_cost_safely(usage, config, row["id"])
+        costs = _calculate_cost_safely(
+            usage, config, row["id"], provider_id=catalog_provider_id
+        )
         updated = analysis_jobs.mark_failed(
             job_id=row["id"],
             error=str(exc) or "Cancelled by user",
@@ -281,7 +291,9 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
     except Exception as exc:
         logger.exception("Analysis job failed job=%s ticker=%s", row["id"], row["ticker"])
         usage = tracker.summary()
-        costs = _calculate_cost_safely(usage, config, row["id"])
+        costs = _calculate_cost_safely(
+            usage, config, row["id"], provider_id=catalog_provider_id
+        )
         updated = analysis_jobs.mark_failed(
             job_id=row["id"],
             error=f"{type(exc).__name__}: {exc}",
@@ -301,17 +313,23 @@ def apply_pricing_model_fallback(token_usage: dict[str, Any], config: dict[str, 
 
 
 def _calculate_cost_safely(
-    usage: dict[str, Any], config: dict[str, Any], job_id: UUID | str
+    usage: dict[str, Any],
+    config: dict[str, Any],
+    job_id: UUID | str,
+    *,
+    provider_id: str,
 ) -> dict[str, Any]:
     apply_pricing_model_fallback(usage, config)
-    provider = str(config.get("llm_provider") or "openai")
+    catalog_id = provider_id.strip() or str(config.get("llm_provider") or "openai")
     try:
-        return calculate_cost(usage, llm_prices.get_model_prices(provider=provider))
+        return calculate_cost(
+            usage, llm_prices.get_model_prices(provider=catalog_id)
+        )
     except Exception:
         logger.exception(
             "Unable to calculate cost for analysis job=%s provider=%s",
             job_id,
-            provider,
+            catalog_id,
         )
         return _UNPRICED_COST_BREAKDOWN
 

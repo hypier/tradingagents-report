@@ -18,11 +18,8 @@ import {
   type CreditRulesRepository,
   type MarketsRepository,
   type LlmCatalogRepository,
-  type ModelPricesRepository,
   type ProductSettingsRepository,
   type ReferralRepository,
-  type ReportMetaRepository,
-  type ShareLinksRepository,
   type WatchlistRepository,
 } from './repositories';
 import * as schema from './schema';
@@ -31,15 +28,12 @@ import * as schema from './schema';
 export type DatabaseHealth = {
   healthcheck(): Promise<void>;
   analysisJobs: AnalysisJobsRepository;
-  modelPrices: ModelPricesRepository;
   llmCatalog: LlmCatalogRepository;
   account: AccountRepository;
   billing: BillingRepository;
   referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
-  reportMeta: ReportMetaRepository;
-  shareLinks: ShareLinksRepository;
   settings: ProductSettingsRepository;
   markets: MarketsRepository;
   creditRules: CreditRulesRepository;

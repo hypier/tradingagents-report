@@ -1,65 +1,39 @@
+"""Read LLM model unit prices from the shared ``llm_models`` catalog."""
+
 from __future__ import annotations
 
 from infrastructure import database
-from tradingagents.llm_clients.pricing import FALLBACK_MODEL_PRICES
 
 
-def seed_fallback_model_prices() -> None:
-    with database.connect() as conn:
-        for price in FALLBACK_MODEL_PRICES:
-            _upsert_model_price(conn, price)
+def get_model_prices(*, provider: str = "openai") -> list[dict]:
+    """Return price rows for ``calculate_cost``.
 
-
-def get_model_prices(
-    *,
-    provider: str = "openai",
-    billing_mode: str = "standard",
-    context_tier: str = "short",
-) -> list[dict]:
+    ``provider`` is the catalog ``llm_providers.id`` (preferred). Rows are shaped
+    for ``tradingagents.llm_clients.pricing.calculate_cost`` (model + unit prices).
+    """
+    provider_id = provider.strip().lower()
+    if not provider_id:
+        return []
     with database.connect() as conn:
         rows = conn.execute(
             """
-            SELECT *
-            FROM llm_model_prices
-            WHERE provider = %s
-              AND billing_mode = %s
-              AND context_tier = %s
+            SELECT
+                p.id AS provider,
+                m.model,
+                'standard' AS billing_mode,
+                'short' AS context_tier,
+                m.currency,
+                m.unit_tokens,
+                m.input_price,
+                m.cached_input_price,
+                m.cache_write_price,
+                m.output_price
+            FROM llm_models AS m
+            JOIN llm_providers AS p ON p.id = m.provider_id
+            WHERE p.id = %s
+              AND m.input_price IS NOT NULL
+              AND m.output_price IS NOT NULL
             """,
-            (provider, billing_mode, context_tier),
+            (provider_id,),
         ).fetchall()
     return list(rows)
-
-
-def _upsert_model_price(conn, price: dict) -> None:
-    conn.execute(
-        """
-        INSERT INTO llm_model_prices (
-            provider, model, billing_mode, context_tier, currency, unit_tokens,
-            input_price, cached_input_price, cache_write_price, output_price, source_url
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (provider, model, billing_mode, context_tier)
-        DO UPDATE SET
-            currency = EXCLUDED.currency,
-            unit_tokens = EXCLUDED.unit_tokens,
-            input_price = EXCLUDED.input_price,
-            cached_input_price = EXCLUDED.cached_input_price,
-            cache_write_price = EXCLUDED.cache_write_price,
-            output_price = EXCLUDED.output_price,
-            source_url = EXCLUDED.source_url,
-            updated_at = now()
-        """,
-        (
-            price["provider"],
-            price["model"],
-            price["billing_mode"],
-            price["context_tier"],
-            price["currency"],
-            price["unit_tokens"],
-            price["input_price"],
-            price["cached_input_price"],
-            price["cache_write_price"],
-            price["output_price"],
-            price["source_url"],
-        ),
-    )

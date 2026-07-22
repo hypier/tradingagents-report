@@ -28,7 +28,7 @@ describe('Core table mappings', () => {
   });
 
   it('maps product identity, billing, and credit audit tables', () => {
-    expect(getTableName(accountUsers)).toBe('product_users');
+    expect(getTableName(accountUsers)).toBe('account_users');
     expect(getTableName(creditAccounts)).toBe('credit_accounts');
     expect(getTableName(creditReservations)).toBe('credit_reservations');
     expect(getTableName(creditLedgerEntries)).toBe('credit_ledger_entries');

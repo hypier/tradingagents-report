@@ -26,10 +26,6 @@ import { adminRoutes } from './routes/admin';
 import { billingRoutes, stripeWebhookRoutes } from './routes/billing';
 import { llmCatalogRoutes } from './routes/llm-catalog';
 import { watchlistRoutes } from './routes/watchlist';
-import {
-  analysisShareRoutes,
-  publicShareRoutes,
-} from './routes/share';
 
 export type AppEnvironment = {
   Variables: RequestIdEnvironment['Variables'] & {
@@ -49,13 +45,10 @@ export type AppDependencies = {
     | 'referrals'
     | 'analysisJobs'
     | 'watchlist'
-    | 'reportMeta'
-    | 'shareLinks'
     | 'settings'
     | 'markets'
     | 'creditRules'
     | 'audit'
-    | 'modelPrices'
     | 'llmCatalog'
   >;
   llmSecrets: import('./llm/provider-secrets').LlmProviderSecrets;
@@ -75,7 +68,6 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', healthRoutes());
   app.route('/api', publicConfigRoutes(dependencies));
   app.route('/api', readyRoutes(dependencies));
-  app.route('/api', publicShareRoutes(dependencies));
   app.route('/api', stripeWebhookRoutes(dependencies));
   app.use('/api/auth/*', requireAuth(dependencies));
   app.use('/api/account/*', requireAuth(dependencies));
@@ -101,7 +93,6 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', billingRoutes(dependencies));
   app.route('/api', analysisRoutes(dependencies));
   app.route('/api', llmCatalogRoutes(dependencies));
-  app.route('/api', analysisShareRoutes(dependencies));
   app.route('/api', watchlistRoutes(dependencies));
   app.notFound((context) => {
     const requestId = context.get('requestId');

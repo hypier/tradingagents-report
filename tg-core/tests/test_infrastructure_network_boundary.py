@@ -52,4 +52,4 @@ def test_infrastructure_imports_and_sql_calls_do_not_use_http_clients(monkeypatc
     assert http_calls == []
     assert any("information_schema.tables" in sql for sql, _ in executed)
     assert ("SELECT * FROM analysis_jobs WHERE id = %s", ("job-id",)) in executed
-    assert any("SELECT *" in sql and "FROM llm_model_prices" in sql for sql, _ in executed)
+    assert any("FROM llm_models" in sql for sql, _ in executed)

@@ -24,7 +24,6 @@ export type PublicConfig = {
   };
   features: {
     watchlist: boolean;
-    shareLinks: boolean;
   };
   markets: PublicMarket[];
   disclaimerMarkdown: { en: string | null; zh: string | null };
@@ -36,7 +35,7 @@ const defaultPublicConfig = (
 ): PublicConfig => ({
   clerkPublishableKey,
   maintenance: { enabled: false, message: { en: '', zh: '' } },
-  features: { watchlist: true, shareLinks: true },
+  features: { watchlist: true },
   markets: [],
   disclaimerMarkdown: { en: null, zh: null },
   creditRules: [],
@@ -70,7 +69,6 @@ function parsePublicConfig(data: Record<string, unknown>): PublicConfig | null {
     },
     features: {
       watchlist: features.watchlist !== false,
-      shareLinks: features.shareLinks !== false,
     },
     markets: Array.isArray(data.markets)
       ? data.markets.flatMap((row) => {

@@ -21,7 +21,6 @@ const settingsPatchSchema = z.object({
   features: z
     .object({
       watchlist: z.boolean(),
-      shareLinks: z.boolean(),
     })
     .optional(),
   disclaimer: z

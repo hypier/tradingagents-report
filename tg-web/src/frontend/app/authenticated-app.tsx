@@ -18,7 +18,6 @@ import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
 import { App } from './app';
 import { LegalPage } from '../pages/legal-page';
-import { SharedReportPage } from '../pages/shared-report-page';
 
 export function AuthenticatedApp() {
   const { t } = useTranslation('auth');
@@ -99,10 +98,6 @@ function SignedOutRoutes() {
         }
       />
       <Route path="/legal/:document" element={<LegalPage publicView />} />
-      <Route
-        path="/shared/:token"
-        element={<SharedReportPage publicView />}
-      />
       <Route path="*" element={<Navigate replace to={signInTarget} />} />
     </Routes>
   );

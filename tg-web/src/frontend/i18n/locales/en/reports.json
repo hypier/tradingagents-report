@@ -20,7 +20,6 @@
   "dateFrom": "From date",
   "dateTo": "To date",
   "watchlistOnly": "Watchlist only",
-  "includeArchived": "Include archived",
   "library": {
     "title": "Research archive",
     "description": "Readable report history. Live runs belong in Tasks."

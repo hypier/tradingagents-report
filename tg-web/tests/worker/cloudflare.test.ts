@@ -150,19 +150,6 @@ describe('Cloudflare Worker runtime', () => {
         removeItem: vi.fn(),
         findItemByProviderSymbol: vi.fn(),
       },
-      reportMeta: {
-        get: vi.fn(),
-        listForUser: vi.fn(),
-        upsert: vi.fn(),
-      },
-      shareLinks: {
-        create: vi.fn(),
-        listForJob: vi.fn(),
-        getById: vi.fn(),
-        getByToken: vi.fn(),
-        revoke: vi.fn(),
-        consumeView: vi.fn(),
-      },
       settings: {
         getAll: vi.fn().mockResolvedValue({}),
         get: vi.fn(),

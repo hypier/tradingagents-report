@@ -72,7 +72,6 @@ export function StockPage() {
         ticker: listing!.display_ticker,
         limit: 50,
         status: 'succeeded',
-        archived: false,
       }),
     enabled: Boolean(listing?.display_ticker),
     staleTime: 30_000,

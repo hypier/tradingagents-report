@@ -125,7 +125,7 @@ TRADINGAGENTS_DATABASE_URL=postgresql://user:password@host:5432/db
 - `(ticker, created_at DESC)`
 - `(status, created_at DESC)`
 
-同一 PostgreSQL 中还包含 TG-web 产品表：`product_users`、`billing_subscriptions`、`credit_billing_settings`、`credit_billing_setting_events`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`referral_relationships`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。`product_users.referral_code` 保存稳定邀请码，`product_users.onboarding_completed_at` 标识一次性首访结算；`credit_billing_settings.signup_grant_usd` 和 `referral_reward_usd` 分别保存新用户赠送及邀请奖励金额。`referral_relationships` 以被邀请用户为主键，保存邀请双方、邀请码及结算时金额、汇率和积分快照。
+同一 PostgreSQL 中还包含 TG-web 产品表：`account_users`、`billing_subscriptions`、`credit_billing_settings`、`credit_billing_setting_events`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`referral_relationships`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。`account_users.referral_code` 保存稳定邀请码，`account_users.onboarding_completed_at` 标识一次性首访结算；`credit_billing_settings.signup_grant_usd` 和 `referral_reward_usd` 分别保存新用户赠送及邀请奖励金额。`referral_relationships` 以被邀请用户为主键，保存邀请双方、邀请码及结算时金额、汇率和积分快照。
 
 这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时校验所需表及积分结算列存在，但不执行 DDL。身份档案、Stripe Webhook、计费配置、人工调点、邀请结算和预扣由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。部署包含新版本 TG-web 前，必须先执行 Drizzle 迁移，再启动接收业务流量的容器。迁移为历史用户回填邀请码并设置 `onboarding_completed_at`，不会追溯发放新用户积分。
 

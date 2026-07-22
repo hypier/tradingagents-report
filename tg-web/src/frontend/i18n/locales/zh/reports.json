@@ -20,7 +20,6 @@
   "dateFrom": "起始日期",
   "dateTo": "结束日期",
   "watchlistOnly": "仅自选",
-  "includeArchived": "包含已归档",
   "library": {
     "title": "研究档案",
     "description": "可读报告历史；运行中的任务请到任务中心查看。"

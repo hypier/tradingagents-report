@@ -1,14 +1,14 @@
 /**
  * 仓库组合入口。
  *
- * - 账户 / 计费 / 自选 / 报告元数据放在独立文件中。
- * - 分析任务、LLM 价格、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
+ * - 账户 / 计费 / 自选放在独立文件中。
+ * - 分析任务、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
  * - LLM 提供商/模型目录见 llm-catalog-repository。
  */
 import { and, desc, eq, gt, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import { analysisJobs, llmModelPrices } from './schema';
+import { analysisJobs } from './schema';
 import * as schema from './schema';
 import {
   createAccountRepository,
@@ -27,21 +27,15 @@ import {
   createCreditRulesRepository,
   createMarketsRepository,
   createProductSettingsRepository,
-  createShareLinksRepository,
   type AdminAuditRepository,
   type CreditRulesRepository,
   type MarketsRepository,
   type ProductSettingsRepository,
-  type ShareLinksRepository,
 } from './product-ops-repository';
 import {
   createReferralRepository,
   type ReferralRepository,
 } from './referral-repository';
-import {
-  createReportMetaRepository,
-  type ReportMetaRepository,
-} from './report-meta-repository';
 import {
   createWatchlistRepository,
   type WatchlistRepository,
@@ -54,26 +48,16 @@ export type {
   CreditRulesRepository,
   MarketsRepository,
   ProductSettingsRepository,
-  ShareLinksRepository,
 } from './product-ops-repository';
 export type { ReferralRepository } from './referral-repository';
-export type { ReportMetaRepository } from './report-meta-repository';
 export type { WatchlistRepository } from './watchlist-repository';
 
 export type AnalysisJob = typeof analysisJobs.$inferSelect;
-export type ModelPrice = typeof llmModelPrices.$inferSelect;
-export type NewModelPrice = typeof llmModelPrices.$inferInsert;
 export type { LlmCatalogRepository } from './llm-catalog-repository';
-export type ModelPriceKey = Pick<
-  ModelPrice,
-  'provider' | 'model' | 'billingMode' | 'contextTier'
->;
 
 export type UserAnalysisListItem = {
   job: AnalysisJob;
   creditUnits: number | null;
-  isFavorite: boolean;
-  isArchived: boolean;
 };
 
 export type AdminAnalysisListItem = {
@@ -130,7 +114,6 @@ export type AnalysisJobsRepository = {
     tradeDateTo?: string;
     /** Prefer reports whose ticker is on the user's watchlist. */
     watchlist?: boolean;
-    archived?: boolean;
     limit: number;
     offset: number;
   }): Promise<UserAnalysisListItem[]>;
@@ -150,17 +133,7 @@ export type AnalysisJobsRepository = {
   getAdminOverview(input: { from: Date; to: Date }): Promise<AdminOverviewMetrics>;
 };
 
-/** `llm_model_prices` 的 upsert / 删除辅助。 */
-export type ModelPricesRepository = {
-  list(input: { provider?: string }): Promise<ModelPrice[]>;
-  upsert(input: NewModelPrice): Promise<ModelPrice>;
-  delete(key: ModelPriceKey): Promise<void>;
-};
-
-/**
- * 管理员 Stripe 凭据存储（`billing_provider_configs`）。
- * 与负责用户账单/积分状态的 `BillingRepository` 不同。
- */
+/** `billing_provider_configs` 的 upsert / 删除辅助。 */
 export type BillingConfigRepository = {
   getStripe(): Promise<
     typeof schema.billingProviderConfigs.$inferSelect | undefined
@@ -178,15 +151,12 @@ type Database = NodePgDatabase<typeof schema>;
 /** 将全部仓库绑定到同一个 Drizzle 数据库实例。 */
 export function createRepositories(database: Database): {
   analysisJobs: AnalysisJobsRepository;
-  modelPrices: ModelPricesRepository;
   llmCatalog: LlmCatalogRepository;
   account: AccountRepository;
   billing: BillingRepository;
   referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
-  reportMeta: ReportMetaRepository;
-  shareLinks: ShareLinksRepository;
   settings: ProductSettingsRepository;
   markets: MarketsRepository;
   creditRules: CreditRulesRepository;
@@ -197,8 +167,6 @@ export function createRepositories(database: Database): {
     billing: createBillingRepository(database),
     referrals: createReferralRepository(database),
     watchlist: createWatchlistRepository(database),
-    reportMeta: createReportMetaRepository(database),
-    shareLinks: createShareLinksRepository(database),
     settings: createProductSettingsRepository(database),
     markets: createMarketsRepository(database),
     creditRules: createCreditRulesRepository(database),
@@ -324,32 +292,16 @@ export function createRepositories(database: Database): {
             conditions.push(inArray(analysisJobs.ticker, tickers));
           }
         }
-        if (input.archived === true) {
-          conditions.push(eq(schema.userReportMeta.isArchived, 1));
-        } else if (input.archived === false) {
-          conditions.push(
-            sql`coalesce(${schema.userReportMeta.isArchived}, 0) = 0`,
-          );
-        }
 
         const rows = await database
           .select({
             job: analysisJobs,
             creditUnits: schema.creditReservations.units,
-            isFavorite: schema.userReportMeta.isFavorite,
-            isArchived: schema.userReportMeta.isArchived,
           })
           .from(schema.creditReservations)
           .innerJoin(
             analysisJobs,
             eq(schema.creditReservations.analysisJobId, analysisJobs.id),
-          )
-          .leftJoin(
-            schema.userReportMeta,
-            and(
-              eq(schema.userReportMeta.clerkUserId, input.clerkUserId),
-              eq(schema.userReportMeta.analysisJobId, analysisJobs.id),
-            ),
           )
           .where(and(...conditions))
           .orderBy(desc(analysisJobs.createdAt))
@@ -359,8 +311,6 @@ export function createRepositories(database: Database): {
         return rows.map((row) => ({
           job: row.job,
           creditUnits: row.creditUnits,
-          isFavorite: Boolean(row.isFavorite),
-          isArchived: Boolean(row.isArchived),
         }));
       },
       async ownsJob(clerkUserId, analysisJobId) {
@@ -558,56 +508,6 @@ export function createRepositories(database: Database): {
                 : Number(Number(avgDurationRow.avgSeconds).toFixed(1)),
           },
         };
-      },
-    },
-    modelPrices: {
-      list(input) {
-        return database
-          .select()
-          .from(llmModelPrices)
-          .where(
-            input.provider
-              ? eq(llmModelPrices.provider, input.provider)
-              : undefined,
-          );
-      },
-      async upsert(input) {
-        const [modelPrice] = await database
-          .insert(llmModelPrices)
-          .values(input)
-          .onConflictDoUpdate({
-            target: [
-              llmModelPrices.provider,
-              llmModelPrices.model,
-              llmModelPrices.billingMode,
-              llmModelPrices.contextTier,
-            ],
-            set: {
-              currency: input.currency,
-              unitTokens: input.unitTokens,
-              inputPrice: input.inputPrice,
-              cachedInputPrice: input.cachedInputPrice,
-              cacheWritePrice: input.cacheWritePrice,
-              outputPrice: input.outputPrice,
-              sourceUrl: input.sourceUrl,
-              updatedAt: new Date(),
-            },
-          })
-          .returning();
-
-        return modelPrice!;
-      },
-      async delete(key) {
-        await database
-          .delete(llmModelPrices)
-          .where(
-            and(
-              eq(llmModelPrices.provider, key.provider),
-              eq(llmModelPrices.model, key.model),
-              eq(llmModelPrices.billingMode, key.billingMode),
-              eq(llmModelPrices.contextTier, key.contextTier),
-            ),
-          );
       },
     },
   };

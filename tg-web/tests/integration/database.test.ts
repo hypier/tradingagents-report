@@ -176,7 +176,7 @@ describe('Node database', () => {
     };
     await database.account.syncUser(inviter);
     const inviterRow = await connection!.query<{ referral_code: string }>(
-      'SELECT referral_code FROM product_users WHERE clerk_user_id = $1',
+      'SELECT referral_code FROM account_users WHERE clerk_user_id = $1',
       [inviter.id],
     );
     const invitee = {

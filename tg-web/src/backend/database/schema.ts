@@ -23,7 +23,6 @@ import {
   jsonb,
   numeric,
   pgTable,
-  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -32,10 +31,9 @@ import {
 
 /**
  * Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
- * 物理表名仍为 `product_users`，以兼容既有迁移。
  */
 export const accountUsers = pgTable(
-  'product_users',
+  'account_users',
   {
     /** Clerk 用户 ID；账户/计费相关表共用的主键。 */
     clerkUserId: text('clerk_user_id').primaryKey(),
@@ -67,10 +65,10 @@ export const accountUsers = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex('product_users_stripe_customer_key')
+    uniqueIndex('account_users_stripe_customer_key')
       .on(table.stripeCustomerId)
       .where(sql`${table.stripeCustomerId} is not null`),
-    uniqueIndex('product_users_referral_code_key').on(table.referralCode),
+    uniqueIndex('account_users_referral_code_key').on(table.referralCode),
   ],
 );
 
@@ -504,54 +502,6 @@ export const analysisJobs = pgTable(
   ],
 );
 
-/** 用于成本估算的 LLM 模型单价。 */
-export const llmModelPrices = pgTable(
-  'llm_model_prices',
-  {
-    /** LLM 提供商键（openai、anthropic 等）。 */
-    provider: text('provider').notNull(),
-    /** 提供商内的模型 ID。 */
-    model: text('model').notNull(),
-    /** 计费通道，如 standard / batch。 */
-    billingMode: text('billing_mode').notNull().default('standard'),
-    /** 影响价格的上下文长度档位，如 short / long。 */
-    contextTier: text('context_tier').notNull().default('short'),
-    /** 单价对应的 ISO 货币代码。 */
-    currency: text('currency').notNull().default('USD'),
-    /** 单价所对应的 token 基数（默认 1_000_000）。 */
-    unitTokens: integer('unit_tokens').notNull().default(1_000_000),
-    /** 每 unitTokens 的输入 token 价格。 */
-    inputPrice: numeric('input_price', { precision: 18, scale: 8 }).notNull(),
-    /** 每 unitTokens 的缓存输入价格（若提供）。 */
-    cachedInputPrice: numeric('cached_input_price', {
-      precision: 18,
-      scale: 8,
-    }),
-    /** 每 unitTokens 的 cache-write 价格（若提供）。 */
-    cacheWritePrice: numeric('cache_write_price', { precision: 18, scale: 8 }),
-    /** 每 unitTokens 的输出 token 价格。 */
-    outputPrice: numeric('output_price', { precision: 18, scale: 8 }).notNull(),
-    /** 该行抓取/导入所依据的官方定价页 URL。 */
-    sourceUrl: text('source_url').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    primaryKey({
-      columns: [
-        table.provider,
-        table.model,
-        table.billingMode,
-        table.contextTier,
-      ],
-    }),
-  ],
-);
-
 /** 管理员配置的 LLM 提供商实例（含加密 API Key）。 */
 export const llmProviders = pgTable(
   'llm_providers',
@@ -657,60 +607,6 @@ export const watchlistItems = pgTable(
       table.clerkUserId,
       table.sortOrder,
     ),
-  ],
-);
-
-/** 每用户报告元数据（归档等）。 */
-export const userReportMeta = pgTable(
-  'user_report_meta',
-  {
-    clerkUserId: text('clerk_user_id')
-      .notNull()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    analysisJobId: uuid('analysis_job_id').notNull(),
-    isFavorite: integer('is_favorite').notNull().default(0),
-    isArchived: integer('is_archived').notNull().default(0),
-    notes: text('notes'),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.clerkUserId, table.analysisJobId] }),
-    index('user_report_meta_user_favorite_idx').on(
-      table.clerkUserId,
-      table.isFavorite,
-    ),
-    index('user_report_meta_user_archived_idx').on(
-      table.clerkUserId,
-      table.isArchived,
-    ),
-  ],
-);
-
-/** 报告受控分享链接（令牌访问，不赋予 ownership）。 */
-export const reportShareLinks = pgTable(
-  'report_share_links',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    token: text('token').notNull(),
-    analysisJobId: uuid('analysis_job_id')
-      .notNull()
-      .references(() => analysisJobs.id, { onDelete: 'cascade' }),
-    clerkUserId: text('clerk_user_id')
-      .notNull()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    revokedAt: timestamp('revoked_at', { withTimezone: true }),
-    maxViews: integer('max_views'),
-    viewCount: integer('view_count').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    uniqueIndex('report_share_links_token_key').on(table.token),
-    index('report_share_links_job_idx').on(table.analysisJobId),
   ],
 );
 

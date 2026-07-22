@@ -21,11 +21,6 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
 
     monkeypatch.setattr(api_app.database, "require_schema", lambda: events.append("schema"))
     monkeypatch.setattr(
-        api_app.llm_prices,
-        "seed_fallback_model_prices",
-        lambda: events.append("seed"),
-    )
-    monkeypatch.setattr(
         api_app.analysis_jobs,
         "recover_interrupted_jobs",
         lambda: events.append("recover"),
@@ -47,7 +42,6 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
 
     assert events == [
         "schema",
-        "seed",
         "recover",
         "start",
         ("enqueue", "job-1"),

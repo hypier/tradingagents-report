@@ -1,40 +1,17 @@
 /**
- * P3 产品运营仓库：分享链接、设置、市场、额度规则、审计。
+ * P3 产品运营仓库：设置、市场、额度规则、审计。
  */
-import { and, desc, eq, gte, isNull, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import * as schema from './schema';
 
 type Database = NodePgDatabase<typeof schema>;
 
-export type ReportShareLink = typeof schema.reportShareLinks.$inferSelect;
 export type MarketMetadata = typeof schema.marketMetadata.$inferSelect;
 export type CreditRule = typeof schema.creditRules.$inferSelect;
 export type AdminAuditEvent = typeof schema.adminAuditEvents.$inferSelect;
 export type ProductSetting = typeof schema.productSettings.$inferSelect;
-
-export type ShareLinksRepository = {
-  create(input: {
-    token: string;
-    analysisJobId: string;
-    clerkUserId: string;
-    expiresAt: Date;
-    maxViews?: number | null;
-  }): Promise<ReportShareLink>;
-  listForJob(input: {
-    analysisJobId: string;
-    clerkUserId: string;
-  }): Promise<ReportShareLink[]>;
-  getById(id: string): Promise<ReportShareLink | undefined>;
-  getByToken(token: string): Promise<ReportShareLink | undefined>;
-  revoke(input: {
-    id: string;
-    clerkUserId: string;
-  }): Promise<ReportShareLink | undefined>;
-  /** 校验有效性并原子递增 view_count；无效返回 null。 */
-  consumeView(token: string): Promise<ReportShareLink | null>;
-};
 
 export type ProductSettingsRepository = {
   getAll(): Promise<Record<string, Record<string, unknown>>>;
@@ -110,89 +87,6 @@ export type AdminAuditRepository = {
     offset: number;
   }): Promise<AdminAuditEvent[]>;
 };
-
-export function createShareLinksRepository(
-  database: Database,
-): ShareLinksRepository {
-  return {
-    async create(input) {
-      const [row] = await database
-        .insert(schema.reportShareLinks)
-        .values({
-          token: input.token,
-          analysisJobId: input.analysisJobId,
-          clerkUserId: input.clerkUserId,
-          expiresAt: input.expiresAt,
-          maxViews: input.maxViews ?? null,
-        })
-        .returning();
-      return row;
-    },
-    listForJob(input) {
-      return database
-        .select()
-        .from(schema.reportShareLinks)
-        .where(
-          and(
-            eq(schema.reportShareLinks.analysisJobId, input.analysisJobId),
-            eq(schema.reportShareLinks.clerkUserId, input.clerkUserId),
-          ),
-        )
-        .orderBy(desc(schema.reportShareLinks.createdAt));
-    },
-    async getById(id) {
-      const [row] = await database
-        .select()
-        .from(schema.reportShareLinks)
-        .where(eq(schema.reportShareLinks.id, id))
-        .limit(1);
-      return row;
-    },
-    async getByToken(token) {
-      const [row] = await database
-        .select()
-        .from(schema.reportShareLinks)
-        .where(eq(schema.reportShareLinks.token, token))
-        .limit(1);
-      return row;
-    },
-    async revoke(input) {
-      const [row] = await database
-        .update(schema.reportShareLinks)
-        .set({ revokedAt: new Date() })
-        .where(
-          and(
-            eq(schema.reportShareLinks.id, input.id),
-            eq(schema.reportShareLinks.clerkUserId, input.clerkUserId),
-            isNull(schema.reportShareLinks.revokedAt),
-          ),
-        )
-        .returning();
-      return row;
-    },
-    async consumeView(token) {
-      const now = new Date();
-      const [row] = await database
-        .update(schema.reportShareLinks)
-        .set({
-          viewCount: sql`${schema.reportShareLinks.viewCount} + 1`,
-        })
-        .where(
-          and(
-            eq(schema.reportShareLinks.token, token),
-            isNull(schema.reportShareLinks.revokedAt),
-            gte(schema.reportShareLinks.expiresAt, now),
-            sql`(
-              ${schema.reportShareLinks.maxViews} is null
-              or ${schema.reportShareLinks.viewCount} < ${schema.reportShareLinks.maxViews}
-            )`,
-          ),
-        )
-        .returning();
-      return row ?? null;
-    },
-  };
-}
 
 export function createProductSettingsRepository(
   database: Database,

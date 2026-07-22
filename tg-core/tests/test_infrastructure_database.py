@@ -66,7 +66,6 @@ def test_require_schema_accepts_existing_tables(monkeypatch):
     assert "information_schema.tables" in sql
     assert params == ([
         "analysis_jobs",
-        "llm_model_prices",
         "llm_providers",
         "llm_models",
     ],)

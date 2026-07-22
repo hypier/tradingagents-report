@@ -1,16 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Archive,
   ArrowLeft,
   BookmarkPlus,
   CandlestickChart,
-  Copy,
   Download,
   FileText,
-  Link2,
   Star,
-  Trash2,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
@@ -46,26 +42,14 @@ import {
   decisionBadgeVariant,
   formatDecisionLabel,
 } from '../lib/format-decision';
-import {
-  formatLocaleCalendarDate,
-  formatLocaleDateTime,
-} from '../lib/format-locale';
+import { formatLocaleCalendarDate } from '../lib/format-locale';
 import { formatOutputLanguage } from '../lib/format-output-language';
 import { fetchPublicConfig } from '../lib/public-config';
 import {
   loadReportReadingPreferences,
   saveReportReadingPreferences,
 } from '../lib/report-reading-preferences';
-import {
-  getResearch,
-  updateResearchMeta,
-  type AnalysisDetail,
-} from '../lib/research';
-import {
-  createShare,
-  listShares,
-  revokeShare,
-} from '../lib/share';
+import { getResearch, type AnalysisDetail } from '../lib/research';
 import {
   addWatchlistItem,
   getWatchlist,
@@ -194,34 +178,15 @@ export function ReportPage() {
     queryFn: () => fetchPublicConfig(),
     staleTime: 60_000,
   });
-  const shareLinksEnabled =
-    publicConfig.isLoading ||
-    publicConfig.data?.features.shareLinks !== false;
   const watchlistEnabled =
     publicConfig.isLoading ||
     publicConfig.data?.features.watchlist !== false;
   const job = detail.data?.data;
-  const canShare = Boolean(id) && shareLinksEnabled && job?.status === 'succeeded';
-  const shares = useQuery({
-    queryKey: ['analysis-shares', id],
-    queryFn: () => listShares(id!),
-    enabled: canShare,
-  });
   const watchlist = useQuery({
     queryKey: ['watchlist'],
     queryFn: () => getWatchlist(),
     enabled: watchlistEnabled,
     staleTime: 60_000,
-  });
-  const meta = useMutation({
-    mutationFn: (input: { isArchived?: boolean }) =>
-      updateResearchMeta(id!, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['analysis', id] });
-      void queryClient.invalidateQueries({ queryKey: ['report-library'] });
-      toast.success(t('metaUpdated'));
-    },
-    onError: () => toast.error(t('metaError')),
   });
   const addWatchlist = useMutation({
     mutationFn: (input: Parameters<typeof addWatchlistItem>[0]) =>
@@ -239,28 +204,6 @@ export function ReportPage() {
       toast.success(t('watchlist.removed'));
     },
     onError: () => toast.error(t('watchlist.removeError')),
-  });
-  const createShareLink = useMutation({
-    mutationFn: () => createShare(id!, { expiresInDays: 7 }),
-    onSuccess: async (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['analysis-shares', id] });
-      const url = `${window.location.origin}${result.data.path}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.success(t('share.createdCopied'));
-      } catch {
-        toast.success(t('share.created'));
-      }
-    },
-    onError: () => toast.error(t('share.createError')),
-  });
-  const revokeShareLink = useMutation({
-    mutationFn: (shareId: string) => revokeShare(id!, shareId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['analysis-shares', id] });
-      toast.success(t('share.revoked'));
-    },
-    onError: () => toast.error(t('share.revokeError')),
   });
   const entries = Object.entries(job?.reports ?? {});
   const tabKeys = entries.map(([key]) => key);
@@ -297,7 +240,6 @@ export function ReportPage() {
   const watchlistItem = watchlist.data?.data.items.find(
     (item) => item.providerSymbol === providerSymbol,
   );
-  const isArchived = Boolean(job?.is_archived ?? job?.isArchived);
   const creditUnits = job?.credit_units ?? ANALYSIS_CREDIT_UNITS;
   const tradeDate =
     typeof job?.trade_date === 'string'
@@ -580,22 +522,6 @@ export function ReportPage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={isArchived ? 'default' : 'outline'}
-                    size="icon-sm"
-                    disabled={meta.isPending}
-                    aria-label={isArchived ? t('unarchive') : t('archive')}
-                    onClick={() => meta.mutate({ isArchived: !isArchived })}
-                  >
-                    <Archive />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>
-                  {isArchived ? t('unarchive') : t('archive')}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
                     variant="outline"
                     size="icon-sm"
                     disabled={!entries.length}
@@ -609,81 +535,9 @@ export function ReportPage() {
                   {t('exportMarkdown')}
                 </TooltipContent>
               </Tooltip>
-              {canShare ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      disabled={createShareLink.isPending}
-                      aria-label={t('share.create')}
-                      onClick={() => createShareLink.mutate()}
-                    >
-                      <Link2 />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={6}>
-                    {t('share.create')}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
             </div>
           ) : null}
         </div>
-
-        {canShare && (shares.data?.data.length ?? 0) > 0 ? (
-          <div className="rounded-none border bg-muted/20 px-4 py-3">
-            <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              {t('share.linksTitle')}
-            </p>
-            <ul className="flex flex-col gap-2">
-              {(shares.data?.data ?? [])
-                .filter((link) => !link.revokedAt)
-                .map((link) => {
-                  const url = `${window.location.origin}${link.path}`;
-                  return (
-                    <li
-                      key={link.id}
-                      className="flex flex-wrap items-center gap-2 text-sm"
-                    >
-                      <code className="max-w-[min(100%,28rem)] truncate rounded bg-background px-2 py-1 text-xs">
-                        {url}
-                      </code>
-                      <span className="text-xs text-muted-foreground">
-                        {t('share.expires', {
-                          date: formatLocaleDateTime(String(link.expiresAt)),
-                        })}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(url);
-                            toast.success(t('share.copied'));
-                          } catch {
-                            toast.error(t('share.copyError'));
-                          }
-                        }}
-                      >
-                        <Copy data-icon="inline-start" />
-                        {t('share.copy')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={revokeShareLink.isPending}
-                        onClick={() => revokeShareLink.mutate(link.id)}
-                      >
-                        <Trash2 data-icon="inline-start" />
-                        {t('share.revoke')}
-                      </Button>
-                    </li>
-                  );
-                })}
-            </ul>
-          </div>
-        ) : null}
 
         {!id ? (
           <Alert variant="destructive">

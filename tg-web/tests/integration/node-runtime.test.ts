@@ -61,8 +61,6 @@ function fakeDependencies(): AppDependencies {
       },
       analysisJobs: fakeAnalysisJobsRepository(),
       watchlist: fakeWatchlistRepository(),
-      reportMeta: fakeReportMetaRepository(),
-      shareLinks: fakeShareLinksRepository(),
       settings: fakeSettingsRepository(),
       markets: fakeMarketsRepository(),
       creditRules: fakeCreditRulesRepository(),
@@ -171,25 +169,6 @@ function fakeWatchlistRepository() {
     addItem: vi.fn(),
     removeItem: vi.fn(),
     findItemByProviderSymbol: vi.fn(),
-  };
-}
-
-function fakeReportMetaRepository() {
-  return {
-    get: vi.fn(),
-    listForUser: vi.fn().mockResolvedValue([]),
-    upsert: vi.fn(),
-  };
-}
-
-function fakeShareLinksRepository() {
-  return {
-    create: vi.fn(),
-    listForJob: vi.fn().mockResolvedValue([]),
-    getById: vi.fn(),
-    getByToken: vi.fn(),
-    revoke: vi.fn(),
-    consumeView: vi.fn().mockResolvedValue(null),
   };
 }
 

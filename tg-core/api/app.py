@@ -17,14 +17,13 @@ from api.schemas import (
 )
 from api.security import require_api_key
 from application.jobs import CreateAnalysisJob, cancel_job, create_job
-from infrastructure import analysis_jobs, database, llm_prices
+from infrastructure import analysis_jobs, database
 from tradingagents.dataflows.listings import resolve_listing
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     database.require_schema()
-    llm_prices.seed_fallback_model_prices()
     analysis_jobs.recover_interrupted_jobs()
     job_worker.start()
     for job_id in analysis_jobs.list_queued_job_ids():

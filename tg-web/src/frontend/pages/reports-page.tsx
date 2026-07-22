@@ -45,7 +45,6 @@ export function ReportsPage() {
   const [tradeDateFrom, setTradeDateFrom] = useState('');
   const [tradeDateTo, setTradeDateTo] = useState('');
   const [watchlistOnly, setWatchlistOnly] = useState(false);
-  const [includeArchived, setIncludeArchived] = useState(false);
   const statusFilter = status === 'all' ? undefined : status;
   const filters = {
     status: statusFilter,
@@ -54,7 +53,6 @@ export function ReportsPage() {
     tradeDateFrom: tradeDateFrom || undefined,
     tradeDateTo: tradeDateTo || undefined,
     watchlist: watchlistOnly || undefined,
-    archived: includeArchived ? undefined : false,
   };
   const activeFilterCount = [
     status !== 'succeeded',
@@ -63,7 +61,6 @@ export function ReportsPage() {
     Boolean(tradeDateFrom),
     Boolean(tradeDateTo),
     watchlistOnly,
-    includeArchived,
   ].filter(Boolean).length;
   const reports = useInfiniteQuery({
     queryKey: ['report-library', filters],
@@ -223,15 +220,6 @@ export function ReportsPage() {
                 }
               />
               {t('watchlistOnly')}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={includeArchived}
-                onCheckedChange={(checked) =>
-                  setIncludeArchived(checked === true)
-                }
-              />
-              {t('includeArchived')}
             </label>
           </PageToolbar>
         ) : null

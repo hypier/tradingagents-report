@@ -65,7 +65,6 @@ export function publicConfigRoutes(dependencies: AppDependencies) {
           },
           features: {
             watchlist: features.watchlist !== false,
-            shareLinks: features.shareLinks !== false,
           },
           markets: enabledMarkets,
           disclaimerMarkdown: {

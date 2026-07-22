@@ -26,7 +26,6 @@ function headerTitleKey(pathname: string) {
   if (pathname.startsWith('/billing')) return 'header.billing' as const;
   if (pathname.startsWith('/account')) return 'header.account' as const;
   if (pathname.startsWith('/legal')) return 'header.legal' as const;
-  if (pathname.startsWith('/shared/')) return 'header.sharedReport' as const;
   if (pathname.startsWith('/reports/')) return 'header.report' as const;
   if (pathname.startsWith('/reports')) return 'header.reports' as const;
   if (pathname.startsWith('/watchlist')) return 'header.watchlist' as const;
@@ -47,7 +46,6 @@ function pageOwnsTitle(pathname: string) {
   if (pathname === '/account') return true;
   if (pathname.startsWith('/stocks/')) return true;
   if (pathname.startsWith('/legal/')) return true;
-  if (pathname.startsWith('/shared/')) return true;
   if (pathname === '/admin' || pathname.startsWith('/admin/')) return true;
   return false;
 }

@@ -183,23 +183,10 @@ function fakeDependencies(
         removeItem: vi.fn(),
         findItemByProviderSymbol: vi.fn(),
       },
-      reportMeta: {
-        get: vi.fn(),
-        listForUser: vi.fn().mockResolvedValue([]),
-        upsert: vi.fn(),
-      },
-      shareLinks: {
-        create: vi.fn(),
-        listForJob: vi.fn().mockResolvedValue([]),
-        getById: vi.fn(),
-        getByToken: vi.fn(),
-        revoke: vi.fn(),
-        consumeView: vi.fn().mockResolvedValue(null),
-      },
       settings: {
         getAll: vi.fn().mockResolvedValue({
           maintenance: { enabled: false, message: { en: '', zh: '' } },
-          features: { watchlist: true, shareLinks: true },
+          features: { watchlist: true },
           disclaimer: { version: null, markdown: { en: null, zh: null } },
           alerts: { webhookUrl: '' },
         }),
@@ -488,79 +475,7 @@ describe('createApp', () => {
       data: {
         clerkPublishableKey: 'pk_test_public',
         maintenance: { enabled: false },
-        features: { watchlist: true, shareLinks: true },
-      },
-    });
-  });
-
-  it('serves a shared report by token without auth', async () => {
-    const dependencies = fakeDependencies({
-      auth: {
-        authenticate: vi.fn().mockResolvedValue(null),
-        getUser: vi.fn(),
-        getManagedUser: vi.fn(),
-        listUsers: vi.fn(),
-        setUserRole: vi.fn(),
-        setUserBanned: vi.fn(),
-        getBillingIdentity: vi.fn(),
-        setStripeCustomerId: vi.fn(),
-      },
-    });
-    const jobId = '44444444-4444-4444-8444-444444444444';
-    vi.mocked(dependencies.database.shareLinks.consumeView).mockResolvedValue({
-      id: 'share-1',
-      token: 'abc123',
-      analysisJobId: jobId,
-      clerkUserId: 'user-2',
-      expiresAt: new Date(Date.now() + 86_400_000),
-      revokedAt: null,
-      maxViews: null,
-      viewCount: 1,
-      createdAt: new Date(),
-    });
-    vi.mocked(dependencies.database.analysisJobs.getById).mockResolvedValue({
-      id: jobId,
-      status: 'succeeded',
-      ticker: 'AAPL',
-      tradeDate: '2026-07-18',
-      exchange: 'NASDAQ',
-      assetType: 'equity',
-      analysts: ['market'],
-      request: {},
-      config: {},
-      display: { display_name: 'Apple' },
-      decision: 'Buy',
-      error: null,
-      progressPercent: 100,
-      currentStep: null,
-      costUsd: '0',
-      requestId: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      startedAt: null,
-      finishedAt: new Date(),
-      finalState: null,
-      reportPath: null,
-      tokensUsed: 0,
-      tokenUsage: {},
-      costBreakdown: {},
-      events: [],
-    } as never);
-    vi.mocked(dependencies.core.getAnalysis).mockResolvedValue({
-      id: jobId,
-      reports: { market_report: '# Market' },
-      decision: 'Buy',
-    });
-    const app = createApp(dependencies);
-
-    const response = await app.request('/api/shared/abc123');
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      data: {
-        id: jobId,
-        ticker: 'AAPL',
-        reports: { market_report: '# Market' },
+        features: { watchlist: true },
       },
     });
   });
@@ -2202,19 +2117,6 @@ describe('createApp', () => {
           addItem: vi.fn(),
           removeItem: vi.fn(),
           findItemByProviderSymbol: vi.fn(),
-        },
-        reportMeta: {
-          get: vi.fn(),
-          listForUser: vi.fn(),
-          upsert: vi.fn(),
-        },
-        shareLinks: {
-          create: vi.fn(),
-          listForJob: vi.fn(),
-          getById: vi.fn(),
-          getByToken: vi.fn(),
-          revoke: vi.fn(),
-          consumeView: vi.fn(),
         },
         settings: {
           getAll: vi.fn().mockResolvedValue({}),

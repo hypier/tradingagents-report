@@ -20,7 +20,7 @@ describe('public config client', () => {
 
     await expect(fetchPublicConfig(fetchImplementation)).resolves.toMatchObject({
       clerkPublishableKey: 'pk_live_runtime',
-      features: { watchlist: true, shareLinks: true },
+      features: { watchlist: true },
       maintenance: { enabled: false },
     });
   });
@@ -35,7 +35,7 @@ describe('public config client', () => {
               enabled: true,
               message: { en: 'Down', zh: '维护中' },
             },
-            features: { watchlist: false, shareLinks: true },
+            features: { watchlist: false },
             markets: [{ code: 'US', displayName: 'United States' }],
             creditRules: [
               {
@@ -58,7 +58,7 @@ describe('public config client', () => {
         enabled: true,
         message: { en: 'Down', zh: '维护中' },
       },
-      features: { watchlist: false, shareLinks: true },
+      features: { watchlist: false },
       markets: [{ code: 'US', displayName: 'United States' }],
       creditRules: [{ market: 'US', units: 2 }],
     });

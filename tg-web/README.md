@@ -136,7 +136,7 @@ connects with `TRADINGAGENTS_DATABASE_URL` and uses the same tables through SQL;
 it does not create or alter them.
 
 Core startup also idempotently creates the shared product tables used by the
-BFF: `product_users`, `billing_subscriptions`,
+BFF: `account_users`, `billing_subscriptions`,
 `credit_accounts`, `credit_reservations`, `credit_ledger_entries`, and
 `stripe_webhook_events`. TG-web owns product writes to these tables. The only
 Core-side product write is settlement of an optional credit reservation in the

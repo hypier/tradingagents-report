@@ -18,7 +18,6 @@ import { AdminAuditPage } from '../pages/admin-audit-page';
 import { BillingPage } from '../pages/billing-page';
 import { AccountPage } from '../pages/account-page';
 import { LegalPage } from '../pages/legal-page';
-import { SharedReportPage } from '../pages/shared-report-page';
 import { WatchlistPage } from '../pages/watchlist-page';
 import { QuotesPage } from '../pages/quotes-page';
 import { StockPage } from '../pages/stock-page';
@@ -52,7 +51,6 @@ export function AppRouter() {
       <Route path="/billing" element={<BillingPage />} />
       <Route path="/account" element={<AccountPage />} />
       <Route path="/legal/:document" element={<LegalPage />} />
-      <Route path="/shared/:token" element={<SharedReportPage />} />
       <Route
         path="/reports"
         element={
