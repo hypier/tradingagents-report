@@ -122,10 +122,8 @@ class StripeBillingService implements BillingService {
       mode: this.options.secretKey!.startsWith('sk_live_') ? 'live' : 'test',
       plans: await this.listPlans(),
       configurationSource: 'environment',
-      configurationEditable: false,
       secretKeyHint: secretHint(this.options.secretKey),
       webhookSecretHint: secretHint(this.options.webhookSecret),
-      updatedAt: null,
     };
   }
 
@@ -464,14 +462,6 @@ class StripeBillingService implements BillingService {
     await this.stripe.prices.update(priceId, { active: false });
   }
 
-  async updateConfiguration(): Promise<BillingSettings> {
-    return this.configurationUnavailable();
-  }
-
-  async clearConfiguration(): Promise<BillingSettings> {
-    return this.configurationUnavailable();
-  }
-
   async handleWebhook(payload: string, signature: string) {
     if (!this.options.webhookSecret) {
       throw new BillingServiceError(
@@ -519,14 +509,6 @@ class StripeBillingService implements BillingService {
       .map((price) => mapPlan(price, price.product as Stripe.Product))
       .filter((plan) => plan.analysisCredits > 0);
   }
-
-  private configurationUnavailable(): never {
-    throw new BillingServiceError(
-      'BILLING_CONFIGURATION_NOT_EDITABLE',
-      503,
-      'Stripe configuration is managed by the deployment environment',
-    );
-  }
 }
 
 class UnavailableBillingService implements BillingService {
@@ -553,10 +535,8 @@ class UnavailableBillingService implements BillingService {
       mode: 'unconfigured',
       plans: [],
       configurationSource: 'none',
-      configurationEditable: false,
       secretKeyHint: null,
       webhookSecretHint: null,
-      updatedAt: null,
     };
   }
 
@@ -585,14 +565,6 @@ class UnavailableBillingService implements BillingService {
   }
 
   async archivePlan(): Promise<void> {
-    return this.unavailable();
-  }
-
-  async updateConfiguration(): Promise<BillingSettings> {
-    return this.unavailable();
-  }
-
-  async clearConfiguration(): Promise<BillingSettings> {
     return this.unavailable();
   }
 

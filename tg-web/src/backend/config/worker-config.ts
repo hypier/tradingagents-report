@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { clerkAuthOptionsFromEnv } from '../auth/clerk-auth';
-import { isValidBillingEncryptionKey } from '../billing/configuration-store';
+import { isValidLlmEncryptionKey } from '../llm/provider-secrets';
 import type { ServerConfig } from './node-config';
 
 const optionalSecret = z.preprocess(
@@ -9,7 +9,7 @@ const optionalSecret = z.preprocess(
   z.string().min(1).optional(),
 );
 const optionalBillingEncryptionKey = optionalSecret.refine(
-  (value) => value === undefined || isValidBillingEncryptionKey(value),
+  (value) => value === undefined || isValidLlmEncryptionKey(value),
   'BILLING_CONFIG_ENCRYPTION_KEY must encode exactly 32 bytes',
 );
 

@@ -40,14 +40,13 @@ function fakeDependencies(): AppDependencies {
     billing: {
       getOverview: vi.fn(),
       getSettings: vi.fn(),
+      getAdminPeriodSummary: vi.fn(),
       createCustomer: vi.fn(),
       createCheckout: vi.fn(),
       createPortal: vi.fn(),
       createPlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
-      updateConfiguration: vi.fn(),
-      clearConfiguration: vi.fn(),
       handleWebhook: vi.fn(),
     },
     database: {

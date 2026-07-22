@@ -13,7 +13,6 @@ import {
   type AccountRepository,
   type AnalysisJobsRepository,
   type AdminAuditRepository,
-  type BillingConfigRepository,
   type BillingRepository,
   type MarketsRepository,
   type LlmCatalogRepository,
@@ -31,7 +30,6 @@ export type DatabaseHealth = {
   account: AccountRepository;
   billing: BillingRepository;
   referrals: ReferralRepository;
-  billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
   settings: SystemSettingsRepository;
   markets: MarketsRepository;

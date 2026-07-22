@@ -10,8 +10,7 @@ import { pathToFileURL } from 'node:url';
 
 import { createApp, type AppDependencies } from '../backend/app';
 import { createClerkAuthService } from '../backend/auth/clerk-auth';
-import { createBillingConfigurationStore } from '../backend/billing/configuration-store';
-import { createManagedStripeBillingService } from '../backend/billing/managed-stripe-billing';
+import { createStripeBillingService } from '../backend/billing/stripe-billing';
 import { createRedisClient } from '../backend/cache/create-redis-client';
 import { FailOpenCache } from '../backend/cache/fail-open-cache';
 import { RedisCache } from '../backend/cache/redis-cache';
@@ -166,10 +165,6 @@ async function run(): Promise<void> {
   const config = parseNodeConfig(process.env);
   const logger = new Logger();
   const database = createNodeDatabase(config.databaseUrl);
-  const billingConfigurationStore = createBillingConfigurationStore(
-    database.billingConfig,
-    config.billingConfigEncryptionKey,
-  );
   const llmSecrets = createLlmProviderSecrets(
     config.billingConfigEncryptionKey,
   );
@@ -178,10 +173,7 @@ async function run(): Promise<void> {
   const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
   const dependencies: AppDependencies = {
     auth: createClerkAuthService(config.clerkAuth),
-    billing: createManagedStripeBillingService({
-      ...config.billing,
-      configurationStore: billingConfigurationStore,
-    }),
+    billing: createStripeBillingService(config.billing),
     database,
     llmSecrets,
     cache,

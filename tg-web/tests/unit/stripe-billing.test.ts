@@ -38,10 +38,8 @@ describe('createStripeBillingService', () => {
       mode: 'unconfigured',
       plans: [],
       configurationSource: 'none',
-      configurationEditable: false,
       secretKeyHint: null,
       webhookSecretHint: null,
-      updatedAt: null,
     });
     await expect(
       service.getAdminPeriodSummary({

@@ -115,16 +115,13 @@
       "copyError": "Unable to copy the endpoint.",
       "secretKey": "Stripe secret key",
       "webhookSecret": "Webhook signing secret",
-      "clearStored": "Clear stored configuration",
-      "clearConfirm": "Clear the stored Stripe configuration?",
-      "saveValidate": "Save and validate",
       "deploymentManaged": {
         "title": "Deployment-managed configuration",
-        "body": "Stripe credentials can be changed here after encrypted billing configuration is enabled for this deployment."
+        "body": "Stripe credentials come from STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET. Update them in the deployment environment and restart the service."
       },
       "connectionFailed": {
         "title": "Stripe connection failed",
-        "body": "Replace or clear the stored credentials, or check Stripe service availability."
+        "body": "Check STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET in the deployment environment, or Stripe service availability."
       },
       "mode": {
         "test": "Test mode",
@@ -132,7 +129,6 @@
         "unconfigured": "Unconfigured"
       },
       "source": {
-        "database": "Admin managed",
         "environment": "Deployment environment",
         "none": "Not configured"
       }
@@ -227,10 +223,6 @@
       "defaultsProvisionError": "Unable to provision the default monthly plans.",
       "planArchived": "Subscription plan archived.",
       "planArchiveError": "Unable to archive the subscription plan.",
-      "configSaved": "Stripe configuration saved.",
-      "configSaveError": "Unable to validate or save Stripe settings.",
-      "configCleared": "Stored Stripe configuration cleared.",
-      "configClearError": "Unable to clear Stripe settings.",
       "invalidPrice": "Enter a valid price of at least 0.50.",
       "invalidCredits": "Enter at least one analysis credit."
     },

@@ -249,28 +249,4 @@ describe('Node database', () => {
       database.billing.getAvailableCredits([user.id]),
     ).resolves.toEqual({ [user.id]: 500 });
   });
-
-  it('stores Stripe configuration ciphertext and audits changes', async () => {
-    await database.billingConfig.setStripe({
-      secretKeyCiphertext: 'v1.secret',
-      webhookSecretCiphertext: 'v1.webhook',
-      actorClerkUserId: 'admin-1',
-    });
-    await expect(database.billingConfig.getStripe()).resolves.toMatchObject({
-      provider: 'stripe',
-      secretKeyCiphertext: 'v1.secret',
-      webhookSecretCiphertext: 'v1.webhook',
-      updatedByClerkUserId: 'admin-1',
-    });
-
-    await database.billingConfig.clearStripe('admin-2');
-    await expect(database.billingConfig.getStripe()).resolves.toBeUndefined();
-    const audit = await connection!.query(
-      'SELECT action, actor_clerk_user_id FROM billing_config_audit_events ORDER BY created_at',
-    );
-    expect(audit.rows).toEqual([
-      { action: 'configured', actor_clerk_user_id: 'admin-1' },
-      { action: 'cleared', actor_clerk_user_id: 'admin-2' },
-    ]);
-  });
 });

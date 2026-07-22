@@ -2,8 +2,7 @@
 
 import { createApp, type AppDependencies, type AppType } from '../backend/app';
 import { createClerkAuthService } from '../backend/auth/clerk-auth';
-import { createBillingConfigurationStore } from '../backend/billing/configuration-store';
-import { createManagedStripeBillingService } from '../backend/billing/managed-stripe-billing';
+import { createStripeBillingService } from '../backend/billing/stripe-billing';
 import { FailOpenCache } from '../backend/cache/fail-open-cache';
 import { KvCache } from '../backend/cache/kv-cache';
 import { parseWorkerConfig } from '../backend/config/worker-config';
@@ -45,13 +44,7 @@ function createDependencies(env: WorkerEnv): AppDependencies {
 
   return {
     auth: createClerkAuthService(config.clerkAuth),
-    billing: createManagedStripeBillingService({
-      ...config.billing,
-      configurationStore: createBillingConfigurationStore(
-        database.billingConfig,
-        config.billingConfigEncryptionKey,
-      ),
-    }),
+    billing: createStripeBillingService(config.billing),
     database,
     llmSecrets: createLlmProviderSecrets(config.billingConfigEncryptionKey),
     cache,

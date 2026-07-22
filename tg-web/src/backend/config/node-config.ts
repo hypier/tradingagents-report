@@ -4,8 +4,8 @@ import {
   clerkAuthOptionsFromEnv,
   type ClerkAuthOptions,
 } from '../auth/clerk-auth';
-import { isValidBillingEncryptionKey } from '../billing/configuration-store';
 import type { StripeBillingOptions } from '../billing/stripe-billing';
+import { isValidLlmEncryptionKey } from '../llm/provider-secrets';
 
 export type ServerConfig = {
   clerkAuth: ClerkAuthOptions;
@@ -33,7 +33,7 @@ const optionalSecret = z.preprocess(
   z.string().min(1).optional(),
 );
 const optionalBillingEncryptionKey = optionalSecret.refine(
-  (value) => value === undefined || isValidBillingEncryptionKey(value),
+  (value) => value === undefined || isValidLlmEncryptionKey(value),
   'BILLING_CONFIG_ENCRYPTION_KEY must encode exactly 32 bytes',
 );
 

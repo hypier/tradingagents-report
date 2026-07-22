@@ -38,9 +38,10 @@ that are reachable from the development machine:
 - `STRIPE_WEBHOOK_SECRET`: optional Stripe webhook signing secret for
   `/api/stripe/webhook`.
 - `BILLING_CONFIG_ENCRYPTION_KEY`: optional Base64-encoded 32-byte master key.
-  When configured, administrators can store encrypted Stripe credentials and
-  LLM provider API keys (AES-GCM); APIs only return masked hints. Core must use
-  the same key to decrypt LLM keys at analysis runtime.
+  When configured, administrators can store encrypted LLM provider API keys
+  (AES-GCM); APIs only return masked hints. Core must use the same key to
+  decrypt LLM keys at analysis runtime.
+  Stripe credentials use `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` only.
 - `APP_BASE_URL`: public application origin used for Checkout success/cancel,
   Customer Portal return, and webhook URLs.
 
@@ -77,9 +78,8 @@ social accounts, and sessions. Product preferences are stored locally.
 Passwords and Clerk session credentials are never stored by TG-web.
 
 Administrators use `/admin/billing` to inspect connection and webhook status,
-create recurring Stripe Products and Prices, and archive active Prices. When
-`BILLING_CONFIG_ENCRYPTION_KEY` is configured, administrators can validate,
-replace, or clear encrypted Stripe credentials without a service restart.
+create recurring Stripe Products and Prices, and archive active Prices.
+Stripe API keys and webhook secrets come from deployment environment variables.
 The plans tab can idempotently provision the standard USD 20, 50, and 100
 monthly plans, which grant 20, 50, and 100 analysis credits per paid billing
 cycle. Each accepted analysis reserves one credit; rejected jobs release it.
@@ -160,7 +160,7 @@ The Worker requires a KV namespace, a Hyperdrive binding for the external Core
 PostgreSQL database, `CORE_API_URL` plus `CORE_API_KEY`, and the three
 Clerk settings described above as deployment configuration. Stripe billing
 also requires Stripe credentials and `APP_BASE_URL`. Store
-`BILLING_CONFIG_ENCRYPTION_KEY` and any environment-managed Stripe credentials
+`BILLING_CONFIG_ENCRYPTION_KEY` (for LLM API keys) and Stripe credentials
 with Wrangler secret bindings. Configure binding
 IDs in the named Wrangler environment and provide secrets through Wrangler or
 the deployment platform; do not place production values in `wrangler.jsonc`.

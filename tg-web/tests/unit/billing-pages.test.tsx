@@ -28,8 +28,6 @@ const billing = vi.hoisted(() => ({
   createBillingPlan: vi.fn(),
   provisionDefaultBillingPlans: vi.fn(),
   archiveBillingPlan: vi.fn(),
-  updateStripeConfiguration: vi.fn(),
-  clearStripeConfiguration: vi.fn(),
 }));
 
 vi.mock('../../src/frontend/hooks/use-auth-session', () => ({
@@ -132,10 +130,8 @@ beforeEach(() => {
       mode: 'test',
       plans: [plan],
       configurationSource: 'environment',
-      configurationEditable: false,
       secretKeyHint: 'sk_test_...1234',
       webhookSecretHint: 'whsec_...1234',
-      updatedAt: null,
     },
     requestId: 'request-1',
   });
@@ -341,10 +337,8 @@ it('localizes default plans in the Chinese Stripe settings table', async () => {
       mode: 'test',
       plans: [defaultScalePlan()],
       configurationSource: 'environment',
-      configurationEditable: false,
       secretKeyHint: 'sk_test_...1234',
       webhookSecretHint: 'whsec_...1234',
-      updatedAt: null,
     },
     requestId: 'request-1',
   });
@@ -365,66 +359,6 @@ it('localizes default plans in the Chinese Stripe settings table', async () => {
   expect(
     screen.getByRole('button', { name: '归档 专业版 100' }),
   ).toBeInTheDocument();
-});
-
-it('lets an administrator save Stripe credentials without displaying them', async () => {
-  state.role = 'admin';
-  billing.getBillingSettings.mockResolvedValue({
-    data: {
-      configured: false,
-      connectionHealthy: false,
-      webhookConfigured: false,
-      webhookUrl: 'https://app.example.test/api/stripe/webhook',
-      mode: 'unconfigured',
-      plans: [],
-      configurationSource: 'none',
-      configurationEditable: true,
-      secretKeyHint: null,
-      webhookSecretHint: null,
-      updatedAt: null,
-    },
-    requestId: 'request-1',
-  });
-  billing.updateStripeConfiguration.mockResolvedValue({
-    data: {
-      configured: true,
-      connectionHealthy: true,
-      webhookConfigured: true,
-      webhookUrl: 'https://app.example.test/api/stripe/webhook',
-      mode: 'test',
-      plans: [],
-      configurationSource: 'database',
-      configurationEditable: true,
-      secretKeyHint: 'sk_test_...cdef',
-      webhookSecretHint: 'whsec_...cdef',
-      updatedAt: 1,
-    },
-    requestId: 'request-2',
-  });
-  render(
-    <MemoryRouter initialEntries={['/admin/billing']}>
-      <App />
-    </MemoryRouter>,
-  );
-
-  const secretKey = await screen.findByLabelText('Stripe secret key');
-  const webhookSecret = screen.getByLabelText('Webhook signing secret');
-  expect(secretKey).toHaveAttribute('type', 'password');
-  expect(webhookSecret).toHaveAttribute('type', 'password');
-  fireEvent.change(secretKey, {
-    target: { value: 'sk_test_1234567890abcdef' },
-  });
-  fireEvent.change(webhookSecret, {
-    target: { value: 'whsec_1234567890abcdef' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Save and validate' }));
-
-  await waitFor(() =>
-    expect(billing.updateStripeConfiguration).toHaveBeenCalledWith({
-      secretKey: 'sk_test_1234567890abcdef',
-      webhookSecret: 'whsec_1234567890abcdef',
-    }),
-  );
 });
 
 it('lets an administrator preview and save analysis billing settings', async () => {

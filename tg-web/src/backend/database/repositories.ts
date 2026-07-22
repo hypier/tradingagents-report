@@ -2,7 +2,7 @@
  * 仓库组合入口。
  *
  * - 账户 / 计费 / 自选放在独立文件中。
- * - 分析任务、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
+ * - 分析任务等轻量 CRUD 在此内联定义。
  * - LLM 提供商/模型目录见 llm-catalog-repository。
  */
 import { and, desc, eq, gt, gte, inArray, isNotNull, lte, sql } from 'drizzle-orm';
@@ -127,19 +127,6 @@ export type AnalysisJobsRepository = {
   getAdminOverview(input: { from: Date; to: Date }): Promise<AdminOverviewMetrics>;
 };
 
-/** `billing_provider_configs` 的 upsert / 删除辅助。 */
-export type BillingConfigRepository = {
-  getStripe(): Promise<
-    typeof schema.billingProviderConfigs.$inferSelect | undefined
-  >;
-  setStripe(input: {
-    secretKeyCiphertext: string;
-    webhookSecretCiphertext: string;
-    actorClerkUserId: string;
-  }): Promise<void>;
-  clearStripe(actorClerkUserId: string): Promise<void>;
-};
-
 type Database = NodePgDatabase<typeof schema>;
 
 /** 将全部仓库绑定到同一个 Drizzle 数据库实例。 */
@@ -149,7 +136,6 @@ export function createRepositories(database: Database): {
   account: AccountRepository;
   billing: BillingRepository;
   referrals: ReferralRepository;
-  billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
   settings: SystemSettingsRepository;
   markets: MarketsRepository;
@@ -164,53 +150,6 @@ export function createRepositories(database: Database): {
     markets: createMarketsRepository(database),
     audit: createAdminAuditRepository(database),
     llmCatalog: createLlmCatalogRepository(database),
-    billingConfig: {
-      async getStripe() {
-        const [configuration] = await database
-          .select()
-          .from(schema.billingProviderConfigs)
-          .where(eq(schema.billingProviderConfigs.provider, 'stripe'));
-        return configuration;
-      },
-      async setStripe(input) {
-        await database.transaction(async (tx) => {
-          await tx
-            .insert(schema.billingProviderConfigs)
-            .values({
-              provider: 'stripe',
-              secretKeyCiphertext: input.secretKeyCiphertext,
-              webhookSecretCiphertext: input.webhookSecretCiphertext,
-              updatedByClerkUserId: input.actorClerkUserId,
-            })
-            .onConflictDoUpdate({
-              target: schema.billingProviderConfigs.provider,
-              set: {
-                secretKeyCiphertext: input.secretKeyCiphertext,
-                webhookSecretCiphertext: input.webhookSecretCiphertext,
-                updatedByClerkUserId: input.actorClerkUserId,
-                updatedAt: new Date(),
-              },
-            });
-          await tx.insert(schema.billingConfigAuditEvents).values({
-            provider: 'stripe',
-            action: 'configured',
-            actorClerkUserId: input.actorClerkUserId,
-          });
-        });
-      },
-      async clearStripe(actorClerkUserId) {
-        await database.transaction(async (tx) => {
-          await tx
-            .delete(schema.billingProviderConfigs)
-            .where(eq(schema.billingProviderConfigs.provider, 'stripe'));
-          await tx.insert(schema.billingConfigAuditEvents).values({
-            provider: 'stripe',
-            action: 'cleared',
-            actorClerkUserId,
-          });
-        });
-      },
-    },
     analysisJobs: {
       async getById(id) {
         const [analysisJob] = await database

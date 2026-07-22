@@ -46,21 +46,6 @@ const createPlanSchema = z.object({
     ),
 });
 
-const stripeConfigurationSchema = z.object({
-  secretKey: z
-    .string()
-    .trim()
-    .regex(/^sk_(test|live)_[A-Za-z0-9_]+$/)
-    .min(16)
-    .max(256),
-  webhookSecret: z
-    .string()
-    .trim()
-    .regex(/^whsec_[A-Za-z0-9_]+$/)
-    .min(16)
-    .max(256),
-});
-
 const positiveDecimal = (maximumFractionDigits: number) =>
   z
     .string()
@@ -222,33 +207,6 @@ export function billingRoutes(dependencies: AppDependencies) {
       ...input.data,
       actorClerkUserId: context.get('auth').userId,
     });
-    return context.json(apiSuccess(settings, context.get('requestId')));
-  });
-
-  app.post('/admin/billing/configuration', async (context) => {
-    const input = stripeConfigurationSchema.safeParse(
-      await context.req.json().catch(() => null),
-    );
-    if (!input.success) {
-      throw new AppError(
-        'INVALID_STRIPE_CONFIGURATION',
-        400,
-        'Invalid Stripe payment configuration',
-      );
-    }
-    const settings = await callBilling(() =>
-      dependencies.billing.updateConfiguration({
-        ...input.data,
-        actorClerkUserId: context.get('auth').userId,
-      }),
-    );
-    return context.json(apiSuccess(settings, context.get('requestId')));
-  });
-
-  app.post('/admin/billing/configuration/clear', async (context) => {
-    const settings = await callBilling(() =>
-      dependencies.billing.clearConfiguration(context.get('auth').userId),
-    );
     return context.json(apiSuccess(settings, context.get('requestId')));
   });
 

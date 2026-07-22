@@ -10,8 +10,7 @@ import {
   creditAccounts,
   creditLedgerEntries,
   stripeWebhookEvents,
-  billingProviderConfigs,
-  billingConfigAuditEvents,
+  billingSubscriptions,
   systemSettings,
   marketConfigs,
   adminAuditEvents,
@@ -28,13 +27,8 @@ describe('Core table mappings', () => {
     expect(getTableName(accountUsers)).toBe('account_users');
     expect(getTableName(creditAccounts)).toBe('credit_accounts');
     expect(getTableName(creditLedgerEntries)).toBe('credit_ledger_entries');
+    expect(getTableName(billingSubscriptions)).toBe('billing_subscriptions');
     expect(getTableName(stripeWebhookEvents)).toBe('stripe_webhook_events');
-    expect(getTableName(billingProviderConfigs)).toBe(
-      'billing_provider_configs',
-    );
-    expect(getTableName(billingConfigAuditEvents)).toBe(
-      'billing_config_audit_events',
-    );
     expect(getTableName(systemSettings)).toBe('system_settings');
   });
 

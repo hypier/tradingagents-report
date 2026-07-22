@@ -31,6 +31,14 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -39,11 +47,6 @@ import {
 } from '../components/ui/empty';
 import { Skeleton } from '../components/ui/skeleton';
 import { Spinner } from '../components/ui/spinner';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '../components/ui/tooltip';
 import { normalizeUiLocale } from '../i18n/locales';
 import {
   formatLocaleDateTimeValue,
@@ -167,6 +170,7 @@ export function WatchlistPage() {
   const queryClient = useQueryClient();
   const [pendingInstrument, setPendingInstrument] =
     useState<SelectedInstrument | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<WatchlistItem | null>(null);
   const [viewMode, setViewMode] = useState<WatchlistViewMode>(() =>
     loadWatchlistViewMode(),
   );
@@ -190,6 +194,7 @@ export function WatchlistPage() {
   const removeItem = useMutation({
     mutationFn: (itemId: string) => removeWatchlistItem(itemId),
     onSuccess: () => {
+      setRemoveTarget(null);
       void refresh();
       toast.success(t('toasts.removed'));
     },
@@ -257,7 +262,7 @@ export function WatchlistPage() {
             removing={
               removeItem.isPending && removeItem.variables === item.id
             }
-            onRemove={() => removeItem.mutate(item.id)}
+            onRemove={() => setRemoveTarget(item)}
           />
         ))}
       </ul>
@@ -387,6 +392,53 @@ export function WatchlistPage() {
           )}
         </div>
       </PageFrame>
+
+      <Dialog
+        open={Boolean(removeTarget)}
+        onOpenChange={(open) => {
+          if (!open && !removeItem.isPending) setRemoveTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('removeTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('removeBody', {
+                name:
+                  removeTarget?.displayName ||
+                  removeTarget?.displayTicker ||
+                  '',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={removeItem.isPending}
+              onClick={() => setRemoveTarget(null)}
+            >
+              {t('actions.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!removeTarget || removeItem.isPending}
+              onClick={() => {
+                if (!removeTarget) return;
+                removeItem.mutate(removeTarget.id);
+              }}
+            >
+              {removeItem.isPending ? (
+                <LoaderCircle data-icon="inline-start" className="animate-spin" />
+              ) : (
+                <Trash2 data-icon="inline-start" />
+              )}
+              {t('actions.confirmRemove')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
@@ -500,7 +552,7 @@ function WatchlistRow({
           <time
             dateTime={item.createdAt}
             title={t('addedAt', { time: addedLabel })}
-            className="hidden shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground md:block"
+            className="ml-4 hidden shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground md:ml-8 md:block"
           >
             {addedLabel}
           </time>
@@ -520,26 +572,19 @@ function WatchlistRow({
             {t('actions.analyze')}
           </Link>
         </Button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label={t('actions.remove')}
-              onClick={onRemove}
-              disabled={removing}
-            >
-              {removing ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Trash2 className="size-4" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            {t('actions.remove')}
-          </TooltipContent>
-        </Tooltip>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onRemove}
+          disabled={removing}
+        >
+          {removing ? (
+            <LoaderCircle data-icon="inline-start" className="animate-spin" />
+          ) : (
+            <Trash2 data-icon="inline-start" />
+          )}
+          {t('actions.remove')}
+        </Button>
       </div>
     </li>
   );

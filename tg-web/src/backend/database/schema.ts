@@ -221,47 +221,6 @@ export const stripeWebhookEvents = pgTable('stripe_webhook_events', {
     .defaultNow(),
 });
 
-/** 管理员维护的计费提供商凭据（当前为 Stripe，密文存储）。 */
-export const billingProviderConfigs = pgTable('billing_provider_configs', {
-  /** 提供商键；目前仅 `stripe`。 */
-  provider: text('provider').$type<'stripe'>().primaryKey(),
-  /** 加密后的 Stripe secret key 密文。 */
-  secretKeyCiphertext: text('secret_key_ciphertext').notNull(),
-  /** 加密后的 Stripe webhook 签名密钥密文。 */
-  webhookSecretCiphertext: text('webhook_secret_ciphertext').notNull(),
-  /** 最近写入该配置的管理员 Clerk 用户 ID。 */
-  updatedByClerkUserId: text('updated_by_clerk_user_id').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-/** 计费提供商配置变更的审计流水。 */
-export const billingConfigAuditEvents = pgTable(
-  'billing_config_audit_events',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    /** 被变更的提供商。 */
-    provider: text('provider').$type<'stripe'>().notNull(),
-    /** configured | cleared。 */
-    action: text('action').$type<'configured' | 'cleared'>().notNull(),
-    /** 执行操作的 Clerk 管理员。 */
-    actorClerkUserId: text('actor_clerk_user_id').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    index('billing_config_audit_provider_created_idx').on(
-      table.provider,
-      desc(table.createdAt),
-    ),
-  ],
-);
-
 /**
  * 与 tg-core 共享的分析任务持久化。
  * 保存请求快照、进度、最终结果与成本核算。

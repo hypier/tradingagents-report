@@ -11,7 +11,6 @@ import {
   Save,
   ScrollText,
   Search,
-  Trash2,
   Webhook,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -85,14 +84,12 @@ import {
 } from '@/frontend/lib/localize-billing-plan';
 import {
   archiveBillingPlan,
-  clearStripeConfiguration,
   createBillingPlan,
   getAnalysisBillingSettings,
   getBillingSettings,
   listAdminStripeEvents,
   provisionDefaultBillingPlans,
   updateAnalysisBillingSettings,
-  updateStripeConfiguration,
   type AdminStripeWebhookEvent,
 } from '@/frontend/lib/billing';
 
@@ -148,10 +145,6 @@ export function AdminBillingPage() {
   const [plan, setPlan] = useState(() =>
     createInitialPlan(t('billing.defaults.features')),
   );
-  const [stripeConfiguration, setStripeConfiguration] = useState({
-    secretKey: '',
-    webhookSecret: '',
-  });
   const [analysisForm, setAnalysisForm] = useState<AnalysisSettingsForm>({
     analysisBalanceThreshold: String(
       DEFAULT_BILLING_SETTINGS.analysisBalanceThreshold,
@@ -218,23 +211,6 @@ export function AdminBillingPage() {
       toast.success(t('billing.toasts.planArchived'));
     },
     onError: () => toast.error(t('billing.toasts.planArchiveError')),
-  });
-  const updateConfiguration = useMutation({
-    mutationFn: () => updateStripeConfiguration(stripeConfiguration),
-    onSuccess: () => {
-      setStripeConfiguration({ secretKey: '', webhookSecret: '' });
-      refresh();
-      toast.success(t('billing.toasts.configSaved'));
-    },
-    onError: () => toast.error(t('billing.toasts.configSaveError')),
-  });
-  const clearConfiguration = useMutation({
-    mutationFn: () => clearStripeConfiguration(),
-    onSuccess: () => {
-      refresh();
-      toast.success(t('billing.toasts.configCleared'));
-    },
-    onError: () => toast.error(t('billing.toasts.configClearError')),
   });
   const saveAnalysisSettings = useMutation({
     mutationFn: () =>
@@ -410,107 +386,32 @@ export function AdminBillingPage() {
                       </Button>
                     </div>
                   </Field>
-                  {data.configurationEditable && (
-                    <form
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        updateConfiguration.mutate();
-                      }}
-                    >
-                      <FieldGroup className="grid gap-4 md:grid-cols-2">
-                        <Field>
-                          <FieldLabel htmlFor="stripe-secret-key">
-                            {t('billing.connection.secretKey')}
-                          </FieldLabel>
-                          <Input
-                            id="stripe-secret-key"
-                            type="password"
-                            autoComplete="off"
-                            spellCheck={false}
-                            required
-                            minLength={16}
-                            maxLength={256}
-                            placeholder={data.secretKeyHint ?? 'sk_test_...'}
-                            value={stripeConfiguration.secretKey}
-                            onChange={(event) =>
-                              setStripeConfiguration((current) => ({
-                                ...current,
-                                secretKey: event.target.value,
-                              }))
-                            }
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="stripe-webhook-secret">
-                            {t('billing.connection.webhookSecret')}
-                          </FieldLabel>
-                          <Input
-                            id="stripe-webhook-secret"
-                            type="password"
-                            autoComplete="off"
-                            spellCheck={false}
-                            required
-                            minLength={16}
-                            maxLength={256}
-                            placeholder={data.webhookSecretHint ?? 'whsec_...'}
-                            value={stripeConfiguration.webhookSecret}
-                            onChange={(event) =>
-                              setStripeConfiguration((current) => ({
-                                ...current,
-                                webhookSecret: event.target.value,
-                              }))
-                            }
-                          />
-                        </Field>
-                        <Field className="flex-row flex-wrap justify-end md:col-span-2">
-                          {data.configurationSource === 'database' && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              disabled={clearConfiguration.isPending}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    t('billing.connection.clearConfirm'),
-                                  )
-                                ) {
-                                  clearConfiguration.mutate();
-                                }
-                              }}
-                            >
-                              {clearConfiguration.isPending ? (
-                                <Spinner data-icon="inline-start" />
-                              ) : (
-                                <Trash2 data-icon="inline-start" />
-                              )}
-                              {t('billing.connection.clearStored')}
-                            </Button>
-                          )}
-                          <Button
-                            type="submit"
-                            disabled={updateConfiguration.isPending}
-                          >
-                            {updateConfiguration.isPending ? (
-                              <Spinner data-icon="inline-start" />
-                            ) : (
-                              <Save data-icon="inline-start" />
-                            )}
-                            {t('billing.connection.saveValidate')}
-                          </Button>
-                        </Field>
-                      </FieldGroup>
-                    </form>
+                  {(data.secretKeyHint || data.webhookSecretHint) && (
+                    <dl className="grid gap-4 sm:grid-cols-2">
+                      {data.secretKeyHint ? (
+                        <StatusItem
+                          label={t('billing.connection.secretKey')}
+                          value={data.secretKeyHint}
+                          ready={data.configured}
+                        />
+                      ) : null}
+                      {data.webhookSecretHint ? (
+                        <StatusItem
+                          label={t('billing.connection.webhookSecret')}
+                          value={data.webhookSecretHint}
+                          ready={data.webhookConfigured}
+                        />
+                      ) : null}
+                    </dl>
                   )}
-                  {!data.configurationEditable && (
-                    <Alert>
-                      <AlertTitle>
-                        {t('billing.connection.deploymentManaged.title')}
-                      </AlertTitle>
-                      <AlertDescription>
-                        {t('billing.connection.deploymentManaged.body')}
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                  <Alert>
+                    <AlertTitle>
+                      {t('billing.connection.deploymentManaged.title')}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {t('billing.connection.deploymentManaged.body')}
+                    </AlertDescription>
+                  </Alert>
                   {data.configured && !data.connectionHealthy && (
                     <Alert variant="destructive">
                       <AlertTitle>

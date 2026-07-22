@@ -101,8 +101,6 @@ describe('Cloudflare Worker runtime', () => {
       createPlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
-      updateConfiguration: vi.fn(),
-      clearConfiguration: vi.fn(),
       handleWebhook: vi.fn(),
     },
     database: {

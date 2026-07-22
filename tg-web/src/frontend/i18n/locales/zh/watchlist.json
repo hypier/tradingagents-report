@@ -13,8 +13,12 @@
   "actions": {
     "quote": "行情",
     "analyze": "分析",
-    "remove": "移除"
+    "remove": "移除",
+    "cancel": "取消",
+    "confirmRemove": "确认移除"
   },
+  "removeTitle": "移除自选",
+  "removeBody": "确定将「{{name}}」从自选中移除吗？",
   "view": {
     "label": "视图",
     "grouped": "按市场",

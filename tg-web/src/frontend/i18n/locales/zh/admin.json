@@ -115,16 +115,13 @@
       "copyError": "无法复制端点。",
       "secretKey": "Stripe Secret Key",
       "webhookSecret": "Webhook 签名密钥",
-      "clearStored": "清除已存储配置",
-      "clearConfirm": "确定清除已存储的 Stripe 配置？",
-      "saveValidate": "保存并验证",
       "deploymentManaged": {
         "title": "部署环境托管配置",
-        "body": "为此部署启用加密计费配置后，即可在此更改 Stripe 凭据。"
+        "body": "Stripe 凭据来自环境变量 STRIPE_SECRET_KEY 与 STRIPE_WEBHOOK_SECRET。请在部署环境中更新后重启服务。"
       },
       "connectionFailed": {
         "title": "Stripe 连接失败",
-        "body": "请替换或清除已存储凭据，或检查 Stripe 服务可用性。"
+        "body": "请检查部署环境中的 STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET，或 Stripe 服务可用性。"
       },
       "mode": {
         "test": "测试模式",
@@ -132,7 +129,6 @@
         "unconfigured": "未配置"
       },
       "source": {
-        "database": "管理员托管",
         "environment": "部署环境变量",
         "none": "未配置"
       }
@@ -227,10 +223,6 @@
       "defaultsProvisionError": "无法初始化默认月付套餐。",
       "planArchived": "订阅套餐已归档。",
       "planArchiveError": "无法归档订阅套餐。",
-      "configSaved": "Stripe 配置已保存。",
-      "configSaveError": "无法验证或保存 Stripe 设置。",
-      "configCleared": "已清除存储的 Stripe 配置。",
-      "configClearError": "无法清除 Stripe 设置。",
       "invalidPrice": "请输入至少 0.50 的有效价格。",
       "invalidCredits": "请输入至少一个分析额度。"
     },

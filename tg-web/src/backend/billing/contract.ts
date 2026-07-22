@@ -98,17 +98,10 @@ export type BillingSettings = {
   webhookUrl: string;
   mode: 'test' | 'live' | 'unconfigured';
   plans: BillingPlan[];
-  configurationSource: 'database' | 'environment' | 'none';
-  configurationEditable: boolean;
+  /** Stripe 密钥仅来自部署环境变量。 */
+  configurationSource: 'environment' | 'none';
   secretKeyHint: string | null;
   webhookSecretHint: string | null;
-  updatedAt: number | null;
-};
-
-export type UpdateStripeConfigurationInput = {
-  secretKey: string;
-  webhookSecret: string;
-  actorClerkUserId: string;
 };
 
 /** Account-level Stripe money summary for an admin overview window. */
@@ -188,10 +181,6 @@ export interface BillingService {
   createPlan(input: CreateBillingPlanInput): Promise<BillingPlan>;
   provisionDefaultPlans(): Promise<BillingPlan[]>;
   archivePlan(priceId: string): Promise<void>;
-  updateConfiguration(
-    input: UpdateStripeConfigurationInput,
-  ): Promise<BillingSettings>;
-  clearConfiguration(actorClerkUserId: string): Promise<BillingSettings>;
   handleWebhook(
     payload: string,
     signature: string,

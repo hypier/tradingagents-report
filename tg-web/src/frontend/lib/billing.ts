@@ -81,25 +81,6 @@ export const updateRewardsSettings = (
     'PUT',
   );
 
-export const updateStripeConfiguration = (
-  input: { secretKey: string; webhookSecret: string },
-  fetchImplementation?: FetchImplementation,
-) =>
-  write<BillingSettings>(
-    '/api/admin/billing/configuration',
-    input,
-    fetchImplementation,
-  );
-
-export const clearStripeConfiguration = (
-  fetchImplementation?: FetchImplementation,
-) =>
-  write<BillingSettings>(
-    '/api/admin/billing/configuration/clear',
-    undefined,
-    fetchImplementation,
-  );
-
 export const createCheckout = (
   priceId: string,
   fetchImplementation?: FetchImplementation,

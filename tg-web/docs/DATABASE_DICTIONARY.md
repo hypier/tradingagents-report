@@ -6,14 +6,14 @@
 
 ## 1. 概述
 
-本库共 14 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。**计费**与**积分**分属两个域：Stripe 订阅/支付镜像归计费；钱包、账本与分析扣分归积分。分析扣分汇率与门槛保存在 `system_settings.billing`，奖励保存在 `system_settings.rewards`；不再使用预扣表或独立计费配置表。
+本库共 12 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。**计费**与**积分**分属两个域：Stripe 订阅/支付镜像归计费；钱包、账本与分析扣分归积分。Stripe 凭据仅通过部署环境变量配置，不落库。分析扣分汇率与门槛保存在 `system_settings.billing`，奖励保存在 `system_settings.rewards`；不再使用预扣表或独立计费配置表。
 
 ### 1.1 域划分
 
 | 域 | 物理表 | 说明 |
 | --- | --- | --- |
 | 账户 | `account_users` | Clerk 同步资料、偏好与推荐关系（`referred_by_clerk_user_id`） |
-| 计费 | `billing_subscriptions`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events` | Stripe 订阅镜像、Webhook 幂等、提供商凭据；周期发分写入积分账本（跨域写） |
+| 计费 | `billing_subscriptions`, `stripe_webhook_events` | Stripe 订阅镜像与 Webhook 幂等；凭据来自环境变量；周期发分写入积分账本（跨域写） |
 | 积分 | `credit_accounts`, `credit_ledger_entries` | 可用/已消费余额与不可变流水；分析门槛/汇率见 `system_settings.billing`，奖励见 `system_settings.rewards`；结算快照在 `analysis_jobs.credit_pricing` |
 | 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化（含 `clerk_user_id` / `credit_pricing`） |
 | LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
@@ -27,7 +27,7 @@
 | 主键命名 | 账户相关以 `clerk_user_id` 为用户主键；业务表多用 `uuid` |
 | 时间戳 | 带时区（`timestamptz`），常见字段为 `created_at` / `updated_at` |
 | 软删除 | 当前 schema 无通用 soft-delete |
-| 密文 | Stripe / LLM API Key 以 ciphertext 字段存储，不以明文落库 |
+| 密文 | LLM API Key 以 ciphertext 字段存储，不以明文落库；Stripe 凭据不落库 |
 | 金额 / 积分 | 计费侧美元多为 `numeric`；积分侧余额与流水为 `bigint`（`mode: 'number'`） |
 | 级联 | 指向 `account_users` / `llm_providers` 的外键多为 `ON DELETE CASCADE` |
 
@@ -113,7 +113,7 @@ erDiagram
 
 ### 2.3 计费（Stripe 订阅与支付）
 
-订阅与支付状态由 Stripe 权威持有；本域只保存本地镜像与凭据审计。周期发分等副作用写入**积分**域账本，不在本 ER 中混画钱包表。
+订阅与支付状态由 Stripe 权威持有；本域只保存本地订阅镜像与 webhook 幂等日志。Stripe Secret / Webhook Secret 仅通过部署环境变量注入。周期发分等副作用写入**积分**域账本，不在本 ER 中混画钱包表。
 
 ```mermaid
 erDiagram
@@ -136,21 +136,6 @@ erDiagram
         jsonb payload
         timestamptz received_at
         timestamptz processed_at
-    }
-
-    billing_provider_configs {
-        text provider PK
-        text secret_key_ciphertext
-        text webhook_secret_ciphertext
-        text updated_by_clerk_user_id
-    }
-
-    billing_config_audit_events {
-        uuid id PK
-        text provider
-        text action
-        text actor_clerk_user_id
-        timestamptz created_at
     }
 ```
 
@@ -265,7 +250,7 @@ erDiagram
 
 ### 2.8 系统设置 / 市场 / 操作日志（无用户 FK 或弱关联）
 
-计费域表（Webhook、提供商凭据）见 §2.3；此处只列配置与审计载体。`system_settings` 的 `billing` / `rewards` 键逻辑上归属**积分**域。
+计费域表（Webhook）见 §2.3；此处只列配置与审计载体。`system_settings` 的 `billing` / `rewards` 键逻辑上归属**积分**域。
 
 ```mermaid
 erDiagram
@@ -307,8 +292,6 @@ flowchart TB
     subgraph Billing["计费"]
         BS[billing_subscriptions]
         SWE[stripe_webhook_events]
-        BPC[billing_provider_configs]
-        BCA[billing_config_audit_events]
     end
 
     subgraph Credits["积分"]
@@ -483,43 +466,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ---
 
-### 3.6 `billing_provider_configs`
-
-**域：计费。** 管理员维护的计费提供商凭据（当前为 Stripe，密文存储）。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `provider` | `text` | N | — | **PK**。提供商键；目前仅 `stripe` |
-| `secret_key_ciphertext` | `text` | N | — | 加密后的 Stripe secret key 密文 |
-| `webhook_secret_ciphertext` | `text` | N | — | 加密后的 Stripe webhook 签名密钥密文 |
-| `updated_by_clerk_user_id` | `text` | N | — | 最近写入该配置的管理员 Clerk 用户 ID |
-| `created_at` | `timestamptz` | N | `now()` | 创建时间 |
-| `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
-
----
-
-### 3.7 `billing_config_audit_events`
-
-**域：计费。** 计费提供商配置变更的审计流水。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `id` | `uuid` | N | `gen_random_uuid()` | **PK** |
-| `provider` | `text` | N | — | 被变更的提供商（当前 `stripe`） |
-| `action` | `text` | N | — | `configured` \| `cleared` |
-| `actor_clerk_user_id` | `text` | N | — | 执行操作的 Clerk 管理员 |
-| `created_at` | `timestamptz` | N | `now()` | 事件时间 |
-
-**索引 / 约束**
-
-| 名称 | 类型 | 列 |
-| --- | --- | --- |
-| `billing_config_audit_events_pkey` | PRIMARY KEY | `id` |
-| `billing_config_audit_provider_created_idx` | INDEX | `(provider, created_at DESC)` |
-
----
-
-### 3.8 `analysis_jobs`
+### 3.6 `analysis_jobs`
 
 与 tg-core 共享的分析任务持久化。保存请求快照、进度、最终结果与成本核算。产品侧任务在创建时写入所有者与计费快照；Core 在成功或用户取消终态按快照扣积分，系统失败不扣。
 
@@ -567,7 +514,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ---
 
-### 3.9 `llm_providers`
+### 3.7 `llm_providers`
 
 管理员配置的 LLM 提供商实例（含加密 API Key）。
 
@@ -594,7 +541,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ---
 
-### 3.10 `llm_models`
+### 3.8 `llm_models`
 
 管理员纳管的 LLM 模型目录；`enabled` 表示对用户开放。
 
@@ -631,7 +578,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ---
 
-### 3.11 `watchlist_items`
+### 3.9 `watchlist_items`
 
 用户自选股收藏条目（按 listing 字段去规范化，无分组与标签）。
 
@@ -659,7 +606,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ---
 
-### 3.12 `system_settings`（导出名：`systemSettings`）
+### 3.10 `system_settings`（导出名：`systemSettings`）
 
 系统级 JSON 设置（一行一个 `key`）。除维护公告、功能开关、免责声明、告警 webhook、默认 LLM 外，还承载**积分域**配置（物理上存本表，逻辑归属积分域）：
 
@@ -730,7 +677,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 迁移约定：旧 `credit_billing_settings.signup_grant_*` → `rewards.signup`；旧 `referral_reward_*` → `rewards.referral`；`campaign` 默认关闭。
 
-### 3.13 `market_configs`（导出名：`marketConfigs`）
+### 3.11 `market_configs`（导出名：`marketConfigs`）
 
 可运营市场配置。与代码侧 `shared/product-markets.ts` 的 `PRODUCT_MARKET_CATALOG` 保持同一套市场码；运行时以本表为准，代码目录仅作校验与空库回退。
 
@@ -748,7 +695,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ---
 
-### 3.14 `admin_audit_events`
+### 3.12 `admin_audit_events`
 
 管理员操作日志（追加写）。管理端 `/admin/audit` 检索；写操作在 settings / markets / LLM / 用户 / 积分调整等路径写入。
 
@@ -801,8 +748,6 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 | `credit_ledger_entries.entry_type` | `grant` \| `consume` \| `adjustment`（历史可含 `reserve` / `release`） |
 | `credit_ledger_entries.reference_type`（约定） | 含 `signup_grant`、`referral_reward`、`analysis_job`、`stripe_invoice` 等 |
 | `stripe_webhook_events.status` | `processing` \| `processed` \| `failed` \| `ignored` |
-| `billing_provider_configs.provider` | `stripe` |
-| `billing_config_audit_events.action` | `configured` \| `cleared` |
 | `analysis_jobs.status` | `queued` \| `running` \| `succeeded` \| `failed`（CHECK） |
 | `system_settings.key`（约定） | 含 `billing`、`rewards`、`maintenance`、`features`、`disclaimer`、`alerts`、`llm` |
 

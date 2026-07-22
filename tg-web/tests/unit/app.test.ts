@@ -63,10 +63,8 @@ function fakeDependencies(
         mode: 'test',
         plans: [],
         configurationSource: 'environment',
-        configurationEditable: false,
         secretKeyHint: 'sk_test_...test',
         webhookSecretHint: 'whsec_...test',
-        updatedAt: null,
       }),
       getAdminPeriodSummary: vi.fn().mockResolvedValue({
         currency: 'USD',
@@ -84,8 +82,6 @@ function fakeDependencies(
       createPlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
-      updateConfiguration: vi.fn(),
-      clearConfiguration: vi.fn(),
       handleWebhook: vi
         .fn()
         .mockResolvedValue({ id: 'evt_test', type: 'invoice.paid' }),
@@ -989,37 +985,6 @@ describe('createApp', () => {
 
     expect(response.status).toBe(400);
     expect(dependencies.billing.createPortal).not.toHaveBeenCalled();
-  });
-
-  it('lets an administrator update encrypted Stripe configuration', async () => {
-    const dependencies = fakeDependencies();
-    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
-      id: 'user-1',
-      displayName: 'Admin User',
-      email: 'admin@example.test',
-      imageUrl: '',
-      role: 'admin',
-    });
-    vi.mocked(dependencies.billing.updateConfiguration).mockResolvedValue(
-      await dependencies.billing.getSettings(),
-    );
-    const app = createApp(dependencies);
-
-    const response = await app.request('/api/admin/billing/configuration', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        secretKey: 'sk_test_1234567890abcdef',
-        webhookSecret: 'whsec_1234567890abcdef',
-      }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(dependencies.billing.updateConfiguration).toHaveBeenCalledWith({
-      secretKey: 'sk_test_1234567890abcdef',
-      webhookSecret: 'whsec_1234567890abcdef',
-      actorClerkUserId: 'user-1',
-    });
   });
 
   it('lets an administrator create a recurring Stripe plan', async () => {

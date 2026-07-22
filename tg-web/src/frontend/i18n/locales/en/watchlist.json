@@ -13,8 +13,12 @@
   "actions": {
     "quote": "Quote",
     "analyze": "Analyze",
-    "remove": "Remove"
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "confirmRemove": "Remove"
   },
+  "removeTitle": "Remove from watchlist",
+  "removeBody": "Remove “{{name}}” from your watchlist?",
   "view": {
     "label": "View",
     "grouped": "By market",
