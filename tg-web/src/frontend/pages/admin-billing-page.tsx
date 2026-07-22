@@ -647,29 +647,32 @@ function AnalysisSettingsEditor({
   onSubmit(): void;
 }) {
   const { t } = useTranslation('admin');
-  const pointsPerUsd = Number(value.pointsPerUsd);
-  const markupBasisPoints = Math.round(Number(value.markupPercent) * 100);
   const cost = Number(value.sampleCostUsd);
-  const preview =
-    [pointsPerUsd, markupBasisPoints, cost].every(Number.isFinite) &&
-    pointsPerUsd > 0 &&
+  const pointsPerUsd = Number(value.pointsPerUsd);
+  const markupPercent = Number(value.markupPercent);
+  const markupBasisPoints = Math.round(markupPercent * 100);
+  const previewValid =
+    [cost, pointsPerUsd, markupBasisPoints].every(Number.isFinite) &&
     cost >= 0 &&
-    markupBasisPoints >= 0
-      ? Math.ceil(
-          (cost * pointsPerUsd * (10_000 + markupBasisPoints)) / 10_000,
-        )
-      : 0;
+    pointsPerUsd > 0 &&
+    markupBasisPoints >= 0;
+  const preview = previewValid
+    ? Math.ceil((cost * pointsPerUsd * (10_000 + markupBasisPoints)) / 10_000)
+    : null;
+  const formula = previewValid
+    ? t('billing.credits.formula', {
+        cost: value.sampleCostUsd,
+        pointsPerUsd: value.pointsPerUsd,
+        markup: value.markupPercent,
+        count: preview,
+      })
+    : t('billing.credits.formulaInvalid');
 
   if (loading) return <Skeleton className="h-72 w-full" />;
   return (
     <SectionPanel
       title={t('billing.credits.title')}
       description={t('billing.credits.description')}
-      actions={
-        <Badge variant="secondary">
-          {t('billing.credits.preview', { count: preview })}
-        </Badge>
-      }
     >
       <form
         onSubmit={(event) => {
@@ -745,7 +748,12 @@ function AnalysisSettingsEditor({
               }
             />
             <p className="text-xs text-muted-foreground">
-              {t('billing.credits.formula')}
+              {t('billing.credits.sampleCostHint')}
+            </p>
+          </Field>
+          <Field className="md:col-span-2">
+            <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-sm">
+              {formula}
             </p>
           </Field>
           <Field className="justify-end md:col-span-2 md:items-end">

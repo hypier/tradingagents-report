@@ -369,8 +369,14 @@ it('lets an administrator preview and save analysis billing settings', async () 
     </MemoryRouter>,
   );
 
-  expect(await screen.findByLabelText('Points per USD')).toBeInTheDocument();
-  expect(screen.getByText('110 points')).toBeInTheDocument();
+  expect(
+    await screen.findByLabelText('Points per USD'),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Sample $1 AI cost: ceil(1 × 100 × (1 + 10%)) = 110 points',
+    ),
+  ).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Points per USD'), {
     target: { value: '200' },
   });
