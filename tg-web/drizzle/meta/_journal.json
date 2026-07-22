@@ -99,6 +99,13 @@
       "when": 1784700000000,
       "tag": "0013_rename_system_settings_and_market_configs",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784710000000,
+      "tag": "0014_fold_referral_into_account_users",
+      "breakpoints": true
     }
   ]
 }

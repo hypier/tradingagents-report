@@ -224,17 +224,12 @@ describe('Node database', () => {
       },
     ]);
     const relationships = await connection!.query(
-      'SELECT * FROM referral_relationships WHERE invitee_clerk_user_id = $1',
+      'SELECT referred_by_clerk_user_id FROM account_users WHERE clerk_user_id = $1',
       [invitee.id],
     );
-    expect(relationships.rows).toHaveLength(1);
-    expect(relationships.rows[0]).toMatchObject({
-      inviter_clerk_user_id: inviter.id,
-      signup_grant_usd: '5.00',
-      signup_grant_points: '500',
-      referral_reward_usd: '2.00',
-      referral_reward_points: '200',
-    });
+    expect(relationships.rows).toEqual([
+      { referred_by_clerk_user_id: inviter.id },
+    ]);
   });
 
   it('grants welcome credits without an invitation', async () => {

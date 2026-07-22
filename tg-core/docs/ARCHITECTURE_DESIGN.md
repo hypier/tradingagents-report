@@ -491,9 +491,9 @@ actual   = max(1, ceil(cost_usd * (1 + markup) * points_per_usd))  其他情况
 
 管理员配置更新在锁定 singleton 设置行后与 `credit_billing_setting_events` 审计同事务写入；人工调点只修改可用积分并写入幂等 `adjustment` 账本，不允许人工扣成负数。积分余额与账本增量使用 PostgreSQL `bigint`。所有共享表结构仍由 TG-web Drizzle 迁移维护，Core 只校验结算所需表和列，不执行 DDL。
 
-新用户赠送和邀请奖励复用同一积分账户与账本，不创建虚构的免费订阅。`account_users.referral_code` 是长期稳定的邀请码，`onboarding_completed_at` 是首访结算完成标记；`referral_relationships` 以 invitee 为唯一身份，保存 inviter、邀请码以及结算时的 `points_per_usd`、美元金额和积分快照。`credit_billing_settings.signup_grant_usd` 与 `referral_reward_usd` 默认分别为 `5.00` 和 `2.00`，管理员可设置为非负、最多两位小数的金额。
+新用户赠送和邀请奖励复用同一积分账户与账本，不创建虚构的免费订阅。`account_users.referral_code` 是长期稳定的邀请码，`referred_by_clerk_user_id` 记录邀请人，`onboarding_completed_at` 是首访结算完成标记；奖励金额与结算时定价快照写入 `credit_ledger_entries.metadata`（`reference_type = signup_grant` / `referral_reward`）。`credit_billing_settings.signup_grant_usd` 与 `referral_reward_usd` 默认分别为 `5.00` 和 `2.00`，管理员可设置为非负、最多两位小数的金额。
 
-公开 `GET /invite/:code` 只校验邀请码并写入 30 天的 HttpOnly 归因 Cookie。Clerk 用户首次已认证请求在一个 PostgreSQL 事务中完成用户同步、积分账户创建、用户行锁定、新用户赠送、有效邀请关系写入、邀请人奖励和 onboarding 标记。换算公式为 `ceil(amount_usd * points_per_usd)`，不使用分析预扣的 markup 或 buffer；账本幂等键分别为 `signup:<userId>:grant` 和 `referral:<inviteeId>:reward`。数据库事务或后续请求处理失败时保留 Cookie，完整请求成功后才清除，因此可安全重试。历史用户由迁移统一回填邀请码并标记 onboarding 完成，不补发积分。
+公开 `GET /invite/:code` 只校验邀请码并写入 30 天的 HttpOnly 归因 Cookie。Clerk 用户首次已认证请求在一个 PostgreSQL 事务中完成用户同步、积分账户创建、用户行锁定、新用户赠送、有效邀请关系写入（`referred_by_clerk_user_id`）、邀请人奖励和 onboarding 标记。换算公式为 `ceil(amount_usd * points_per_usd)`，不使用分析预扣的 markup 或 buffer；账本幂等键分别为 `signup:<userId>:grant` 和 `referral:<inviteeId>:reward`。数据库事务或后续请求处理失败时保留 Cookie，完整请求成功后才清除，因此可安全重试。历史用户由迁移统一回填邀请码并标记 onboarding 完成，不补发积分。
 
 ## 13. 部署方式
 

@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import type { ReferralSummary } from '../account/contract';
@@ -86,24 +86,20 @@ export function createReferralRepository(
           ? await findInviter(tx, referralCode, user.id)
           : undefined;
         if (inviter) {
-          const [relationship] = await tx
-            .insert(schema.referralRelationships)
-            .values({
-              inviteeClerkUserId: user.id,
-              inviterClerkUserId: inviter.clerkUserId,
-              referralCode: inviter.referralCode,
-              pointsPerUsd: settings.pointsPerUsd,
-              signupGrantUsd: settings.signupGrantUsd,
-              signupGrantPoints,
-              referralRewardUsd: settings.referralRewardUsd,
-              referralRewardPoints,
+          await tx
+            .update(schema.accountUsers)
+            .set({
+              referredByClerkUserId: inviter.clerkUserId,
+              updatedAt: new Date(),
             })
-            .onConflictDoNothing()
-            .returning({
-              inviteeClerkUserId:
-                schema.referralRelationships.inviteeClerkUserId,
-            });
-          if (relationship && referralRewardPoints > 0) {
+            .where(
+              and(
+                eq(schema.accountUsers.clerkUserId, user.id),
+                isNull(schema.accountUsers.referredByClerkUserId),
+              ),
+            );
+
+          if (referralRewardPoints > 0) {
             const [entry] = await tx
               .insert(schema.creditLedgerEntries)
               .values({
@@ -143,7 +139,7 @@ export function createReferralRepository(
     },
 
     async getSummary(clerkUserId) {
-      const [user, aggregate] = await Promise.all([
+      const [user, aggregate, earned] = await Promise.all([
         database
           .select({ referralCode: schema.accountUsers.referralCode })
           .from(schema.accountUsers)
@@ -152,19 +148,29 @@ export function createReferralRepository(
         database
           .select({
             successfulReferrals: sql<number>`count(*)::int`,
-            earnedCredits: sql<number>`coalesce(sum(${schema.referralRelationships.referralRewardPoints}), 0)::bigint`,
           })
-          .from(schema.referralRelationships)
+          .from(schema.accountUsers)
+          .where(eq(schema.accountUsers.referredByClerkUserId, clerkUserId))
+          .then((rows) => rows[0]),
+        database
+          .select({
+            earnedCredits: sql<number>`coalesce(sum(${schema.creditLedgerEntries.availableDelta}), 0)::bigint`,
+          })
+          .from(schema.creditLedgerEntries)
           .where(
-            eq(schema.referralRelationships.inviterClerkUserId, clerkUserId),
+            and(
+              eq(schema.creditLedgerEntries.clerkUserId, clerkUserId),
+              eq(schema.creditLedgerEntries.referenceType, 'referral_reward'),
+            ),
           )
           .then((rows) => rows[0]),
       ]);
       if (!user) throw new Error('Account profile not found');
+
       return {
         referralPath: `/invite/${user.referralCode}`,
         successfulReferrals: aggregate?.successfulReferrals ?? 0,
-        earnedCredits: Number(aggregate?.earnedCredits ?? 0),
+        earnedCredits: Number(earned?.earnedCredits ?? 0),
       };
     },
   };

@@ -6,14 +6,14 @@
 
 ## 1. 概述
 
-本库共 19 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。支付由 Stripe 托管，本库保存订阅镜像、积分账本与 webhook 幂等日志。
+本库共 18 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。支付由 Stripe 托管，本库保存订阅镜像、积分账本与 webhook 幂等日志。
 
 ### 1.1 域划分
 
 | 域 | 物理表 | 说明 |
 | --- | --- | --- |
-| 账户 | `account_users` | Clerk 同步资料与偏好 |
-| 计费 / 积分 | `billing_subscriptions`, `credit_accounts`, `credit_billing_settings`, `credit_billing_setting_events`, `referral_relationships`, `credit_reservations`, `credit_ledger_entries`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events`, `credit_rules` | Stripe 订阅、积分钱包、预留结算、推荐奖励、计费配置 |
+| 账户 | `account_users` | Clerk 同步资料、偏好与推荐关系（`referred_by_clerk_user_id`） |
+| 计费 / 积分 | `billing_subscriptions`, `credit_accounts`, `credit_billing_settings`, `credit_billing_setting_events`, `credit_reservations`, `credit_ledger_entries`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events`, `credit_rules` | Stripe 订阅、积分钱包、预留结算、推荐奖励流水、计费配置 |
 | 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化 |
 | LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
 | 自选股 | `watchlist_items` | 每用户收藏的标的 |
@@ -42,8 +42,7 @@ erDiagram
     account_users ||--|| credit_accounts : owns
     account_users ||--o{ credit_reservations : reserves
     account_users ||--o{ credit_ledger_entries : ledger
-    account_users ||--o{ referral_relationships : invitee
-    account_users ||--o{ referral_relationships : inviter
+    account_users ||--o{ account_users : "referred_by"
     account_users ||--o{ watchlist_items : owns
 
     credit_reservations }o--o| analysis_jobs : settles
@@ -55,6 +54,7 @@ erDiagram
         text email
         text stripe_customer_id UK
         text referral_code UK
+        text referred_by_clerk_user_id FK
     }
 
     analysis_jobs {
@@ -90,6 +90,8 @@ erDiagram
 
 ```mermaid
 erDiagram
+    account_users ||--o{ account_users : "referred_by"
+
     account_users {
         text clerk_user_id PK
         text display_name
@@ -101,6 +103,7 @@ erDiagram
         text default_market
         text stripe_customer_id UK_null
         text referral_code UK
+        text referred_by_clerk_user_id FK_null
         timestamptz onboarding_completed_at
         timestamptz created_at
         timestamptz updated_at
@@ -115,8 +118,7 @@ erDiagram
     account_users ||--|| credit_accounts : wallet
     account_users ||--o{ credit_reservations : reservations
     account_users ||--o{ credit_ledger_entries : entries
-    account_users ||--o{ referral_relationships : as_invitee
-    account_users ||--o{ referral_relationships : as_inviter
+    account_users ||--o{ account_users : "referred_by"
     credit_reservations }o--o| analysis_jobs : "analysis_job_id (logical)"
 
     billing_subscriptions {
@@ -153,14 +155,6 @@ erDiagram
         text idempotency_key UK
         text reference_type
         text reference_id
-    }
-
-    referral_relationships {
-        text invitee_clerk_user_id PK_FK
-        text inviter_clerk_user_id FK
-        text referral_code
-        bigint signup_grant_points
-        bigint referral_reward_points
     }
 
     credit_billing_settings {
@@ -327,7 +321,6 @@ flowchart TB
         CA[credit_accounts]
         CR[credit_reservations]
         CL[credit_ledger_entries]
-        RR[referral_relationships]
         CBS[credit_billing_settings]
         CRules[credit_rules]
         SWE[stripe_webhook_events]
@@ -393,17 +386,20 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 | `default_market` | `text` | N | `'US'` | 默认市场：`US` \| `HK` \| `CN` \| `CRYPTO` |
 | `stripe_customer_id` | `text` | Y | — | 关联的 Stripe Customer ID（`cus_...`）；创建前为 null |
 | `referral_code` | `text` | N | — | 用户专属推荐码 |
+| `referred_by_clerk_user_id` | `text` | Y | — | **自引用 FK → account_users**（`ON DELETE SET NULL`）。邀请人；无邀请时为 null |
 | `onboarding_completed_at` | `timestamptz` | Y | — | 完成 onboarding 的时间 |
 | `created_at` | `timestamptz` | N | `now()` | 创建时间 |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 
 **索引 / 约束**
 
-| 名称 | 类型 | 列 |
+| 名称 | 类型 | 列 / 表达式 |
 | --- | --- | --- |
 | `account_users_pkey` | PRIMARY KEY | `clerk_user_id` |
 | `account_users_stripe_customer_key` | UNIQUE（部分，`stripe_customer_id IS NOT NULL`） | `stripe_customer_id` |
 | `account_users_referral_code_key` | UNIQUE | `referral_code` |
+| `account_users_referred_by_idx` | INDEX | `referred_by_clerk_user_id` |
+| `account_users_referred_by_distinct_check` | CHECK | `referred_by_clerk_user_id IS NULL OR referred_by_clerk_user_id <> clerk_user_id` |
 
 ---
 
@@ -481,33 +477,7 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ---
 
-### 3.6 `referral_relationships`
-
-邀请关系及发放时锁定的奖励快照。约束：邀请人 ≠ 被邀请人。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `invitee_clerk_user_id` | `text` | N | — | **PK / FK → account_users**（CASCADE）。被邀请人 |
-| `inviter_clerk_user_id` | `text` | N | — | **FK → account_users**（CASCADE）。邀请人 |
-| `referral_code` | `text` | N | — | 使用的推荐码 |
-| `points_per_usd` | `numeric(18,6)` | N | — | 发放时锁定的积分汇率 |
-| `signup_grant_usd` | `numeric(18,2)` | N | — | 注册赠送美元快照 |
-| `signup_grant_points` | `bigint` | N | — | 注册赠送积分数 |
-| `referral_reward_usd` | `numeric(18,2)` | N | — | 推荐奖励美元快照 |
-| `referral_reward_points` | `bigint` | N | — | 推荐奖励积分数 |
-| `created_at` | `timestamptz` | N | `now()` | 建立时间 |
-
-**索引 / 约束**
-
-| 名称 | 类型 | 列 / 表达式 |
-| --- | --- | --- |
-| `referral_relationships_pkey` | PRIMARY KEY | `invitee_clerk_user_id` |
-| `referral_relationships_inviter_created_idx` | INDEX | `(inviter_clerk_user_id, created_at DESC)` |
-| `referral_relationships_distinct_users_check` | CHECK | `invitee_clerk_user_id <> inviter_clerk_user_id` |
-
----
-
-### 3.7 `credit_reservations`
+### 3.6 `credit_reservations`
 
 单次分析请求的幂等积分预留。主键为客户端/API 的 `request_id`。
 
@@ -539,9 +509,9 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ---
 
-### 3.8 `credit_ledger_entries`
+### 3.7 `credit_ledger_entries`
 
-追加写的积分变动流水（发放、预留、释放等）。
+追加写的积分变动流水（发放、预留、释放等）。注册赠送与推荐奖励分别使用 `reference_type = signup_grant` / `referral_reward`；奖励金额与定价快照写在 `metadata`，不再单独建关系表。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -568,7 +538,7 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ---
 
-### 3.9 `stripe_webhook_events`
+### 3.8 `stripe_webhook_events`
 
 Stripe webhook 投递日志，用于幂等处理。
 
@@ -585,7 +555,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.10 `billing_provider_configs`
+### 3.9 `billing_provider_configs`
 
 管理员维护的计费提供商凭据（当前为 Stripe，密文存储）。
 
@@ -600,7 +570,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.11 `billing_config_audit_events`
+### 3.10 `billing_config_audit_events`
 
 计费提供商配置变更的审计流水。
 
@@ -621,7 +591,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.12 `analysis_jobs`
+### 3.11 `analysis_jobs`
 
 与 tg-core 共享的分析任务持久化。保存请求快照、进度、最终结果与成本核算。
 
@@ -666,7 +636,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.13 `llm_providers`
+### 3.12 `llm_providers`
 
 管理员配置的 LLM 提供商实例（含加密 API Key）。
 
@@ -693,7 +663,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.14 `llm_models`
+### 3.13 `llm_models`
 
 管理员纳管的 LLM 模型目录；`enabled` 表示对用户开放。
 
@@ -730,7 +700,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.15 `watchlist_items`
+### 3.14 `watchlist_items`
 
 用户自选股收藏条目（按 listing 字段去规范化，无分组与标签）。
 
@@ -758,7 +728,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.16 `system_settings`（导出名：`systemSettings`）
+### 3.15 `system_settings`（导出名：`systemSettings`）
 
 系统级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook、默认 LLM 模型）。
 
@@ -771,7 +741,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.17 `market_configs`（导出名：`marketConfigs`）
+### 3.16 `market_configs`（导出名：`marketConfigs`）
 
 可运营市场配置。与代码侧 `shared/product-markets.ts` 的 `PRODUCT_MARKET_CATALOG` 保持同一套市场码；运行时以本表为准，代码目录仅作校验与空库回退。
 
@@ -789,7 +759,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.18 `credit_rules`
+### 3.17 `credit_rules`
 
 按市场 / 分析师数量解析分析额度消耗。
 
@@ -815,7 +785,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.19 `admin_audit_events`
+### 3.18 `admin_audit_events`
 
 管理员操作日志（追加写）。管理端 `/admin/audit` 检索；写操作在 settings / markets / LLM / 用户 / 积分调整等路径写入。
 
@@ -844,10 +814,9 @@ Stripe webhook 投递日志，用于幂等处理。
 
 | 子表 | 列 | 父表 | 父列 | ON DELETE |
 | --- | --- | --- | --- | --- |
+| `account_users` | `referred_by_clerk_user_id` | `account_users` | `clerk_user_id` | SET NULL |
 | `billing_subscriptions` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
 | `credit_accounts` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
-| `referral_relationships` | `invitee_clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
-| `referral_relationships` | `inviter_clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
 | `credit_reservations` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
 | `credit_ledger_entries` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
 | `llm_models` | `provider_id` | `llm_providers` | `id` | CASCADE |
@@ -869,6 +838,7 @@ Stripe webhook 投递日志，用于幂等处理。
 | `account_users.default_market` | `US` \| `HK` \| `CN` \| `CRYPTO`（约定） |
 | `credit_reservations.status` | `reserved` \| `consumed` \| `released` |
 | `credit_ledger_entries.entry_type` | `grant` \| `reserve` \| `consume` \| `release` \| `adjustment` |
+| `credit_ledger_entries.reference_type`（约定） | 含 `signup_grant`、`referral_reward`、`analysis_request`、`stripe_invoice` 等 |
 | `stripe_webhook_events.status` | `processing` \| `processed` \| `failed` \| `ignored` |
 | `billing_provider_configs.provider` | `stripe` |
 | `billing_config_audit_events.action` | `configured` \| `cleared` |

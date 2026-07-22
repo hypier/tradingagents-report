@@ -5,7 +5,7 @@
  * tg-core 仅校验共享表是否存在，不执行 DDL。
  *
  * 域划分：
- * - 账户：从 Clerk 同步的本地用户资料
+ * - 账户：从 Clerk 同步的本地用户资料与推荐关系
  * - 计费 / 积分：Stripe 订阅与分析积分账本
  * - 分析任务：与 tg-core 共享的 job 持久化
  * - LLM 定价：模型单价缓存（成本计算用）
@@ -14,6 +14,7 @@
  */
 import { desc, sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -54,6 +55,11 @@ export const accountUsers = pgTable(
     /** 关联的 Stripe Customer ID（`cus_...`）；创建前为 null。 */
     stripeCustomerId: text('stripe_customer_id'),
     referralCode: text('referral_code').notNull(),
+    /** 邀请人 Clerk 用户 ID；无邀请时为 null。 */
+    referredByClerkUserId: text('referred_by_clerk_user_id').references(
+      (): AnyPgColumn => accountUsers.clerkUserId,
+      { onDelete: 'set null' },
+    ),
     onboardingCompletedAt: timestamp('onboarding_completed_at', {
       withTimezone: true,
     }),
@@ -69,6 +75,11 @@ export const accountUsers = pgTable(
       .on(table.stripeCustomerId)
       .where(sql`${table.stripeCustomerId} is not null`),
     uniqueIndex('account_users_referral_code_key').on(table.referralCode),
+    index('account_users_referred_by_idx').on(table.referredByClerkUserId),
+    check(
+      'account_users_referred_by_distinct_check',
+      sql`${table.referredByClerkUserId} is null or ${table.referredByClerkUserId} <> ${table.clerkUserId}`,
+    ),
   ],
 );
 
@@ -193,50 +204,6 @@ export const creditBillingSettingEvents = pgTable(
  * 单次分析请求的幂等积分预留。
  * 主键为客户端/API 的 `requestId`。
  */
-export const referralRelationships = pgTable(
-  'referral_relationships',
-  {
-    inviteeClerkUserId: text('invitee_clerk_user_id')
-      .primaryKey()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    inviterClerkUserId: text('inviter_clerk_user_id')
-      .notNull()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    referralCode: text('referral_code').notNull(),
-    pointsPerUsd: numeric('points_per_usd', {
-      precision: 18,
-      scale: 6,
-    }).notNull(),
-    signupGrantUsd: numeric('signup_grant_usd', {
-      precision: 18,
-      scale: 2,
-    }).notNull(),
-    signupGrantPoints: bigint('signup_grant_points', {
-      mode: 'number',
-    }).notNull(),
-    referralRewardUsd: numeric('referral_reward_usd', {
-      precision: 18,
-      scale: 2,
-    }).notNull(),
-    referralRewardPoints: bigint('referral_reward_points', {
-      mode: 'number',
-    }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    index('referral_relationships_inviter_created_idx').on(
-      table.inviterClerkUserId,
-      desc(table.createdAt),
-    ),
-    check(
-      'referral_relationships_distinct_users_check',
-      sql`${table.inviteeClerkUserId} <> ${table.inviterClerkUserId}`,
-    ),
-  ],
-);
-
 export const creditReservations = pgTable(
   'credit_reservations',
   {

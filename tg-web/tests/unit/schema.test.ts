@@ -15,7 +15,6 @@ import {
   billingConfigAuditEvents,
   creditBillingSettings,
   creditBillingSettingEvents,
-  referralRelationships,
   systemSettings,
   marketConfigs,
   adminAuditEvents,
@@ -44,7 +43,6 @@ describe('Core table mappings', () => {
     expect(getTableName(creditBillingSettingEvents)).toBe(
       'credit_billing_setting_events',
     );
-    expect(getTableName(referralRelationships)).toBe('referral_relationships');
   });
 
   it('maps system settings, market configs, and operation log tables', () => {
@@ -57,7 +55,11 @@ describe('Core table mappings', () => {
     expect(
       getTableConfig(accountUsers).columns.map((column) => column.name),
     ).toEqual(
-      expect.arrayContaining(['referral_code', 'onboarding_completed_at']),
+      expect.arrayContaining([
+        'referral_code',
+        'referred_by_clerk_user_id',
+        'onboarding_completed_at',
+      ]),
     );
     expect(
       getTableConfig(creditBillingSettings).columns.map(
@@ -65,19 +67,6 @@ describe('Core table mappings', () => {
       ),
     ).toEqual(
       expect.arrayContaining(['signup_grant_usd', 'referral_reward_usd']),
-    );
-    expect(
-      getTableConfig(referralRelationships).columns.map(
-        (column) => column.name,
-      ),
-    ).toEqual(
-      expect.arrayContaining([
-        'invitee_clerk_user_id',
-        'inviter_clerk_user_id',
-        'referral_code',
-        'signup_grant_points',
-        'referral_reward_points',
-      ]),
     );
   });
 
