@@ -399,17 +399,21 @@ export function QuotesPage() {
                         </TableCell>
                         <TableCell
                           className={cn(
-                            'hidden w-[7.5rem] max-w-[7.5rem] truncate px-4 text-xs text-muted-foreground/75 transition-colors xl:table-cell',
+                            'hidden w-[7.5rem] max-w-[7.5rem] whitespace-normal px-4 text-xs leading-snug text-muted-foreground/75 transition-colors xl:table-cell',
+                            'line-clamp-2',
                             cellSurface,
                           )}
+                          title={item.sector || undefined}
                         >
                           {item.sector || '—'}
                         </TableCell>
                         <TableCell
                           className={cn(
-                            'hidden w-[6.5rem] max-w-[6.5rem] pr-3 text-right font-mono text-xs text-muted-foreground/75 transition-colors xl:table-cell sm:pr-5 lg:pr-6',
+                            'hidden w-[6.5rem] max-w-[6.5rem] whitespace-normal pr-3 text-right font-mono text-xs leading-snug text-muted-foreground/75 transition-colors xl:table-cell sm:pr-5 lg:pr-6',
+                            'line-clamp-2',
                             cellSurface,
                           )}
+                          title={item.analyst_rating || undefined}
                         >
                           {item.analyst_rating || '—'}
                         </TableCell>

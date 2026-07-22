@@ -82,11 +82,21 @@ export function InstrumentIdentity({
       ) : null}
     </>
   );
+  const nameTitle = showSecondary
+    ? `${primary} ${normalizedSecondary}`
+    : primary;
+  const tickerTitle =
+    typeof tickerSuffix === 'string' || typeof tickerSuffix === 'number'
+      ? `${code}${tickerSuffix}`
+      : code;
 
   return (
     <div className={cn('min-w-0', className)}>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <NameTag className={cn(nameStyles[density], nameClassName)}>
+        <NameTag
+          className={cn(nameStyles[density], nameClassName)}
+          title={nameTitle}
+        >
           {primary}
           {showSecondary ? (
             <span className={cn('ml-1.5', secondaryInlineStyles[density])}>
@@ -102,7 +112,7 @@ export function InstrumentIdentity({
             type="button"
             onClick={onTickerClick}
             aria-label={tickerAriaLabel}
-            title={tickerAriaLabel}
+            title={tickerAriaLabel || tickerTitle}
             className={cn(
               tickerStyles[density],
               'cursor-pointer border-0 bg-transparent p-0 text-left underline underline-offset-2 transition-colors hover:text-foreground',
@@ -112,7 +122,10 @@ export function InstrumentIdentity({
             {tickerContent}
           </button>
         ) : (
-          <p className={cn(tickerStyles[density], tickerClassName)}>
+          <p
+            className={cn(tickerStyles[density], tickerClassName)}
+            title={tickerTitle}
+          >
             {tickerContent}
           </p>
         )

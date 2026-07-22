@@ -153,10 +153,18 @@ export function PinnedIndices({
                 className="hidden shrink-0 sm:flex"
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium tracking-tight text-foreground">
+                <p
+                  className="truncate text-sm font-medium tracking-tight text-foreground"
+                  title={displayName}
+                >
                   {displayName}
                 </p>
-                <p className="mt-0.5 truncate font-mono text-[11px] tracking-wide text-muted-foreground">
+                <p
+                  className="mt-0.5 truncate font-mono text-[11px] tracking-wide text-muted-foreground"
+                  title={
+                    quote.currency ? `${label} / ${quote.currency}` : label
+                  }
+                >
                   {label}
                   {quote.currency ? (
                     <span className="text-muted-foreground/70">
