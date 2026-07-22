@@ -2,6 +2,7 @@ type FetchImplementation = typeof fetch;
 
 export type AdminLlmProvider = {
   id: string;
+  driver: string;
   displayName: string;
   enabled: boolean;
   backendUrl: string | null;
@@ -26,8 +27,12 @@ export type AdminLlmModel = {
   cacheWritePrice: string | number | null;
   contextWindow: number | null;
   maxOutputTokens: number | null;
+  params: Record<string, unknown>;
+  capabilities: Record<string, unknown>;
   syncedAt: string | Date | null;
   syncError: string | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 };
 
 export type LlmDefaults = {
@@ -66,7 +71,7 @@ async function send<T>(
 }
 
 export const listAdminLlmProviders = (fetchImplementation?: FetchImplementation) =>
-  read<{ providers: AdminLlmProvider[]; availableIds: string[] }>(
+  read<{ providers: AdminLlmProvider[]; availableDrivers: string[] }>(
     '/api/admin/llm/providers',
     fetchImplementation,
   );
@@ -74,6 +79,7 @@ export const listAdminLlmProviders = (fetchImplementation?: FetchImplementation)
 export const upsertAdminLlmProvider = (
   id: string,
   body: {
+    driver: string;
     displayName: string;
     enabled: boolean;
     backendUrl?: string | null;
@@ -101,11 +107,38 @@ export const clearAdminLlmProviderApiKey = (
 
 export const deleteAdminLlmProvider = (
   id: string,
+  options: { force?: boolean } = {},
   fetchImplementation?: FetchImplementation,
 ) =>
-  send<{ id: string }>(
-    `/api/admin/llm/providers/${encodeURIComponent(id)}`,
+  send<{ id: string; deletedModels: number }>(
+    `/api/admin/llm/providers/${encodeURIComponent(id)}${
+      options.force ? '?force=1' : ''
+    }`,
     { method: 'DELETE' },
+    fetchImplementation,
+  );
+
+export const testAdminLlmProvider = (
+  body: {
+    driver: string;
+    providerId?: string;
+    backendUrl?: string | null;
+    apiKey?: string;
+  },
+  fetchImplementation?: FetchImplementation,
+) =>
+  send<{ ok: true; message: string; modelCount: number | null }>(
+    '/api/admin/llm/providers/test',
+    { method: 'POST', body },
+    fetchImplementation,
+  );
+
+export const listAdminUpstreamModels = (
+  providerId: string,
+  fetchImplementation?: FetchImplementation,
+) =>
+  read<{ models: string[] }>(
+    `/api/admin/llm/providers/${encodeURIComponent(providerId)}/upstream-models`,
     fetchImplementation,
   );
 
@@ -163,15 +196,5 @@ export const syncPreviewAdminLlmModel = (
   send<Record<string, unknown>>(
     '/api/admin/llm/models/sync-preview',
     { method: 'POST', body },
-    fetchImplementation,
-  );
-
-export const setAdminLlmDefaults = (
-  body: { defaultQuickModelId: string; defaultDeepModelId: string },
-  fetchImplementation?: FetchImplementation,
-) =>
-  send<LlmDefaults>(
-    '/api/admin/llm/defaults',
-    { method: 'PUT', body },
     fetchImplementation,
   );

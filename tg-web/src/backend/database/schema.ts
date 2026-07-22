@@ -584,24 +584,30 @@ export const llmModelPrices = pgTable(
   ],
 );
 
-/** 管理员配置的 LLM 提供商（含加密 API Key）。 */
-export const llmProviders = pgTable('llm_providers', {
-  /** 与 Core llm_provider 一致的稳定键。 */
-  id: text('id').primaryKey(),
-  displayName: text('display_name').notNull(),
-  enabled: boolean('enabled').notNull().default(true),
-  backendUrl: text('backend_url'),
-  apiKeyCiphertext: text('api_key_ciphertext'),
-  apiKeyHint: text('api_key_hint'),
-  sortOrder: integer('sort_order').notNull().default(0),
-  notes: text('notes'),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+/** 管理员配置的 LLM 提供商实例（含加密 API Key）。 */
+export const llmProviders = pgTable(
+  'llm_providers',
+  {
+    /** 目录实例唯一键（可与 driver 不同，例如自定义兼容端点）。 */
+    id: text('id').primaryKey(),
+    /** Core LLM 工厂类型（白名单），同 driver 可有多条实例。 */
+    driver: text('driver').notNull(),
+    displayName: text('display_name').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    backendUrl: text('backend_url'),
+    apiKeyCiphertext: text('api_key_ciphertext'),
+    apiKeyHint: text('api_key_hint'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('llm_providers_driver_idx').on(table.driver)],
+);
 
 /** 管理员纳管的 LLM 模型目录；enabled 表示对用户开放。 */
 export const llmModels = pgTable(

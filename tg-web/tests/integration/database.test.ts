@@ -43,8 +43,8 @@ describe('Node database', () => {
       INSERT INTO llm_model_prices (
         provider, model, input_price, output_price, source_url
       ) VALUES ('openai', 'gpt-test', 1.25, 2.5, 'https://example.test/pricing');
-      INSERT INTO llm_providers (id, display_name, enabled)
-      VALUES ('openai', 'OpenAI', true);
+      INSERT INTO llm_providers (id, driver, display_name, enabled)
+      VALUES ('openai', 'openai', 'OpenAI', true);
       INSERT INTO llm_models (provider_id, model, display_name, role, enabled)
       VALUES ('openai', 'gpt-test', 'GPT Test', 'both', true);
     `);

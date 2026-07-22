@@ -29,6 +29,9 @@ export type LlmModelRole = (typeof LLM_MODEL_ROLES)[number];
 
 export const LLM_SETTINGS_KEY = 'llm';
 
+/** Catalog instance id: lowercase slug, independent from driver. */
+export const LLM_PROVIDER_INSTANCE_ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
+
 export type LlmSettingsValue = {
   defaultQuickModelId: string | null;
   defaultDeepModelId: string | null;
@@ -36,6 +39,14 @@ export type LlmSettingsValue = {
 
 export function isLlmProviderId(value: string): value is LlmProviderId {
   return (LLM_PROVIDER_IDS as readonly string[]).includes(value);
+}
+
+export function isLlmProviderInstanceId(value: string): boolean {
+  return LLM_PROVIDER_INSTANCE_ID_PATTERN.test(value);
+}
+
+export function providerRequiresBaseUrl(driver: string): boolean {
+  return driver === 'openai_compatible';
 }
 
 export function roleAllows(

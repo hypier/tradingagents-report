@@ -341,7 +341,7 @@
   },
   "llmProviders": {
     "heading": "Providers",
-    "subtitle": "Configure LLM providers, backend URL, and encrypted API keys.",
+    "subtitle": "Configure LLM providers, Base URL, and encrypted API keys.",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage providers."
@@ -355,13 +355,19 @@
     "empty": "No providers configured yet.",
     "enabled": "Enabled",
     "disabled": "Disabled",
+    "modelCount": "{{count}} models",
     "addTitle": "Add provider",
     "editTitle": "Edit provider",
-    "formDescription": "Pick a provider ID, then set display name, backend URL, and API key.",
+    "formDescription": "Choose a driver (factory type), give this instance a unique id, then set Base URL and API key. The same driver can be added multiple times.",
+    "deleteTitle": "Delete provider",
+    "deleteBody": "Delete “{{name}}”? This cannot be undone.",
+    "deleteBodyWithModels": "“{{name}}” still has {{count}} model(s). Deleting the provider will also remove those models (including default links). Continue?",
     "fields": {
+      "driver": "Driver",
+      "instanceId": "Instance ID",
       "providerId": "Provider",
       "displayName": "Display name",
-      "backendUrl": "Backend URL",
+      "backendUrl": "Base URL",
       "apiKey": "API Key",
       "apiKeyPlaceholder": "Leave blank to keep existing",
       "enabled": "Enable this provider",
@@ -372,24 +378,27 @@
       "save": "Save",
       "cancel": "Cancel",
       "edit": "Edit",
-      "clearKey": "Clear key",
-      "delete": "Delete"
+      "test": "Test connection",
+      "delete": "Delete",
+      "confirmDelete": "Delete"
     },
     "toast": {
       "saved": "Provider saved",
       "deleted": "Provider deleted",
-      "keyCleared": "API key cleared"
+      "keyCleared": "API key cleared",
+      "testOk": "Connection succeeded",
+      "testOkWithCount": "Connection succeeded; upstream lists {{count}} models"
     },
     "columns": {
       "provider": "Provider",
       "status": "Status",
       "apiKey": "API Key",
-      "backendUrl": "Backend URL"
+      "backendUrl": "Base URL"
     }
   },
   "llmModels": {
     "heading": "Models",
-    "subtitle": "Add models, sync prices manually, and set default quick/deep models separately.",
+    "subtitle": "Add models and sync prices manually. Set default quick/deep models in Product settings.",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage models."
@@ -409,23 +418,46 @@
     "listDescription": "Open models appear in the user analysis picker.",
     "addTitle": "Add model",
     "addDescription": "Enter a model ID; optionally sync-preview prices before creating.",
+    "editTitle": "Edit model",
+    "editDescription": "Update prices, limits, params, and open status. Sync from upstream when needed.",
+    "deleteTitle": "Delete model",
+    "deleteBody": "Delete “{{name}}”? This cannot be undone.",
     "empty": "No models configured yet.",
     "open": "Open",
     "closed": "Closed",
+    "upstreamLoading": "Loading models from provider…",
+    "upstreamLoadError": "Unable to load upstream models; enter a model ID manually.",
     "fields": {
       "providerId": "Provider",
       "displayName": "Display name",
       "modelId": "Model ID",
       "role": "Role",
-      "inputPrice": "Input price",
-      "outputPrice": "Output price",
+      "currency": "Currency",
+      "unitTokens": "Unit tokens",
+      "inputPrice": "Input price ($)",
+      "outputPrice": "Output price ($)",
+      "cachedInputPrice": "Cached input price ($)",
+      "cacheWritePrice": "Cache write price ($)",
+      "contextWindow": "Context window",
+      "maxOutputTokens": "Max output tokens",
+      "params": "Params (JSON)",
+      "capabilities": "Capabilities (JSON)",
+      "syncedAt": "Last synced",
+      "syncError": "Sync error",
       "defaultQuick": "Default quick model",
       "defaultDeep": "Default deep model",
+      "enabled": "Open this model",
+      "enabledHint": "Open models appear in the analysis model picker.",
       "openOnCreate": "Open immediately after create",
       "openOnCreateHint": "Open models appear in the analysis model picker."
     },
+    "errors": {
+      "unitTokens": "Unit tokens must be a positive integer"
+    },
     "actions": {
       "add": "Add model",
+      "edit": "Edit",
+      "save": "Save",
       "setDefaults": "Defaults",
       "cancel": "Cancel",
       "syncPreview": "Sync preview",
@@ -434,10 +466,14 @@
       "open": "Open",
       "close": "Close",
       "delete": "Delete",
-      "saveDefaults": "Save defaults"
+      "confirmDelete": "Delete",
+      "saveDefaults": "Save defaults",
+      "customModelId": "Custom model ID…",
+      "pickFromList": "Choose from provider list"
     },
     "toast": {
       "modelSaved": "Model created",
+      "modelUpdated": "Model updated",
       "defaultsSaved": "Defaults saved",
       "syncPreview": "Fields filled from upstream",
       "synced": "Sync succeeded",
@@ -458,7 +494,7 @@
   "settings": {
     "title": "Product settings",
     "heading": "Product settings",
-    "subtitle": "Maintenance, features, disclaimer, alerts, and credit rules.",
+    "subtitle": "Maintenance, features, disclaimer, alerts, default LLM models, and credit rules.",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage settings."
@@ -481,6 +517,13 @@
     "disclaimerZh": "Markdown (ZH)",
     "alertsTitle": "Alerts",
     "webhookUrl": "Webhook URL",
+    "llmDefaultsTitle": "Default analysis models",
+    "llmDefaultsDescription": "Stored as product setting key llm. Used when the user does not pick models.",
+    "llmDefaultsEmpty": "No open models yet.",
+    "llmDefaultsEmptyCta": "Configure models",
+    "llmDefaultsPairRequired": "Set both default quick and deep models, or leave both empty.",
+    "defaultQuickModel": "Default quick model",
+    "defaultDeepModel": "Default deep model",
     "save": "Save settings",
     "saved": "Settings saved.",
     "saveError": "Unable to save settings.",

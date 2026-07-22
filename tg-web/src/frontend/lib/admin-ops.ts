@@ -98,7 +98,12 @@ async function send<T>(
       : undefined,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-  if (!response.ok) throw new Error('Unable to update admin ops data');
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { message?: string };
+    } | null;
+    throw new Error(payload?.error?.message ?? 'Unable to update admin ops data');
+  }
   return response.json() as Promise<{ data: T; requestId: string }>;
 }
 

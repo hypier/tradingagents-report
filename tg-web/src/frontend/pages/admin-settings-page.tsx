@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
@@ -15,6 +16,13 @@ import { Button } from '@/frontend/components/ui/button';
 import { Checkbox } from '@/frontend/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@/frontend/components/ui/field';
 import { Input } from '@/frontend/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/frontend/components/ui/select';
 import { Spinner } from '@/frontend/components/ui/spinner';
 import {
   Table,
@@ -25,6 +33,7 @@ import {
   TableRow,
 } from '@/frontend/components/ui/table';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
+import { listAdminLlmModels } from '@/frontend/lib/admin-llm';
 import {
   createCreditRule,
   deleteCreditRule,
@@ -50,6 +59,8 @@ type SettingsForm = {
   disclaimerEn: string;
   disclaimerZh: string;
   webhookUrl: string;
+  defaultQuickModelId: string;
+  defaultDeepModelId: string;
 };
 
 const emptyRule: CreditRuleInput = {
@@ -72,6 +83,11 @@ export function AdminSettingsPage() {
     queryFn: () => getAdminSettings(),
     enabled: isAdmin,
   });
+  const modelsQuery = useQuery({
+    queryKey: ['admin-llm-models'],
+    queryFn: () => listAdminLlmModels(),
+    enabled: isAdmin,
+  });
   const rules = useQuery({
     queryKey: ['admin-credit-rules'],
     queryFn: () => listCreditRules(),
@@ -87,8 +103,13 @@ export function AdminSettingsPage() {
     disclaimerEn: '',
     disclaimerZh: '',
     webhookUrl: '',
+    defaultQuickModelId: '',
+    defaultDeepModelId: '',
   });
   const [ruleForm, setRuleForm] = useState<CreditRuleInput>(emptyRule);
+  const enabledModels = (modelsQuery.data?.data.models ?? []).filter(
+    (model) => model.enabled,
+  );
 
   useEffect(() => {
     const data = settings.data?.data;
@@ -99,6 +120,7 @@ export function AdminSettingsPage() {
     const disclaimer = asRecord(data.disclaimer);
     const markdown = asRecord(disclaimer.markdown);
     const alerts = asRecord(data.alerts);
+    const llm = asRecord(data.llm);
     setForm({
       maintenanceEnabled: Boolean(maintenance.enabled),
       maintenanceEn: typeof message.en === 'string' ? message.en : '',
@@ -110,12 +132,20 @@ export function AdminSettingsPage() {
       disclaimerEn: typeof markdown.en === 'string' ? markdown.en : '',
       disclaimerZh: typeof markdown.zh === 'string' ? markdown.zh : '',
       webhookUrl: typeof alerts.webhookUrl === 'string' ? alerts.webhookUrl : '',
+      defaultQuickModelId:
+        typeof llm.defaultQuickModelId === 'string'
+          ? llm.defaultQuickModelId
+          : '',
+      defaultDeepModelId:
+        typeof llm.defaultDeepModelId === 'string'
+          ? llm.defaultDeepModelId
+          : '',
     });
   }, [settings.data?.data]);
 
   const saveSettings = useMutation({
-    mutationFn: () =>
-      updateAdminSettings({
+    mutationFn: () => {
+      const patch: Record<string, unknown> = {
         maintenance: {
           enabled: form.maintenanceEnabled,
           message: { en: form.maintenanceEn, zh: form.maintenanceZh },
@@ -132,13 +162,24 @@ export function AdminSettingsPage() {
           },
         },
         alerts: { webhookUrl: form.webhookUrl.trim() },
-      }),
+      };
+      if (form.defaultQuickModelId && form.defaultDeepModelId) {
+        patch.llm = {
+          defaultQuickModelId: form.defaultQuickModelId,
+          defaultDeepModelId: form.defaultDeepModelId,
+        };
+      }
+      return updateAdminSettings(patch);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
       void queryClient.invalidateQueries({ queryKey: ['public-config'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-llm-models'] });
+      void queryClient.invalidateQueries({ queryKey: ['llm-catalog'] });
       toast.success(t('settings.saved'));
     },
-    onError: () => toast.error(t('settings.saveError')),
+    onError: (error: Error) =>
+      toast.error(error.message || t('settings.saveError')),
   });
 
   const createRule = useMutation({
@@ -166,6 +207,13 @@ export function AdminSettingsPage() {
 
   function onSave(event: FormEvent) {
     event.preventDefault();
+    if (
+      (form.defaultQuickModelId && !form.defaultDeepModelId) ||
+      (!form.defaultQuickModelId && form.defaultDeepModelId)
+    ) {
+      toast.error(t('settings.llmDefaultsPairRequired'));
+      return;
+    }
     saveSettings.mutate();
   }
 
@@ -321,6 +369,76 @@ export function AdminSettingsPage() {
                   placeholder="https://"
                 />
               </Field>
+            </SectionPanel>
+
+            <SectionPanel
+              title={t('settings.llmDefaultsTitle')}
+              description={t('settings.llmDefaultsDescription')}
+            >
+              {enabledModels.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t('settings.llmDefaultsEmpty')}{' '}
+                  <Link
+                    to="/admin/llm/models"
+                    className="underline underline-offset-2"
+                  >
+                    {t('settings.llmDefaultsEmptyCta')}
+                  </Link>
+                </p>
+              ) : (
+                <FieldGroup className="sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel>{t('settings.defaultQuickModel')}</FieldLabel>
+                    <Select
+                      value={form.defaultQuickModelId || undefined}
+                      onValueChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          defaultQuickModelId: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={t('settings.defaultQuickModel')}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {enabledModels.map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.displayName} ({model.model})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel>{t('settings.defaultDeepModel')}</FieldLabel>
+                    <Select
+                      value={form.defaultDeepModelId || undefined}
+                      onValueChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          defaultDeepModelId: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={t('settings.defaultDeepModel')}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {enabledModels.map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.displayName} ({model.model})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </FieldGroup>
+              )}
             </SectionPanel>
 
             <div className="flex justify-end">

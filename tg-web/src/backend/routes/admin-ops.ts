@@ -2,9 +2,11 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { apiSuccess } from '../../shared/contracts';
+import { LLM_SETTINGS_KEY } from '../../shared/llm-providers';
 import { isValidTimezone } from '../../shared/timezone';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
+import { validateLlmDefaults } from '../llm/llm-defaults';
 
 const settingsPatchSchema = z.object({
   maintenance: z
@@ -34,6 +36,12 @@ const settingsPatchSchema = z.object({
   alerts: z
     .object({
       webhookUrl: z.string().trim().max(2000),
+    })
+    .optional(),
+  llm: z
+    .object({
+      defaultQuickModelId: z.string().uuid(),
+      defaultDeepModelId: z.string().uuid(),
     })
     .optional(),
 });
@@ -93,10 +101,17 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
       throw new AppError('INVALID_REQUEST', 400, 'Invalid settings payload');
     }
     const actor = context.get('auth').userId;
-    const entries = Object.entries(input.data)
+    const patch = { ...input.data };
+    if (patch.llm) {
+      patch.llm = await validateLlmDefaults(
+        dependencies.database.llmCatalog,
+        patch.llm,
+      );
+    }
+    const entries = Object.entries(patch)
       .filter(([, value]) => value !== undefined)
       .map(([key, value]) => ({
-        key,
+        key: key === 'llm' ? LLM_SETTINGS_KEY : key,
         value: value as Record<string, unknown>,
       }));
     if (!entries.length) {

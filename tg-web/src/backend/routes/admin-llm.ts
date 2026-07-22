@@ -4,18 +4,23 @@ import { z } from 'zod';
 import { apiSuccess } from '../../shared/contracts';
 import {
   isLlmProviderId,
+  isLlmProviderInstanceId,
   LLM_MODEL_ROLES,
   LLM_PROVIDER_IDS,
   LLM_SETTINGS_KEY,
-  roleAllows,
+  providerRequiresBaseUrl,
   type LlmSettingsValue,
 } from '../../shared/llm-providers';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { AppError } from '../errors/app-error';
+import { validateLlmDefaults } from '../llm/llm-defaults';
+import { listUpstreamModels } from '../llm/list-upstream-models';
 import { syncModelFromUpstream } from '../llm/model-sync';
+import { testProviderConnection } from '../llm/provider-connection-test';
 
 const providerUpsertSchema = z.object({
   id: z.string().trim().min(1).max(64),
+  driver: z.string().trim().min(1).max(64),
   displayName: z.string().trim().min(1).max(128),
   enabled: z.boolean(),
   backendUrl: z.string().trim().max(2000).nullable().optional(),
@@ -52,8 +57,16 @@ const syncPreviewSchema = z.object({
   model: z.string().trim().min(1).max(256),
 });
 
+const providerTestSchema = z.object({
+  providerId: z.string().trim().min(1).max(64).optional(),
+  driver: z.string().trim().min(1).max(64),
+  backendUrl: z.string().trim().max(2000).nullable().optional(),
+  apiKey: z.string().trim().min(1).max(4000).optional(),
+});
+
 function publicProvider(row: {
   id: string;
+  driver: string;
   displayName: string;
   enabled: boolean | number;
   backendUrl: string | null;
@@ -66,6 +79,7 @@ function publicProvider(row: {
 }) {
   return {
     id: row.id,
+    driver: row.driver,
     displayName: row.displayName,
     enabled: Boolean(row.enabled),
     backendUrl: row.backendUrl,
@@ -151,7 +165,7 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
       apiSuccess(
         {
           providers: rows.map(publicProvider),
-          availableIds: LLM_PROVIDER_IDS,
+          availableDrivers: LLM_PROVIDER_IDS,
         },
         context.get('requestId'),
       ),
@@ -167,11 +181,33 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
     if (!parsed.success) {
       throw new AppError('INVALID_REQUEST', 400, 'Invalid provider payload');
     }
-    if (!isLlmProviderId(parsed.data.id)) {
-      throw new AppError('INVALID_REQUEST', 400, 'Unsupported LLM provider');
+    if (!isLlmProviderInstanceId(parsed.data.id)) {
+      throw new AppError(
+        'INVALID_REQUEST',
+        400,
+        'Provider id must be a lowercase slug (a-z, 0-9, _, -)',
+      );
+    }
+    if (!isLlmProviderId(parsed.data.driver)) {
+      throw new AppError('INVALID_REQUEST', 400, 'Unsupported LLM driver');
+    }
+    const backendUrl = parsed.data.backendUrl?.trim() || null;
+    if (providerRequiresBaseUrl(parsed.data.driver) && !backendUrl) {
+      throw new AppError(
+        'INVALID_REQUEST',
+        400,
+        'openai_compatible requires a Base URL',
+      );
+    }
+    const existing = await catalog().getProvider(parsed.data.id);
+    if (existing && existing.driver !== parsed.data.driver) {
+      throw new AppError(
+        'INVALID_REQUEST',
+        400,
+        'Provider driver cannot be changed after create',
+      );
     }
     if (parsed.data.enabled && !parsed.data.apiKey) {
-      const existing = await catalog().getProvider(parsed.data.id);
       if (!existing?.apiKeyCiphertext) {
         throw new AppError(
           'INVALID_REQUEST',
@@ -198,9 +234,10 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
 
     const row = await catalog().upsertProvider({
       id: parsed.data.id,
+      driver: parsed.data.driver,
       displayName: parsed.data.displayName,
       enabled: parsed.data.enabled,
-      backendUrl: parsed.data.backendUrl ?? null,
+      backendUrl,
       sortOrder: parsed.data.sortOrder,
       notes: parsed.data.notes ?? null,
       updateApiKey: Boolean(parsed.data.apiKey),
@@ -214,6 +251,7 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
       targetType: 'llm_provider',
       targetId: row.id,
       metadata: {
+        driver: row.driver,
         enabled: row.enabled,
         apiKeyUpdated: Boolean(parsed.data.apiKey),
       },
@@ -233,6 +271,7 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
     if (row.enabled) {
       await catalog().upsertProvider({
         id: row.id,
+        driver: row.driver,
         displayName: row.displayName,
         enabled: false,
         backendUrl: row.backendUrl,
@@ -252,8 +291,88 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
     );
   });
 
+  app.post('/admin/llm/providers/test', async (context) => {
+    const parsed = providerTestSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!parsed.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid provider test payload');
+    }
+    if (!isLlmProviderId(parsed.data.driver)) {
+      throw new AppError('INVALID_REQUEST', 400, 'Unsupported LLM driver');
+    }
+
+    let apiKey = parsed.data.apiKey?.trim() || null;
+    let backendUrl = parsed.data.backendUrl ?? null;
+    if (parsed.data.providerId) {
+      const existing = await catalog().getProvider(parsed.data.providerId);
+      if (!apiKey && existing?.apiKeyCiphertext) {
+        apiKey = await dependencies.llmSecrets.decrypt(existing.apiKeyCiphertext);
+      }
+      if (backendUrl == null && existing) {
+        backendUrl = existing.backendUrl;
+      }
+    }
+    if (providerRequiresBaseUrl(parsed.data.driver) && !backendUrl?.trim()) {
+      throw new AppError(
+        'INVALID_REQUEST',
+        400,
+        'openai_compatible requires a Base URL',
+      );
+    }
+
+    const result = await testProviderConnection({
+      driver: parsed.data.driver,
+      apiKey,
+      backendUrl,
+    });
+    if (!result.ok) {
+      throw new AppError('UPSTREAM_ERROR', 502, result.error);
+    }
+    return context.json(
+      apiSuccess(
+        {
+          ok: true,
+          message: result.message,
+          modelCount: result.modelCount,
+        },
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.get('/admin/llm/providers/:id/upstream-models', async (context) => {
+    const id = context.req.param('id');
+    const provider = await catalog().getProvider(id);
+    if (!provider) {
+      throw new AppError('NOT_FOUND', 404, 'Provider not found');
+    }
+    const apiKey = provider.apiKeyCiphertext
+      ? await dependencies.llmSecrets.decrypt(provider.apiKeyCiphertext)
+      : null;
+    const result = await listUpstreamModels({
+      driver: provider.driver,
+      apiKey,
+      backendUrl: provider.backendUrl,
+    });
+    if (!result.ok) {
+      throw new AppError('UPSTREAM_ERROR', 502, result.error);
+    }
+    return context.json(
+      apiSuccess({ models: result.models }, context.get('requestId')),
+    );
+  });
+
   app.delete('/admin/llm/providers/:id', async (context) => {
     const id = context.req.param('id');
+    const models = await catalog().listModels({ providerId: id });
+    if (models.length > 0 && context.req.query('force') !== '1') {
+      throw new AppError(
+        'CONFLICT',
+        409,
+        `Provider still has ${models.length} model(s); delete them first or confirm force delete`,
+      );
+    }
     const deleted = await catalog().deleteProvider(id);
     if (!deleted) {
       throw new AppError('NOT_FOUND', 404, 'Provider not found');
@@ -263,8 +382,11 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
       action: 'llm_providers.delete',
       targetType: 'llm_provider',
       targetId: id,
+      metadata: { modelCount: models.length, forced: models.length > 0 },
     });
-    return context.json(apiSuccess({ id }, context.get('requestId')));
+    return context.json(
+      apiSuccess({ id, deletedModels: models.length }, context.get('requestId')),
+    );
   });
 
   app.get('/admin/llm/models', async (context) => {
@@ -398,7 +520,7 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
       ? await dependencies.llmSecrets.decrypt(provider.apiKeyCiphertext)
       : null;
     const result = await syncModelFromUpstream({
-      providerId: parsed.data.providerId,
+      driver: provider.driver,
       model: parsed.data.model,
       apiKey,
       backendUrl: provider.backendUrl,
@@ -425,7 +547,7 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
       ? await dependencies.llmSecrets.decrypt(provider.apiKeyCiphertext)
       : null;
     const result = await syncModelFromUpstream({
-      providerId: model.providerId,
+      driver: provider.driver,
       model: model.model,
       apiKey,
       backendUrl: provider.backendUrl,
@@ -460,52 +582,7 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
     if (!parsed.success) {
       throw new AppError('INVALID_REQUEST', 400, 'Invalid defaults payload');
     }
-    const models = await catalog().getModelsByIds([
-      parsed.data.defaultQuickModelId,
-      parsed.data.defaultDeepModelId,
-    ]);
-    const quick = models.find(
-      (row) => row.id === parsed.data.defaultQuickModelId,
-    );
-    const deep = models.find(
-      (row) => row.id === parsed.data.defaultDeepModelId,
-    );
-    if (!quick || !deep) {
-      throw new AppError('INVALID_REQUEST', 400, 'Default model not found');
-    }
-    if (!quick.enabled || !roleAllows(quick.role, 'quick')) {
-      throw new AppError(
-        'INVALID_REQUEST',
-        400,
-        'Default quick model must be enabled for quick role',
-      );
-    }
-    if (!deep.enabled || !roleAllows(deep.role, 'deep')) {
-      throw new AppError(
-        'INVALID_REQUEST',
-        400,
-        'Default deep model must be enabled for deep role',
-      );
-    }
-    if (quick.providerId !== deep.providerId) {
-      throw new AppError(
-        'INVALID_REQUEST',
-        400,
-        'Default quick and deep models must share the same provider',
-      );
-    }
-    const provider = await catalog().getProvider(quick.providerId);
-    if (!provider?.enabled || !provider.apiKeyCiphertext) {
-      throw new AppError(
-        'INVALID_REQUEST',
-        400,
-        'Default models require an enabled provider with API key',
-      );
-    }
-    const value: LlmSettingsValue = {
-      defaultQuickModelId: quick.id,
-      defaultDeepModelId: deep.id,
-    };
+    const value = await validateLlmDefaults(catalog(), parsed.data);
     await dependencies.database.settings.set(
       LLM_SETTINGS_KEY,
       value,

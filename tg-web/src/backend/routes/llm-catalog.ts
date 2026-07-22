@@ -42,6 +42,7 @@ export function llmCatalogRoutes(dependencies: AppDependencies) {
         {
           providers: enabledProviders.map((provider) => ({
             id: provider.id,
+            driver: provider.driver,
             displayName: provider.displayName,
           })),
           models: catalogModels,

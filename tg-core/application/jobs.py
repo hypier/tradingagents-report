@@ -202,6 +202,8 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         config["api_key"] = provider_runtime["api_key"]
         if provider_runtime.get("backend_url"):
             config["backend_url"] = provider_runtime["backend_url"]
+        # Catalog id → Core factory type
+        config["llm_provider"] = provider_runtime["driver"]
         command = AnalysisCommand(
             ticker=row["ticker"],
             trade_date=row["trade_date"].isoformat(),

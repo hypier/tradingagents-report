@@ -31,7 +31,7 @@
 
 | 概念 | 说明 |
 |------|------|
-| 提供商 | Core 已支持的 Provider（如 `openai`、`anthropic`）；含展示名、`backend_url`、加密 API Key、是否启用。 |
+| 提供商 | 目录实例：唯一 `id` + Core `driver` + 展示名、`backend_url`、加密 API Key、是否启用。同一 `driver` 可多实例。 |
 | 模型 | 某提供商下的模型 ID；含展示名、用途（`quick` / `deep` / `both`）、价格与参数字段、是否开放。 |
 | 开放 | `enabled=true` 的模型出现在用户分析选型里。 |
 | 手动同步 | 管理员在模型新建/编辑界面点击同步，从上游 API 拉取价格与参数写入该模型行；可反复手动触发。 |
@@ -43,7 +43,7 @@
 管理员 (tg-web /admin/llm/providers · /admin/llm/models)
   → 配置提供商 + API Key（入库加密）
   → 新建/编辑模型，可选「同步价格与参数」或手填
-  → 标记开放，并指定两个默认分析模型
+  → 标记开放；默认分析模型在产品设置中指定
 
 用户 (tg-web 分析页)
   → 从开放模型中选择 quick + deep（默认预填）
@@ -51,8 +51,8 @@
 
 Core
   → 接收请求中的 provider / quick_think_llm / deep_think_llm
-  → 从 DB 读取该提供商的 API Key（及 backend_url 等）
-  → 用既有 LLM 工厂执行分析
+  → 从 DB 按目录 id 读取 API Key / backend_url / driver
+  → 将运行时 `llm_provider` 设为 driver，用既有 LLM 工厂执行分析
   → 不负责模型目录 CRUD、不负责爬价、不写 llm_pricing_sources
 ```
 
@@ -78,19 +78,23 @@ Core
 
 | 字段 | 说明 |
 |------|------|
-| `id` | Provider 键，与 Core `llm_provider` 一致。 |
+| `id` | **目录实例**唯一键（小写 slug，如 `nbapi`、`openai-prod`）。分析请求里的 `llm_provider` 传此 id。 |
+| `driver` | Core LLM **工厂类型**（白名单，与 `LLM_PROVIDER_IDS` 对齐）。同 `driver` 可有多条实例。 |
 | `display_name` | 展示名。 |
 | `enabled` | 提供商是否可用；停用后其下模型不可选。 |
-| `backend_url` | 可选，OpenAI 兼容基址等。 |
+| `backend_url` | 可选基址；`openai_compatible` **必填**。 |
 | `api_key_ciphertext` | 应用主密钥（如复用/对齐现有 `BILLING_CONFIG_ENCRYPTION_KEY` 一类机制）AES-GCM 加密后的 API Key。 |
 | `api_key_hint` | 掩码展示（如 `sk-...abc`），API 永不回说明文。 |
 | `sort_order` | 排序。 |
 | `notes` | 备注。 |
 | `created_at` / `updated_at` | 时间戳。 |
 
-- 仅允许 Core 支持的 Provider 白名单。
+- `id` 与 `driver` 解耦：例如多条 `openai_compatible`（不同 Base URL），或多条同驱动不同 Key/环境。
+- 创建后 **不可改 `driver`**；改协议请新建实例。
+- 仅允许 Core 支持的 `driver` 白名单。
 - 更新 Key：请求体传新明文 → 服务端加密入库；省略字段表示不改 Key。
 - 列表/详情只返回 `api_key_hint` 与 `has_api_key`。
+- Core 执行 job：按 `config.llm_provider`（= 目录 `id`）查库，再把 `config.llm_provider` **改写为 `driver`** 交给工厂。
 
 ### 6.2 `llm_models`
 
@@ -118,12 +122,18 @@ Core
 
 ### 6.3 默认分析模型
 
-二选一实现（推荐 A）：
+存在产品设置键 **`llm`**（`LLM_SETTINGS_KEY`）：
 
-**A. 产品设置键**（如 `llm.default_quick_model_id` / `llm.default_deep_model_id`）指向 `llm_models.id`。  
-**B. `llm_models` 上全局唯一的 `is_default_quick` / `is_default_deep`。**
+```json
+{
+  "defaultQuickModelId": "<llm_models.id>",
+  "defaultDeepModelId": "<llm_models.id>"
+}
+```
 
-约束：两个默认必须指向**已开放**模型；role 需分别允许作 quick / deep（`both` 可兼任）。保存时校验。
+管理端在 **`/admin/settings`** 编辑；保存走 `PATCH /api/admin/settings` 的 `llm` 字段（服务端校验开放状态、role、同提供商）。
+
+约束：两个默认必须指向**已开放**模型；role 需分别允许作 quick / deep（`both` 可兼任）；须同一提供商且该提供商已启用并有 Key。
 
 ### 6.4 直接删除
 
@@ -146,7 +156,7 @@ Core
   - 成功则写回价格、上下文、`params`/`capabilities`、`synced_at`，清空 `sync_error`。
   - 失败则写 `sync_error`，不清空已有手填值（除非产品选择覆盖策略：仅更新返回非空字段）。
 - 不在「勾选开放」时自动联网；开放只是目录可见性开关。
-- 指定全局默认快速模型、默认深度模型。
+- 全局默认快速/深度模型在 **产品设置**（`/admin/settings`）维护，不在本页。
 
 ### 7.3 审计
 
@@ -166,7 +176,7 @@ Core
 | 项 | 行为 |
 |----|------|
 | 启动 | 不再 seed/refresh 定价源；不再要求 `llm_pricing_sources` 存在。 |
-| 读 Key | 执行分析前按 `config.llm_provider`（或请求字段）从 `llm_providers` 解密 API Key；缺失则任务失败，错误可定位且不泄露 Key。 |
+| 读 Key | 执行分析前按 `config.llm_provider`（目录实例 id）从 `llm_providers` 解密 API Key，并改写为 `driver` 供工厂使用；缺失则任务失败，错误可定位且不泄露 Key。 |
 | 读模型 | 使用请求中的 `quick_think_llm` / `deep_think_llm`；**不**在 Core 内维护开放目录（目录校验在 tg-web）。 |
 | 工厂 | 仍走 `llm_clients`；`api_key` / `backend_url` 来自 DB 行，而非 `PROVIDER_API_KEY_ENV` 产品路径。 |
 | 成本 | 不改。 |
@@ -184,7 +194,8 @@ tg-web 与 Core 共用同一 PostgreSQL 中的 `llm_providers`（及必要时的
 | `GET/POST/PATCH/DELETE` | `/api/admin/llm/models`… | 模型 CRUD |
 | `POST` | `/api/admin/llm/models/:id/sync` | 手动同步价格与参数（编辑已存在行） |
 | `POST` | `/api/admin/llm/models/sync-preview` | 新建未落库前预览同步结果（可选） |
-| `PUT` | `/api/admin/llm/defaults` | 设置默认 quick / deep 模型 ID |
+| `PATCH` | `/api/admin/settings`（`llm` 字段） | 设置默认 quick / deep（产品设置键 `llm`） |
+| `PUT` | `/api/admin/llm/defaults` | 同上（兼容入口） |
 
 ### 用户端
 

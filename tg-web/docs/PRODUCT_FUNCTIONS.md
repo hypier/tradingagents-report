@@ -160,7 +160,7 @@ flowchart LR
 - 可变额度规则表 `credit_rules` 仍可供运营配置参考；分析预扣与结算以服务端 P90/冷启动用量计费为准。
 - 产品设置：维护公告、功能开关（自选/分享）、免责声明版本与正文覆盖、告警 webhook URL（仅存储不发送）。
 - 市场元数据管理 `/admin/markets`；`/api/public-config` 返回已启用市场列表。
-- 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key、开放状态与两个默认分析模型；用户分析页从开放目录选型。
+- 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key 与开放状态；默认快速/深度模型在 `/admin/settings`（产品设置键 `llm`）；用户分析页从开放目录选型。
 - 通用审计检索 `/admin/audit`：记录管理员写操作与报告分享创建/撤销；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
 
 当前尚未实现报告 AI 对话，以及告警 webhook 的实际外发通知。

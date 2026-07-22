@@ -14,7 +14,7 @@ export type LlmCatalogModel = {
 };
 
 export type LlmCatalog = {
-  providers: Array<{ id: string; displayName: string }>;
+  providers: Array<{ id: string; driver: string; displayName: string }>;
   models: LlmCatalogModel[];
   defaults: {
     defaultQuickModelId: string | null;

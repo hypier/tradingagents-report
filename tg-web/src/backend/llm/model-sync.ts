@@ -3,6 +3,8 @@
  * 非后台工人；失败时返回 error，由调用方写入 sync_error。
  */
 
+import { modelsDevProviderId } from '../../shared/llm-provider-logos';
+
 export type SyncedModelFields = {
   displayName?: string;
   inputPrice?: string | null;
@@ -22,7 +24,8 @@ export type ModelSyncResult =
   | { ok: false; error: string };
 
 type SyncInput = {
-  providerId: string;
+  /** Core factory / protocol type (not catalog instance id). */
+  driver: string;
   model: string;
   apiKey: string | null;
   backendUrl: string | null;
@@ -32,7 +35,7 @@ export async function syncModelFromUpstream(
   input: SyncInput,
 ): Promise<ModelSyncResult> {
   try {
-    if (input.providerId === 'openrouter') {
+    if (input.driver === 'openrouter') {
       const fromProvider = await syncOpenRouter(input);
       if (fromProvider.ok) return fromProvider;
     }
@@ -40,7 +43,11 @@ export async function syncModelFromUpstream(
     const fromModelsDev = await syncFromModelsDev(input);
     if (fromModelsDev.ok) return fromModelsDev;
 
-    if (input.backendUrl || input.providerId === 'openai') {
+    if (
+      input.backendUrl ||
+      input.driver === 'openai' ||
+      input.driver === 'openai_compatible'
+    ) {
       const fromOpenAi = await syncOpenAiCompatible(input);
       if (fromOpenAi.ok) return fromOpenAi;
     }
@@ -157,27 +164,10 @@ async function syncFromModelsDev(input: SyncInput): Promise<ModelSyncResult> {
     }
   >;
 
-  const providerAliases: Record<string, string[]> = {
-    openai: ['openai'],
-    anthropic: ['anthropic'],
-    google: ['google'],
-    deepseek: ['deepseek'],
-    xai: ['xai'],
-    mistral: ['mistral'],
-    groq: ['groq'],
-    openrouter: ['openrouter'],
-    qwen: ['alibaba'],
-    'qwen-cn': ['alibaba'],
-    glm: ['zhipuai'],
-    'glm-cn': ['zhipuai'],
-    kimi: ['moonshot'],
-    minimax: ['minimax'],
-    'minimax-cn': ['minimax'],
-  };
-
-  const aliases = providerAliases[input.providerId] ?? [input.providerId];
-  for (const alias of aliases) {
-    const provider = payload[alias];
+  const alias = modelsDevProviderId(input.driver);
+  const candidates = Array.from(new Set([alias, input.driver]));
+  for (const providerKey of candidates) {
+    const provider = payload[providerKey];
     const model = provider?.models?.[input.model];
     if (!model) continue;
     return {
@@ -196,13 +186,13 @@ async function syncFromModelsDev(input: SyncInput): Promise<ModelSyncResult> {
             : null,
         contextWindow: model.limit?.context ?? null,
         maxOutputTokens: model.limit?.output ?? null,
-        capabilities: { source: 'models.dev', provider: alias },
+        capabilities: { source: 'models.dev', provider: providerKey },
       },
     };
   }
 
   return {
     ok: false,
-    error: `Model ${input.providerId}/${input.model} not found on models.dev`,
+    error: `Model ${input.driver}/${input.model} not found on models.dev`,
   };
 }

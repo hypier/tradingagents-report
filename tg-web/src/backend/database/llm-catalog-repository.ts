@@ -9,6 +9,7 @@ export type LlmModelRow = typeof llmModels.$inferSelect;
 
 export type LlmProviderUpsertInput = {
   id: string;
+  driver: string;
   displayName: string;
   enabled: boolean;
   backendUrl?: string | null;
@@ -88,6 +89,7 @@ export function createLlmCatalogRepository(
           .insert(llmProviders)
           .values({
             id: input.id,
+            driver: input.driver,
             displayName: input.displayName,
             enabled: input.enabled,
             backendUrl: input.backendUrl ?? null,
@@ -103,6 +105,7 @@ export function createLlmCatalogRepository(
       }
 
       const set: Partial<typeof llmProviders.$inferInsert> = {
+        driver: input.driver,
         displayName: input.displayName,
         enabled: input.enabled,
         backendUrl: input.backendUrl ?? null,

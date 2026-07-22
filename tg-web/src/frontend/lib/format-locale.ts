@@ -134,6 +134,29 @@ export function formatLocaleNumber(value: number) {
   return value.toLocaleString(toIntlLocale(i18n.language));
 }
 
+/** Trim fixed-scale decimals (e.g. DB numeric `5.00000000` → `5`). */
+export function formatTrimmedDecimal(
+  value: string | number | null | undefined,
+  fallback = '—',
+): string {
+  if (value == null || value === '') return fallback;
+  const raw = String(value).trim();
+  if (!raw) return fallback;
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return raw;
+  return String(num);
+}
+
+/** Display LLM catalog prices with a dollar sign (e.g. `$5`, `$1.25`). */
+export function formatUsdPrice(
+  value: string | number | null | undefined,
+  fallback = '—',
+): string {
+  const trimmed = formatTrimmedDecimal(value, '');
+  if (!trimmed) return fallback;
+  return `$${trimmed}`;
+}
+
 /** Compact notation (e.g. 1.2M / 1.2亿) following the active UI locale. */
 export function formatLocaleCompactNumber(
   value?: number,

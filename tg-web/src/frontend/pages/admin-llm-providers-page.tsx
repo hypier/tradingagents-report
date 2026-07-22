@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
+import { LlmProviderMark } from '@/frontend/components/llm-provider-mark';
 import { PageFrame } from '@/frontend/components/page-chrome';
 import {
   Alert,
@@ -39,17 +40,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/frontend/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/frontend/components/ui/tooltip';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import {
-  clearAdminLlmProviderApiKey,
   deleteAdminLlmProvider,
+  listAdminLlmModels,
   listAdminLlmProviders,
+  testAdminLlmProvider,
   upsertAdminLlmProvider,
   type AdminLlmProvider,
 } from '@/frontend/lib/admin-llm';
+import { providerRequiresBaseUrl } from '@/shared/llm-providers';
 
 type ProviderDraft = {
   id: string;
+  driver: string;
   displayName: string;
   backendUrl: string;
   apiKey: string;
@@ -58,6 +67,7 @@ type ProviderDraft = {
 
 const emptyDraft = (): ProviderDraft => ({
   id: '',
+  driver: '',
   displayName: '',
   backendUrl: '',
   apiKey: '',
@@ -67,6 +77,7 @@ const emptyDraft = (): ProviderDraft => ({
 function toDraft(provider: AdminLlmProvider): ProviderDraft {
   return {
     id: provider.id,
+    driver: provider.driver,
     displayName: provider.displayName,
     backendUrl: provider.backendUrl ?? '',
     apiKey: '',
@@ -82,40 +93,61 @@ export function AdminLlmProvidersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProviderDraft>(emptyDraft);
+  const [deleteTarget, setDeleteTarget] = useState<AdminLlmProvider | null>(
+    null,
+  );
+  const [testMessage, setTestMessage] = useState<string | null>(null);
 
   const providersQuery = useQuery({
     queryKey: ['admin-llm-providers'],
     queryFn: () => listAdminLlmProviders(),
     enabled: isAdmin,
   });
+  const modelsQuery = useQuery({
+    queryKey: ['admin-llm-models'],
+    queryFn: () => listAdminLlmModels(),
+    enabled: isAdmin,
+  });
 
   const providers = providersQuery.data?.data.providers ?? [];
-  const availableIds = providersQuery.data?.data.availableIds ?? [];
-  const unusedIds = useMemo(
-    () =>
-      availableIds.filter(
-        (id) => !providers.some((provider) => provider.id === id),
-      ),
-    [availableIds, providers],
-  );
-  const selectableIds = editingId
-    ? [editingId]
-    : unusedIds.length
-      ? unusedIds
-      : availableIds;
+  const models = modelsQuery.data?.data.models ?? [];
+  const availableDrivers = providersQuery.data?.data.availableDrivers ?? [];
+  const modelCountByProvider = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const model of models) {
+      counts.set(model.providerId, (counts.get(model.providerId) ?? 0) + 1);
+    }
+    return counts;
+  }, [models]);
+  const deleteModelCount = deleteTarget
+    ? (modelCountByProvider.get(deleteTarget.id) ?? 0)
+    : 0;
+  const baseUrlRequired = providerRequiresBaseUrl(draft.driver);
+  const canSave =
+    Boolean(draft.id.trim() && draft.driver) &&
+    (!baseUrlRequired || Boolean(draft.backendUrl.trim()));
+  const canTest =
+    Boolean(draft.driver) &&
+    (!baseUrlRequired || Boolean(draft.backendUrl.trim()));
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['admin-llm-providers'] });
+  const invalidate = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin-llm-providers'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-llm-models'] }),
+    ]);
+  };
 
   const openCreate = () => {
     setEditingId(null);
     setDraft(emptyDraft());
+    setTestMessage(null);
     setDialogOpen(true);
   };
 
   const openEdit = (provider: AdminLlmProvider) => {
     setEditingId(provider.id);
     setDraft(toDraft(provider));
+    setTestMessage(null);
     setDialogOpen(true);
   };
 
@@ -123,12 +155,14 @@ export function AdminLlmProvidersPage() {
     setDialogOpen(false);
     setEditingId(null);
     setDraft(emptyDraft());
+    setTestMessage(null);
   };
 
   const save = useMutation({
     mutationFn: () =>
-      upsertAdminLlmProvider(draft.id, {
-        displayName: draft.displayName.trim() || draft.id,
+      upsertAdminLlmProvider(draft.id.trim(), {
+        driver: draft.driver,
+        displayName: draft.displayName.trim() || draft.id.trim(),
         enabled: draft.enabled,
         backendUrl: draft.backendUrl.trim() || null,
         ...(draft.apiKey.trim() ? { apiKey: draft.apiKey.trim() } : {}),
@@ -141,11 +175,45 @@ export function AdminLlmProvidersPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const testConnection = useMutation({
+    mutationFn: () =>
+      testAdminLlmProvider({
+        driver: draft.driver,
+        ...(editingId ? { providerId: editingId } : {}),
+        backendUrl: draft.backendUrl.trim() || null,
+        ...(draft.apiKey.trim() ? { apiKey: draft.apiKey.trim() } : {}),
+      }),
+    onSuccess: (result) => {
+      const count = result.data.modelCount;
+      const detail =
+        typeof count === 'number'
+          ? t('llmProviders.toast.testOkWithCount', { count })
+          : t('llmProviders.toast.testOk');
+      setTestMessage(detail);
+      toast.success(detail);
+    },
+    onError: (error: Error) => {
+      setTestMessage(error.message);
+      toast.error(error.message);
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (input: { id: string; force: boolean }) =>
+      deleteAdminLlmProvider(input.id, { force: input.force }),
+    onSuccess: async () => {
+      toast.success(t('llmProviders.toast.deleted'));
+      setDeleteTarget(null);
+      await invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   return (
     <AdminGate
       accessTitle={t('llmProviders.accessRequired.title')}
       accessBody={t('llmProviders.accessRequired.body')}
-      loading={providersQuery.isLoading}
+      loading={providersQuery.isLoading || modelsQuery.isLoading}
     >
       <PageFrame
         title={t('llmProviders.heading')}
@@ -175,9 +243,9 @@ export function AdminLlmProvidersPage() {
                   <TableHead className="pl-5 lg:pl-6">
                     {t('llmProviders.columns.provider')}
                   </TableHead>
-                  <TableHead>{t('llmProviders.columns.status')}</TableHead>
                   <TableHead>{t('llmProviders.columns.apiKey')}</TableHead>
                   <TableHead>{t('llmProviders.columns.backendUrl')}</TableHead>
+                  <TableHead>{t('llmProviders.columns.status')}</TableHead>
                   <TableHead className="w-[1%] whitespace-nowrap pr-5 lg:pr-6" />
                 </TableRow>
               </TableHeader>
@@ -192,81 +260,86 @@ export function AdminLlmProvidersPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  providers.map((provider) => (
-                    <TableRow key={provider.id}>
-                      <TableCell className="pl-5 lg:pl-6">
-                        <div className="font-medium">{provider.displayName}</div>
-                        <div className="font-mono text-xs tracking-wide text-muted-foreground">
-                          {provider.id}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={provider.enabled ? 'secondary' : 'outline'}
-                        >
-                          {provider.enabled
-                            ? t('llmProviders.enabled')
-                            : t('llmProviders.disabled')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs tabular-nums">
-                        {provider.apiKeyHint ?? '—'}
-                      </TableCell>
-                      <TableCell className="max-w-[16rem] truncate font-mono text-xs">
-                        {provider.backendUrl ?? '—'}
-                      </TableCell>
-                      <TableCell className="space-x-2 pr-5 text-right lg:pr-6">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEdit(provider)}
-                        >
-                          {t('llmProviders.actions.edit')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            try {
-                              await clearAdminLlmProviderApiKey(provider.id);
-                              toast.success(t('llmProviders.toast.keyCleared'));
-                              await invalidate();
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : String(error),
-                              );
-                            }
-                          }}
-                        >
-                          {t('llmProviders.actions.clearKey')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            try {
-                              await deleteAdminLlmProvider(provider.id);
-                              toast.success(t('llmProviders.toast.deleted'));
-                              await invalidate();
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : String(error),
-                              );
-                            }
-                          }}
-                        >
-                          {t('llmProviders.actions.delete')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  providers.map((provider) => {
+                    const modelCount =
+                      modelCountByProvider.get(provider.id) ?? 0;
+                    return (
+                      <TableRow key={provider.id}>
+                        <TableCell className="pl-5 lg:pl-6">
+                          <div className="flex items-center gap-3">
+                            <LlmProviderMark providerId={provider.driver} />
+                            <div className="min-w-0">
+                              <div className="font-medium">
+                                {provider.displayName}
+                              </div>
+                              <div className="font-mono text-xs tracking-wide text-muted-foreground">
+                                {provider.id}
+                                {provider.driver !== provider.id
+                                  ? ` · ${provider.driver}`
+                                  : ''}
+                                {modelCount > 0
+                                  ? ` · ${t('llmProviders.modelCount', {
+                                      count: modelCount,
+                                    })}`
+                                  : ''}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
+                          {provider.apiKeyHint ?? '—'}
+                        </TableCell>
+                        <TableCell className="max-w-[16rem] truncate font-mono text-xs">
+                          {provider.backendUrl ?? '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={provider.enabled ? 'up' : 'outline'}
+                          >
+                            {provider.enabled
+                              ? t('llmProviders.enabled')
+                              : t('llmProviders.disabled')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="pr-5 text-right lg:pr-6">
+                          <div className="inline-flex flex-nowrap items-center justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="outline"
+                                  aria-label={t('llmProviders.actions.edit')}
+                                  onClick={() => openEdit(provider)}
+                                >
+                                  <Pencil />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" sideOffset={6}>
+                                {t('llmProviders.actions.edit')}
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="destructive"
+                                  aria-label={t('llmProviders.actions.delete')}
+                                  onClick={() => setDeleteTarget(provider)}
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" sideOffset={6}>
+                                {t('llmProviders.actions.delete')}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -293,33 +366,67 @@ export function AdminLlmProvidersPage() {
             </DialogHeader>
             <div className="grid gap-4 py-2 sm:grid-cols-2">
               <Field>
-                <FieldLabel>{t('llmProviders.fields.providerId')}</FieldLabel>
+                <FieldLabel>{t('llmProviders.fields.driver')}</FieldLabel>
                 <Select
-                  value={draft.id || undefined}
+                  value={draft.driver || undefined}
                   onValueChange={(value) =>
                     setDraft((current) => ({
                       ...current,
-                      id: value,
-                      displayName: current.displayName || value,
+                      driver: value,
+                      id:
+                        !editingId &&
+                        (!current.id || current.id === current.driver)
+                          ? value
+                          : current.id,
+                      displayName:
+                        current.displayName ||
+                        (!editingId &&
+                        (!current.id || current.id === current.driver)
+                          ? value
+                          : current.displayName),
                     }))
                   }
                   disabled={Boolean(editingId)}
                 >
                   <SelectTrigger>
                     <SelectValue
-                      placeholder={t('llmProviders.fields.providerId')}
+                      placeholder={t('llmProviders.fields.driver')}
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {selectableIds.map((id) => (
-                      <SelectItem key={id} value={id}>
-                        {id}
+                    {availableDrivers.map((driver) => (
+                      <SelectItem key={driver} value={driver}>
+                        <span className="flex items-center gap-2">
+                          <LlmProviderMark
+                            providerId={driver}
+                            className="size-5 border-0 bg-transparent"
+                          />
+                          {driver}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
               <Field>
+                <FieldLabel>{t('llmProviders.fields.instanceId')}</FieldLabel>
+                <Input
+                  value={draft.id}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      id: event.target.value
+                        .trim()
+                        .toLowerCase()
+                        .replace(/[^a-z0-9_-]/g, ''),
+                    }))
+                  }
+                  disabled={Boolean(editingId)}
+                  placeholder="nbapi"
+                  className="font-mono"
+                />
+              </Field>
+              <Field className="sm:col-span-2">
                 <FieldLabel>{t('llmProviders.fields.displayName')}</FieldLabel>
                 <Input
                   value={draft.displayName}
@@ -332,7 +439,10 @@ export function AdminLlmProvidersPage() {
                 />
               </Field>
               <Field className="sm:col-span-2">
-                <FieldLabel>{t('llmProviders.fields.backendUrl')}</FieldLabel>
+                <FieldLabel>
+                  {t('llmProviders.fields.backendUrl')}
+                  {baseUrlRequired ? ' *' : ''}
+                </FieldLabel>
                 <Input
                   value={draft.backendUrl}
                   onChange={(event) =>
@@ -390,17 +500,84 @@ export function AdminLlmProvidersPage() {
                   </p>
                 </div>
               </Field>
+              {testMessage ? (
+                <p className="sm:col-span-2 text-sm text-muted-foreground">
+                  {testMessage}
+                </p>
+              ) : null}
             </div>
+            <DialogFooter className="gap-2 sm:justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!canTest || testConnection.isPending}
+                onClick={() => testConnection.mutate()}
+              >
+                {testConnection.isPending ? (
+                  <LoaderCircle
+                    data-icon="inline-start"
+                    className="animate-spin"
+                  />
+                ) : null}
+                {t('llmProviders.actions.test')}
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={closeDialog}>
+                  {t('llmProviders.actions.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!canSave || save.isPending}
+                  onClick={() => save.mutate()}
+                >
+                  {t('llmProviders.actions.save')}
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(deleteTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('llmProviders.deleteTitle')}</DialogTitle>
+              <DialogDescription>
+                {deleteModelCount > 0
+                  ? t('llmProviders.deleteBodyWithModels', {
+                      name: deleteTarget?.displayName ?? '',
+                      count: deleteModelCount,
+                    })
+                  : t('llmProviders.deleteBody', {
+                      name: deleteTarget?.displayName ?? '',
+                    })}
+              </DialogDescription>
+            </DialogHeader>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteTarget(null)}
+              >
                 {t('llmProviders.actions.cancel')}
               </Button>
               <Button
                 type="button"
-                disabled={!draft.id || save.isPending}
-                onClick={() => save.mutate()}
+                variant="destructive"
+                disabled={!deleteTarget || remove.isPending}
+                onClick={() => {
+                  if (!deleteTarget) return;
+                  remove.mutate({
+                    id: deleteTarget.id,
+                    force: deleteModelCount > 0,
+                  });
+                }}
               >
-                {t('llmProviders.actions.save')}
+                {t('llmProviders.actions.confirmDelete')}
               </Button>
             </DialogFooter>
           </DialogContent>
