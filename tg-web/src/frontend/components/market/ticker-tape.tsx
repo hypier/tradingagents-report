@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 
 import { InstrumentLogo } from '@/frontend/components/instrument-logo';
+import { Badge } from '@/frontend/components/ui/badge';
 import { cn } from '@/frontend/lib/utils';
 import { formatLocaleNumber } from '@/frontend/lib/format-locale';
 import type { MarketTapeQuote } from '@/shared/market-board';
@@ -30,24 +31,22 @@ function TapeChip({
     <span
       key={flashKey}
       className={cn(
-        'inline-flex h-8 items-center gap-1.5 whitespace-nowrap px-3',
+        'inline-flex h-7 items-center gap-1.5 whitespace-nowrap px-2.5',
         'quote-flash',
       )}
     >
-      <InstrumentLogo
-        symbol={quote.symbol}
-        logoUrl={quote.logo_url}
-        size="xs"
-      />
-      <span className="font-mono text-xs font-medium tracking-wide text-foreground">
+      <Badge
+        variant="secondary"
+        className="h-5 border-transparent bg-muted px-1.5 font-mono text-[11px] font-medium tracking-wide text-foreground"
+      >
         {ticker}
-      </span>
-      <span className="font-mono text-xs tabular-nums text-foreground">
+      </Badge>
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
         {formatLocaleNumber(quote.price)}
       </span>
       <span
         className={cn(
-          'font-mono text-xs tabular-nums',
+          'font-mono text-[11px] tabular-nums',
           changeClass(quote.change_percent),
         )}
       >
@@ -60,7 +59,7 @@ function TapeChip({
     return (
       <Link
         to={`/stocks/${encodeURIComponent(quote.symbol)}`}
-        className="transition-colors hover:bg-muted/40"
+        className="transition-colors hover:bg-muted/50"
       >
         {content}
       </Link>
@@ -70,7 +69,7 @@ function TapeChip({
 }
 
 /**
- * Full-bleed ticker ribbon: flush to pane edges, no vertical cell rules.
+ * White ticker ribbon — codes sit on gray badges.
  */
 export function TickerTape({
   items,
@@ -88,7 +87,7 @@ export function TickerTape({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden border-b border-border bg-card',
+        'group relative overflow-hidden border-b border-border bg-background',
         className,
       )}
     >
@@ -105,7 +104,7 @@ export function TickerTape({
   );
 }
 
-/** Ruled index strip — equal-width cells that always fill the row. */
+/** Elevated index strip — card surface; name quiet, price + change lead. */
 export function PinnedIndices({
   items,
   updatedAt,
@@ -117,7 +116,7 @@ export function PinnedIndices({
   const count = items.length;
 
   return (
-    <div className="-mx-3 border-y border-border sm:-mx-5 lg:-mx-6">
+    <div className="border-b border-border bg-card">
       <div
         className={cn(
           'grid min-w-0',
@@ -136,7 +135,7 @@ export function PinnedIndices({
             <div
               key={updatedAt}
               className={cn(
-                'flex h-full min-w-0 flex-col gap-2 px-3 py-3 quote-flash sm:px-4 lg:flex-row lg:items-center lg:gap-3',
+                'flex h-12 min-w-0 items-center gap-2.5 px-3 quote-flash sm:px-4',
                 index % 2 === 1 && 'border-l border-border',
                 index > 0 && 'lg:border-l lg:border-border',
                 index >= 2 &&
@@ -146,34 +145,22 @@ export function PinnedIndices({
                 isDown && 'bg-market-down-bg',
               )}
             >
-              <div className="flex min-w-0 items-center gap-2.5">
-                <InstrumentLogo
-                  symbol={quote.symbol}
-                  logoUrl={quote.logo_url}
-                  size="md"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-normal tracking-tight text-foreground">
-                    {quote.name || label}
-                  </p>
-                  <p className="mt-0.5 font-mono text-[11px] tracking-wide text-muted-foreground">
-                    {label}
-                    {quote.currency ? (
-                      <span className="text-muted-foreground/70">
-                        {' '}
-                        / {quote.currency}
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-baseline justify-between gap-3 font-mono lg:ml-auto lg:block lg:text-right">
-                <p className="text-sm font-semibold tabular-nums tracking-tight text-foreground sm:text-base">
+              <InstrumentLogo
+                symbol={quote.symbol}
+                logoUrl={quote.logo_url}
+                size="sm"
+                className="hidden shrink-0 sm:flex"
+              />
+              <p className="min-w-0 flex-1 truncate font-mono text-xs tracking-wide text-muted-foreground">
+                {label}
+              </p>
+              <div className="flex shrink-0 items-baseline gap-2 font-mono">
+                <p className="text-sm font-semibold tabular-nums tracking-tight text-foreground">
                   {formatLocaleNumber(quote.price)}
                 </p>
                 <p
                   className={cn(
-                    'text-xs tabular-nums lg:mt-0.5',
+                    'text-xs tabular-nums',
                     changeClass(quote.change_percent),
                   )}
                 >
@@ -187,7 +174,7 @@ export function PinnedIndices({
               <Link
                 key={quote.symbol}
                 to={`/stocks/${encodeURIComponent(quote.symbol)}`}
-                className="block min-w-0 transition-colors hover:bg-muted/30"
+                className="block min-w-0 transition-colors hover:brightness-[0.98] dark:hover:brightness-110"
               >
                 {cell}
               </Link>

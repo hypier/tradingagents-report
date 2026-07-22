@@ -144,22 +144,23 @@ export function MarketCodePicker({
       <Button
         type="button"
         variant="outline"
-        className="h-11 w-full justify-between rounded-none px-3.5 font-normal"
+        className="h-11 w-full justify-between rounded-none px-3 font-normal"
         onClick={() => {
           setRecentCodes(loadRecentTvMarkets());
           setOpen(true);
         }}
         aria-haspopup="dialog"
       >
-        <span className="truncate text-left">
-          <span className="block text-xs text-muted-foreground">
+        <span className="min-w-0 truncate text-left text-sm">
+          <span className="text-muted-foreground">
             {t('marketPicker.label')}
+            <span className="mx-1.5 text-border">/</span>
           </span>
           <span className="font-normal">
             {selectedName || value || t('marketPicker.placeholder')}
           </span>
         </span>
-        <ChevronsUpDown className="size-4 opacity-60" />
+        <ChevronsUpDown className="size-4 shrink-0 opacity-60" />
       </Button>
 
       <Dialog

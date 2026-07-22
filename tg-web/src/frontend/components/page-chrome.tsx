@@ -88,6 +88,7 @@ export function PageFrame({
   toolbar,
   children,
   bodyClassName,
+  headerClassName,
   className,
 }: {
   title: string;
@@ -96,11 +97,17 @@ export function PageFrame({
   toolbar?: ReactNode;
   children: ReactNode;
   bodyClassName?: string;
+  headerClassName?: string;
   className?: string;
 }) {
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
-      <PageHeader title={title} description={description} actions={actions}>
+      <PageHeader
+        title={title}
+        description={description}
+        actions={actions}
+        className={headerClassName}
+      >
         {toolbar}
       </PageHeader>
       <PageBody className={bodyClassName}>{children}</PageBody>

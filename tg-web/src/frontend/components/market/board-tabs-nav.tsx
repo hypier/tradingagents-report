@@ -97,10 +97,10 @@ export function BoardTabsNav({
                 role="tab"
                 aria-selected={selected}
                 className={cn(
-                  '-mb-px shrink-0 cursor-pointer border-b-2 px-3 py-3 text-sm whitespace-nowrap transition-colors sm:px-3.5 sm:py-3.5',
+                  '-mb-px shrink-0 cursor-pointer border-b-2 px-2.5 py-2.5 text-sm whitespace-nowrap transition-colors sm:px-3',
                   selected
-                    ? 'border-primary font-semibold text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                    ? 'border-primary font-medium text-foreground'
+                    : 'border-transparent text-muted-foreground/80 hover:text-foreground',
                 )}
                 onClick={() => onChange(boardTab)}
               >
@@ -112,7 +112,7 @@ export function BoardTabsNav({
       </div>
 
       {canScrollLeft ? (
-        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center bg-gradient-to-r from-background via-background/90 to-transparent pl-0.5 pr-6">
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center bg-gradient-to-r from-card via-card/90 to-transparent pl-0.5 pr-6">
           <Button
             type="button"
             variant="ghost"
@@ -127,7 +127,7 @@ export function BoardTabsNav({
       ) : null}
 
       {canScrollRight ? (
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center bg-gradient-to-l from-background via-background/90 to-transparent pr-0.5 pl-6">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center bg-gradient-to-l from-card via-card/90 to-transparent pr-0.5 pl-6">
           <Button
             type="button"
             variant="ghost"
