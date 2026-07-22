@@ -1006,7 +1006,7 @@ function PlansTable({
               return (
                 <TableRow key={plan.id} className="h-11">
                   <TableCell>
-                    <div className="font-medium">{displayPlan.name}</div>
+                    <div className="font-normal">{displayPlan.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {displayPlan.description ?? plan.id}
                     </div>

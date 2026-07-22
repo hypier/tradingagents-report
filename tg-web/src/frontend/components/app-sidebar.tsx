@@ -261,7 +261,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <Link to={isAdminMenu ? '/admin' : '/'}>
                 <BrandMark className="size-8 text-sidebar-primary" />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-base font-semibold tracking-tight text-sidebar-foreground">
+                  <span className="truncate text-base font-normal tracking-tight text-sidebar-foreground">
                     {t('brand.name')}
                   </span>
                   <span className="font-mono text-xs tracking-[0.16em] text-sidebar-primary/80 uppercase">
@@ -282,7 +282,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
               ) : null}
               <SidebarGroup className="gap-1 p-0">
-                <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+                <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs font-normal tracking-[0.16em] text-sidebar-foreground/40 uppercase">
                   {t(section.titleKey)}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -310,7 +310,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ) : (
           <>
             <SidebarGroup className="gap-1 p-0">
-              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs font-normal tracking-[0.16em] text-sidebar-foreground/40 uppercase">
                 {t('nav.research')}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -328,7 +328,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
             <SidebarGroup className="gap-1 p-0">
-              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs font-normal tracking-[0.16em] text-sidebar-foreground/40 uppercase">
                 {t('nav.marketGroup')}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -347,7 +347,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
 
             <SidebarGroup className="gap-1 p-0">
-              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs font-normal tracking-[0.16em] text-sidebar-foreground/40 uppercase">
                 {t('nav.accountGroup')}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -380,7 +380,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className={cn(
                 'h-9 px-2 font-mono text-xs tracking-[0.12em] uppercase transition-colors',
                 !isAdminMenu
-                  ? 'bg-sidebar-accent font-semibold text-sidebar-primary'
+                  ? 'bg-sidebar-accent font-normal text-sidebar-primary'
                   : 'text-sidebar-foreground/50 hover:text-sidebar-foreground/80',
               )}
             >
@@ -393,7 +393,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className={cn(
                 'h-9 px-2 font-mono text-xs tracking-[0.12em] uppercase transition-colors',
                 isAdminMenu
-                  ? 'bg-sidebar-accent font-semibold text-sidebar-primary'
+                  ? 'bg-sidebar-accent font-normal text-sidebar-primary'
                   : 'text-sidebar-foreground/50 hover:text-sidebar-foreground/80',
               )}
             >
@@ -414,7 +414,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <CreditCard className="size-4 text-sidebar-primary opacity-80 transition-opacity group-hover:opacity-100" />
             </div>
             <p className="mt-1.5 font-mono text-2xl font-semibold leading-none tabular-nums text-sidebar-foreground">
-              <span className="mr-2 text-xs font-medium tracking-wide text-sidebar-foreground/45 uppercase">
+              <span className="mr-2 text-xs font-normal tracking-wide text-sidebar-foreground/45 uppercase">
                 {t('nav.creditsLabel', { defaultValue: 'Credits' })}
               </span>
               {availableCredits}

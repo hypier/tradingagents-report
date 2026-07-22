@@ -239,7 +239,7 @@ export function BillingPage() {
                             {formatLocaleDateTimeValue(entry.createdAt)}
                           </TableCell>
                           <TableCell>
-                            <div className="font-medium">
+                            <div className="font-normal">
                               {entry.referenceType === 'signup_grant'
                                 ? t('ledger.signupGrant')
                                 : entry.referenceType === 'referral_reward'

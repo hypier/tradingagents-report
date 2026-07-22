@@ -155,7 +155,7 @@ export function MarketCodePicker({
           <span className="block text-xs text-muted-foreground">
             {t('marketPicker.label')}
           </span>
-          <span className="font-medium">
+          <span className="font-normal">
             {selectedName || value || t('marketPicker.placeholder')}
           </span>
         </span>

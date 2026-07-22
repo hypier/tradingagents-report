@@ -488,7 +488,7 @@ export function AdminLlmModelsPage() {
                               }
                             />
                             <div className="min-w-0">
-                              <div className="font-medium">
+                              <div className="font-normal">
                                 {model.displayName}
                               </div>
                               <div className="font-mono text-xs tracking-wide text-muted-foreground">

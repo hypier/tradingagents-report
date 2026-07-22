@@ -144,7 +144,6 @@ export function QuoteStrip({
             ticker={
               quote.display_ticker ?? formatDisplayTicker(quote.ticker)
             }
-            nameClassName="font-semibold"
           />
           <p className="mt-1 font-mono text-[11px] tabular-nums text-muted-foreground">
             <span

@@ -153,7 +153,7 @@ export function PinnedIndices({
                   size="md"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium tracking-tight text-foreground">
+                  <p className="truncate text-sm font-normal tracking-tight text-foreground">
                     {quote.name || label}
                   </p>
                   <p className="mt-0.5 font-mono text-[11px] tracking-wide text-muted-foreground">

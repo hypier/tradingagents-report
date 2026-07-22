@@ -156,7 +156,7 @@ export function AdminAnalysesPage() {
                   <TableRow key={String(job.id)}>
                     <TableCell>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium tracking-tight">
+                        <p className="truncate text-sm font-normal tracking-tight">
                           {displayName || ticker}
                         </p>
                         {displayName ? (

@@ -131,7 +131,7 @@ export function ReportStickyTabs({
                 tone="accent"
               />
               <div className="min-w-0">
-                <span className="block truncate text-sm font-medium tracking-tight text-foreground">
+                <span className="block truncate text-sm font-normal tracking-tight text-foreground">
                   {label}
                 </span>
                 {showTicker ? (

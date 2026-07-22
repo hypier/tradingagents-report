@@ -228,7 +228,7 @@ export function TickerSearch({
                       size="lg"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-base font-medium">
+                      <span className="block truncate text-base font-normal">
                         {hit.display_name}
                         {hit.english_name ? (
                           <span className="ml-1.5 font-normal text-xs text-muted-foreground">

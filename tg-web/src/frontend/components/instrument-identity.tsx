@@ -5,8 +5,8 @@ import { cn } from '@/frontend/lib/utils';
 type Density = 'compact' | 'row' | 'header';
 
 const nameStyles: Record<Density, string> = {
-  compact: 'truncate text-sm font-medium tracking-tight text-foreground',
-  row: 'truncate text-sm font-medium tracking-tight text-foreground',
+  compact: 'truncate text-sm font-normal tracking-tight text-foreground',
+  row: 'truncate text-sm font-normal tracking-tight text-foreground',
   header: 'truncate text-xl font-semibold tracking-tight text-foreground',
 };
 

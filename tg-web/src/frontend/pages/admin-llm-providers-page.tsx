@@ -269,7 +269,7 @@ export function AdminLlmProvidersPage() {
                           <div className="flex items-center gap-3">
                             <LlmProviderMark providerId={provider.driver} />
                             <div className="min-w-0">
-                              <div className="font-medium">
+                              <div className="font-normal">
                                 {provider.displayName}
                               </div>
                               <div className="font-mono text-xs tracking-wide text-muted-foreground">

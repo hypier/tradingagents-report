@@ -616,7 +616,7 @@ export function HomePage() {
                               />
                               <span
                                 className={cn(
-                                  'min-w-0 truncate text-sm font-semibold tracking-tight',
+                                  'min-w-0 truncate text-sm font-normal tracking-tight',
                                   selected && 'text-primary',
                                 )}
                               >

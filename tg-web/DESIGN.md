@@ -105,7 +105,7 @@ Density 8 mandate: **all numbers are monospace** — prices, percents, credits, 
 
 ### Type behaviors
 
-- **Instrument identity (lists, quote, headers):** company **name on top** (sans, medium/semibold); **ticker code below** (system mono, Dim Meta, tracking `0.04em`). Never ticker-above-name. If name is missing, ticker occupies the primary line only.
+- **Instrument identity (lists, quote, headers):** company **name on top** (sans, regular in lists; semibold in headers); **ticker code below** (system mono, Dim Meta, tracking `0.04em`). Never ticker-above-name. If name is missing, ticker occupies the primary line only.
 - Tickers: mono, slight tracking (`0.04em`); pair with exchange badge in headers / quote chrome — not as a substitute for the name row
 - Moves: mono + Rise/Fall + explicit sign (`+1.24%` / `-0.86%`) — no fake `99.99%`
 - Credits: mono numerals + Dim Meta label; low balance → Amber Wash chip + Signal Amber text
@@ -162,7 +162,7 @@ Canonical pattern for report library, tasks, admin ledgers, LLM providers/models
 | **Horizontal inset** | First column `pl-5 lg:pl-6`; last column `pr-5 lg:pr-6` — align with PageHeader padding. Interior columns use default head/cell padding. |
 | **Header row** | `TableRow` with `hover:bg-transparent`. Heads: medium weight, no hover wash. Prefer Dim Meta for secondary column labels when the page has many columns. |
 | **Body rows** | Row height ~40–44px feel (`TableHead` `h-10`, cells `p-2`+). Single Wire Edge `border-b` between rows; last row may drop bottom border via `TableBody` default. Hover: muted wash only — never scale or glow. |
-| **Primary identity cell** | **Name on top** (sans, medium/semibold) + **code / id below** (system mono, Dim Meta, slight tracking). Same stack as instrument rows. |
+| **Primary identity cell** | **Name on top** (sans, regular in lists; semibold in headers) + **code / id below** (system mono, Dim Meta, slight tracking). Same stack as instrument rows. |
 | **Numeric / secret / URL cells** | System mono + `tabular-nums` where appropriate. Truncate long URLs with `max-w-*` + `truncate`. Masked secrets stay mono. |
 | **Status** | Compact rectangular Badge (`secondary` = on / open, `outline` = off / closed). Rise/Fall badges only for market data — not for admin enable flags. |
 | **Row actions** | End-aligned outline `sm` buttons in the last cell; Destructive for delete. Prefer dialogs for create/edit — do not stack edit forms under the table on the same page. |
@@ -211,6 +211,7 @@ Canonical size matches the research-desk recent-runs rail — **reuse everywhere
 
 - Desktop left sidebar: Pit Panel, tight item spacing, brand lockup top.
 - Nav items: brighter readable text (`~85%` of Hot Ink), denser hit target (`h-11`, body `text-base`), **regular weight** (not medium/semibold — active state via amber rail + color only). Admin is a **separate flat group**, not nested under Account.
+- Brand lockup + mode switch + group labels: also **regular weight**; credits number may stay semibold (numeric emphasis).
 - Top bar: utilities only when the page owns the title (theme, language, Clerk account, Sign out). No pill-stat clutter.
 - Mobile: single column + sheet menu; touch targets ≥ 44px.
 

@@ -194,7 +194,7 @@ export function AdminUsersPage() {
                           </Avatar>
                           <div className="flex min-w-0 items-center gap-2">
                             <Link
-                              className="truncate font-medium hover:underline"
+                              className="truncate font-normal hover:underline"
                               to={`/admin/users/${encodeURIComponent(user.id)}`}
                             >
                               {user.displayName}

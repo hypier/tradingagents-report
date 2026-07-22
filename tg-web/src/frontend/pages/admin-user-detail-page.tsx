@@ -239,7 +239,7 @@ export function AdminUserDetailPage() {
                           className="block min-w-0 underline-offset-2 hover:underline"
                           to={`/reports/${String(job.id)}`}
                         >
-                          <span className="block truncate text-sm font-medium tracking-tight">
+                          <span className="block truncate text-sm font-normal tracking-tight">
                             {displayName || ticker}
                           </span>
                           {displayName ? (
