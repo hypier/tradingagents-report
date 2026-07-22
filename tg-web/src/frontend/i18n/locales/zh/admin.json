@@ -398,7 +398,7 @@
   },
   "llmModels": {
     "heading": "模型",
-    "subtitle": "录入模型并手动同步价格。默认快速/深度模型请到「产品设置」配置。",
+    "subtitle": "录入模型并手动同步价格。默认快速/深度模型请到「系统设置」配置。",
     "accessRequired": {
       "title": "需要管理员权限",
       "body": "当前账号没有管理模型的权限。"
@@ -492,12 +492,12 @@
     }
   },
   "settings": {
-    "title": "产品设置",
-    "heading": "产品设置",
+    "title": "系统设置",
+    "heading": "系统设置",
     "subtitle": "维护公告、功能开关、免责声明、告警、默认 LLM 模型与额度规则。",
     "accessRequired": {
       "title": "需要管理员权限",
-      "body": "当前账号没有管理产品设置的权限。"
+      "body": "当前账号没有管理系统设置的权限。"
     },
     "loadError": {
       "title": "无法加载设置",
@@ -517,7 +517,7 @@
     "alertsTitle": "告警",
     "webhookUrl": "Webhook URL",
     "llmDefaultsTitle": "默认分析模型",
-    "llmDefaultsDescription": "写入产品设置键 llm；用户未自行选择模型时使用。",
+    "llmDefaultsDescription": "写入系统设置键 llm；用户未自行选择模型时使用。",
     "llmDefaultsEmpty": "尚无开放模型。",
     "llmDefaultsEmptyCta": "去配置模型",
     "llmDefaultsPairRequired": "请同时设置默认快速与深度模型，或都留空。",
@@ -550,15 +550,15 @@
     }
   },
   "markets": {
-    "title": "市场",
-    "heading": "市场元数据",
-    "subtitle": "启停市场并编辑展示信息。",
+    "title": "市场配置",
+    "heading": "市场配置",
+    "subtitle": "启停可运营市场并编辑展示信息（与 market_configs 一致）。",
     "accessRequired": {
       "title": "需要管理员权限",
-      "body": "当前账号没有管理市场的权限。"
+      "body": "当前账号没有管理市场配置的权限。"
     },
     "loadError": {
-      "title": "无法加载市场",
+      "title": "无法加载市场配置",
       "body": "请检查数据库连接后重试。"
     },
     "listTitle": "市场列表",
@@ -584,15 +584,15 @@
     }
   },
   "audit": {
-    "title": "审计日志",
-    "heading": "管理员审计事件",
-    "subtitle": "按操作或操作者筛选近期记录。",
+    "title": "操作日志",
+    "heading": "操作日志",
+    "subtitle": "管理员写操作的追加记录，可按操作或操作者筛选。",
     "accessRequired": {
       "title": "需要管理员权限",
-      "body": "当前账号没有查看审计日志的权限。"
+      "body": "当前账号没有查看操作日志的权限。"
     },
     "loadError": {
-      "title": "无法加载审计日志",
+      "title": "无法加载操作日志",
       "body": "请检查数据库连接后重试。"
     },
     "filterTitle": "筛选",
@@ -600,12 +600,13 @@
     "actionPlaceholder": "操作",
     "actorPlaceholder": "操作者用户 ID",
     "filter": "应用",
-    "empty": "没有匹配的审计事件。",
+    "empty": "暂无匹配的操作记录。在管理端保存设置、市场、模型或用户变更后会出现在此。",
     "columns": {
       "when": "时间",
       "actor": "操作者",
       "action": "操作",
-      "target": "目标"
+      "target": "目标",
+      "detail": "详情"
     }
   }
 }

@@ -1,9 +1,8 @@
-/** Built-in product-market → IANA fallbacks when public market metadata is missing. */
+import { PRODUCT_MARKET_TIMEZONES as CATALOG_TIMEZONES } from './product-markets';
+
+/** Built-in product-market → IANA fallbacks when public market config is missing. */
 export const PRODUCT_MARKET_TIMEZONES: Record<string, string> = {
-  US: 'America/New_York',
-  HK: 'Asia/Hong_Kong',
-  CN: 'Asia/Shanghai',
-  CRYPTO: 'UTC',
+  ...CATALOG_TIMEZONES,
 };
 
 /**
@@ -114,7 +113,7 @@ export type MarketTimezoneSource = {
 
 /**
  * Resolve the session/calendar timezone for a product market code.
- * Prefers public market metadata, then built-in map, then fallback.
+ * Prefers public market config, then built-in catalog, then fallback.
  */
 export function resolveMarketTimezone(
   marketCode: string | null | undefined,

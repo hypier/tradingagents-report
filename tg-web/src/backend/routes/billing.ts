@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { apiSuccess } from '../../shared/contracts';
+import { PRODUCT_MARKET_CODES } from '../../shared/product-markets';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { BillingServiceError } from '../billing/contract';
 import { AppError } from '../errors/app-error';
@@ -32,9 +33,9 @@ const createPlanSchema = z.object({
   interval: z.enum(['month', 'year']),
   analysisCredits: z.number().int().min(1).max(100_000),
   supportedMarkets: z
-    .array(z.enum(['US', 'HK', 'CN', 'CRYPTO']))
+    .array(z.enum(PRODUCT_MARKET_CODES))
     .min(1)
-    .max(4),
+    .max(PRODUCT_MARKET_CODES.length),
   features: z
     .array(z.string().trim().min(1).max(80))
     .min(1)

@@ -92,6 +92,13 @@
       "when": 1784690000000,
       "tag": "0012_drop_llm_model_prices",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784700000000,
+      "tag": "0013_rename_system_settings_and_market_configs",
+      "breakpoints": true
     }
   ]
 }

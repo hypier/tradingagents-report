@@ -17,7 +17,7 @@
 | 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化 |
 | LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
 | 自选股 | `watchlist_items` | 每用户收藏的标的 |
-| 产品配置 / 审计 | `product_settings`, `market_metadata`, `admin_audit_events` | 功能开关、市场元数据、管理员审计 |
+| 系统设置 / 市场 / 操作日志 | `system_settings`, `market_configs`, `admin_audit_events` | 系统设置、可运营市场配置、管理员操作日志 |
 
 ### 1.2 约定
 
@@ -251,7 +251,7 @@ erDiagram
     }
 ```
 
-### 2.7 Stripe / 计费配置与产品配置（无用户 FK 或弱关联）
+### 2.7 Stripe / 计费配置与系统设置（无用户 FK 或弱关联）
 
 ```mermaid
 erDiagram
@@ -287,14 +287,14 @@ erDiagram
         timestamptz created_at
     }
 
-    product_settings {
+    system_settings {
         text key PK
         jsonb value
         text updated_by
         timestamptz updated_at
     }
 
-    market_metadata {
+    market_configs {
         text code PK
         int enabled
         text display_name
@@ -347,9 +347,9 @@ flowchart TB
         WI[watchlist_items]
     end
 
-    subgraph Config["产品配置 / 审计"]
-        PS[product_settings]
-        MM[market_metadata]
+    subgraph Config["系统设置 / 市场 / 操作日志"]
+        PS[system_settings]
+        MM[market_configs]
         AAE[admin_audit_events]
     end
 
@@ -758,26 +758,26 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.16 `product_settings`
+### 3.16 `system_settings`（导出名：`systemSettings`）
 
-产品级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook）。
+系统级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook、默认 LLM 模型）。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `key` | `text` | N | — | **PK**。设置键 |
+| `key` | `text` | N | — | **PK**。设置键（如 `maintenance`、`features`、`disclaimer`、`alerts`、`llm`） |
 | `value` | `jsonb` | N | — | JSON 配置值 |
 | `updated_by` | `text` | Y | — | 最近更新人 |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 
 ---
 
-### 3.17 `market_metadata`
+### 3.17 `market_configs`（导出名：`marketConfigs`）
 
-可管理的市场元数据。
+可运营市场配置。与代码侧 `shared/product-markets.ts` 的 `PRODUCT_MARKET_CATALOG` 保持同一套市场码；运行时以本表为准，代码目录仅作校验与空库回退。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `code` | `text` | N | — | **PK**。市场代码（如 US / HK / CN） |
+| `code` | `text` | N | — | **PK**。市场代码（如 US / HK / CN / CRYPTO） |
 | `enabled` | `integer` | N | `1` | 是否启用（1/0） |
 | `display_name` | `text` | N | — | 展示名 |
 | `timezone` | `text` | N | — | 市场时区 |
@@ -817,13 +817,13 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ### 3.19 `admin_audit_events`
 
-管理员与关键产品操作的通用审计日志。
+管理员操作日志（追加写）。管理端 `/admin/audit` 检索；写操作在 settings / markets / LLM / 用户 / 积分调整等路径写入。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | `uuid` | N | `gen_random_uuid()` | **PK** |
 | `actor_clerk_user_id` | `text` | N | — | 操作者 Clerk 用户 ID |
-| `action` | `text` | N | — | 动作标识 |
+| `action` | `text` | N | — | 动作标识（如 `settings.update`、`markets.upsert`） |
 | `target_type` | `text` | Y | — | 目标类型 |
 | `target_id` | `text` | Y | — | 目标 ID |
 | `metadata` | `jsonb` | N | `{}` | 额外上下文 |

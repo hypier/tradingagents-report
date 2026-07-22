@@ -1,11 +1,12 @@
 import type { CreateBillingPlanInput } from './contract';
+import { PRODUCT_MARKET_CODES } from '../../shared/product-markets';
 
 export type DefaultBillingPlanDefinition = CreateBillingPlanInput & {
   catalogKey: string;
   legacyCatalogKey: string;
 };
 
-const SUPPORTED_MARKETS = ['US', 'HK', 'CN', 'CRYPTO'];
+const SUPPORTED_MARKETS = [...PRODUCT_MARKET_CODES];
 
 export const DEFAULT_MONTHLY_BILLING_PLANS: DefaultBillingPlanDefinition[] = [
   {

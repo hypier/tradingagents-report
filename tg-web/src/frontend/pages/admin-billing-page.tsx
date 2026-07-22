@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { PRODUCT_MARKET_CODES } from '@/shared/product-markets';
 import type {
   BillingInterval,
   BillingPlan,
@@ -1068,7 +1069,7 @@ function PlanEditor({
                   supportedMarkets.length && change({ supportedMarkets })
                 }
               >
-                {['US', 'HK', 'CN', 'CRYPTO'].map((market) => (
+                {PRODUCT_MARKET_CODES.map((market) => (
                   <ToggleGroupItem key={market} value={market}>
                     {market}
                   </ToggleGroupItem>

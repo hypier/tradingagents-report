@@ -123,7 +123,7 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
     await dependencies.database.audit.record({
       actorClerkUserId: actor,
       action: 'settings.update',
-      targetType: 'product_settings',
+      targetType: 'system_settings',
       targetId: entries.map((entry) => entry.key).join(','),
       metadata: { keys: entries.map((entry) => entry.key) },
     });

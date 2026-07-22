@@ -5,13 +5,7 @@ import type { AppDependencies } from '../app';
 import type { RequestIdEnvironment } from '../logging/request-id';
 import { apiSuccess } from '../../shared/contracts';
 import { resolveCreditUnits } from '../../shared/analysis-credits';
-
-const FALLBACK_MARKETS = [
-  { code: 'US', displayName: 'United States', enabled: true },
-  { code: 'HK', displayName: 'Hong Kong', enabled: true },
-  { code: 'CN', displayName: 'China A-shares', enabled: true },
-  { code: 'CRYPTO', displayName: 'Crypto', enabled: true },
-] as const;
+import { PRODUCT_MARKET_CATALOG } from '../../shared/product-markets';
 
 export function publicConfigRoutes(dependencies: AppDependencies) {
   const app = new Hono<RequestIdEnvironment>();
@@ -38,12 +32,12 @@ export function publicConfigRoutes(dependencies: AppDependencies) {
             currency: row.currency,
             sessionNotes: row.sessionNotes,
           }))
-        : FALLBACK_MARKETS.map((row) => ({
+        : PRODUCT_MARKET_CATALOG.filter((row) => row.enabled).map((row) => ({
             code: row.code,
             displayName: row.displayName,
-            timezone: null,
-            currency: null,
-            sessionNotes: null,
+            timezone: row.timezone,
+            currency: row.currency,
+            sessionNotes: row.sessionNotes,
           }));
 
     return context.json(

@@ -43,7 +43,7 @@
 管理员 (tg-web /admin/llm/providers · /admin/llm/models)
   → 配置提供商 + API Key（入库加密）
   → 新建/编辑模型，可选「同步价格与参数」或手填
-  → 标记开放；默认分析模型在产品设置中指定
+  → 标记开放；默认分析模型在系统设置中指定
 
 用户 (tg-web 分析页)
   → 从开放模型中选择 quick + deep（默认预填）
@@ -121,7 +121,7 @@ Core
 
 ### 6.3 默认分析模型
 
-存在产品设置键 **`llm`**（`LLM_SETTINGS_KEY`）：
+存在系统设置键 **`llm`**（`LLM_SETTINGS_KEY`）：
 
 ```json
 {
@@ -156,7 +156,7 @@ Core
   - 成功则写回价格、上下文、`params`/`capabilities`、`synced_at`，清空 `sync_error`。
   - 失败则写 `sync_error`，不清空已有手填值（除非产品选择覆盖策略：仅更新返回非空字段）。
 - 不在「勾选开放」时自动联网；开放只是目录可见性开关。
-- 全局默认快速/深度模型在 **产品设置**（`/admin/settings`）维护，不在本页。
+- 全局默认快速/深度模型在 **系统设置**（`/admin/settings`）维护，不在本页。
 
 ### 7.3 审计
 
@@ -194,7 +194,7 @@ tg-web 与 Core 共用同一 PostgreSQL 中的 `llm_providers`（及必要时的
 | `GET/POST/PATCH/DELETE` | `/api/admin/llm/models`… | 模型 CRUD |
 | `POST` | `/api/admin/llm/models/:id/sync` | 手动同步价格与参数（编辑已存在行） |
 | `POST` | `/api/admin/llm/models/sync-preview` | 新建未落库前预览同步结果（可选） |
-| `PATCH` | `/api/admin/settings`（`llm` 字段） | 设置默认 quick / deep（产品设置键 `llm`） |
+| `PATCH` | `/api/admin/settings`（`llm` 字段） | 设置默认 quick / deep（系统设置键 `llm`） |
 | `PUT` | `/api/admin/llm/defaults` | 同上（兼容入口） |
 
 ### 用户端

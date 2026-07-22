@@ -14,7 +14,7 @@
     "adminOpsGroup": "运营",
     "adminBillingGroup": "计费",
     "adminPlatformGroup": "平台",
-    "adminAuditGroup": "审计",
+    "adminAuditGroup": "操作日志",
     "modeSwitch": "菜单模式",
     "modeUser": "投研",
     "modeAdmin": "管理",
@@ -34,9 +34,9 @@
     "adminUsers": "用户管理",
     "adminAnalyses": "分析任务",
     "adminBilling": "支付设置",
-    "adminSettings": "产品设置",
-    "adminMarkets": "市场",
-    "adminAudit": "审计日志",
+    "adminSettings": "系统设置",
+    "adminMarkets": "市场配置",
+    "adminAudit": "操作日志",
     "adminLlm": "模型设置",
     "adminLlmProviders": "供应商",
     "adminLlmModels": "模型"
@@ -59,9 +59,9 @@
     "adminBilling": "支付设置",
     "adminLlmProviders": "供应商",
     "adminLlmModels": "模型",
-    "adminSettings": "产品设置",
-    "adminMarkets": "市场",
-    "adminAudit": "审计日志"
+    "adminSettings": "系统设置",
+    "adminMarkets": "市场配置",
+    "adminAudit": "操作日志"
   },
   "disclaimer": {
     "title": "仅供研究",

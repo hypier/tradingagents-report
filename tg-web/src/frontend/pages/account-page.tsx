@@ -39,8 +39,10 @@ import {
   updateAccountPreferences,
 } from '@/frontend/lib/account';
 import { setDisplayTimezone } from '@/frontend/lib/display-timezone';
+import { fetchPublicConfig } from '@/frontend/lib/public-config';
 import { cn } from '@/frontend/lib/utils';
 import { interfaceLanguageToUiLocale } from '@/frontend/i18n/locales';
+import { PRODUCT_MARKET_CATALOG } from '@/shared/product-markets';
 import { listTimezoneSelectOptions } from '@/shared/timezone';
 
 export function AccountPage() {
@@ -53,6 +55,10 @@ export function AccountPage() {
   const referral = useQuery({
     queryKey: ['account-referral'],
     queryFn: getReferralSummary,
+  });
+  const publicConfig = useQuery({
+    queryKey: ['public-config'],
+    queryFn: () => fetchPublicConfig(),
   });
   const [preferences, setPreferences] = useState<AccountPreferences | null>(
     null,
@@ -86,6 +92,22 @@ export function AccountPage() {
     () => listTimezoneSelectOptions(preferences?.timezone),
     [preferences?.timezone],
   );
+  const marketOptions = useMemo(() => {
+    const fromConfig = publicConfig.data?.markets ?? [];
+    const rows =
+      fromConfig.length > 0
+        ? fromConfig
+        : PRODUCT_MARKET_CATALOG.filter((row) => row.enabled);
+    return rows.map((row) => {
+      const code = row.code;
+      const localizedKey = `preferences.markets.${code}` as const;
+      const localized = t(localizedKey, { defaultValue: '' });
+      return [
+        code,
+        localized || row.displayName || code,
+      ] as [string, string];
+    });
+  }, [publicConfig.data?.markets, t]);
 
   return (
     <AppShell>
@@ -179,12 +201,7 @@ export function AccountPage() {
                     <PreferenceSelect
                       label={t('preferences.defaultMarket')}
                       value={preferences.defaultMarket}
-                      values={[
-                        ['US', t('preferences.markets.US')],
-                        ['HK', t('preferences.markets.HK')],
-                        ['CN', t('preferences.markets.CN')],
-                        ['CRYPTO', t('preferences.markets.CRYPTO')],
-                      ]}
+                      values={marketOptions}
                       onChange={(defaultMarket) =>
                         setPreferences((current) =>
                           current

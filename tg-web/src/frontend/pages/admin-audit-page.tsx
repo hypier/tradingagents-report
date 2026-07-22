@@ -28,6 +28,15 @@ import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { formatLocaleDateTimeValue } from '@/frontend/lib/format-locale';
 import { listAdminAudit } from '@/frontend/lib/admin-ops';
 
+function formatMetadata(metadata: Record<string, unknown> | null | undefined) {
+  if (!metadata || Object.keys(metadata).length === 0) return '—';
+  try {
+    return JSON.stringify(metadata);
+  } catch {
+    return '—';
+  }
+}
+
 export function AdminAuditPage() {
   const { t } = useTranslation('admin');
   const session = useAuthSession();
@@ -110,8 +119,9 @@ export function AdminAuditPage() {
                 </TableHead>
                 <TableHead>{t('audit.columns.actor')}</TableHead>
                 <TableHead>{t('audit.columns.action')}</TableHead>
+                <TableHead>{t('audit.columns.target')}</TableHead>
                 <TableHead className="pr-5 lg:pr-6">
-                  {t('audit.columns.target')}
+                  {t('audit.columns.detail')}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -119,7 +129,7 @@ export function AdminAuditPage() {
               {(audit.data?.data ?? []).length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="px-5 text-muted-foreground lg:px-6"
                   >
                     {t('audit.empty')}
@@ -135,10 +145,16 @@ export function AdminAuditPage() {
                       {row.actorClerkUserId}
                     </TableCell>
                     <TableCell>{row.action}</TableCell>
-                    <TableCell className="max-w-xs truncate pr-5 text-xs lg:pr-6">
+                    <TableCell className="max-w-xs truncate text-xs">
                       {[row.targetType, row.targetId]
                         .filter(Boolean)
                         .join(' · ') || '—'}
+                    </TableCell>
+                    <TableCell
+                      className="max-w-sm truncate pr-5 font-mono text-xs text-muted-foreground lg:pr-6"
+                      title={formatMetadata(row.metadata)}
+                    >
+                      {formatMetadata(row.metadata)}
                     </TableCell>
                   </TableRow>
                 ))

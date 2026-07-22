@@ -591,7 +591,7 @@ export function adminLlmRoutes(dependencies: AppDependencies) {
     await dependencies.database.audit.record({
       actorClerkUserId: context.get('auth').userId,
       action: 'llm_defaults.update',
-      targetType: 'product_settings',
+      targetType: 'system_settings',
       targetId: LLM_SETTINGS_KEY,
       metadata: value,
     });

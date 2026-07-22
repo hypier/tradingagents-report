@@ -1,5 +1,5 @@
 /**
- * P3 产品运营仓库：设置、市场、额度规则、审计。
+ * P3 产品运营仓库：系统设置、市场配置、额度规则、操作日志。
  */
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -8,12 +8,12 @@ import * as schema from './schema';
 
 type Database = NodePgDatabase<typeof schema>;
 
-export type MarketMetadata = typeof schema.marketMetadata.$inferSelect;
+export type MarketConfig = typeof schema.marketConfigs.$inferSelect;
 export type CreditRule = typeof schema.creditRules.$inferSelect;
 export type AdminAuditEvent = typeof schema.adminAuditEvents.$inferSelect;
-export type ProductSetting = typeof schema.productSettings.$inferSelect;
+export type SystemSetting = typeof schema.systemSettings.$inferSelect;
 
-export type ProductSettingsRepository = {
+export type SystemSettingsRepository = {
   getAll(): Promise<Record<string, Record<string, unknown>>>;
   get(key: string): Promise<Record<string, unknown> | null>;
   set(
@@ -28,8 +28,8 @@ export type ProductSettingsRepository = {
 };
 
 export type MarketsRepository = {
-  list(input?: { enabledOnly?: boolean }): Promise<MarketMetadata[]>;
-  get(code: string): Promise<MarketMetadata | undefined>;
+  list(input?: { enabledOnly?: boolean }): Promise<MarketConfig[]>;
+  get(code: string): Promise<MarketConfig | undefined>;
   upsert(input: {
     code: string;
     enabled: boolean;
@@ -39,8 +39,8 @@ export type MarketsRepository = {
     sessionNotes?: string | null;
     disclaimer?: string | null;
     sortOrder: number;
-  }): Promise<MarketMetadata>;
-  setEnabled(code: string, enabled: boolean): Promise<MarketMetadata | undefined>;
+  }): Promise<MarketConfig>;
+  setEnabled(code: string, enabled: boolean): Promise<MarketConfig | undefined>;
 };
 
 export type CreditRulesRepository = {
@@ -88,25 +88,25 @@ export type AdminAuditRepository = {
   }): Promise<AdminAuditEvent[]>;
 };
 
-export function createProductSettingsRepository(
+export function createSystemSettingsRepository(
   database: Database,
-): ProductSettingsRepository {
+): SystemSettingsRepository {
   return {
     async getAll() {
-      const rows = await database.select().from(schema.productSettings);
+      const rows = await database.select().from(schema.systemSettings);
       return Object.fromEntries(rows.map((row) => [row.key, row.value]));
     },
     async get(key) {
       const [row] = await database
         .select()
-        .from(schema.productSettings)
-        .where(eq(schema.productSettings.key, key))
+        .from(schema.systemSettings)
+        .where(eq(schema.systemSettings.key, key))
         .limit(1);
       return row?.value ?? null;
     },
     async set(key, value, updatedBy) {
       const [row] = await database
-        .insert(schema.productSettings)
+        .insert(schema.systemSettings)
         .values({
           key,
           value,
@@ -114,7 +114,7 @@ export function createProductSettingsRepository(
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
-          target: schema.productSettings.key,
+          target: schema.systemSettings.key,
           set: {
             value,
             updatedBy,
@@ -139,26 +139,26 @@ export function createMarketsRepository(database: Database): MarketsRepository {
       if (input?.enabledOnly) {
         return database
           .select()
-          .from(schema.marketMetadata)
-          .where(eq(schema.marketMetadata.enabled, 1))
-          .orderBy(schema.marketMetadata.sortOrder);
+          .from(schema.marketConfigs)
+          .where(eq(schema.marketConfigs.enabled, 1))
+          .orderBy(schema.marketConfigs.sortOrder);
       }
       return database
         .select()
-        .from(schema.marketMetadata)
-        .orderBy(schema.marketMetadata.sortOrder);
+        .from(schema.marketConfigs)
+        .orderBy(schema.marketConfigs.sortOrder);
     },
     async get(code) {
       const [row] = await database
         .select()
-        .from(schema.marketMetadata)
-        .where(eq(schema.marketMetadata.code, code))
+        .from(schema.marketConfigs)
+        .where(eq(schema.marketConfigs.code, code))
         .limit(1);
       return row;
     },
     async upsert(input) {
       const [row] = await database
-        .insert(schema.marketMetadata)
+        .insert(schema.marketConfigs)
         .values({
           code: input.code.toUpperCase(),
           enabled: input.enabled ? 1 : 0,
@@ -171,7 +171,7 @@ export function createMarketsRepository(database: Database): MarketsRepository {
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
-          target: schema.marketMetadata.code,
+          target: schema.marketConfigs.code,
           set: {
             enabled: input.enabled ? 1 : 0,
             displayName: input.displayName,
@@ -188,9 +188,9 @@ export function createMarketsRepository(database: Database): MarketsRepository {
     },
     async setEnabled(code, enabled) {
       const [row] = await database
-        .update(schema.marketMetadata)
+        .update(schema.marketConfigs)
         .set({ enabled: enabled ? 1 : 0, updatedAt: new Date() })
-        .where(eq(schema.marketMetadata.code, code))
+        .where(eq(schema.marketConfigs.code, code))
         .returning();
       return row;
     },

@@ -1,6 +1,6 @@
 type FetchImplementation = typeof fetch;
 
-export type ProductSettings = Record<string, Record<string, unknown>>;
+export type SystemSettings = Record<string, Record<string, unknown>>;
 
 export type AdminMarket = {
   code: string;
@@ -108,13 +108,13 @@ async function send<T>(
 }
 
 export const getAdminSettings = (fetchImplementation?: FetchImplementation) =>
-  read<ProductSettings>('/api/admin/settings', fetchImplementation);
+  read<SystemSettings>('/api/admin/settings', fetchImplementation);
 
 export const updateAdminSettings = (
   patch: Record<string, unknown>,
   fetchImplementation?: FetchImplementation,
 ) =>
-  send<ProductSettings>(
+  send<SystemSettings>(
     '/api/admin/settings',
     { method: 'PATCH', body: patch },
     fetchImplementation,

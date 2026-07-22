@@ -56,7 +56,7 @@ flowchart LR
 - 股票详情：公司名称、代码、交易所、币种、最新价格、涨跌、数据来源、数据时间和交易时段状态。
 - 行情展示必须标注数据来源和时间。"实时"应按数据供应商的实际延迟定义，不能将最新快照表述为无延迟行情。
 - 自选股：添加、移除、排序和从收藏列表进入行情或报告。
-- 市场元数据统一管理市场、交易所、币种、时区、交易时段、代码格式、可用数据源和免责声明。
+- 市场配置统一管理可运营市场码、币种、时区、交易时段说明与免责声明（表 `market_configs`；代码目录见 `shared/product-markets.ts`）。
 - 支持美股、港股、台股、日股等市场；实际开放范围取决于可用数据源和标的搜索覆盖。
 
 ### 4.4 分析任务与报告
@@ -155,10 +155,10 @@ flowchart LR
 - `/admin/users` 显示可用积分；额度调整在 `/admin/users/:userId` 完成。
 - 管理员任务列表 `/admin/analyses`：跨用户按状态/标的/用户筛选；对失败任务可发起受控重试——为原所有者预留额度并以新 `request_id` 提交替换 job（非 Core 原地重试）。
 - 可变额度规则表 `credit_rules` 仍可供运营配置参考；分析预扣与结算以服务端 P90/冷启动用量计费为准。
-- 产品设置：维护公告、功能开关（自选）、免责声明版本与正文覆盖、告警 webhook URL（仅存储不发送）。
-- 市场元数据管理 `/admin/markets`；`/api/public-config` 返回已启用市场列表。
-- 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key 与开放状态；默认快速/深度模型在 `/admin/settings`（产品设置键 `llm`）；用户分析页从开放目录选型。
-- 通用审计检索 `/admin/audit`：记录管理员写操作；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
+- 系统设置：维护公告、功能开关（自选）、免责声明版本与正文覆盖、告警 webhook URL（仅存储不发送）。
+- 市场配置管理 `/admin/markets`（表 `market_configs`）；`/api/public-config` 返回已启用市场列表；账户默认市场与套餐支持市场均对齐同一市场码目录。
+- 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key 与开放状态；默认快速/深度模型在 `/admin/settings`（系统设置键 `llm`）；用户分析页从开放目录选型。
+- 操作日志 `/admin/audit`：记录管理员写操作（系统设置、市场配置、模型、用户角色、积分调整等）；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
 
 当前尚未实现报告 AI 对话，以及告警 webhook 的实际外发通知。
 

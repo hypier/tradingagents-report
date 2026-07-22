@@ -398,7 +398,7 @@
   },
   "llmModels": {
     "heading": "Models",
-    "subtitle": "Add models and sync prices manually. Set default quick/deep models in Product settings.",
+    "subtitle": "Add models and sync prices manually. Set default quick/deep models in System settings.",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage models."
@@ -492,12 +492,12 @@
     }
   },
   "settings": {
-    "title": "Product settings",
-    "heading": "Product settings",
+    "title": "System settings",
+    "heading": "System settings",
     "subtitle": "Maintenance, features, disclaimer, alerts, default LLM models, and credit rules.",
     "accessRequired": {
       "title": "Administrator access required",
-      "body": "Your account does not have permission to manage settings."
+      "body": "Your account does not have permission to manage system settings."
     },
     "loadError": {
       "title": "Unable to load settings",
@@ -517,7 +517,7 @@
     "alertsTitle": "Alerts",
     "webhookUrl": "Webhook URL",
     "llmDefaultsTitle": "Default analysis models",
-    "llmDefaultsDescription": "Stored as product setting key llm. Used when the user does not pick models.",
+    "llmDefaultsDescription": "Stored as system setting key llm. Used when the user does not pick models.",
     "llmDefaultsEmpty": "No open models yet.",
     "llmDefaultsEmptyCta": "Configure models",
     "llmDefaultsPairRequired": "Set both default quick and deep models, or leave both empty.",
@@ -550,15 +550,15 @@
     }
   },
   "markets": {
-    "title": "Markets",
-    "heading": "Market metadata",
-    "subtitle": "Enable markets and edit display metadata.",
+    "title": "Market config",
+    "heading": "Market config",
+    "subtitle": "Enable operable markets and edit display fields (backed by market_configs).",
     "accessRequired": {
       "title": "Administrator access required",
-      "body": "Your account does not have permission to manage markets."
+      "body": "Your account does not have permission to manage market config."
     },
     "loadError": {
-      "title": "Unable to load markets",
+      "title": "Unable to load market config",
       "body": "Check database connectivity and retry."
     },
     "listTitle": "Markets",
@@ -584,15 +584,15 @@
     }
   },
   "audit": {
-    "title": "Audit log",
-    "heading": "Admin audit events",
-    "subtitle": "Filter recent administrator and product operations.",
+    "title": "Operation log",
+    "heading": "Operation log",
+    "subtitle": "Append-only record of admin writes. Filter by action or actor.",
     "accessRequired": {
       "title": "Administrator access required",
-      "body": "Your account does not have permission to view audit events."
+      "body": "Your account does not have permission to view the operation log."
     },
     "loadError": {
-      "title": "Unable to load audit log",
+      "title": "Unable to load operation log",
       "body": "Check database connectivity and retry."
     },
     "filterTitle": "Filters",
@@ -600,12 +600,13 @@
     "actionPlaceholder": "Action",
     "actorPlaceholder": "Actor user ID",
     "filter": "Apply",
-    "empty": "No audit events matched.",
+    "empty": "No matching operations yet. Saving settings, markets, models, or user changes in admin will appear here.",
     "columns": {
       "when": "When",
       "actor": "Actor",
       "action": "Action",
-      "target": "Target"
+      "target": "Target",
+      "detail": "Detail"
     }
   }
 }

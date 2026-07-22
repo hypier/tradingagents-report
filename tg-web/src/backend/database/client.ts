@@ -18,7 +18,7 @@ import {
   type CreditRulesRepository,
   type MarketsRepository,
   type LlmCatalogRepository,
-  type ProductSettingsRepository,
+  type SystemSettingsRepository,
   type ReferralRepository,
   type WatchlistRepository,
 } from './repositories';
@@ -34,7 +34,7 @@ export type DatabaseHealth = {
   referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
-  settings: ProductSettingsRepository;
+  settings: SystemSettingsRepository;
   markets: MarketsRepository;
   creditRules: CreditRulesRepository;
   audit: AdminAuditRepository;

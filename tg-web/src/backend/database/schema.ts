@@ -49,7 +49,7 @@ export const accountUsers = pgTable(
     reportLanguage: text('report_language').notNull().default('English'),
     /** 本地时间展示用的 IANA 时区。 */
     timezone: text('timezone').notNull().default('UTC'),
-    /** 默认市场：`US` | `HK` | `CN` | `CRYPTO`。 */
+    /** 默认市场：与 `market_configs.code` / `PRODUCT_MARKET_CODES` 对齐。 */
     defaultMarket: text('default_market').notNull().default('US'),
     /** 关联的 Stripe Customer ID（`cus_...`）；创建前为 null。 */
     stripeCustomerId: text('stripe_customer_id'),
@@ -610,8 +610,8 @@ export const watchlistItems = pgTable(
   ],
 );
 
-/** 产品级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook）。 */
-export const productSettings = pgTable('product_settings', {
+/** 系统级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook、默认 LLM）。 */
+export const systemSettings = pgTable('system_settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').$type<Record<string, unknown>>().notNull(),
   updatedBy: text('updated_by'),
@@ -620,8 +620,8 @@ export const productSettings = pgTable('product_settings', {
     .defaultNow(),
 });
 
-/** 可管理的市场元数据。 */
-export const marketMetadata = pgTable('market_metadata', {
+/** 可运营市场配置（启停、展示名、时区、币种、时段说明与免责声明）。 */
+export const marketConfigs = pgTable('market_configs', {
   code: text('code').primaryKey(),
   enabled: integer('enabled').notNull().default(1),
   displayName: text('display_name').notNull(),
@@ -658,7 +658,7 @@ export const creditRules = pgTable(
   (table) => [index('credit_rules_priority_idx').on(table.priority)],
 );
 
-/** 管理员与关键产品操作的通用审计日志。 */
+/** 管理员操作日志（追加写；供 /admin/audit 检索）。 */
 export const adminAuditEvents = pgTable(
   'admin_audit_events',
   {

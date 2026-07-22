@@ -14,7 +14,7 @@
     "adminOpsGroup": "Ops",
     "adminBillingGroup": "Billing",
     "adminPlatformGroup": "Platform",
-    "adminAuditGroup": "Audit",
+    "adminAuditGroup": "Operation log",
     "modeSwitch": "Menu mode",
     "modeUser": "Research",
     "modeAdmin": "Admin",
@@ -34,9 +34,9 @@
     "adminUsers": "User management",
     "adminAnalyses": "Analysis jobs",
     "adminBilling": "Payment settings",
-    "adminSettings": "Product settings",
-    "adminMarkets": "Markets",
-    "adminAudit": "Audit log",
+    "adminSettings": "System settings",
+    "adminMarkets": "Market config",
+    "adminAudit": "Operation log",
     "adminLlm": "Model settings",
     "adminLlmProviders": "Providers",
     "adminLlmModels": "Models"
@@ -59,9 +59,9 @@
     "adminBilling": "Payment settings",
     "adminLlmProviders": "Providers",
     "adminLlmModels": "Models",
-    "adminSettings": "Product settings",
-    "adminMarkets": "Markets",
-    "adminAudit": "Audit log"
+    "adminSettings": "System settings",
+    "adminMarkets": "Market config",
+    "adminAudit": "Operation log"
   },
   "disclaimer": {
     "title": "Research only",

@@ -18,6 +18,7 @@ import { Input } from './ui/input';
 import { Spinner } from './ui/spinner';
 import { cn } from '../lib/utils';
 import { normalizeUiLocale } from '@/frontend/i18n/locales';
+import type { ProductMarketCode } from '@/shared/product-markets';
 import {
   searchMarkets,
   type MarketSearchHit,
@@ -30,13 +31,10 @@ type TickerSearchProps = {
   onChange: (instrument: SelectedInstrument | null) => void;
   className?: string;
   /** Prefer listings from this product market when ranking search hits. */
-  preferredMarket?: 'US' | 'HK' | 'CN' | 'CRYPTO';
+  preferredMarket?: ProductMarketCode;
 };
 
-const MARKET_EXCHANGES: Record<
-  NonNullable<TickerSearchProps['preferredMarket']>,
-  string[]
-> = {
+const MARKET_EXCHANGES: Record<ProductMarketCode, string[]> = {
   US: ['NASDAQ', 'NYSE', 'AMEX'],
   HK: ['HKEX'],
   CN: ['SSE', 'SZSE'],

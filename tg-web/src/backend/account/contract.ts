@@ -1,5 +1,7 @@
+import type { ProductMarketCode } from '../../shared/product-markets';
+
 export type InterfaceLanguage = 'en' | 'zh-CN';
-export type DefaultMarket = 'US' | 'HK' | 'CN' | 'CRYPTO';
+export type DefaultMarket = ProductMarketCode;
 
 export type AccountProfile = {
   clerkUserId: string;

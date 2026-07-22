@@ -26,11 +26,11 @@ import {
   createAdminAuditRepository,
   createCreditRulesRepository,
   createMarketsRepository,
-  createProductSettingsRepository,
+  createSystemSettingsRepository,
   type AdminAuditRepository,
   type CreditRulesRepository,
   type MarketsRepository,
-  type ProductSettingsRepository,
+  type SystemSettingsRepository,
 } from './product-ops-repository';
 import {
   createReferralRepository,
@@ -47,7 +47,7 @@ export type {
   AdminAuditRepository,
   CreditRulesRepository,
   MarketsRepository,
-  ProductSettingsRepository,
+  SystemSettingsRepository,
 } from './product-ops-repository';
 export type { ReferralRepository } from './referral-repository';
 export type { WatchlistRepository } from './watchlist-repository';
@@ -157,7 +157,7 @@ export function createRepositories(database: Database): {
   referrals: ReferralRepository;
   billingConfig: BillingConfigRepository;
   watchlist: WatchlistRepository;
-  settings: ProductSettingsRepository;
+  settings: SystemSettingsRepository;
   markets: MarketsRepository;
   creditRules: CreditRulesRepository;
   audit: AdminAuditRepository;
@@ -167,7 +167,7 @@ export function createRepositories(database: Database): {
     billing: createBillingRepository(database),
     referrals: createReferralRepository(database),
     watchlist: createWatchlistRepository(database),
-    settings: createProductSettingsRepository(database),
+    settings: createSystemSettingsRepository(database),
     markets: createMarketsRepository(database),
     creditRules: createCreditRulesRepository(database),
     audit: createAdminAuditRepository(database),

@@ -16,6 +16,9 @@ import {
   creditBillingSettings,
   creditBillingSettingEvents,
   referralRelationships,
+  systemSettings,
+  marketConfigs,
+  adminAuditEvents,
 } from '../../src/backend/database/schema';
 
 describe('Core table mappings', () => {
@@ -42,6 +45,12 @@ describe('Core table mappings', () => {
       'credit_billing_setting_events',
     );
     expect(getTableName(referralRelationships)).toBe('referral_relationships');
+  });
+
+  it('maps system settings, market configs, and operation log tables', () => {
+    expect(getTableName(systemSettings)).toBe('system_settings');
+    expect(getTableName(marketConfigs)).toBe('market_configs');
+    expect(getTableName(adminAuditEvents)).toBe('admin_audit_events');
   });
 
   it('maps referral onboarding and reward settings', () => {
