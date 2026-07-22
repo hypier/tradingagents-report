@@ -1,8 +1,17 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/geist';
-@import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/inter';
+@import '@fontsource/noto-sans-sc/300.css';
+@import '@fontsource/noto-sans-sc/400.css';
+@import '@fontsource/noto-sans-sc/500.css';
+@import '@fontsource/noto-sans-sc/600.css';
+@import '@fontsource/noto-sans-sc/700.css';
+@import '@fontsource/noto-sans-mono/300.css';
+@import '@fontsource/noto-sans-mono/400.css';
+@import '@fontsource/noto-sans-mono/500.css';
+@import '@fontsource/noto-sans-mono/600.css';
+@import '@fontsource/noto-sans-mono/700.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -113,8 +122,13 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --font-sans:
+    'Inter Variable', 'Inter', 'Noto Sans SC', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono:
+    'Noto Sans Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas,
+    monospace;
   --font-heading: var(--font-sans);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -184,12 +198,17 @@
   }
 
   html {
-    @apply font-sans antialiased;
+    /* Prefer default / subpixel smoothing — `antialiased` thins glyphs on macOS
+       and makes 11–13px UI copy look soft/blurry. */
+    @apply font-sans;
     font-size: 14px;
+    font-weight: 300;
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
   }
 
   body {
-    @apply bg-background text-foreground text-base leading-relaxed;
+    @apply bg-background text-foreground text-base leading-relaxed font-light;
   }
 
   button:not(:disabled),
