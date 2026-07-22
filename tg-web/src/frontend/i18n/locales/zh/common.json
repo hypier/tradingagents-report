@@ -2,7 +2,8 @@
   "brand": {
     "name": "TradingAgents",
     "tagline": "多智能体投研",
-    "floorTag": "Signal Floor"
+    "floorTag": "Signal Floor",
+    "adminFloorTag": "运营控制台"
   },
   "nav": {
     "workspace": "工作区",
@@ -10,6 +11,15 @@
     "marketGroup": "市场",
     "accountGroup": "账户",
     "admin": "管理",
+    "adminOpsGroup": "运营",
+    "adminBillingGroup": "计费",
+    "adminPlatformGroup": "平台",
+    "adminAuditGroup": "审计",
+    "modeSwitch": "菜单模式",
+    "modeUser": "投研",
+    "modeAdmin": "管理",
+    "switchToAdmin": "切换到管理菜单",
+    "switchToUser": "返回投研菜单",
     "desk": "研究台",
     "tasks": "任务中心",
     "reports": "报告库",

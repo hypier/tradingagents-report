@@ -42,6 +42,7 @@ import {
   SidebarSeparator,
 } from '@/frontend/components/ui/sidebar';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
+import { useNavMode } from '@/frontend/hooks/use-nav-mode';
 import { getBillingOverview } from '@/frontend/lib/billing';
 import { formatLocaleDate } from '@/frontend/lib/format-locale';
 import { fetchPublicConfig } from '@/frontend/lib/public-config';
@@ -79,6 +80,15 @@ type AdminNavEntry =
       children: NavLeaf[];
     };
 
+type AdminNavSection = {
+  titleKey:
+    | 'nav.adminOpsGroup'
+    | 'nav.adminBillingGroup'
+    | 'nav.adminPlatformGroup'
+    | 'nav.adminAuditGroup';
+  entries: AdminNavEntry[];
+};
+
 const researchNavigation: NavLeaf[] = [
   { titleKey: 'nav.desk', icon: LayoutDashboard, href: '/' },
   { titleKey: 'nav.tasks', icon: ListTodo, href: '/tasks' },
@@ -111,65 +121,89 @@ const adminLlmChildren: NavLeaf[] = [
   { titleKey: 'nav.adminLlmModels', icon: Cpu, href: '/admin/llm/models' },
 ];
 
-const adminNavigation: AdminNavEntry[] = [
+const adminSections: AdminNavSection[] = [
   {
-    kind: 'leaf',
-    item: {
-      titleKey: 'nav.adminOverview',
-      icon: LayoutDashboard,
-      href: '/admin',
-    },
+    titleKey: 'nav.adminOpsGroup',
+    entries: [
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminOverview',
+          icon: LayoutDashboard,
+          href: '/admin',
+        },
+      },
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminUsers',
+          icon: UsersRound,
+          href: '/admin/users',
+        },
+      },
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminAnalyses',
+          icon: ListTodo,
+          href: '/admin/analyses',
+        },
+      },
+    ],
   },
   {
-    kind: 'leaf',
-    item: { titleKey: 'nav.adminUsers', icon: UsersRound, href: '/admin/users' },
+    titleKey: 'nav.adminBillingGroup',
+    entries: [
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminBilling',
+          icon: CreditCard,
+          href: '/admin/billing',
+        },
+      },
+    ],
   },
   {
-    kind: 'leaf',
-    item: {
-      titleKey: 'nav.adminAnalyses',
-      icon: ListTodo,
-      href: '/admin/analyses',
-    },
+    titleKey: 'nav.adminPlatformGroup',
+    entries: [
+      {
+        kind: 'group',
+        titleKey: 'nav.adminLlm',
+        icon: Cpu,
+        matchPrefix: '/admin/llm',
+        children: adminLlmChildren,
+      },
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminSettings',
+          icon: SlidersHorizontal,
+          href: '/admin/settings',
+        },
+      },
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminMarkets',
+          icon: Globe2,
+          href: '/admin/markets',
+        },
+      },
+    ],
   },
   {
-    kind: 'leaf',
-    item: {
-      titleKey: 'nav.adminBilling',
-      icon: CreditCard,
-      href: '/admin/billing',
-    },
-  },
-  {
-    kind: 'group',
-    titleKey: 'nav.adminLlm',
-    icon: Cpu,
-    matchPrefix: '/admin/llm',
-    children: adminLlmChildren,
-  },
-  {
-    kind: 'leaf',
-    item: {
-      titleKey: 'nav.adminSettings',
-      icon: SlidersHorizontal,
-      href: '/admin/settings',
-    },
-  },
-  {
-    kind: 'leaf',
-    item: {
-      titleKey: 'nav.adminMarkets',
-      icon: Globe2,
-      href: '/admin/markets',
-    },
-  },
-  {
-    kind: 'leaf',
-    item: {
-      titleKey: 'nav.adminAudit',
-      icon: ScrollText,
-      href: '/admin/audit',
-    },
+    titleKey: 'nav.adminAuditGroup',
+    entries: [
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminAudit',
+          icon: ScrollText,
+          href: '/admin/audit',
+        },
+      },
+    ],
   },
 ];
 
@@ -193,6 +227,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation('common');
   const session = useAuthSession();
   const isAdmin = session.data?.data.user.role === 'admin';
+  const adminRole: boolean | null = session.isLoading ? null : isAdmin;
+  const { isAdminMenu, setNavMode } = useNavMode(adminRole);
   const publicConfig = useQuery({
     queryKey: ['public-config'],
     queryFn: () => fetchPublicConfig(),
@@ -202,6 +238,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     queryKey: ['billing-overview'],
     queryFn: () => getBillingOverview(),
     staleTime: 30_000,
+    enabled: !isAdminMenu,
   });
   const showWatchlist =
     publicConfig.isLoading || publicConfig.data?.features.watchlist !== false;
@@ -221,14 +258,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               size="lg"
               className="h-16 rounded-none px-3.5 hover:bg-transparent data-active:bg-transparent [&_svg]:size-8!"
             >
-              <Link to="/">
+              <Link to={isAdminMenu ? '/admin' : '/'}>
                 <BrandMark className="size-8 text-sidebar-primary" />
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate text-base font-semibold tracking-tight text-sidebar-foreground">
                     {t('brand.name')}
                   </span>
                   <span className="font-mono text-xs tracking-[0.16em] text-sidebar-primary/80 uppercase">
-                    {t('brand.floorTag')}
+                    {isAdminMenu ? t('brand.adminFloorTag') : t('brand.floorTag')}
                   </span>
                 </span>
               </Link>
@@ -238,93 +275,134 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent className="gap-0 px-0 py-2">
-        <SidebarGroup className="gap-1 p-0">
-          <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
-            {t('nav.research')}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 px-0">
-              {researchNavigation.map((item) => (
-                <FlatNavItem
-                  key={item.href}
-                  item={item}
-                  pathname={location.pathname}
-                />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
-        <SidebarGroup className="gap-1 p-0">
-          <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
-            {t('nav.marketGroup')}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 px-0">
-              {marketNavigation.map((item) => (
-                <FlatNavItem
-                  key={item.href}
-                  item={item}
-                  pathname={location.pathname}
-                />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
-
-        <SidebarGroup className="gap-1 p-0">
-          <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
-            {t('nav.accountGroup')}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 px-0">
-              {accountNavigation.map((item) => (
-                <FlatNavItem
-                  key={item.href}
-                  item={item}
-                  pathname={location.pathname}
-                />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {isAdmin ? (
+        {isAdminMenu ? (
+          adminSections.map((section, index) => (
+            <div key={section.titleKey}>
+              {index > 0 ? (
+                <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
+              ) : null}
+              <SidebarGroup className="gap-1 p-0">
+                <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+                  {t(section.titleKey)}
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-0.5 px-0">
+                    {section.entries.map((entry) =>
+                      entry.kind === 'leaf' ? (
+                        <FlatNavItem
+                          key={entry.item.href}
+                          item={entry.item}
+                          pathname={location.pathname}
+                        />
+                      ) : (
+                        <NestedNavGroup
+                          key={entry.titleKey}
+                          entry={entry}
+                          pathname={location.pathname}
+                        />
+                      ),
+                    )}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </div>
+          ))
+        ) : (
           <>
-            <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
             <SidebarGroup className="gap-1 p-0">
               <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
-                {t('nav.admin')}
+                {t('nav.research')}
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="gap-0.5 px-0">
-                  {adminNavigation.map((entry) =>
-                    entry.kind === 'leaf' ? (
-                      <FlatNavItem
-                        key={entry.item.href}
-                        item={entry.item}
-                        pathname={location.pathname}
-                      />
-                    ) : (
-                      <NestedNavGroup
-                        key={entry.titleKey}
-                        entry={entry}
-                        pathname={location.pathname}
-                      />
-                    ),
-                  )}
+                  {researchNavigation.map((item) => (
+                    <FlatNavItem
+                      key={item.href}
+                      item={item}
+                      pathname={location.pathname}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
+            <SidebarGroup className="gap-1 p-0">
+              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+                {t('nav.marketGroup')}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5 px-0">
+                  {marketNavigation.map((item) => (
+                    <FlatNavItem
+                      key={item.href}
+                      item={item}
+                      pathname={location.pathname}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarSeparator className="mx-3 my-2 bg-sidebar-border" />
+
+            <SidebarGroup className="gap-1 p-0">
+              <SidebarGroupLabel className="h-8 px-3.5 font-mono text-xs tracking-[0.16em] text-sidebar-foreground/40 uppercase">
+                {t('nav.accountGroup')}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5 px-0">
+                  {accountNavigation.map((item) => (
+                    <FlatNavItem
+                      key={item.href}
+                      item={item}
+                      pathname={location.pathname}
+                    />
+                  ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           </>
-        ) : null}
+        )}
       </SidebarContent>
 
       <SidebarFooter className="gap-3 border-t border-sidebar-border p-3.5">
-        {typeof availableCredits === 'number' ? (
+        {isAdmin ? (
+          <div
+            className="grid grid-cols-2 border border-sidebar-border bg-[#151c25] p-0.5"
+            role="group"
+            aria-label={t('nav.modeSwitch')}
+          >
+            <button
+              type="button"
+              aria-pressed={!isAdminMenu}
+              onClick={() => setNavMode('user')}
+              className={cn(
+                'h-9 px-2 font-mono text-xs tracking-[0.12em] uppercase transition-colors',
+                !isAdminMenu
+                  ? 'bg-sidebar-accent font-semibold text-sidebar-primary'
+                  : 'text-sidebar-foreground/50 hover:text-sidebar-foreground/80',
+              )}
+            >
+              {t('nav.modeUser')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={isAdminMenu}
+              onClick={() => setNavMode('admin')}
+              className={cn(
+                'h-9 px-2 font-mono text-xs tracking-[0.12em] uppercase transition-colors',
+                isAdminMenu
+                  ? 'bg-sidebar-accent font-semibold text-sidebar-primary'
+                  : 'text-sidebar-foreground/50 hover:text-sidebar-foreground/80',
+              )}
+            >
+              {t('nav.modeAdmin')}
+            </button>
+          </div>
+        ) : null}
+
+        {!isAdminMenu && typeof availableCredits === 'number' ? (
           <Link
             to="/billing"
             className="group block rounded-none border border-sidebar-border bg-[#151c25] px-3 py-3 transition-colors hover:border-sidebar-primary/40"
@@ -351,15 +429,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </Link>
         ) : null}
 
-        <div className="rounded-none border border-sidebar-border/80 px-3 py-2.5">
-          <div className="mb-1.5 flex items-center gap-1.5 font-mono text-xs tracking-[0.12em] text-sidebar-foreground/45 uppercase">
-            <Shield className="size-3.5 text-sidebar-primary/80" />
-            {t('disclaimer.title')}
+        {!isAdminMenu ? (
+          <div className="rounded-none border border-sidebar-border/80 px-3 py-2.5">
+            <div className="mb-1.5 flex items-center gap-1.5 font-mono text-xs tracking-[0.12em] text-sidebar-foreground/45 uppercase">
+              <Shield className="size-3.5 text-sidebar-primary/80" />
+              {t('disclaimer.title')}
+            </div>
+            <p className="text-xs leading-relaxed text-sidebar-foreground/50">
+              {t('disclaimer.body')}
+            </p>
           </div>
-          <p className="text-xs leading-relaxed text-sidebar-foreground/50">
-            {t('disclaimer.body')}
-          </p>
-        </div>
+        ) : null}
       </SidebarFooter>
     </Sidebar>
   );
@@ -399,8 +479,9 @@ function NestedNavGroup({
   pathname: string;
 }) {
   const { t } = useTranslation('common');
-  const groupActive = pathname === entry.matchPrefix
-    || pathname.startsWith(`${entry.matchPrefix}/`);
+  const groupActive =
+    pathname === entry.matchPrefix ||
+    pathname.startsWith(`${entry.matchPrefix}/`);
 
   return (
     <Collapsible asChild defaultOpen={groupActive}>

@@ -2,7 +2,8 @@
   "brand": {
     "name": "TradingAgents",
     "tagline": "Multi-agent research",
-    "floorTag": "Signal Floor"
+    "floorTag": "Signal Floor",
+    "adminFloorTag": "Ops Console"
   },
   "nav": {
     "workspace": "Workspace",
@@ -10,6 +11,15 @@
     "marketGroup": "Market",
     "accountGroup": "Account",
     "admin": "Admin",
+    "adminOpsGroup": "Ops",
+    "adminBillingGroup": "Billing",
+    "adminPlatformGroup": "Platform",
+    "adminAuditGroup": "Audit",
+    "modeSwitch": "Menu mode",
+    "modeUser": "Research",
+    "modeAdmin": "Admin",
+    "switchToAdmin": "Switch to admin",
+    "switchToUser": "Back to research",
     "desk": "Desk",
     "tasks": "Tasks",
     "reports": "Reports",
