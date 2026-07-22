@@ -18,6 +18,8 @@ export type ResearchInput = {
   tradeDate: string;
   analysts: string[];
   outputLanguage?: string;
+  quickModelId?: string;
+  deepModelId?: string;
   instrument?: ResearchInstrumentInput;
   display?: ResearchDisplayInput;
 };
@@ -136,7 +138,7 @@ export class ResearchRequestError extends Error {
 }
 
 export async function createResearch(
-  { outputLanguage, instrument, display, ...input }: ResearchInput,
+  { outputLanguage, instrument, display, quickModelId, deepModelId, ...input }: ResearchInput,
   fetchImplementation: FetchImplementation = fetch,
 ) {
   const response = await fetchImplementation('/api/analyses', {
@@ -147,6 +149,8 @@ export async function createResearch(
       requestId: crypto.randomUUID(),
       ...(instrument ? { instrument } : {}),
       ...(display ? { display } : {}),
+      ...(quickModelId ? { quickModelId } : {}),
+      ...(deepModelId ? { deepModelId } : {}),
       configOverrides: { output_language: outputLanguage ?? 'English' },
     }),
   });
@@ -163,7 +167,7 @@ export async function createResearch(
 }
 
 export async function estimateResearch(
-  { outputLanguage, instrument, display, ...input }: ResearchInput,
+  { outputLanguage, instrument, display, quickModelId, deepModelId, ...input }: ResearchInput,
   fetchImplementation: FetchImplementation = fetch,
 ) {
   const response = await fetchImplementation('/api/analyses/estimate', {
@@ -173,6 +177,8 @@ export async function estimateResearch(
       ...input,
       ...(instrument ? { instrument } : {}),
       ...(display ? { display } : {}),
+      ...(quickModelId ? { quickModelId } : {}),
+      ...(deepModelId ? { deepModelId } : {}),
       configOverrides: { output_language: outputLanguage ?? 'English' },
     }),
   });

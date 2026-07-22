@@ -8,11 +8,13 @@
  * - 账户：从 Clerk 同步的本地用户资料
  * - 计费 / 积分：Stripe 订阅与分析积分账本
  * - 分析任务：与 tg-core 共享的 job 持久化
- * - LLM 定价：模型单价与抓取来源
+ * - LLM 定价：模型单价缓存（成本计算用）
+ * - LLM 目录：提供商凭据与对用户开放的模型
  */
 import { desc, sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -582,26 +584,73 @@ export const llmModelPrices = pgTable(
   ],
 );
 
-/** 定价来源页及其最近抓取健康状态。 */
-export const llmPricingSources = pgTable('llm_pricing_sources', {
-  /** 写入 llm_model_prices 的来源 URL。 */
-  sourceUrl: text('source_url').primaryKey(),
-  /** 两次刷新尝试之间的最短间隔（秒）。 */
-  updateIntervalSeconds: integer('update_interval_seconds')
+/** 管理员配置的 LLM 提供商（含加密 API Key）。 */
+export const llmProviders = pgTable('llm_providers', {
+  /** 与 Core llm_provider 一致的稳定键。 */
+  id: text('id').primaryKey(),
+  displayName: text('display_name').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  backendUrl: text('backend_url'),
+  apiKeyCiphertext: text('api_key_ciphertext'),
+  apiKeyHint: text('api_key_hint'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
-    .default(3600),
-  /** 最近一次尝试刷新的时间。 */
-  lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
-  /** 最近一次刷新成功的时间。 */
-  lastSuccessAt: timestamp('last_success_at', { withTimezone: true }),
-  /** 最近一次刷新错误信息（若有）。 */
-  lastError: text('last_error'),
-  /** 当前与该来源关联的模型价格行数。 */
-  modelCount: integer('model_count').notNull().default(0),
+    .defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+/** 管理员纳管的 LLM 模型目录；enabled 表示对用户开放。 */
+export const llmModels = pgTable(
+  'llm_models',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => llmProviders.id, { onDelete: 'cascade' }),
+    model: text('model').notNull(),
+    displayName: text('display_name').notNull(),
+    role: text('role').notNull().default('both'),
+    enabled: boolean('enabled').notNull().default(false),
+    currency: text('currency').notNull().default('USD'),
+    unitTokens: integer('unit_tokens').notNull().default(1_000_000),
+    inputPrice: numeric('input_price', { precision: 18, scale: 8 }),
+    outputPrice: numeric('output_price', { precision: 18, scale: 8 }),
+    cachedInputPrice: numeric('cached_input_price', {
+      precision: 18,
+      scale: 8,
+    }),
+    cacheWritePrice: numeric('cache_write_price', { precision: 18, scale: 8 }),
+    contextWindow: integer('context_window'),
+    maxOutputTokens: integer('max_output_tokens'),
+    params: jsonb('params')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    capabilities: jsonb('capabilities')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    syncedAt: timestamp('synced_at', { withTimezone: true }),
+    syncError: text('sync_error'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('llm_models_provider_model_uidx').on(
+      table.providerId,
+      table.model,
+    ),
+    index('llm_models_enabled_idx').on(table.enabled),
+  ],
+);
 
 /** 用户自选股分组。 */
 export const watchlistGroups = pgTable(

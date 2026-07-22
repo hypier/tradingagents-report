@@ -40,6 +40,7 @@ import {
 import { getAccountProfile } from '../lib/account';
 import { getBillingOverview } from '../lib/billing';
 import { OUTPUT_LANGUAGE_IDS, formatOutputLanguage } from '../lib/format-output-language';
+import { getLlmCatalog } from '../lib/llm-catalog';
 import { fetchPublicConfig } from '../lib/public-config';
 import { todayInTimezone } from '../i18n/locales';
 import { cn } from '../lib/utils';
@@ -112,6 +113,8 @@ export function HomePage() {
   });
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
   const [outputLanguage, setOutputLanguage] = useState('English');
+  const [quickModelId, setQuickModelId] = useState('');
+  const [deepModelId, setDeepModelId] = useState('');
   const [tradeDate, setTradeDate] = useState(() =>
     todayInTimezone(guessBrowserTimezone()),
   );
@@ -132,6 +135,22 @@ export function HomePage() {
     queryKey: ['billing-overview'],
     queryFn: () => getBillingOverview(),
   });
+  const llmCatalog = useQuery({
+    queryKey: ['llm-catalog'],
+    queryFn: () => getLlmCatalog(),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const catalog = llmCatalog.data?.data;
+    if (!catalog) return;
+    if (!quickModelId && catalog.defaults.defaultQuickModelId) {
+      setQuickModelId(catalog.defaults.defaultQuickModelId);
+    }
+    if (!deepModelId && catalog.defaults.defaultDeepModelId) {
+      setDeepModelId(catalog.defaults.defaultDeepModelId);
+    }
+  }, [deepModelId, llmCatalog.data?.data, quickModelId]);
 
   useEffect(() => {
     const current = profile.data?.data.profile;
@@ -277,13 +296,26 @@ export function HomePage() {
     setTradeDate((current) => (current > maxTradeDate ? maxTradeDate : current));
   }, [maxTradeDate, prefsReady]);
 
+  const catalogModels = llmCatalog.data?.data.models ?? [];
+  const quickModels = catalogModels.filter((model) => model.canQuick);
+  const deepModels = catalogModels.filter(
+    (model) =>
+      model.canDeep &&
+      (!quickModelId ||
+        model.providerId ===
+          catalogModels.find((item) => item.id === quickModelId)?.providerId),
+  );
+  const modelsReady = Boolean(quickModelId && deepModelId);
+
   const pendingResearchInput =
-    instrument && analysts.length && outputLanguage && tradeDate
+    instrument && analysts.length && outputLanguage && tradeDate && modelsReady
       ? {
           ticker: instrument.display_ticker,
           tradeDate,
           analysts,
           outputLanguage,
+          quickModelId,
+          deepModelId,
           instrument: {
             exchange: instrument.exchange,
             symbol: instrument.symbol,
@@ -316,6 +348,8 @@ export function HomePage() {
       pendingResearchInput?.tradeDate,
       analysts,
       outputLanguage,
+      quickModelId,
+      deepModelId,
     ],
     queryFn: () => estimateResearch(pendingResearchInput!),
     enabled: pendingResearchInput !== null,
@@ -335,6 +369,7 @@ export function HomePage() {
       analysts.length &&
       outputLanguage &&
       tradeDate &&
+      modelsReady &&
       !insufficientCredits
     ) {
       const displayName =
@@ -352,6 +387,8 @@ export function HomePage() {
         tradeDate,
         analysts,
         outputLanguage,
+        quickModelId,
+        deepModelId,
         instrument: {
           exchange: instrument.exchange,
           symbol: instrument.symbol,
@@ -519,6 +556,70 @@ export function HomePage() {
                     </div>
                   </Field>
 
+                  <Field>
+                    <FieldTitle className="text-sm">{t('models.label')}</FieldTitle>
+                    <FieldDescription>{t('models.hint')}</FieldDescription>
+                    {catalogModels.length === 0 ? (
+                      <p className="mt-1.5 text-sm text-muted-foreground">
+                        {t('models.unavailable')}
+                      </p>
+                    ) : (
+                      <FieldGroup className="mt-1.5 grid gap-4 sm:grid-cols-2">
+                        <Field>
+                          <FieldLabel htmlFor="quick-model">
+                            {t('models.quick')}
+                          </FieldLabel>
+                          <Select
+                            value={quickModelId || undefined}
+                            onValueChange={(value) => {
+                              setQuickModelId(value);
+                              const providerId = catalogModels.find(
+                                (model) => model.id === value,
+                              )?.providerId;
+                              const deep = catalogModels.find(
+                                (model) => model.id === deepModelId,
+                              );
+                              if (deep && deep.providerId !== providerId) {
+                                setDeepModelId('');
+                              }
+                            }}
+                          >
+                            <SelectTrigger id="quick-model">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {quickModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.displayName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="deep-model">
+                            {t('models.deep')}
+                          </FieldLabel>
+                          <Select
+                            value={deepModelId || undefined}
+                            onValueChange={setDeepModelId}
+                          >
+                            <SelectTrigger id="deep-model">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {deepModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.displayName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      </FieldGroup>
+                    )}
+                  </Field>
+
                   <FieldGroup className="grid gap-4 sm:grid-cols-2">
                     <Field>
                       <FieldLabel
@@ -623,6 +724,7 @@ export function HomePage() {
                       !analysts.length ||
                       !outputLanguage ||
                       !tradeDate ||
+                      !modelsReady ||
                       insufficientCredits ||
                       create.isPending
                     }

@@ -43,8 +43,10 @@ describe('Node database', () => {
       INSERT INTO llm_model_prices (
         provider, model, input_price, output_price, source_url
       ) VALUES ('openai', 'gpt-test', 1.25, 2.5, 'https://example.test/pricing');
-      INSERT INTO llm_pricing_sources (source_url)
-      VALUES ('https://example.test/pricing');
+      INSERT INTO llm_providers (id, display_name, enabled)
+      VALUES ('openai', 'OpenAI', true);
+      INSERT INTO llm_models (provider_id, model, display_name, role, enabled)
+      VALUES ('openai', 'gpt-test', 'GPT Test', 'both', true);
     `);
     database = createNodeDatabase(connectionString);
   }, 120_000);
@@ -63,7 +65,8 @@ describe('Node database', () => {
     await expect(
       database.modelPrices.list({ provider: 'openai' }),
     ).resolves.toHaveLength(1);
-    await expect(database.pricingSources.list()).resolves.toHaveLength(1);
+    await expect(database.llmCatalog.listProviders()).resolves.toHaveLength(1);
+    await expect(database.llmCatalog.listModels()).resolves.toHaveLength(1);
   });
 
   it('exposes exchange and display columns from migrations', async () => {

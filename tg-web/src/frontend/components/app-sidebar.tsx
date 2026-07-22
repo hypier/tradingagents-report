@@ -6,6 +6,7 @@ import {
   ListChecks,
   ListTodo,
   CandlestickChart,
+  ChevronRight,
   Shield,
   SlidersHorizontal,
   UserRound,
@@ -13,11 +14,17 @@ import {
   Globe2,
   ScrollText,
   Cpu,
+  Server,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 
 import { BrandMark } from '@/frontend/components/icons/research-icons';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/frontend/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +36,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarSeparator,
 } from '@/frontend/components/ui/sidebar';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
@@ -50,13 +60,24 @@ type NavLeaf = {
     | 'nav.adminUsers'
     | 'nav.adminAnalyses'
     | 'nav.adminBilling'
-    | 'nav.adminModels'
     | 'nav.adminSettings'
     | 'nav.adminMarkets'
-    | 'nav.adminAudit';
+    | 'nav.adminAudit'
+    | 'nav.adminLlmProviders'
+    | 'nav.adminLlmModels';
   icon: typeof LayoutDashboard;
   href: string;
 };
+
+type AdminNavEntry =
+  | { kind: 'leaf'; item: NavLeaf }
+  | {
+      kind: 'group';
+      titleKey: 'nav.adminLlm';
+      icon: typeof LayoutDashboard;
+      matchPrefix: string;
+      children: NavLeaf[];
+    };
 
 const researchNavigation: NavLeaf[] = [
   { titleKey: 'nav.desk', icon: LayoutDashboard, href: '/' },
@@ -81,19 +102,75 @@ const accountNavigation: NavLeaf[] = [
   { titleKey: 'nav.account', icon: UserRound, href: '/account' },
 ];
 
-const adminNavigation: NavLeaf[] = [
-  { titleKey: 'nav.adminOverview', icon: LayoutDashboard, href: '/admin' },
-  { titleKey: 'nav.adminUsers', icon: UsersRound, href: '/admin/users' },
-  { titleKey: 'nav.adminAnalyses', icon: ListTodo, href: '/admin/analyses' },
-  { titleKey: 'nav.adminBilling', icon: CreditCard, href: '/admin/billing' },
-  { titleKey: 'nav.adminModels', icon: Cpu, href: '/admin/models' },
+const adminLlmChildren: NavLeaf[] = [
   {
-    titleKey: 'nav.adminSettings',
-    icon: SlidersHorizontal,
-    href: '/admin/settings',
+    titleKey: 'nav.adminLlmProviders',
+    icon: Server,
+    href: '/admin/llm/providers',
   },
-  { titleKey: 'nav.adminMarkets', icon: Globe2, href: '/admin/markets' },
-  { titleKey: 'nav.adminAudit', icon: ScrollText, href: '/admin/audit' },
+  { titleKey: 'nav.adminLlmModels', icon: Cpu, href: '/admin/llm/models' },
+];
+
+const adminNavigation: AdminNavEntry[] = [
+  {
+    kind: 'leaf',
+    item: {
+      titleKey: 'nav.adminOverview',
+      icon: LayoutDashboard,
+      href: '/admin',
+    },
+  },
+  {
+    kind: 'leaf',
+    item: { titleKey: 'nav.adminUsers', icon: UsersRound, href: '/admin/users' },
+  },
+  {
+    kind: 'leaf',
+    item: {
+      titleKey: 'nav.adminAnalyses',
+      icon: ListTodo,
+      href: '/admin/analyses',
+    },
+  },
+  {
+    kind: 'leaf',
+    item: {
+      titleKey: 'nav.adminBilling',
+      icon: CreditCard,
+      href: '/admin/billing',
+    },
+  },
+  {
+    kind: 'group',
+    titleKey: 'nav.adminLlm',
+    icon: Cpu,
+    matchPrefix: '/admin/llm',
+    children: adminLlmChildren,
+  },
+  {
+    kind: 'leaf',
+    item: {
+      titleKey: 'nav.adminSettings',
+      icon: SlidersHorizontal,
+      href: '/admin/settings',
+    },
+  },
+  {
+    kind: 'leaf',
+    item: {
+      titleKey: 'nav.adminMarkets',
+      icon: Globe2,
+      href: '/admin/markets',
+    },
+  },
+  {
+    kind: 'leaf',
+    item: {
+      titleKey: 'nav.adminAudit',
+      icon: ScrollText,
+      href: '/admin/audit',
+    },
+  },
 ];
 
 const floorNavButtonClass = cn(
@@ -224,13 +301,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="gap-0.5 px-0">
-                  {adminNavigation.map((item) => (
-                    <FlatNavItem
-                      key={item.href}
-                      item={item}
-                      pathname={location.pathname}
-                    />
-                  ))}
+                  {adminNavigation.map((entry) =>
+                    entry.kind === 'leaf' ? (
+                      <FlatNavItem
+                        key={entry.item.href}
+                        item={entry.item}
+                        pathname={location.pathname}
+                      />
+                    ) : (
+                      <NestedNavGroup
+                        key={entry.titleKey}
+                        entry={entry}
+                        pathname={location.pathname}
+                      />
+                    ),
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -303,5 +388,61 @@ function FlatNavItem({
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
+  );
+}
+
+function NestedNavGroup({
+  entry,
+  pathname,
+}: {
+  entry: Extract<AdminNavEntry, { kind: 'group' }>;
+  pathname: string;
+}) {
+  const { t } = useTranslation('common');
+  const groupActive = pathname === entry.matchPrefix
+    || pathname.startsWith(`${entry.matchPrefix}/`);
+
+  return (
+    <Collapsible asChild defaultOpen={groupActive}>
+      <SidebarMenuItem className="group/collapsible px-0">
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            tooltip={t(entry.titleKey)}
+            isActive={groupActive}
+            className={floorNavButtonClass}
+          >
+            <entry.icon className="size-5!" />
+            <span>{t(entry.titleKey)}</span>
+            <ChevronRight className="ml-auto size-4! transition-transform group-data-[state=open]/collapsible:rotate-90" />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub className="mx-0 ml-3.5 border-sidebar-border px-0">
+            {entry.children.map((child) => {
+              const isActive = isNavActive(pathname, child.href);
+              return (
+                <SidebarMenuSubItem key={child.href}>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={isActive}
+                    className={cn(
+                      'h-9 rounded-none px-3 text-sm',
+                      isActive
+                        ? 'bg-sidebar-accent font-semibold text-sidebar-primary'
+                        : 'text-sidebar-foreground/80',
+                    )}
+                  >
+                    <Link to={child.href}>
+                      <child.icon className="size-4!" />
+                      <span>{t(child.titleKey)}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              );
+            })}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
   );
 }

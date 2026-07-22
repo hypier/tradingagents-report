@@ -9,7 +9,7 @@ from psycopg.rows import dict_row
 
 DATABASE_URL_ENV_VAR = "TRADINGAGENTS_DATABASE_URL"
 ANALYSIS_LOCK_KEY = 8_724_631_904
-_REQUIRED_TABLES = ("analysis_jobs", "llm_model_prices", "llm_pricing_sources")
+_REQUIRED_TABLES = ("analysis_jobs", "llm_model_prices", "llm_providers", "llm_models")
 _REQUIRED_CREDIT_RESERVATION_COLUMNS = (
     "estimated_cost_usd",
     "pricing_snapshot",

@@ -21,6 +21,8 @@ export const createAnalysisSchema = z.object({
   analysts: z
     .array(z.enum(['market', 'social', 'news', 'fundamentals']))
     .min(1),
+  quickModelId: z.string().uuid().optional(),
+  deepModelId: z.string().uuid().optional(),
   configOverrides: z.record(z.string(), z.unknown()).default({}),
   instrument: z
     .object({

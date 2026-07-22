@@ -108,10 +108,10 @@ flowchart LR
 
 ### 5.5 模型、数据源与系统设置
 
-- 查看可用模型、模型价格、默认分析配置和任务配置版本。
-- 查看数据源可用性、市场覆盖、限流、缓存与错误状态。
+- 在管理 → 模型设置下分别配置：`/admin/llm/providers`（供应商与加密 API Key）、`/admin/llm/models`（模型列表与默认快速/深度模型）。详细设计见 [`LLM_MODELS_CONFIGURATION.md`](./LLM_MODELS_CONFIGURATION.md)。
+- 管理员可在新建/编辑模型时手动同步价格与参数；开放模型供用户分析时选择。
 - 管理允许开放的市场、界面语言、功能开关、维护公告和风险提示文案。
-- 密钥、支付私钥、数据源凭据和运行环境地址仅通过部署配置管理，不能在管理界面显示或编辑。
+- 支付私钥等仍通过部署配置或专用计费页管理；LLM API Key 在模型配置页加密保存，接口仅返回掩码。
 
 ### 5.6 审计与监控
 
@@ -160,7 +160,7 @@ flowchart LR
 - 可变额度规则表 `credit_rules` 仍可供运营配置参考；分析预扣与结算以服务端 P90/冷启动用量计费为准。
 - 产品设置：维护公告、功能开关（自选/分享）、免责声明版本与正文覆盖、告警 webhook URL（仅存储不发送）。
 - 市场元数据管理 `/admin/markets`；`/api/public-config` 返回已启用市场列表。
-- 管理员模型与数据源面板 `/admin/models`：只读展示 `llm_model_prices`、定价来源健康与依赖探针摘要。
+- 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key、开放状态与两个默认分析模型；用户分析页从开放目录选型。
 - 通用审计检索 `/admin/audit`：记录管理员写操作与报告分享创建/撤销；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
 
 当前尚未实现报告 AI 对话，以及告警 webhook 的实际外发通知。

@@ -217,50 +217,18 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
     return context.json(apiSuccess({ id }, context.get('requestId')));
   });
 
-  app.get('/admin/models', async (context) => {
-    const [prices, sources] = await Promise.all([
-      dependencies.database.modelPrices.list({}),
-      dependencies.database.pricingSources.list(),
-    ]);
-    return context.json(
-      apiSuccess(
-        {
-          prices: prices.map((row) => ({
-            provider: row.provider,
-            model: row.model,
-            billingMode: row.billingMode,
-            contextTier: row.contextTier,
-            currency: row.currency,
-            unitTokens: row.unitTokens,
-            inputPrice: row.inputPrice,
-            outputPrice: row.outputPrice,
-            sourceUrl: row.sourceUrl,
-            updatedAt: row.updatedAt,
-          })),
-          sources: sources.map((row) => ({
-            sourceUrl: row.sourceUrl,
-            updateIntervalSeconds: row.updateIntervalSeconds,
-            lastCheckedAt: row.lastCheckedAt,
-            lastSuccessAt: row.lastSuccessAt,
-            lastError: row.lastError,
-            modelCount: row.modelCount,
-            updatedAt: row.updatedAt,
-          })),
-        },
-        context.get('requestId'),
-      ),
-    );
-  });
-
   app.get('/admin/datasources', async (context) => {
     const checks = await Promise.all([
       probe('database', () => dependencies.database.healthcheck()),
       probe('cache', () => dependencies.cache.healthcheck()),
       probe('core', () => dependencies.core.healthcheck()),
     ]);
-    const sources = await dependencies.database.pricingSources
-      .list()
+    const providers = await dependencies.database.llmCatalog
+      .listProviders()
       .catch(() => []);
+    const enabledWithoutKey = providers.filter(
+      (row) => row.enabled && !row.apiKeyCiphertext,
+    );
     return context.json(
       apiSuccess(
         {
@@ -280,17 +248,13 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
                   : 'unhealthy',
             },
             {
-              id: 'llm_pricing',
-              label: 'LLM pricing sources',
-              status: sources.some((row) => row.lastError)
-                ? 'degraded'
-                : 'healthy',
-              errors: sources
-                .filter((row) => row.lastError)
-                .map((row) => ({
-                  sourceUrl: row.sourceUrl,
-                  error: row.lastError,
-                })),
+              id: 'llm_providers',
+              label: 'LLM providers',
+              status: enabledWithoutKey.length ? 'degraded' : 'healthy',
+              errors: enabledWithoutKey.map((row) => ({
+                providerId: row.id,
+                error: 'Enabled provider is missing API key',
+              })),
             },
           ],
         },

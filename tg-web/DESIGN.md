@@ -146,11 +146,38 @@ Every standard page follows one composition — do not invent a second title sty
 | **Page title** | One ruled `h1` in the page body: `text-xl` (~20px), weight 600, track-tight. Optional one-line Dim Meta subtitle under it. |
 | **Title row** | `border-b` Wire Edge; padding `px-5 py-3.5` (`lg:px-6`). Actions (if any) sit end-aligned on the same row. |
 | **Toolbar** | Optional filter / tab strip **flush under** the title row, separated by `border-t`. Same horizontal padding. Not a floating card. |
-| **Body** | Scrollable column; default padding `px-5 py-5` (`lg:px-6`), gap `1.25rem`. Flush tables may drop body padding (`gap-0 p-0`). |
+| **Body** | Scrollable column; default padding `px-5 py-5` (`lg:px-6`), gap `1.25rem`. Flush tables may drop body padding (`gap-0 p-0`). **Do not** add a second `border-t` on the table wrapper under PageHeader — the title row already ends with `border-b`; stacking both creates a thick double rule. |
 | **Site header title** | Suppressed when the page owns its `h1` (desk, tasks, reports, watchlist, billing, account, stock, admin, report detail). Header keeps utilities only: theme, language, account / sign out. |
 | **Split workspaces** | Research desk & tasks may keep a custom ruled header inside the main pane; right rail is pipeline / recent runs — not a second page title. |
 
-**Anti-pattern:** Icon + eyebrow + `text-2xl`/`text-3xl` floating headers; duplicate titles in site header and page; wrapping every section in a rounded Card.
+**Anti-pattern:** Icon + eyebrow + `text-2xl`/`text-3xl` floating headers; duplicate titles in site header and page; wrapping every section in a rounded Card; **PageHeader `border-b` + table wrapper `border-t` double hairline**.
+
+### Tables (list / ledger surfaces)
+
+Canonical pattern for report library, tasks, admin ledgers, LLM providers/models, users.
+
+| Piece | Rule |
+|-------|------|
+| **Composition** | PageFrame (`bodyClassName="gap-0 p-0"`) → PageHeader (actions end-aligned) → optional PageToolbar → flush `<Table>`. No SectionPanel / Card around the grid. |
+| **Top rule** | **One** Wire Edge only: PageHeader’s `border-b`. Table wrapper is `overflow-x-auto` with **no** `border-t`. Header row keeps its own `border-b` to separate heads from body. |
+| **Horizontal inset** | First column `pl-5 lg:pl-6`; last column `pr-5 lg:pr-6` — align with PageHeader padding. Interior columns use default head/cell padding. |
+| **Header row** | `TableRow` with `hover:bg-transparent`. Heads: medium weight, no hover wash. Prefer Dim Meta for secondary column labels when the page has many columns. |
+| **Body rows** | Row height ~40–44px feel (`TableHead` `h-10`, cells `p-2`+). Single Wire Edge `border-b` between rows; last row may drop bottom border via `TableBody` default. Hover: muted wash only — never scale or glow. |
+| **Primary identity cell** | **Name on top** (sans, medium/semibold) + **code / id below** (Geist Mono, Dim Meta, slight tracking). Same stack as instrument rows. |
+| **Numeric / secret / URL cells** | Geist Mono + `tabular-nums` where appropriate. Truncate long URLs with `max-w-*` + `truncate`. Masked secrets stay mono. |
+| **Status** | Compact rectangular Badge (`secondary` = on / open, `outline` = off / closed). Rise/Fall badges only for market data — not for admin enable flags. |
+| **Row actions** | End-aligned outline `sm` buttons in the last cell; Destructive for delete. Prefer dialogs for create/edit — do not stack edit forms under the table on the same page. |
+| **Empty** | One muted cell spanning columns, or Empty chrome in padded body — factual copy + one CTA. |
+| **Nested tables** | Avoid. If a panel needs an inner list, use ruled `divide-y` rows, not a second full table chrome. |
+
+**Banned for tables:** Card wrappers; zebra as default (optional 4% wash only if density demands); pill clusters in cells; icon-only unlabeled action columns without tooltip; double top borders; vertical / rotated labels beside controls.
+
+### Dialog forms (admin create / edit)
+
+- Single column or 2-col grid; labels above inputs.
+- Boolean toggles: `Field orientation="horizontal"` + fixed-size Checkbox (`size-4 shrink-0`) + label/hint stack — **never** vertical Field with `*:w-full` (stretches the checkbox into a full-width amber bar).
+- Optional toggle strip: Wire Edge + `bg-muted/20` + `px-3 py-2.5` full-width row at the bottom of the form.
+- Footer: Cancel outline + primary Save; one primary per dialog.
 
 ### Instrument logos & identity (lists & tables)
 
@@ -281,6 +308,8 @@ Floor language, not startup landing copy.
 - Circular / soft-rounded logos in dense job tables; mismatched logo sizes across desk / tasks / library
 - Ticker above company name (or ticker-only badge replacing the name row) in instrument lists / quote / headers
 - Card-wrapped filter toolbars; oversized floating page headers with decorative icons
+- PageHeader `border-b` stacked with table wrapper `border-t` (thick double rule)
+- Vertical Field stretching Checkbox to full width in dialogs
 
 ---
 
@@ -336,6 +365,7 @@ Keep design rules above authoritative; this section maps them to `tg-web` module
 | Locale dates (omit current year) | `lib/format-locale.ts` — `formatLocaleDate*`, `formatLocaleCalendarDate` |
 | Instrument name / ticker stack | `components/instrument-identity.tsx` — name above, ticker below |
 | Job / report rows (rail + full table) | `dashboard/recent-reports.tsx` — logos `size-8` square + `InstrumentIdentity` in **both** densities |
+| Flush admin / ledger tables | PageFrame `gap-0 p-0` → no wrapper `border-t`; first/last cell inset `pl-5` / `pr-5` (`lg:pl-6` / `lg:pr-6`) — see **Tables** under §4 |
 | Research desk layout | `pages/home-page.tsx` — search → quote strip → analysts → sticky Run; rail = pipeline + recent |
 | Tasks / report library tables | `pages/tasks-page.tsx`, `pages/reports-page.tsx` via `ReportsTable` (`variant="tasks"` vs `variant="library"`) |
 

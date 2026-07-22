@@ -10,6 +10,7 @@ import { BillingRepositoryError } from '../database/billing-repository';
 import { metaFlags } from '../database/report-meta-repository';
 import type { AnalysisJob } from '../database/repositories';
 import { AppError } from '../errors/app-error';
+import { resolveAnalysisLlm } from '../llm/resolve-analysis-models';
 import { isOhlcvTimeframe } from '../market-assets/tradingview-market-client';
 
 export function analysisRoutes(dependencies: AppDependencies) {
@@ -23,10 +24,18 @@ export function analysisRoutes(dependencies: AppDependencies) {
       throw new AppError('INVALID_REQUEST', 400, 'Invalid analysis request');
     }
     const input = parsed.data;
+    const resolved = await resolveAnalysisLlm(
+      dependencies,
+      {
+        quickModelId: input.quickModelId,
+        deepModelId: input.deepModelId,
+      },
+      input.configOverrides ?? {},
+    );
     const data = await dependencies.database.billing.estimateAnalysis({
       billingSignature: buildBillingSignature({
         analysts: input.analysts,
-        configOverrides: input.configOverrides,
+        configOverrides: resolved.configOverrides,
       }),
     });
     return context.json(
@@ -55,6 +64,14 @@ export function analysisRoutes(dependencies: AppDependencies) {
         'Accept the current legal documents before running an analysis',
       );
     }
+    const resolved = await resolveAnalysisLlm(
+      dependencies,
+      {
+        quickModelId: input.quickModelId,
+        deepModelId: input.deepModelId,
+      },
+      input.configOverrides ?? {},
+    );
     const requestId = input.requestId ?? crypto.randomUUID();
     let reservation: 'created' | 'existing';
     try {
@@ -63,7 +80,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
         requestId,
         billingSignature: buildBillingSignature({
           analysts: input.analysts,
-          configOverrides: input.configOverrides,
+          configOverrides: resolved.configOverrides,
         }),
       });
     } catch (error) {
@@ -96,7 +113,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
           : { ticker: input.ticker.toUpperCase() }),
         trade_date: input.tradeDate,
         analysts: input.analysts,
-        config_overrides: input.configOverrides,
+        config_overrides: resolved.configOverrides,
         request_id: requestId,
         ...(input.display
           ? {

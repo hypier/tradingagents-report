@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import {
   analysisJobs,
   llmModelPrices,
-  llmPricingSources,
+  llmProviders,
+  llmModels,
   accountUsers,
   creditAccounts,
   creditReservations,
@@ -19,10 +20,11 @@ import {
 } from '../../src/backend/database/schema';
 
 describe('Core table mappings', () => {
-  it('maps the three Core-owned table names', () => {
+  it('maps Core-owned and LLM catalog table names', () => {
     expect(getTableName(analysisJobs)).toBe('analysis_jobs');
     expect(getTableName(llmModelPrices)).toBe('llm_model_prices');
-    expect(getTableName(llmPricingSources)).toBe('llm_pricing_sources');
+    expect(getTableName(llmProviders)).toBe('llm_providers');
+    expect(getTableName(llmModels)).toBe('llm_models');
   });
 
   it('maps product identity, billing, and credit audit tables', () => {

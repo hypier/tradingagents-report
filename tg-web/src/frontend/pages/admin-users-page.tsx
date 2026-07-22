@@ -154,17 +154,19 @@ export function AdminUsersPage() {
             </Empty>
           </div>
         ) : (
-          <div className="overflow-hidden border-t border-border">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>{t('users.columns.user')}</TableHead>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-5 lg:pl-6">
+                    {t('users.columns.user')}
+                  </TableHead>
                   <TableHead>{t('users.columns.email')}</TableHead>
                   <TableHead>{t('users.columns.registered')}</TableHead>
                   <TableHead className="w-36">
                     {t('users.columns.role')}
                   </TableHead>
-                  <TableHead className="text-right">
+                  <TableHead className="pr-5 text-right lg:pr-6">
                     {t('users.columns.credits')}
                   </TableHead>
                 </TableRow>
@@ -178,7 +180,7 @@ export function AdminUsersPage() {
 
                   return (
                     <TableRow key={user.id}>
-                      <TableCell>
+                      <TableCell className="pl-5 lg:pl-6">
                         <div className="flex items-center gap-3">
                           <Avatar className="size-8! shrink-0 !rounded-none after:!rounded-none">
                             <AvatarImage
@@ -243,7 +245,7 @@ export function AdminUsersPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
+                      <TableCell className="pr-5 text-right font-mono tabular-nums lg:pr-6">
                         {user.availableCredits}
                       </TableCell>
                     </TableRow>

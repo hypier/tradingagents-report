@@ -24,10 +24,12 @@
     "adminUsers": "User management",
     "adminAnalyses": "Analysis jobs",
     "adminBilling": "Payment settings",
-    "adminModels": "Models & data",
     "adminSettings": "Product settings",
     "adminMarkets": "Markets",
-    "adminAudit": "Audit log"
+    "adminAudit": "Audit log",
+    "adminLlm": "Model settings",
+    "adminLlmProviders": "Providers",
+    "adminLlmModels": "Models"
   },
   "header": {
     "desk": "Research desk",
@@ -46,7 +48,8 @@
     "adminUser": "User detail",
     "adminAnalyses": "Analysis jobs",
     "adminBilling": "Payment settings",
-    "adminModels": "Models & data",
+    "adminLlmProviders": "Providers",
+    "adminLlmModels": "Models",
     "adminSettings": "Product settings",
     "adminMarkets": "Markets",
     "adminAudit": "Audit log"

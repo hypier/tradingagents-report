@@ -103,8 +103,12 @@
 
 ## 8. 文档规范
 
-- 用户要求架构、流程或说明文档时，优先写入 `tg-core/docs/`。
-- 修改 HTTP API 的契约、认证、任务状态或部署方式时，同步更新 `tg-core/docs/API_SERVICE.md`；修改整体模块边界或执行流程时，同步更新 `tg-core/docs/ARCHITECTURE_DESIGN.md`。
+- 按所属项目落文档，不把 tg-web / 产品侧说明写进 `tg-core/docs/`：
+  - `tg-core/docs/`：Core 架构、HTTP API、job/worker、数据源与 Core 工程 backlog（如 `API_SERVICE.md`、`ARCHITECTURE_DESIGN.md`、`PROJECT_ARCHITECTURE.md`、`FUNCTIONAL_BACKLOG.md`）。
+  - `tg-web/docs/`：产品功能、管理端与 BFF 设计（如 `PRODUCT_FUNCTIONS.md`、`LLM_MODELS_CONFIGURATION.md`）。
+  - 仓库根 `docs/superpowers/`：跨项目规划与规格草稿，不替代上述项目文档。
+- 修改 Core HTTP API 的契约、认证、任务状态或部署方式时，同步更新 `tg-core/docs/API_SERVICE.md`；修改 Core 整体模块边界或执行流程时，同步更新 `tg-core/docs/ARCHITECTURE_DESIGN.md`。
+- 修改 tg-web 产品能力、管理端模型配置或计费相关产品说明时，同步更新 `tg-web/docs/PRODUCT_FUNCTIONS.md`（及对应设计文档）。
 - Mermaid 图可以用于架构图、运行流程图和时序图。
 - 文档应说明真实实现边界，不把 README 中的愿景描述误写成当前代码行为。
 - 中文文档使用 UTF-8 编码。若 PowerShell 显示乱码，优先判断终端编码，不直接认定文件损坏。

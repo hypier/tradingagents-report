@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-import threading
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -19,26 +17,8 @@ from api.schemas import (
 )
 from api.security import require_api_key
 from application.jobs import CreateAnalysisJob, cancel_job, create_job
-from application.pricing import refresh_and_backfill_model_prices
 from infrastructure import analysis_jobs, database, llm_prices
 from tradingagents.dataflows.listings import resolve_listing
-
-logger = logging.getLogger(__name__)
-
-
-def start_pricing_refresh() -> None:
-    threading.Thread(
-        target=_refresh_pricing_safely,
-        name="llm-pricing-refresh",
-        daemon=True,
-    ).start()
-
-
-def _refresh_pricing_safely() -> None:
-    try:
-        refresh_and_backfill_model_prices()
-    except Exception:
-        logger.exception("Background LLM pricing refresh failed")
 
 
 @asynccontextmanager
@@ -49,7 +29,6 @@ async def lifespan(_: FastAPI):
     job_worker.start()
     for job_id in analysis_jobs.list_queued_job_ids():
         job_worker.enqueue(job_id)
-    start_pricing_refresh()
     try:
         yield
     finally:

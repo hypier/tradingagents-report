@@ -37,34 +37,6 @@ export type CreditRuleInput = {
   priority: number;
 };
 
-export type ModelPriceRow = {
-  provider: string;
-  model: string;
-  billingMode: string;
-  contextTier: string | null;
-  currency: string;
-  unitTokens: number;
-  inputPrice: string | number;
-  outputPrice: string | number;
-  sourceUrl: string | null;
-  updatedAt: string | Date;
-};
-
-export type PricingSourceRow = {
-  sourceUrl: string;
-  updateIntervalSeconds: number;
-  lastCheckedAt: string | Date | null;
-  lastSuccessAt: string | Date | null;
-  lastError: string | null;
-  modelCount: number;
-  updatedAt: string | Date;
-};
-
-export type ModelsOverview = {
-  prices: ModelPriceRow[];
-  sources: PricingSourceRow[];
-};
-
 export type DatasourceHealth = {
   dependencies: Array<{
     id: string;
@@ -75,7 +47,11 @@ export type DatasourceHealth = {
     id: string;
     label: string;
     status: string;
-    errors?: Array<{ sourceUrl: string; error: string | null }>;
+    errors?: Array<{
+      sourceUrl?: string;
+      providerId?: string;
+      error: string | null;
+    }>;
   }>;
 };
 
@@ -189,9 +165,6 @@ export const deleteCreditRule = (
     { method: 'DELETE' },
     fetchImplementation,
   );
-
-export const getAdminModels = (fetchImplementation?: FetchImplementation) =>
-  read<ModelsOverview>('/api/admin/models', fetchImplementation);
 
 export const getAdminDatasources = (
   fetchImplementation?: FetchImplementation,

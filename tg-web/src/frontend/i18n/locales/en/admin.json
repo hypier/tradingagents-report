@@ -339,40 +339,120 @@
       "created": "Created"
     }
   },
-  "models": {
-    "title": "Models & data",
-    "heading": "Models and datasources",
-    "subtitle": "LLM pricing, pricing sources, and dependency health.",
+  "llmProviders": {
+    "heading": "Providers",
+    "subtitle": "Configure LLM providers, backend URL, and encrypted API keys.",
     "accessRequired": {
       "title": "Administrator access required",
-      "body": "Your account does not have permission to view models."
+      "body": "Your account does not have permission to manage providers."
+    },
+    "loadError": {
+      "title": "Unable to load providers",
+      "body": "Check database connectivity and retry."
+    },
+    "listTitle": "Provider list",
+    "listDescription": "Enable a provider and save its key, then add models on the Models page.",
+    "empty": "No providers configured yet.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "addTitle": "Add provider",
+    "editTitle": "Edit provider",
+    "formDescription": "Pick a provider ID, then set display name, backend URL, and API key.",
+    "fields": {
+      "providerId": "Provider",
+      "displayName": "Display name",
+      "backendUrl": "Backend URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Leave blank to keep existing",
+      "enabled": "Enable this provider",
+      "enabledHint": "When disabled, its models stay out of the user picker."
+    },
+    "actions": {
+      "add": "Add provider",
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "clearKey": "Clear key",
+      "delete": "Delete"
+    },
+    "toast": {
+      "saved": "Provider saved",
+      "deleted": "Provider deleted",
+      "keyCleared": "API key cleared"
+    },
+    "columns": {
+      "provider": "Provider",
+      "status": "Status",
+      "apiKey": "API Key",
+      "backendUrl": "Backend URL"
+    }
+  },
+  "llmModels": {
+    "heading": "Models",
+    "subtitle": "Add models, sync prices manually, and set default quick/deep models separately.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to manage models."
     },
     "loadError": {
       "title": "Unable to load models",
       "body": "Check database connectivity and retry."
     },
-    "pricesTitle": "Model prices",
-    "pricesDescription": "Latest known input and output prices",
-    "sourcesTitle": "Pricing sources",
-    "sourcesDescription": "Upstream price feed status",
-    "healthTitle": "Datasource health",
-    "healthDescription": "Core dependencies and vendor status",
-    "emptyPrices": "No model prices recorded.",
-    "emptySources": "No pricing sources configured.",
-    "ok": "OK",
-    "fail": "Fail",
+    "noProviders": {
+      "title": "No providers yet",
+      "body": "Configure a provider first.",
+      "cta": "Go to providers"
+    },
+    "defaultsTitle": "Default analysis models",
+    "defaultsDescription": "Used when the user does not pick models. Save independently from the add form.",
+    "listTitle": "Model list",
+    "listDescription": "Open models appear in the user analysis picker.",
+    "addTitle": "Add model",
+    "addDescription": "Enter a model ID; optionally sync-preview prices before creating.",
+    "empty": "No models configured yet.",
+    "open": "Open",
+    "closed": "Closed",
+    "fields": {
+      "providerId": "Provider",
+      "displayName": "Display name",
+      "modelId": "Model ID",
+      "role": "Role",
+      "inputPrice": "Input price",
+      "outputPrice": "Output price",
+      "defaultQuick": "Default quick model",
+      "defaultDeep": "Default deep model",
+      "openOnCreate": "Open immediately after create",
+      "openOnCreateHint": "Open models appear in the analysis model picker."
+    },
+    "actions": {
+      "add": "Add model",
+      "setDefaults": "Defaults",
+      "cancel": "Cancel",
+      "syncPreview": "Sync preview",
+      "createModel": "Create model",
+      "sync": "Sync",
+      "open": "Open",
+      "close": "Close",
+      "delete": "Delete",
+      "saveDefaults": "Save defaults"
+    },
+    "toast": {
+      "modelSaved": "Model created",
+      "defaultsSaved": "Defaults saved",
+      "syncPreview": "Fields filled from upstream",
+      "synced": "Sync succeeded",
+      "opened": "Model opened",
+      "closed": "Model closed",
+      "deleted": "Model deleted"
+    },
     "columns": {
       "provider": "Provider",
       "model": "Model",
+      "role": "Role",
       "input": "Input",
       "output": "Output",
-      "updated": "Updated",
-      "source": "Source",
-      "models": "Models",
-      "lastSuccess": "Last success",
-      "error": "Error",
-      "vendor": "Vendor",
-      "status": "Status"
+      "status": "Status",
+      "synced": "Last synced"
     }
   },
   "settings": {

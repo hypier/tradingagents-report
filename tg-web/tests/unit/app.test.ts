@@ -213,7 +213,20 @@ function fakeDependencies(
           disclaimer: { version: null, markdown: { en: null, zh: null } },
           alerts: { webhookUrl: '' },
         }),
-        get: vi.fn().mockResolvedValue(null),
+        get: vi.fn().mockImplementation(async (key: string) => {
+          if (key === 'llm') {
+            return {
+              key: 'llm',
+              value: {
+                defaultQuickModelId: '11111111-1111-1111-1111-111111111111',
+                defaultDeepModelId: '22222222-2222-2222-2222-222222222222',
+              },
+              updatedBy: null,
+              updatedAt: new Date(),
+            };
+          }
+          return null;
+        }),
         set: vi.fn(),
         setMany: vi.fn().mockResolvedValue({}),
       },
@@ -272,9 +285,98 @@ function fakeDependencies(
         upsert: vi.fn(),
         delete: vi.fn(),
       },
-      pricingSources: {
-        list: vi.fn().mockResolvedValue([]),
+      llmCatalog: {
+        listProviders: vi.fn().mockResolvedValue([
+          {
+            id: 'openai',
+            displayName: 'OpenAI',
+            enabled: true,
+            backendUrl: null,
+            apiKeyCiphertext: 'v1.a.b',
+            apiKeyHint: 'sk-...test',
+            sortOrder: 0,
+            notes: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]),
+        getProvider: vi.fn().mockResolvedValue({
+          id: 'openai',
+          displayName: 'OpenAI',
+          enabled: true,
+          backendUrl: null,
+          apiKeyCiphertext: 'v1.a.b',
+          apiKeyHint: 'sk-...test',
+          sortOrder: 0,
+          notes: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+        upsertProvider: vi.fn(),
+        deleteProvider: vi.fn().mockResolvedValue(false),
+        clearProviderApiKey: vi.fn().mockResolvedValue(null),
+        listModels: vi.fn().mockResolvedValue([]),
+        getModel: vi.fn().mockResolvedValue(null),
+        createModel: vi.fn(),
+        updateModel: vi.fn(),
+        deleteModel: vi.fn().mockResolvedValue(false),
+        getModelsByIds: vi.fn().mockImplementation(async (ids: string[]) =>
+          [
+            {
+              id: '11111111-1111-1111-1111-111111111111',
+              providerId: 'openai',
+              model: 'gpt-quick',
+              displayName: 'Quick',
+              role: 'quick',
+              enabled: true,
+              currency: 'USD',
+              unitTokens: 1_000_000,
+              inputPrice: '1',
+              outputPrice: '2',
+              cachedInputPrice: null,
+              cacheWritePrice: null,
+              contextWindow: null,
+              maxOutputTokens: null,
+              params: {},
+              capabilities: {},
+              syncedAt: null,
+              syncError: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+            {
+              id: '22222222-2222-2222-2222-222222222222',
+              providerId: 'openai',
+              model: 'gpt-deep',
+              displayName: 'Deep',
+              role: 'deep',
+              enabled: true,
+              currency: 'USD',
+              unitTokens: 1_000_000,
+              inputPrice: '3',
+              outputPrice: '4',
+              cachedInputPrice: null,
+              cacheWritePrice: null,
+              contextWindow: null,
+              maxOutputTokens: null,
+              params: {},
+              capabilities: {},
+              syncedAt: null,
+              syncError: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ].filter((row) => ids.includes(row.id)),
+        ),
       },
+    },
+    llmSecrets: {
+      configured: true,
+      encrypt: vi.fn().mockResolvedValue({
+        ciphertext: 'v1.a.b',
+        hint: 'sk-...test',
+      }),
+      decrypt: vi.fn().mockResolvedValue('sk-test'),
     },
     cache: {
       get: vi.fn(),
@@ -945,9 +1047,10 @@ describe('createApp', () => {
     );
     expect(dependencies.core.submitAnalysis).toHaveBeenCalledWith(
       expect.objectContaining({
-        ticker: 'AAPL',
+        ticker: 'NASDAQ:AAPL',
         trade_date: '2026-07-18',
         request_id: expect.any(String),
+        instrument: { exchange: 'NASDAQ', symbol: 'AAPL' },
       }),
     );
   });
@@ -1216,7 +1319,11 @@ describe('createApp', () => {
       {
         billingSignature: buildBillingSignature({
           analysts: ['news', 'market'],
-          configOverrides: { llm_provider: 'openai' },
+          configOverrides: {
+            llm_provider: 'openai',
+            quick_think_llm: 'gpt-quick',
+            deep_think_llm: 'gpt-deep',
+          },
         }),
       },
     );
@@ -1418,7 +1525,11 @@ describe('createApp', () => {
       ticker: 'AAPL',
       trade_date: '2026-07-15',
       analysts: ['market'],
-      config_overrides: {},
+      config_overrides: {
+        llm_provider: 'openai',
+        quick_think_llm: 'gpt-quick',
+        deep_think_llm: 'gpt-deep',
+      },
       request_id: '00000000-0000-4000-8000-000000000003',
     });
   });
@@ -1476,7 +1587,11 @@ describe('createApp', () => {
       ticker: 'HKEX:700',
       trade_date: '2026-07-15',
       analysts: ['market'],
-      config_overrides: {},
+      config_overrides: {
+        llm_provider: 'openai',
+        quick_think_llm: 'gpt-quick',
+        deep_think_llm: 'gpt-deep',
+      },
       request_id: '00000000-0000-4000-8000-000000000007',
       instrument: {
         exchange: 'HKEX',
@@ -1546,7 +1661,11 @@ describe('createApp', () => {
       requestId,
       billingSignature: buildBillingSignature({
         analysts: ['market'],
-        configOverrides: {},
+        configOverrides: {
+          llm_provider: 'openai',
+          quick_think_llm: 'gpt-quick',
+          deep_think_llm: 'gpt-deep',
+        },
       }),
     });
     expect(dependencies.database.billing.releaseAnalysis).toHaveBeenCalledWith(
@@ -1601,7 +1720,11 @@ describe('createApp', () => {
       requestId,
       billingSignature: buildBillingSignature({
         analysts: ['market'],
-        configOverrides: {},
+        configOverrides: {
+          llm_provider: 'openai',
+          quick_think_llm: 'gpt-quick',
+          deep_think_llm: 'gpt-deep',
+        },
       }),
     });
     expect(dependencies.database.billing.attachAnalysis).toHaveBeenCalledWith(
@@ -2205,9 +2328,27 @@ describe('createApp', () => {
           upsert: vi.fn(),
           delete: vi.fn(),
         },
-        pricingSources: {
-          list: vi.fn().mockResolvedValue([]),
+        llmCatalog: {
+          listProviders: vi.fn().mockResolvedValue([]),
+          getProvider: vi.fn().mockResolvedValue(null),
+          upsertProvider: vi.fn(),
+          deleteProvider: vi.fn().mockResolvedValue(false),
+          clearProviderApiKey: vi.fn().mockResolvedValue(null),
+          listModels: vi.fn().mockResolvedValue([]),
+          getModel: vi.fn().mockResolvedValue(null),
+          createModel: vi.fn(),
+          updateModel: vi.fn(),
+          deleteModel: vi.fn().mockResolvedValue(false),
+          getModelsByIds: vi.fn().mockResolvedValue([]),
         },
+      },
+      llmSecrets: {
+        configured: true,
+        encrypt: vi.fn().mockResolvedValue({
+          ciphertext: 'v1.a.b',
+          hint: 'sk-...test',
+        }),
+        decrypt: vi.fn().mockResolvedValue('sk-test'),
       },
     });
     const app = createApp(dependencies);

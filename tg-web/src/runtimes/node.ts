@@ -18,6 +18,7 @@ import { RedisCache } from '../backend/cache/redis-cache';
 import { parseNodeConfig } from '../backend/config/node-config';
 import { CoreClient } from '../backend/core/client';
 import { createNodeDatabase } from '../backend/database/client';
+import { createLlmProviderSecrets } from '../backend/llm/provider-secrets';
 import { Logger } from '../backend/logging/logger';
 import { CachingMarketAssetClient } from '../backend/market-assets/caching-market-client';
 import { TradingViewMarketClient } from '../backend/market-assets/tradingview-market-client';
@@ -169,6 +170,9 @@ async function run(): Promise<void> {
     database.billingConfig,
     config.billingConfigEncryptionKey,
   );
+  const llmSecrets = createLlmProviderSecrets(
+    config.billingConfigEncryptionKey,
+  );
   const redis = createRedisClient(config.redisUrl.toString(), logger);
   const cache = new FailOpenCache(new RedisCache(redis, logger), logger);
   const core = new CoreClient(config.coreApiUrl, config.coreApiKey);
@@ -179,6 +183,7 @@ async function run(): Promise<void> {
       configurationStore: billingConfigurationStore,
     }),
     database,
+    llmSecrets,
     cache,
     core,
     marketAssets: new CachingMarketAssetClient(

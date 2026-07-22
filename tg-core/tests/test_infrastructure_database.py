@@ -15,7 +15,7 @@ class _Connection:
 
     def fetchone(self):
         sql = self.executed[-1][0]
-        return {"n": 4 if "information_schema.columns" in sql else 3}
+        return {"n": 4 if "information_schema.columns" in sql else 4}
 
 
 def test_database_url_uses_environment_override(monkeypatch):
@@ -67,7 +67,8 @@ def test_require_schema_accepts_existing_tables(monkeypatch):
     assert params == ([
         "analysis_jobs",
         "llm_model_prices",
-        "llm_pricing_sources",
+        "llm_providers",
+        "llm_models",
     ],)
 
 

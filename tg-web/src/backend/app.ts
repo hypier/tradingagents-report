@@ -24,6 +24,7 @@ import { authRoutes } from './routes/auth';
 import { accountRoutes } from './routes/account';
 import { adminRoutes } from './routes/admin';
 import { billingRoutes, stripeWebhookRoutes } from './routes/billing';
+import { llmCatalogRoutes } from './routes/llm-catalog';
 import { watchlistRoutes } from './routes/watchlist';
 import {
   analysisShareRoutes,
@@ -55,8 +56,9 @@ export type AppDependencies = {
     | 'creditRules'
     | 'audit'
     | 'modelPrices'
-    | 'pricingSources'
+    | 'llmCatalog'
   >;
+  llmSecrets: import('./llm/provider-secrets').LlmProviderSecrets;
   cache: Cache;
   core: CoreClientContract;
   marketAssets: MarketAssetClient;
@@ -82,6 +84,7 @@ export function createApp(dependencies: AppDependencies) {
   app.use('/api/admin/*', requireAdmin());
   app.use('/api/analyses', requireAuth(dependencies));
   app.use('/api/analyses/*', requireAuth(dependencies));
+  app.use('/api/llm-catalog', requireAuth(dependencies));
   app.use('/api/watchlist', requireAuth(dependencies));
   app.use('/api/watchlist/*', requireAuth(dependencies));
   app.use('/api/market-search', requireAuth(dependencies));
@@ -97,6 +100,7 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', adminRoutes(dependencies));
   app.route('/api', billingRoutes(dependencies));
   app.route('/api', analysisRoutes(dependencies));
+  app.route('/api', llmCatalogRoutes(dependencies));
   app.route('/api', analysisShareRoutes(dependencies));
   app.route('/api', watchlistRoutes(dependencies));
   app.notFound((context) => {

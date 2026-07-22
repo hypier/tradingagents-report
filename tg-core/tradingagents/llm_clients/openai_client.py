@@ -298,10 +298,12 @@ class OpenAIClient(BaseLLMClient):
             if base_url:
                 llm_kwargs["base_url"] = base_url
 
-            # API key: required unless key_optional; keyless local servers get a
-            # placeholder. The env-var name is the single source in api_key_env.
+            # API key precedence: explicit kwargs (product DB path) > env var >
+            # optional placeholder for keyless local servers.
+            api_key = self.kwargs.get("api_key")
             api_key_env = get_api_key_env(self.provider)
-            api_key = os.environ.get(api_key_env) if api_key_env else None
+            if not api_key and api_key_env:
+                api_key = os.environ.get(api_key_env)
             if api_key:
                 llm_kwargs["api_key"] = api_key
             elif spec.key_optional:
@@ -309,8 +311,8 @@ class OpenAIClient(BaseLLMClient):
             elif api_key_env:
                 raise ValueError(
                     f"API key for provider '{self.provider}' is not set. "
-                    f"Please set the {api_key_env} environment variable "
-                    f"(e.g. add {api_key_env}=your_key to your .env file)."
+                    f"Configure it in the product LLM provider catalog, or set "
+                    f"the {api_key_env} environment variable for local CLI use."
                 )
 
             # The Responses API only exists on native OpenAI; if the user points

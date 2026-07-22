@@ -9,6 +9,7 @@ import { KvCache } from '../backend/cache/kv-cache';
 import { parseWorkerConfig } from '../backend/config/worker-config';
 import { CoreClient } from '../backend/core/client';
 import { createWorkerDatabase } from '../backend/database/client';
+import { createLlmProviderSecrets } from '../backend/llm/provider-secrets';
 import { Logger } from '../backend/logging/logger';
 import { CachingMarketAssetClient } from '../backend/market-assets/caching-market-client';
 import { TradingViewMarketClient } from '../backend/market-assets/tradingview-market-client';
@@ -52,6 +53,7 @@ function createDependencies(env: WorkerEnv): AppDependencies {
       ),
     }),
     database,
+    llmSecrets: createLlmProviderSecrets(config.billingConfigEncryptionKey),
     cache,
     core,
     marketAssets: new CachingMarketAssetClient(

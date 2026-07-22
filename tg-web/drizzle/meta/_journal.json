@@ -50,6 +50,13 @@
       "when": 1784630000000,
       "tag": "0006_signup_referral_credits",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784640000000,
+      "tag": "0007_llm_providers_models",
+      "breakpoints": true
     }
   ]
 }

@@ -461,7 +461,7 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 
 ## 10. Token 使用量与费用统计
 
-`tradingagents.llm_clients.token_usage.TokenUsageCallback` 汇总 LangChain 返回的 token usage。`tradingagents.llm_clients.pricing` 提供纯成本计算和价格刷新判断；`application/pricing.py` 协调刷新，`infrastructure/llm_prices.py` 只读写 PostgreSQL。分析 job 将汇总结果保存到 PostgreSQL：
+`tradingagents.llm_clients.token_usage.TokenUsageCallback` 汇总 LangChain 返回的 token usage。`tradingagents.llm_clients.pricing.calculate_cost` 负责纯成本计算；`infrastructure/llm_prices.py` 读取 `llm_model_prices`（启动时可 seed 内置 fallback）。分析 job 将汇总结果保存到 PostgreSQL：
 
 - `tokens_used`：总 token 数，优先使用模型返回的 `total_tokens`。
 - `token_usage.prompt_tokens`：输入 token 数。
@@ -469,18 +469,11 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 - `token_usage.reasoning_tokens`：推理 token 数，取决于模型是否返回该字段。
 - `token_usage.by_model`：按模型名聚合的 token 明细。
 - `performance_metrics.token_usage`：结果格式中的同一份 token 明细，便于前端统一读取。
-- `actual_amount_usd` / `cost_usd`：按官方模型价格和实际 token usage 估算的美元金额。
+- `actual_amount_usd` / `cost_usd`：按已缓存模型价格和实际 token usage 估算的美元金额。
 - `cost_breakdown`：按模型拆分的输入、缓存输入、缓存写入、输出 token 与费用明细。
 - `performance_metrics.cost_breakdown`：结果格式中的同一份费用明细。
 
-服务就绪时，API 生命周期会触发 `application.pricing.refresh_and_backfill_model_prices()` 的后台调用；距离上次成功不足一小时会跳过同步。同步状态保存在 `llm_pricing_sources` 表，任务费用只读取已缓存价格，不等待外部价格源。
-
-当前价格源：
-
-- `https://models.dev/api.json`
-- `https://basellm.github.io` 派生的结构化端点：`/api.json`、`/models.json`、`/pricing.json`
-
-价格字段按每 100 万 tokens 计费：`input`、`cache_read`、`cache_write`、`output`。如果价格源暂时不可用，服务会保留已有数据库价格并使用内置 `gpt-5.6-sol` fallback，不阻塞分析任务。
+LLM 提供商与开放模型由 tg-web 管理（`llm_providers` / `llm_models`）。Core 执行分析时按请求中的 `llm_provider` 从数据库解密 API Key（与 tg-web 共用 `BILLING_CONFIG_ENCRYPTION_KEY`），不再启动后台定价刷新，也不再使用 `llm_pricing_sources`。
 
 如果上游模型或兼容网关没有返回 usage 字段，对应数值会保持为 `0`，不会影响分析任务完成。
 

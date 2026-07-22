@@ -2,12 +2,13 @@
  * 仓库组合入口。
  *
  * - 账户 / 计费 / 自选 / 报告元数据放在独立文件中。
- * - 分析任务、LLM 价格、定价来源、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
+ * - 分析任务、LLM 价格、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
+ * - LLM 提供商/模型目录见 llm-catalog-repository。
  */
 import { and, desc, eq, gt, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import { analysisJobs, llmModelPrices, llmPricingSources } from './schema';
+import { analysisJobs, llmModelPrices } from './schema';
 import * as schema from './schema';
 import {
   createAccountRepository,
@@ -17,6 +18,10 @@ import {
   createBillingRepository,
   type BillingRepository,
 } from './billing-repository';
+import {
+  createLlmCatalogRepository,
+  type LlmCatalogRepository,
+} from './llm-catalog-repository';
 import {
   createAdminAuditRepository,
   createCreditRulesRepository,
@@ -58,7 +63,7 @@ export type { WatchlistRepository } from './watchlist-repository';
 export type AnalysisJob = typeof analysisJobs.$inferSelect;
 export type ModelPrice = typeof llmModelPrices.$inferSelect;
 export type NewModelPrice = typeof llmModelPrices.$inferInsert;
-export type PricingSource = typeof llmPricingSources.$inferSelect;
+export type { LlmCatalogRepository } from './llm-catalog-repository';
 export type ModelPriceKey = Pick<
   ModelPrice,
   'provider' | 'model' | 'billingMode' | 'contextTier'
@@ -152,11 +157,6 @@ export type ModelPricesRepository = {
   delete(key: ModelPriceKey): Promise<void>;
 };
 
-/** `llm_pricing_sources` 的读取辅助。 */
-export type PricingSourcesRepository = {
-  list(): Promise<PricingSource[]>;
-};
-
 /**
  * 管理员 Stripe 凭据存储（`billing_provider_configs`）。
  * 与负责用户账单/积分状态的 `BillingRepository` 不同。
@@ -179,7 +179,7 @@ type Database = NodePgDatabase<typeof schema>;
 export function createRepositories(database: Database): {
   analysisJobs: AnalysisJobsRepository;
   modelPrices: ModelPricesRepository;
-  pricingSources: PricingSourcesRepository;
+  llmCatalog: LlmCatalogRepository;
   account: AccountRepository;
   billing: BillingRepository;
   referrals: ReferralRepository;
@@ -203,6 +203,7 @@ export function createRepositories(database: Database): {
     markets: createMarketsRepository(database),
     creditRules: createCreditRulesRepository(database),
     audit: createAdminAuditRepository(database),
+    llmCatalog: createLlmCatalogRepository(database),
     billingConfig: {
       async getStripe() {
         const [configuration] = await database
@@ -607,11 +608,6 @@ export function createRepositories(database: Database): {
               eq(llmModelPrices.contextTier, key.contextTier),
             ),
           );
-      },
-    },
-    pricingSources: {
-      list() {
-        return database.select().from(llmPricingSources);
       },
     },
   };

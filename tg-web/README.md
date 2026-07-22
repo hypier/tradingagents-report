@@ -38,9 +38,9 @@ that are reachable from the development machine:
 - `STRIPE_WEBHOOK_SECRET`: optional Stripe webhook signing secret for
   `/api/stripe/webhook`.
 - `BILLING_CONFIG_ENCRYPTION_KEY`: optional Base64-encoded 32-byte master key.
-  When configured, administrators can validate, replace, and clear Stripe
-  credentials from `/admin/billing`; values are AES-GCM encrypted before
-  PostgreSQL persistence and are never returned by the API.
+  When configured, administrators can store encrypted Stripe credentials and
+  LLM provider API keys (AES-GCM); APIs only return masked hints. Core must use
+  the same key to decrypt LLM keys at analysis runtime.
 - `APP_BASE_URL`: public application origin used for Checkout success/cancel,
   Customer Portal return, and webhook URLs.
 
@@ -88,6 +88,7 @@ cycle. Each accepted analysis reserves one credit; rejected jobs release it.
 ## Product documentation
 
 - [TG-web product functions](docs/PRODUCT_FUNCTIONS.md)
+- [LLM models configuration](docs/LLM_MODELS_CONFIGURATION.md)
 
 ## Commands
 
@@ -128,7 +129,7 @@ network. `tg-web` connects to the Core services by their Compose service names.
 
 ## Data and cache boundaries
 
-The mapped `analysis_jobs`, `llm_model_prices`, and `llm_pricing_sources`
+The mapped `analysis_jobs`, `llm_model_prices`, `llm_providers`, and `llm_models`
 tables are owned by `tg-web` Drizzle migrations. Configure the shared database
 in `tg-web/.env` as `DATABASE_URL`, then run `pnpm db:migrate` manually.
 Migrations do not run on Compose, `./start.sh`, or Web process startup. Core

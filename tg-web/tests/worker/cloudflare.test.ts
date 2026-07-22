@@ -201,9 +201,24 @@ describe('Cloudflare Worker runtime', () => {
         upsert: vi.fn(),
         delete: vi.fn(),
       },
-      pricingSources: {
-        list: vi.fn().mockResolvedValue([]),
+      llmCatalog: {
+        listProviders: vi.fn().mockResolvedValue([]),
+        getProvider: vi.fn().mockResolvedValue(null),
+        upsertProvider: vi.fn(),
+        deleteProvider: vi.fn().mockResolvedValue(false),
+        clearProviderApiKey: vi.fn().mockResolvedValue(null),
+        listModels: vi.fn().mockResolvedValue([]),
+        getModel: vi.fn().mockResolvedValue(null),
+        createModel: vi.fn(),
+        updateModel: vi.fn(),
+        deleteModel: vi.fn().mockResolvedValue(false),
+        getModelsByIds: vi.fn().mockResolvedValue([]),
       },
+    },
+    llmSecrets: {
+      configured: true,
+      encrypt: async () => ({ ciphertext: 'v1.a.b', hint: 'sk-...test' }),
+      decrypt: async () => 'sk-test',
     },
       cache: {
         get: async () => null,

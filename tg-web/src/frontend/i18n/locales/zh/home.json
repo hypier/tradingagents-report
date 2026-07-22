@@ -16,6 +16,13 @@
   },
   "analystTeam": "研究节点",
   "analystTeamHint": "切换本次运行要纳入的智能体。",
+  "models": {
+    "label": "分析模型",
+    "hint": "选择快速与深度模型；须属于同一提供商。",
+    "quick": "快速模型",
+    "deep": "深度模型",
+    "unavailable": "管理员尚未开放可用模型。"
+  },
   "analysts": {
     "market": {
       "title": "市场",

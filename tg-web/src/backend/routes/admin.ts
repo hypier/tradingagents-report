@@ -7,6 +7,7 @@ import { buildBillingSignature } from '../billing/credit-pricing';
 import { BillingRepositoryError } from '../database/billing-repository';
 import { AppError } from '../errors/app-error';
 import type { AnalysisJob } from '../database/repositories';
+import { adminLlmRoutes } from './admin-llm';
 import { adminOpsRoutes } from './admin-ops';
 
 const listUsersSchema = z.object({
@@ -56,6 +57,7 @@ const overviewSchema = z.object({
 export function adminRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
   app.route('/', adminOpsRoutes(dependencies));
+  app.route('/', adminLlmRoutes(dependencies));
 
   app.get('/admin/overview', async (context) => {
     const input = overviewSchema.safeParse(context.req.query());

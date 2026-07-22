@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from application.analysis import AnalysisCommand, run_analysis
-from infrastructure import analysis_jobs, database, llm_prices
+from infrastructure import analysis_jobs, database, llm_prices, llm_providers
 from tradingagents.dataflows.listings import (
     ListingRef,
     country_for_exchange,
@@ -196,6 +196,12 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
         if analysis_jobs.is_cancel_requested(row["id"]):
             raise JobCancelled("Cancelled by user")
         config = build_config(row["request"].get("config_overrides") or {})
+        provider_runtime = llm_providers.get_provider_runtime_config(
+            str(config.get("llm_provider") or "")
+        )
+        config["api_key"] = provider_runtime["api_key"]
+        if provider_runtime.get("backend_url"):
+            config["backend_url"] = provider_runtime["backend_url"]
         command = AnalysisCommand(
             ticker=row["ticker"],
             trade_date=row["trade_date"].isoformat(),
@@ -325,7 +331,13 @@ def build_config(overrides: dict[str, Any]) -> dict[str, Any]:
 
 
 def public_config(config: dict[str, Any]) -> dict[str, Any]:
-    hidden_keys = {"memory_log_path", "results_dir", "data_cache_dir", "project_dir"}
+    hidden_keys = {
+        "memory_log_path",
+        "results_dir",
+        "data_cache_dir",
+        "project_dir",
+        "api_key",
+    }
     return {key: to_jsonable(value) for key, value in config.items() if key not in hidden_keys}
 
 

@@ -38,12 +38,6 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
         raising=False,
     )
     monkeypatch.setattr(api_app, "job_worker", StubWorker(), raising=False)
-    monkeypatch.setattr(
-        api_app,
-        "start_pricing_refresh",
-        lambda: events.append("pricing"),
-        raising=False,
-    )
 
     async def run_lifespan():
         async with api_app.lifespan(api_app.app):
@@ -58,7 +52,6 @@ def test_lifespan_recovers_interrupted_jobs_and_enqueues_queued_jobs(monkeypatch
         "start",
         ("enqueue", "job-1"),
         ("enqueue", "job-2"),
-        "pricing",
         "ready",
         "stop",
     ]

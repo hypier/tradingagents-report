@@ -17,8 +17,8 @@ import {
   type BillingRepository,
   type CreditRulesRepository,
   type MarketsRepository,
+  type LlmCatalogRepository,
   type ModelPricesRepository,
-  type PricingSourcesRepository,
   type ProductSettingsRepository,
   type ReferralRepository,
   type ReportMetaRepository,
@@ -32,7 +32,7 @@ export type DatabaseHealth = {
   healthcheck(): Promise<void>;
   analysisJobs: AnalysisJobsRepository;
   modelPrices: ModelPricesRepository;
-  pricingSources: PricingSourcesRepository;
+  llmCatalog: LlmCatalogRepository;
   account: AccountRepository;
   billing: BillingRepository;
   referrals: ReferralRepository;

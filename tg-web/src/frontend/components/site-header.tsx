@@ -10,7 +10,12 @@ import { SidebarTrigger } from '@/frontend/components/ui/sidebar';
 function headerTitleKey(pathname: string) {
   if (pathname.startsWith('/admin/billing')) return 'header.adminBilling' as const;
   if (pathname.startsWith('/admin/analyses')) return 'header.adminAnalyses' as const;
-  if (pathname.startsWith('/admin/models')) return 'header.adminModels' as const;
+  if (pathname.startsWith('/admin/llm/providers'))
+    return 'header.adminLlmProviders' as const;
+  if (pathname.startsWith('/admin/llm/models'))
+    return 'header.adminLlmModels' as const;
+  if (pathname.startsWith('/admin/models'))
+    return 'header.adminLlmProviders' as const;
   if (pathname.startsWith('/admin/settings')) return 'header.adminSettings' as const;
   if (pathname.startsWith('/admin/markets')) return 'header.adminMarkets' as const;
   if (pathname.startsWith('/admin/audit')) return 'header.adminAudit' as const;

@@ -12,29 +12,25 @@
 
 第 1 项应先于第 2 项完成：worker 必须能读取一个不可变的任务配置快照，而不是依赖某台 API 节点的本地内存或环境变量。第 2、3 项应协同设计状态机和租约机制。第 4 项的结论为第 5 项提供基线。
 
-## 1. LLM 数据库配置
+## 1. LLM 数据库配置（Core 侧）
+
+> 完整产品设计（管理端运营、用户目录、表结构）见 [`tg-web/docs/LLM_MODELS_CONFIGURATION.md`](../../tg-web/docs/LLM_MODELS_CONFIGURATION.md)。本节只跟踪 **tg-core** 交付项：模型运营在 tg-web；Core 只读 Key 执行分析；删除 `llm_pricing_sources` 与启动爬价工人；**本期不改价格计算**；不要求旧版兼容。
 
 ### 目标
 
-将当前由默认配置、环境变量和请求参数组合得到的 LLM 配置，迁移为可管理的数据库配置，并在任务创建时固化其版本，保证后续复跑和审计得到一致的配置语义。
+分析路径按请求中的提供商/模型从数据库读取 API Key 后执行；Core 不再维护模型目录或启动爬价。
 
 ### 功能项
 
-- [ ] 设计 `llm_profiles`：名称、供应商、快速模型、深度模型、`backend_url`、温度、重试次数、供应商特有参数、启用状态、配置版本、创建和更新时间。
-- [ ] 设计密钥保存策略：数据库只保存密钥引用，或保存经 KMS/应用主密钥加密后的密文；日志、API 响应、任务 `config` 和异常信息不得出现明文 key。
-- [ ] 提供 profile 的新增、查询、更新、停用和设为默认能力；更新已被任务引用的 profile 时创建新版本，而不是改写历史版本。
-- [ ] 在创建分析任务时接收 `llm_profile_id` 或默认 profile，并把解析后的 profile 版本写入 `analysis_jobs.config` 快照。
-- [ ] 由 `TradingAgentsGraph` 的既有 LLM 工厂根据任务快照创建客户端；保留现有 Provider 适配边界，不在 Agent 内分散 Provider 判断。
-- [ ] 明确配置优先级：任务显式允许覆盖的字段 > profile 版本快照 > 启动环境变量兼容默认值 > `default_config.py` 默认值。密钥只能来自安全凭据存储，不允许请求体覆盖。
-- [ ] 提供数据库不可用、profile 不存在、已停用、模型不受 Provider 支持、凭据缺失时的明确错误。
-- [ ] 编写迁移方案：为现有环境变量配置创建初始 profile；在完成迁移期限前保留只读兼容路径并记录弃用告警。
+- [ ] 移除启动定价刷新工人及相关 `llm_pricing_sources` 读写；`require_schema` / `_REQUIRED_TABLES` 与测试同步调整。
+- [ ] 分析路径从 `llm_providers` 解密读取 API Key（及必要的 `backend_url`）；缺失时任务失败且不泄露 Key。
+- [ ] 使用请求中的 `llm_provider` / `quick_think_llm` / `deep_think_llm`；不在 Core 内做开放目录 CRUD 或校验。
+- [ ] 日志、API、任务 config 不出现 Key 明文；产品路径无 env Key 回退。
+- [ ] **不改** `calculate_cost`、积分预扣与 `cost_usd` 结算（另需求）。
 
 ### 验收标准
 
-- 使用不同 profile 创建的两个任务，分别使用各自快照中的 Provider 和模型；后续修改 profile 不影响已创建任务。
-- 任务详情、应用日志和数据库普通查询结果均不暴露明文 API key。
-- 无效 profile 或缺失凭据在任务入队前失败，错误信息可定位且不泄露敏感信息。
-- 覆盖 `Provider` 注册、模型校验、配置优先级、密钥脱敏和 profile 版本快照的自动化测试。
+- 见 [`LLM_MODELS_CONFIGURATION.md`](../../tg-web/docs/LLM_MODELS_CONFIGURATION.md) §12 中与 Core 相关的条目。
 
 ## 2. Redis 多节点任务处理
 
