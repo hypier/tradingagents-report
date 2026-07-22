@@ -161,4 +161,39 @@ describe('CachingMarketAssetClient', () => {
       cache.store.has('market-leaderboard:v1:america:active:en:0:20'),
     ).toBe(true);
   });
+
+  it('does not cache poisoned leaderboard payloads', async () => {
+    const cache = fakeCache();
+    const payload = {
+      marketCode: 'america',
+      tab: 'active' as const,
+      totalCount: 2,
+      items: [
+        {
+          rank: 1,
+          symbol: 'NASDAQ:RBKB',
+          name: 'RBKB',
+          description: 'Rhinebeck Bancorp, Inc.',
+          exchange: 'NASDAQ',
+          price: 12.627,
+          change_percent: -28.46,
+          currency: 'USD',
+          linkable: true,
+        },
+      ],
+    };
+    const inner = fakeInner({
+      getStockLeaderboard: vi.fn().mockResolvedValue(payload),
+    });
+    const client = new CachingMarketAssetClient(inner, cache);
+    const query = {
+      marketCode: 'america',
+      tab: 'active' as const,
+      count: 50,
+      lang: 'zh' as const,
+    };
+
+    await expect(client.getStockLeaderboard(query)).resolves.toEqual(payload);
+    expect(cache.store.size).toBe(0);
+  });
 });

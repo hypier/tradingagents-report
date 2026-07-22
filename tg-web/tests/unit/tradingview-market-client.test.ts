@@ -474,6 +474,78 @@ describe('TradingViewMarketClient', () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('tab=active');
   });
 
+  it('retries adjacent count when RapidAPI returns a poisoned tiny board', async () => {
+    const poisoned = {
+      success: true,
+      data: {
+        totalCount: 2,
+        data: [
+          {
+            rank: 1,
+            symbol: 'NASDAQ:RBKB',
+            name: 'RBKB',
+            description: 'Rhinebeck Bancorp, Inc.',
+            exchange: 'NASDAQ',
+            price: 12.627,
+            change: -28.46,
+            currency: 'USD',
+            volume: 1794,
+          },
+          {
+            rank: 2,
+            symbol: 'NASDAQ:MSS',
+            name: 'MSS',
+            description: 'Maison Solutions Inc.',
+            exchange: 'NASDAQ',
+            price: 2.444,
+            change: 0,
+            currency: 'USD',
+            volume: 8591,
+          },
+        ],
+      },
+    };
+    const healthy = {
+      success: true,
+      data: {
+        totalCount: 3710,
+        data: [
+          {
+            rank: 1,
+            symbol: 'NASDAQ:MU',
+            name: 'MU',
+            description: 'Micron Technology, Inc.',
+            exchange: 'NASDAQ',
+            price: 945,
+            change: -2.6,
+            currency: 'USD',
+            volume: 3_000_000,
+          },
+        ],
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(poisoned)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(healthy)));
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(
+      client.getStockLeaderboard({
+        marketCode: 'america',
+        tab: 'active',
+        count: 50,
+        lang: 'zh',
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 3710,
+      items: [{ symbol: 'NASDAQ:MU', name: 'MU' }],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('count=50');
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('count=49');
+  });
+
   it('creates a short-lived TradingView SSE stream token', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       new Response(

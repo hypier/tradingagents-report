@@ -4,14 +4,15 @@ import type {
   MarketTapePayload,
 } from '../../shared/market-board';
 import type { MarketSearchHit } from '../../shared/listing';
-import type {
-  MarketAssetClient,
-  MarketAssetIdentity,
-  MarketOhlcv,
-  MarketSnapshot,
-  MarketStreamToken,
-  OhlcvTimeframe,
-  StockLeaderboardQuery,
+import {
+  isPoisonedLeaderboard,
+  type MarketAssetClient,
+  type MarketAssetIdentity,
+  type MarketOhlcv,
+  type MarketSnapshot,
+  type MarketStreamToken,
+  type OhlcvTimeframe,
+  type StockLeaderboardQuery,
 } from './tradingview-market-client';
 
 const IDENTITY_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -180,10 +181,16 @@ export class CachingMarketAssetClient implements MarketAssetClient {
     const cached = await this.cache.get(key);
     if (cached) {
       const parsed = parseLeaderboard(cached);
-      if (parsed) return parsed;
+      const requested = Math.min(Math.max(query.count ?? 20, 1), 150);
+      if (parsed && !isPoisonedLeaderboard(parsed, requested)) return parsed;
     }
 
     const payload = await this.inner.getStockLeaderboard(query);
+    // Never freeze a poisoned RapidAPI slice in Redis — let the next poll retry.
+    const requested = Math.min(Math.max(query.count ?? 20, 1), 150);
+    if (isPoisonedLeaderboard(payload, requested)) {
+      return payload;
+    }
     await this.cache.set(
       key,
       JSON.stringify(payload),

@@ -248,13 +248,48 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const count = Math.min(Math.max(query.count ?? 20, 1), 150);
     const start = Math.max(query.start ?? 0, 0);
     const lang = query.lang === 'zh' ? 'zh' : 'en';
-    const params = new URLSearchParams({
+    const payload = await this.fetchStockLeaderboard({
+      marketCode,
       tab,
-      market_code: marketCode,
-      columnset: 'overview',
-      start: String(start),
-      count: String(count),
+      count,
+      start,
       lang,
+    });
+    // RapidAPI intermittently returns a poisoned slice for some count/start
+    // combos (e.g. america/active count=50 → totalCount=2 with micro-caps).
+    // Retry once with an adjacent page size to bypass the bad edge cache.
+    if (!isPoisonedLeaderboard(payload, count)) return payload;
+    const retryCount = count === 50 ? 49 : Math.min(count + 1, 150);
+    if (retryCount === count) return payload;
+    const retry = await this.fetchStockLeaderboard({
+      marketCode,
+      tab,
+      count: retryCount,
+      start,
+      lang,
+    });
+    if (isPoisonedLeaderboard(retry, retryCount)) return payload;
+    return {
+      ...retry,
+      // Keep the caller's requested page size when the alternate count is larger.
+      items: retry.items.slice(0, count),
+    };
+  }
+
+  private async fetchStockLeaderboard(input: {
+    marketCode: string;
+    tab: StockLeaderboardTab;
+    count: number;
+    start: number;
+    lang: 'en' | 'zh';
+  }): Promise<MarketBoardPayload> {
+    const params = new URLSearchParams({
+      tab: input.tab,
+      market_code: input.marketCode,
+      columnset: 'overview',
+      start: String(input.start),
+      count: String(input.count),
+      lang: input.lang,
     });
     const response = await this.request(
       `/api/leaderboard/stocks?${params.toString()}`,
@@ -262,7 +297,12 @@ export class TradingViewMarketClient implements MarketAssetClient {
     if (!response.ok) {
       throw new Error('TradingView leaderboard request failed');
     }
-    return parseLeaderboardPayload(await response.json(), marketCode, tab, lang);
+    return parseLeaderboardPayload(
+      await response.json(),
+      input.marketCode,
+      input.tab,
+      input.lang,
+    );
   }
 
   async getMarketTape(
@@ -768,6 +808,22 @@ function parseOhlcvPayload(
       : {}),
     source: 'tradingview',
   };
+}
+
+/**
+ * RapidAPI `/api/leaderboard/stocks` sometimes answers 200 with a tiny bogus
+ * board (observed: america/active → totalCount=2, RBKB+MSS) while the real
+ * market has thousands of rows. Treat that as poisoned so callers can retry.
+ */
+export function isPoisonedLeaderboard(
+  payload: MarketBoardPayload,
+  requestedCount: number,
+): boolean {
+  if (requestedCount < 20) return false;
+  if (payload.totalCount >= 20) return false;
+  if (payload.items.length >= 20) return false;
+  // Empty markets stay empty; only flag non-empty but absurdly small boards.
+  return payload.totalCount > 0 && payload.totalCount <= 5;
 }
 
 function parseLeaderboardPayload(

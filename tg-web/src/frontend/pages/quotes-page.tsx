@@ -301,7 +301,7 @@ export function QuotesPage() {
                       <TableRow
                         key={item.symbol}
                         className={cn(
-                          'group h-11 border-border hover:bg-transparent',
+                          'group min-h-11 border-border hover:bg-transparent',
                           item.linkable && 'cursor-pointer',
                         )}
                         data-updated={boardUpdatedAt}
@@ -399,23 +399,29 @@ export function QuotesPage() {
                         </TableCell>
                         <TableCell
                           className={cn(
-                            'hidden w-[7.5rem] max-w-[7.5rem] whitespace-normal px-4 text-xs leading-snug text-muted-foreground/75 transition-colors xl:table-cell',
-                            'line-clamp-2',
+                            'hidden w-[7.5rem] max-w-[7.5rem] whitespace-normal px-4 text-xs text-muted-foreground/75 transition-colors xl:table-cell',
                             cellSurface,
                           )}
-                          title={item.sector || undefined}
                         >
-                          {item.sector || '—'}
+                          <span
+                            className="line-clamp-2 leading-snug"
+                            title={item.sector || undefined}
+                          >
+                            {item.sector || '—'}
+                          </span>
                         </TableCell>
                         <TableCell
                           className={cn(
-                            'hidden w-[6.5rem] max-w-[6.5rem] whitespace-normal pr-3 text-right font-mono text-xs leading-snug text-muted-foreground/75 transition-colors xl:table-cell sm:pr-5 lg:pr-6',
-                            'line-clamp-2',
+                            'hidden w-[6.5rem] max-w-[6.5rem] whitespace-normal pr-3 text-right font-mono text-xs text-muted-foreground/75 transition-colors xl:table-cell sm:pr-5 lg:pr-6',
                             cellSurface,
                           )}
-                          title={item.analyst_rating || undefined}
                         >
-                          {item.analyst_rating || '—'}
+                          <span
+                            className="line-clamp-2 leading-snug"
+                            title={item.analyst_rating || undefined}
+                          >
+                            {item.analyst_rating || '—'}
+                          </span>
                         </TableCell>
                       </TableRow>
                     );
