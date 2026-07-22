@@ -17,6 +17,8 @@ describe('TradingViewMarketClient', () => {
               currency_code: 'HKD',
               lp_time: 1784165400,
               update_mode: 'delayed_streaming_900',
+              current_session: 'regular',
+              is_tradable: true,
               short_name: 'Tencent Holdings Ltd.',
               logoid: 'tencent',
             },
@@ -38,6 +40,8 @@ describe('TradingViewMarketClient', () => {
       as_of: '2026-07-16T01:30:00.000Z',
       update_mode: 'delayed_streaming_900',
       delay_seconds: 900,
+      current_session: 'regular',
+      is_tradable: true,
       source: 'tradingview',
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);

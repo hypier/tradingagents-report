@@ -115,6 +115,17 @@ export type UpdateStripeConfigurationInput = {
   actorClerkUserId: string;
 };
 
+/** Account-level Stripe money summary for an admin overview window. */
+export type AdminStripePeriodSummary = {
+  currency: string;
+  /** Gross paid charge/payment amount in the smallest currency unit. */
+  revenueCents: number;
+  /** Absolute refund amount in the smallest currency unit. */
+  refundCents: number;
+  /** Count of `invoice.payment_failed` events in the window. */
+  paymentFailureCount: number;
+};
+
 export type CreateBillingPlanInput = {
   name: string;
   description?: string;
@@ -162,6 +173,14 @@ export type StripeWebhookEvent = {
 export interface BillingService {
   getOverview(customerId: string | null): Promise<BillingOverview>;
   getSettings(): Promise<BillingSettings>;
+  /**
+   * Stripe-authoritative period money summary for ops overview.
+   * Returns null when billing is not configured.
+   */
+  getAdminPeriodSummary(input: {
+    from: Date;
+    to: Date;
+  }): Promise<AdminStripePeriodSummary | null>;
   createCustomer(input: CreateBillingCustomerInput): Promise<string>;
   createCheckout(
     customerId: string,

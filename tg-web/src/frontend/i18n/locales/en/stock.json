@@ -18,8 +18,14 @@
   },
   "quote": {
     "title": "Latest quote",
-    "live": "Live",
+    "live": "Live feed",
     "connecting": "Connecting…",
+    "session": {
+      "pre_market": "Pre-market",
+      "regular": "Market open",
+      "post_market": "After hours",
+      "closed": "Market closed"
+    },
     "asOf": "As of {{time}}",
     "asOfTip": "Last price update from the market feed — when the quote last changed, not your device clock.",
     "refresh": "Refresh quote",

@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 
 import {
   BillingServiceError,
+  type AdminStripePeriodSummary,
   type BillingInvoice,
   type BillingLocale,
   type BillingOverview,
@@ -125,6 +126,81 @@ class StripeBillingService implements BillingService {
       secretKeyHint: secretHint(this.options.secretKey),
       webhookSecretHint: secretHint(this.options.webhookSecret),
       updatedAt: null,
+    };
+  }
+
+  async getAdminPeriodSummary(input: {
+    from: Date;
+    to: Date;
+  }): Promise<AdminStripePeriodSummary | null> {
+    const created = {
+      gte: Math.floor(input.from.getTime() / 1000),
+      lte: Math.floor(input.to.getTime() / 1000),
+    };
+    const currencyTotals = new Map<
+      string,
+      { revenueCents: number; refundCents: number }
+    >();
+
+    let startingAfter: string | undefined;
+    for (let page = 0; page < 20; page += 1) {
+      const batch = await this.stripe.balanceTransactions.list({
+        created,
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+      for (const tx of batch.data) {
+        const currency = tx.currency.toUpperCase();
+        const bucket = currencyTotals.get(currency) ?? {
+          revenueCents: 0,
+          refundCents: 0,
+        };
+        if (tx.type === 'charge' || tx.type === 'payment') {
+          bucket.revenueCents += tx.amount;
+        } else if (tx.type === 'refund' || tx.type === 'payment_refund') {
+          bucket.refundCents += Math.abs(tx.amount);
+        }
+        currencyTotals.set(currency, bucket);
+      }
+      if (!batch.has_more || batch.data.length === 0) break;
+      startingAfter = batch.data.at(-1)?.id;
+    }
+
+    let paymentFailureCount = 0;
+    startingAfter = undefined;
+    for (let page = 0; page < 10; page += 1) {
+      const batch = await this.stripe.events.list({
+        type: 'invoice.payment_failed',
+        created,
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+      paymentFailureCount += batch.data.length;
+      if (!batch.has_more || batch.data.length === 0) break;
+      startingAfter = batch.data.at(-1)?.id;
+    }
+
+    let currency = 'USD';
+    let revenueCents = 0;
+    let refundCents = 0;
+    let bestVolume = -1;
+    for (const [candidate, totals] of currencyTotals) {
+      const volume = totals.revenueCents + totals.refundCents;
+      const preferUsd =
+        volume === bestVolume && candidate === 'USD' && currency !== 'USD';
+      if (volume > bestVolume || preferUsd) {
+        bestVolume = volume;
+        currency = candidate;
+        revenueCents = totals.revenueCents;
+        refundCents = totals.refundCents;
+      }
+    }
+
+    return {
+      currency,
+      revenueCents,
+      refundCents,
+      paymentFailureCount,
     };
   }
 
@@ -482,6 +558,10 @@ class UnavailableBillingService implements BillingService {
       webhookSecretHint: null,
       updatedAt: null,
     };
+  }
+
+  async getAdminPeriodSummary(): Promise<AdminStripePeriodSummary | null> {
+    return null;
   }
 
   async createCustomer(): Promise<string> {

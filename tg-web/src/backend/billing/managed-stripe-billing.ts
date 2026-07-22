@@ -1,6 +1,7 @@
 import type { BillingConfigurationStore } from './configuration-store';
 import {
   BillingServiceError,
+  type AdminStripePeriodSummary,
   type BillingLocale,
   type BillingOverview,
   type BillingPlan,
@@ -33,6 +34,17 @@ class ManagedStripeBillingService implements BillingService {
 
   async getOverview(customerId: string | null): Promise<BillingOverview> {
     return (await this.resolve()).service.getOverview(customerId);
+  }
+
+  async getAdminPeriodSummary(input: {
+    from: Date;
+    to: Date;
+  }): Promise<AdminStripePeriodSummary | null> {
+    try {
+      return (await this.resolve()).service.getAdminPeriodSummary(input);
+    } catch {
+      return null;
+    }
   }
 
   async getSettings(): Promise<BillingSettings> {

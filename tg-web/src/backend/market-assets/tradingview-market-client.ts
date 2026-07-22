@@ -49,6 +49,13 @@ export type MarketSnapshot = MarketAssetIdentity & {
   update_mode?: string;
   /** Vendor feed delay in seconds from `update_mode` (0 = streaming). */
   delay_seconds?: number;
+  /**
+   * TradingView `current_session` (e.g. pre_market / regular / post_market /
+   * out_of_session). Prefer this over home-rolled market-hours clocks.
+   */
+  current_session?: string;
+  /** TradingView `is_tradable` flag when present. */
+  is_tradable?: boolean;
   source: 'tradingview';
 };
 
@@ -491,6 +498,8 @@ export class TradingViewMarketClient implements MarketAssetClient {
     const high = numberValue(quote?.high_price);
     const low = numberValue(quote?.low_price);
     const volume = numberValue(quote?.volume);
+    const currentSession = stringValue(quote?.current_session) || undefined;
+    const isTradable = booleanValue(quote?.is_tradable);
     return {
       ticker: listing.display_ticker,
       display_ticker: listing.display_ticker,
@@ -512,6 +521,8 @@ export class TradingViewMarketClient implements MarketAssetClient {
         : {}),
       ...(updateMode ? { update_mode: updateMode } : {}),
       ...(delaySeconds !== null ? { delay_seconds: delaySeconds } : {}),
+      ...(currentSession ? { current_session: currentSession } : {}),
+      ...(isTradable !== undefined ? { is_tradable: isTradable } : {}),
       source: 'tradingview',
     };
   }
@@ -960,6 +971,10 @@ function numberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value)
     ? value
     : undefined;
+}
+
+function booleanValue(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 /** Parse TradingView `update_mode`, e.g. `delayed_streaming_900` → 900. */

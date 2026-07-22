@@ -307,7 +307,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
       );
     }
     const normalized = providerSymbol.trim().toUpperCase();
-    const cacheKey = `market-snapshot:v1:${normalized}`;
+    const cacheKey = `market-snapshot:v2:${normalized}`;
     const forceRefresh = context.req.query('refresh') === '1';
     if (!forceRefresh) {
       const cached = await dependencies.cache.get(cacheKey);

@@ -125,3 +125,50 @@ export const archiveBillingPlan = (
     undefined,
     fetchImplementation,
   );
+
+export type AdminStripeWebhookEvent = {
+  stripeEventId: string;
+  eventType: string;
+  status: 'processing' | 'processed' | 'failed' | 'ignored';
+  error: string | null;
+  receivedAt: string | Date;
+  processedAt: string | Date | null;
+  livemode: boolean | null;
+  customerId: string | null;
+  subscriptionId: string | null;
+  invoiceId: string | null;
+};
+
+export type AdminStripeEventsPayload = {
+  days: number;
+  summary: {
+    processed: number;
+    failed: number;
+    ignored: number;
+    processing: number;
+  };
+  events: AdminStripeWebhookEvent[];
+};
+
+export const listAdminStripeEvents = (
+  input: {
+    status?: AdminStripeWebhookEvent['status'];
+    eventType?: string;
+    days?: number;
+    limit?: number;
+    offset?: number;
+  } = {},
+  fetchImplementation?: FetchImplementation,
+) => {
+  const search = new URLSearchParams({
+    days: String(input.days ?? 30),
+    limit: String(input.limit ?? 50),
+    offset: String(input.offset ?? 0),
+  });
+  if (input.status) search.set('status', input.status);
+  if (input.eventType) search.set('eventType', input.eventType);
+  return read<AdminStripeEventsPayload>(
+    `/api/admin/stripe/events?${search.toString()}`,
+    fetchImplementation,
+  );
+};

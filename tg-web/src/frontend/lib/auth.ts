@@ -20,6 +20,13 @@ export type AdminOverview = AdminOverviewMetrics & {
     configured: boolean;
     connectionHealthy: boolean | null;
     mode: string | null;
+    period: {
+      currency: string;
+      revenueCents: number;
+      refundCents: number;
+      paymentFailureCount: number;
+      webhookFailedCount: number;
+    } | null;
   } | null;
 };
 

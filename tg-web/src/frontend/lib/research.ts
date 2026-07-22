@@ -90,6 +90,8 @@ export type MarketSnapshot = {
   as_of?: string;
   update_mode?: string;
   delay_seconds?: number;
+  current_session?: string;
+  is_tradable?: boolean;
   source?: string;
   freshness?: 'as_of' | 'stale';
 };

@@ -94,6 +94,7 @@ describe('Cloudflare Worker runtime', () => {
     billing: {
       getOverview: vi.fn(),
       getSettings: vi.fn(),
+      getAdminPeriodSummary: vi.fn(),
       createCustomer: vi.fn(),
       createCheckout: vi.fn(),
       createPortal: vi.fn(),
@@ -127,6 +128,8 @@ describe('Cloudflare Worker runtime', () => {
         adjustCredits: vi.fn(),
         processStripeEvent: vi.fn(),
         recordStripeFailure: vi.fn(),
+        listStripeWebhookEvents: vi.fn(),
+        summarizeStripeWebhookEvents: vi.fn(),
       },
       referrals: {
         isValidCode: vi.fn(),

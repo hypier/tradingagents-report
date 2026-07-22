@@ -18,6 +18,7 @@ import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { getAdminOverview } from '@/frontend/lib/auth';
+import { formatLocaleCurrency } from '@/frontend/lib/format-locale';
 
 export function AdminOverviewPage() {
   const { t } = useTranslation('admin');
@@ -120,29 +121,80 @@ export function AdminOverviewPage() {
                 title={t('overview.stripe.title')}
                 description={t('overview.stripe.description')}
               >
-                <div className="space-y-2 text-sm">
-                  <p>
-                    {t('overview.stripe.configured')}:{' '}
-                    {data.stripe?.configured
-                      ? t('overview.stripe.yes')
-                      : t('overview.stripe.no')}
-                  </p>
-                  <p>
-                    {t('overview.stripe.health')}:{' '}
-                    {data.stripe?.connectionHealthy == null
-                      ? '—'
-                      : data.stripe.connectionHealthy
-                        ? t('overview.stripe.healthy')
-                        : t('overview.stripe.unhealthy')}
-                  </p>
-                  <p>
-                    {t('overview.stripe.mode')}: {data.stripe?.mode ?? '—'}
-                  </p>
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/admin/billing">
-                      {t('overview.links.billing')}
-                    </Link>
-                  </Button>
+                <div className="space-y-3 text-sm">
+                  <div className="space-y-2">
+                    <p>
+                      {t('overview.stripe.configured')}:{' '}
+                      {data.stripe?.configured
+                        ? t('overview.stripe.yes')
+                        : t('overview.stripe.no')}
+                    </p>
+                    <p>
+                      {t('overview.stripe.health')}:{' '}
+                      {data.stripe?.connectionHealthy == null
+                        ? '—'
+                        : data.stripe.connectionHealthy
+                          ? t('overview.stripe.healthy')
+                          : t('overview.stripe.unhealthy')}
+                    </p>
+                    <p>
+                      {t('overview.stripe.mode')}: {data.stripe?.mode ?? '—'}
+                    </p>
+                  </div>
+                  {data.stripe?.period ? (
+                    <dl className="grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('overview.stripe.revenue')}
+                        </dt>
+                        <dd className="font-medium tabular-nums">
+                          {formatLocaleCurrency(
+                            data.stripe.period.revenueCents,
+                            data.stripe.period.currency,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('overview.stripe.refunds')}
+                        </dt>
+                        <dd className="font-medium tabular-nums">
+                          {formatLocaleCurrency(
+                            data.stripe.period.refundCents,
+                            data.stripe.period.currency,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('overview.stripe.paymentFailures')}
+                        </dt>
+                        <dd className="font-medium tabular-nums">
+                          {data.stripe.period.paymentFailureCount}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">
+                          {t('overview.stripe.webhookFailures')}
+                        </dt>
+                        <dd className="font-medium tabular-nums">
+                          {data.stripe.period.webhookFailedCount}
+                        </dd>
+                      </div>
+                    </dl>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link to="/admin/billing">
+                        {t('overview.links.billing')}
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to="/admin/billing?tab=events">
+                        {t('overview.links.stripeEvents')}
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </SectionPanel>
             </div>

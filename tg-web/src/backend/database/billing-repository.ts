@@ -4,7 +4,7 @@
  * 负责 Stripe Customer 关联、订阅镜像、分析积分预留/释放、账本读取，
  * 以及幂等的 webhook 落地。管理员 Stripe API 密钥由 `BillingConfigRepository` 管理。
  */
-import { and, desc, eq, gt, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import type { StripeWebhookEvent } from '../billing/contract';
@@ -13,6 +13,18 @@ import {
   discreteP90,
 } from '../billing/credit-pricing';
 import * as schema from './schema';
+
+export type StripeWebhookEventRow =
+  typeof schema.stripeWebhookEvents.$inferSelect;
+
+export type StripeWebhookEventStatus = StripeWebhookEventRow['status'];
+
+export type StripeWebhookEventsSummary = {
+  processed: number;
+  failed: number;
+  ignored: number;
+  processing: number;
+};
 
 /** 供 UI 聚合的积分钱包 + 最新订阅 + 近期流水。 */
 export type CreditUsage = {
@@ -81,6 +93,20 @@ export interface BillingRepository {
   processStripeEvent(event: StripeWebhookEvent): Promise<boolean>;
   /** 将 webhook 投递标记为失败，供后续排查/重试。 */
   recordStripeFailure(event: StripeWebhookEvent, error: unknown): Promise<void>;
+  /** 管理员检索本地 webhook 投递/处理日志（对账与异常排查）。 */
+  listStripeWebhookEvents(input: {
+    status?: StripeWebhookEventStatus;
+    eventType?: string;
+    from?: Date;
+    to?: Date;
+    limit: number;
+    offset: number;
+  }): Promise<StripeWebhookEventRow[]>;
+  /** 按状态汇总周期内 webhook 处理结果。 */
+  summarizeStripeWebhookEvents(input: {
+    from?: Date;
+    to?: Date;
+  }): Promise<StripeWebhookEventsSummary>;
 }
 
 export class BillingRepositoryError extends Error {
@@ -540,6 +566,68 @@ export function createBillingRepository(database: Database): BillingRepository {
             updatedAt: new Date(),
           },
         });
+    },
+
+    async listStripeWebhookEvents(input) {
+      const conditions = [];
+      if (input.status) {
+        conditions.push(eq(schema.stripeWebhookEvents.status, input.status));
+      }
+      if (input.eventType) {
+        conditions.push(
+          eq(schema.stripeWebhookEvents.eventType, input.eventType),
+        );
+      }
+      if (input.from) {
+        conditions.push(
+          gte(schema.stripeWebhookEvents.receivedAt, input.from),
+        );
+      }
+      if (input.to) {
+        conditions.push(lte(schema.stripeWebhookEvents.receivedAt, input.to));
+      }
+      return database
+        .select()
+        .from(schema.stripeWebhookEvents)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(schema.stripeWebhookEvents.receivedAt))
+        .limit(input.limit)
+        .offset(input.offset);
+    },
+
+    async summarizeStripeWebhookEvents(input) {
+      const conditions = [];
+      if (input.from) {
+        conditions.push(
+          gte(schema.stripeWebhookEvents.receivedAt, input.from),
+        );
+      }
+      if (input.to) {
+        conditions.push(lte(schema.stripeWebhookEvents.receivedAt, input.to));
+      }
+      const rows = await database
+        .select({
+          status: schema.stripeWebhookEvents.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(schema.stripeWebhookEvents)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .groupBy(schema.stripeWebhookEvents.status);
+
+      const summary: StripeWebhookEventsSummary = {
+        processed: 0,
+        failed: 0,
+        ignored: 0,
+        processing: 0,
+      };
+      for (const row of rows) {
+        if (row.status in summary) {
+          summary[row.status as keyof StripeWebhookEventsSummary] = Number(
+            row.count,
+          );
+        }
+      }
+      return summary;
     },
   };
 }

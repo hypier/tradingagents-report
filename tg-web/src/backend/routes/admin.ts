@@ -64,27 +64,118 @@ export function adminRoutes(dependencies: AppDependencies) {
     }
     const to = new Date();
     const from = new Date(to.getTime() - input.data.days * 24 * 60 * 60 * 1000);
-    const metrics = await dependencies.database.analysisJobs.getAdminOverview({
-      from,
-      to,
-    });
+    const [metrics, webhookSummary] = await Promise.all([
+      dependencies.database.analysisJobs.getAdminOverview({ from, to }),
+      dependencies.database.billing.summarizeStripeWebhookEvents({ from, to }),
+    ]);
     let stripe: {
       configured: boolean;
       connectionHealthy: boolean | null;
       mode: string | null;
+      period: {
+        currency: string;
+        revenueCents: number;
+        refundCents: number;
+        paymentFailureCount: number;
+        webhookFailedCount: number;
+      } | null;
     } | null = null;
     try {
-      const settings = await dependencies.billing.getSettings();
+      const [settings, periodSummary] = await Promise.all([
+        dependencies.billing.getSettings(),
+        dependencies.billing.getAdminPeriodSummary({ from, to }),
+      ]);
+      const emptyPeriod = {
+        currency: 'USD',
+        revenueCents: 0,
+        refundCents: 0,
+        paymentFailureCount: 0,
+        webhookFailedCount: webhookSummary.failed,
+      };
       stripe = {
         configured: settings.configured,
         connectionHealthy: settings.connectionHealthy,
         mode: settings.mode,
+        period: periodSummary
+          ? {
+              ...periodSummary,
+              webhookFailedCount: webhookSummary.failed,
+            }
+          : settings.configured || webhookSummary.failed > 0
+            ? emptyPeriod
+            : null,
       };
     } catch {
-      stripe = { configured: false, connectionHealthy: false, mode: null };
+      stripe = {
+        configured: false,
+        connectionHealthy: false,
+        mode: null,
+        period:
+          webhookSummary.failed > 0
+            ? {
+                currency: 'USD',
+                revenueCents: 0,
+                refundCents: 0,
+                paymentFailureCount: 0,
+                webhookFailedCount: webhookSummary.failed,
+              }
+            : null,
+      };
     }
     return context.json(
       apiSuccess({ ...metrics, stripe }, context.get('requestId')),
+    );
+  });
+
+  const stripeEventsSchema = z.object({
+    status: z.enum(['processing', 'processed', 'failed', 'ignored']).optional(),
+    eventType: z.string().trim().min(1).max(120).optional(),
+    days: z.coerce.number().int().min(1).max(90).default(30),
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+    offset: z.coerce.number().int().min(0).default(0),
+  });
+
+  app.get('/admin/stripe/events', async (context) => {
+    const input = stripeEventsSchema.safeParse(context.req.query());
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid Stripe events query');
+    }
+    const to = new Date();
+    const from = new Date(to.getTime() - input.data.days * 24 * 60 * 60 * 1000);
+    const [events, summary] = await Promise.all([
+      dependencies.database.billing.listStripeWebhookEvents({
+        status: input.data.status,
+        eventType: input.data.eventType,
+        from,
+        to,
+        limit: input.data.limit,
+        offset: input.data.offset,
+      }),
+      dependencies.database.billing.summarizeStripeWebhookEvents({ from, to }),
+    ]);
+    return context.json(
+      apiSuccess(
+        {
+          days: input.data.days,
+          summary,
+          events: events.map((event) => ({
+            stripeEventId: event.stripeEventId,
+            eventType: event.eventType,
+            status: event.status,
+            error: event.error,
+            receivedAt: event.receivedAt,
+            processedAt: event.processedAt,
+            livemode:
+              typeof event.payload.livemode === 'boolean'
+                ? event.payload.livemode
+                : null,
+            customerId: stripePayloadCustomerId(event.payload),
+            subscriptionId: stripePayloadSubscriptionId(event.payload),
+            invoiceId: stripePayloadInvoiceId(event.payload),
+          })),
+        },
+        context.get('requestId'),
+      ),
     );
   });
 
@@ -528,4 +619,53 @@ function billingError(error: unknown): AppError {
     'Unable to complete the credit operation',
     error,
   );
+}
+
+function stripePayloadCustomerId(
+  payload: Record<string, unknown>,
+): string | null {
+  const subscription = isRecord(payload.subscription)
+    ? payload.subscription
+    : null;
+  const creditGrant = isRecord(payload.creditGrant)
+    ? payload.creditGrant
+    : null;
+  return (
+    stringOrNull(subscription?.customerId) ??
+    stringOrNull(creditGrant?.customerId)
+  );
+}
+
+function stripePayloadSubscriptionId(
+  payload: Record<string, unknown>,
+): string | null {
+  const subscription = isRecord(payload.subscription)
+    ? payload.subscription
+    : null;
+  const creditGrant = isRecord(payload.creditGrant)
+    ? payload.creditGrant
+    : null;
+  return (
+    stringOrNull(subscription?.id) ??
+    stringOrNull(creditGrant?.subscriptionId)
+  );
+}
+
+function stripePayloadInvoiceId(
+  payload: Record<string, unknown>,
+): string | null {
+  const subscription = isRecord(payload.subscription)
+    ? payload.subscription
+    : null;
+  const creditGrant = isRecord(payload.creditGrant)
+    ? payload.creditGrant
+    : null;
+  return (
+    stringOrNull(creditGrant?.invoiceId) ??
+    stringOrNull(subscription?.latestInvoiceId)
+  );
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null;
 }

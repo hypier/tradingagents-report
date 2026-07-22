@@ -13,6 +13,7 @@ import { StockQuoteMetrics } from '../components/market/stock-quote-metrics';
 import { MarketTrendChart } from '../components/market/tradingview-advanced-chart';
 import { PageBody } from '../components/page-chrome';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
 import {
@@ -34,6 +35,7 @@ import {
 } from '../lib/watchlist';
 import { isSupportedExchange, listingForQuoteView } from '@/shared/listing';
 import { marketFromExchange } from '@/shared/market-codes';
+import { normalizeMarketSession } from '@/shared/market-session';
 import { resolveMarketTimezone } from '@/shared/timezone';
 
 export function StockPage() {
@@ -147,12 +149,18 @@ export function StockPage() {
     );
   }
 
-  const statusLabel =
+  const feedLabel =
     streamStatus === 'live'
       ? t('quote.live')
       : streamStatus === 'connecting'
         ? t('quote.connecting')
         : null;
+  const sessionPhase = normalizeMarketSession(
+    quote?.current_session,
+    quote?.is_tradable,
+  );
+  const sessionLabel =
+    sessionPhase === 'unknown' ? null : t(`quote.session.${sessionPhase}`);
   const asOfLabel = quote?.as_of
     ? t('quote.asOf', { time: formatLocaleDateTimeValue(quote.as_of) })
     : null;
@@ -212,18 +220,32 @@ export function StockPage() {
                         .catch(() => toast.error(t('quote.tickerCopyError')));
                     }}
                   />
-                  {statusLabel || asOfLabel ? (
-                    <p className="mt-0.5 flex min-w-0 items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                  {sessionLabel || feedLabel || asOfLabel ? (
+                    <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {sessionLabel ? (
+                        <Badge
+                          variant={
+                            sessionPhase === 'regular'
+                              ? 'default'
+                              : sessionPhase === 'closed'
+                                ? 'secondary'
+                                : 'outline'
+                          }
+                          className="h-5 rounded-none px-1.5 font-mono text-[10px] font-normal"
+                        >
+                          {sessionLabel}
+                        </Badge>
+                      ) : null}
                       {streamStatus === 'live' ? (
                         <span
                           className="size-1.5 shrink-0 bg-accent"
                           aria-hidden
                         />
                       ) : null}
-                      {statusLabel ? (
-                        <span className="shrink-0">{statusLabel}</span>
+                      {feedLabel ? (
+                        <span className="shrink-0">{feedLabel}</span>
                       ) : null}
-                      {statusLabel && asOfLabel ? (
+                      {(sessionLabel || feedLabel) && asOfLabel ? (
                         <span aria-hidden>·</span>
                       ) : null}
                       {asOfLabel ? (

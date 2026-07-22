@@ -63,7 +63,40 @@
     "tabs": {
       "connection": "Connection",
       "plans": "Plans",
-      "credits": "Credit billing"
+      "credits": "Credit billing",
+      "events": "Stripe events"
+    },
+    "events": {
+      "title": "Webhook delivery log",
+      "description": "Local processing status for Stripe webhook events. Use this to spot failed syncs and reconciliation gaps.",
+      "statusAll": "All statuses",
+      "eventTypePlaceholder": "Event type (e.g. invoice.paid)",
+      "filter": "Filter",
+      "summary": {
+        "processed": "{{count}} processed",
+        "failed": "{{count}} failed",
+        "ignored": "{{count}} ignored",
+        "processing": "{{count}} processing"
+      },
+      "loadError": {
+        "title": "Unable to load Stripe events",
+        "body": "Check database connectivity and retry."
+      },
+      "empty": "No webhook events in this window.",
+      "columns": {
+        "when": "Received",
+        "type": "Event type",
+        "status": "Status",
+        "ids": "Customer / subscription",
+        "error": "Error",
+        "eventId": "Event ID"
+      },
+      "status": {
+        "processing": "Processing",
+        "processed": "Processed",
+        "failed": "Failed",
+        "ignored": "Ignored"
+      }
     },
     "connection": {
       "title": "Stripe connection",
@@ -202,7 +235,8 @@
     "links": {
       "users": "Users",
       "analyses": "Jobs",
-      "billing": "Billing settings"
+      "billing": "Billing settings",
+      "stripeEvents": "Stripe events"
     },
     "metrics": {
       "users": "Registered users",
@@ -222,14 +256,18 @@
     },
     "stripe": {
       "title": "Stripe summary",
-      "description": "Connection health from billing settings",
+      "description": "Connection health and period revenue from Stripe",
       "configured": "Configured",
       "yes": "Yes",
       "no": "No",
       "health": "Connection",
       "healthy": "Healthy",
       "unhealthy": "Unhealthy",
-      "mode": "Mode"
+      "mode": "Mode",
+      "revenue": "Gross revenue (30d)",
+      "refunds": "Refunds (30d)",
+      "paymentFailures": "Payment failures (30d)",
+      "webhookFailures": "Webhook failures (30d)"
     }
   },
   "analyses": {

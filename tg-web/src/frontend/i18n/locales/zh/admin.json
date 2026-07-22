@@ -63,7 +63,40 @@
     "tabs": {
       "connection": "连接",
       "plans": "套餐",
-      "credits": "积分计费"
+      "credits": "积分计费",
+      "events": "Stripe 事件"
+    },
+    "events": {
+      "title": "Webhook 投递日志",
+      "description": "本地 Stripe webhook 处理状态，用于发现同步失败与对账异常。",
+      "statusAll": "全部状态",
+      "eventTypePlaceholder": "事件类型（如 invoice.paid）",
+      "filter": "筛选",
+      "summary": {
+        "processed": "{{count}} 已处理",
+        "failed": "{{count}} 失败",
+        "ignored": "{{count}} 已忽略",
+        "processing": "{{count}} 处理中"
+      },
+      "loadError": {
+        "title": "无法加载 Stripe 事件",
+        "body": "请检查数据库连接后重试。"
+      },
+      "empty": "该时间窗口内没有 webhook 事件。",
+      "columns": {
+        "when": "接收时间",
+        "type": "事件类型",
+        "status": "状态",
+        "ids": "客户 / 订阅",
+        "error": "错误",
+        "eventId": "事件 ID"
+      },
+      "status": {
+        "processing": "处理中",
+        "processed": "已处理",
+        "failed": "失败",
+        "ignored": "已忽略"
+      }
     },
     "connection": {
       "title": "Stripe 连接",
@@ -202,7 +235,8 @@
     "links": {
       "users": "用户",
       "analyses": "任务",
-      "billing": "支付设置"
+      "billing": "支付设置",
+      "stripeEvents": "Stripe 事件"
     },
     "metrics": {
       "users": "注册用户",
@@ -222,14 +256,18 @@
     },
     "stripe": {
       "title": "Stripe 摘要",
-      "description": "来自支付设置的连接健康",
+      "description": "连接健康与周期内 Stripe 收入摘要",
       "configured": "已配置",
       "yes": "是",
       "no": "否",
       "health": "连接",
       "healthy": "正常",
       "unhealthy": "异常",
-      "mode": "模式"
+      "mode": "模式",
+      "revenue": "毛收入（30 天）",
+      "refunds": "退款（30 天）",
+      "paymentFailures": "付款失败（30 天）",
+      "webhookFailures": "Webhook 失败（30 天）"
     }
   },
   "analyses": {

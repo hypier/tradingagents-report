@@ -9,10 +9,13 @@ import {
   CreditCard,
   PackagePlus,
   Save,
+  ScrollText,
+  Search,
   Trash2,
   Webhook,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import type {
@@ -69,7 +72,10 @@ import {
   ToggleGroupItem,
 } from '@/frontend/components/ui/toggle-group';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
-import { formatLocaleCurrency } from '@/frontend/lib/format-locale';
+import {
+  formatLocaleCurrency,
+  formatLocaleDateTimeValue,
+} from '@/frontend/lib/format-locale';
 import {
   localizeBillingInterval,
   localizeBillingPlan,
@@ -80,10 +86,21 @@ import {
   createBillingPlan,
   getBillingSettings,
   getCreditBillingSettings,
+  listAdminStripeEvents,
   provisionDefaultBillingPlans,
   updateCreditBillingSettings,
   updateStripeConfiguration,
+  type AdminStripeWebhookEvent,
 } from '@/frontend/lib/billing';
+
+const BILLING_TABS = ['connection', 'plans', 'credits', 'events'] as const;
+type BillingTab = (typeof BILLING_TABS)[number];
+
+function resolveBillingTab(value: string | null): BillingTab {
+  return BILLING_TABS.includes(value as BillingTab)
+    ? (value as BillingTab)
+    : 'connection';
+}
 
 type PlanForm = {
   name: string;
@@ -120,6 +137,8 @@ function createInitialPlan(features: string): PlanForm {
 
 export function AdminBillingPage() {
   const { t } = useTranslation('admin');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = resolveBillingTab(searchParams.get('tab'));
   const [plan, setPlan] = useState(() =>
     createInitialPlan(t('billing.defaults.features')),
   );
@@ -278,7 +297,16 @@ export function AdminBillingPage() {
         {settings.isLoading ? (
           <Skeleton className="h-72 w-full" />
         ) : data ? (
-          <Tabs defaultValue="connection">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              const next = resolveBillingTab(value);
+              setSearchParams(
+                next === 'connection' ? {} : { tab: next },
+                { replace: true },
+              );
+            }}
+          >
             <TabsList variant="line" className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
               <TabsTrigger
                 value="connection"
@@ -299,6 +327,13 @@ export function AdminBillingPage() {
                 className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
               >
                 <Coins data-icon="inline-start" /> {t('billing.tabs.credits')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="events"
+                className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
+              >
+                <ScrollText data-icon="inline-start" />{' '}
+                {t('billing.tabs.events')}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="connection" className="pt-3">
@@ -516,10 +551,182 @@ export function AdminBillingPage() {
                 onSubmit={() => saveCreditSettings.mutate()}
               />
             </TabsContent>
+            <TabsContent value="events" className="pt-3">
+              <StripeEventsPanel enabled={isAdmin && activeTab === 'events'} />
+            </TabsContent>
           </Tabs>
         ) : null}
       </PageFrame>
     </AdminGate>
+  );
+}
+
+function StripeEventsPanel({ enabled }: { enabled: boolean }) {
+  const { t } = useTranslation('admin');
+  const [status, setStatus] = useState<string>('all');
+  const [eventType, setEventType] = useState('');
+  const [applied, setApplied] = useState({
+    status: 'all' as string,
+    eventType: '',
+  });
+
+  const events = useQuery({
+    queryKey: ['admin-stripe-events', applied],
+    queryFn: () =>
+      listAdminStripeEvents({
+        status:
+          applied.status === 'all'
+            ? undefined
+            : (applied.status as AdminStripeWebhookEvent['status']),
+        eventType: applied.eventType || undefined,
+        days: 30,
+        limit: 100,
+      }),
+    enabled,
+  });
+
+  function onFilter(event: FormEvent) {
+    event.preventDefault();
+    setApplied({
+      status,
+      eventType: eventType.trim(),
+    });
+  }
+
+  const summary = events.data?.data.summary;
+  const rows = events.data?.data.events ?? [];
+
+  return (
+    <SectionPanel
+      title={t('billing.events.title')}
+      description={t('billing.events.description')}
+    >
+      <form
+        onSubmit={onFilter}
+        className="mb-4 flex flex-wrap items-end gap-3"
+      >
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder={t('billing.events.statusAll')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="all">
+                {t('billing.events.statusAll')}
+              </SelectItem>
+              {(
+                ['processed', 'failed', 'ignored', 'processing'] as const
+              ).map((value) => (
+                <SelectItem key={value} value={value}>
+                  {t(`billing.events.status.${value}`)}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Input
+          className="max-w-xs"
+          placeholder={t('billing.events.eventTypePlaceholder')}
+          value={eventType}
+          onChange={(event) => setEventType(event.target.value)}
+        />
+        <Button type="submit">
+          <Search data-icon="inline-start" />
+          {t('billing.events.filter')}
+        </Button>
+      </form>
+
+      {summary ? (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Badge variant="outline">
+            {t('billing.events.summary.processed', {
+              count: summary.processed,
+            })}
+          </Badge>
+          <Badge variant="destructive">
+            {t('billing.events.summary.failed', { count: summary.failed })}
+          </Badge>
+          <Badge variant="secondary">
+            {t('billing.events.summary.ignored', { count: summary.ignored })}
+          </Badge>
+          <Badge variant="info">
+            {t('billing.events.summary.processing', {
+              count: summary.processing,
+            })}
+          </Badge>
+        </div>
+      ) : null}
+
+      {events.isLoading ? (
+        <Skeleton className="h-64 w-full" />
+      ) : events.isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t('billing.events.loadError.title')}</AlertTitle>
+          <AlertDescription>
+            {t('billing.events.loadError.body')}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('billing.events.columns.when')}</TableHead>
+              <TableHead>{t('billing.events.columns.type')}</TableHead>
+              <TableHead>{t('billing.events.columns.status')}</TableHead>
+              <TableHead>{t('billing.events.columns.ids')}</TableHead>
+              <TableHead>{t('billing.events.columns.error')}</TableHead>
+              <TableHead>{t('billing.events.columns.eventId')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-muted-foreground">
+                  {t('billing.events.empty')}
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((row) => (
+                <TableRow key={row.stripeEventId}>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {formatLocaleDateTimeValue(String(row.receivedAt))}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {row.eventType}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        row.status === 'failed'
+                          ? 'destructive'
+                          : row.status === 'processed'
+                            ? 'default'
+                            : row.status === 'processing'
+                              ? 'info'
+                              : 'secondary'
+                      }
+                    >
+                      {t(`billing.events.status.${row.status}`)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[14rem] truncate font-mono text-xs text-muted-foreground">
+                    {[row.customerId, row.subscriptionId, row.invoiceId]
+                      .filter(Boolean)
+                      .join(' · ') || '—'}
+                  </TableCell>
+                  <TableCell className="max-w-[16rem] truncate text-xs text-muted-foreground">
+                    {row.error ?? '—'}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {row.stripeEventId}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
+    </SectionPanel>
   );
 }
 

@@ -65,6 +65,12 @@ function fakeDependencies(
         webhookSecretHint: 'whsec_...test',
         updatedAt: null,
       }),
+      getAdminPeriodSummary: vi.fn().mockResolvedValue({
+        currency: 'USD',
+        revenueCents: 12_500,
+        refundCents: 500,
+        paymentFailureCount: 2,
+      }),
       createCustomer: vi.fn().mockResolvedValue('cus_test'),
       createCheckout: vi
         .fn()
@@ -126,6 +132,13 @@ function fakeDependencies(
         releaseAnalysis: vi.fn().mockResolvedValue(undefined),
         processStripeEvent: vi.fn().mockResolvedValue(true),
         recordStripeFailure: vi.fn().mockResolvedValue(undefined),
+        listStripeWebhookEvents: vi.fn().mockResolvedValue([]),
+        summarizeStripeWebhookEvents: vi.fn().mockResolvedValue({
+          processed: 0,
+          failed: 0,
+          ignored: 0,
+          processing: 0,
+        }),
       },
       referrals: {
         isValidCode: vi.fn().mockResolvedValue(true),
@@ -707,7 +720,83 @@ describe('createApp', () => {
       data: {
         userCount: 3,
         analyses: { successRate: 0.8 },
-        stripe: { configured: true, connectionHealthy: true },
+        stripe: {
+          configured: true,
+          connectionHealthy: true,
+          period: {
+            currency: 'USD',
+            revenueCents: 12_500,
+            refundCents: 500,
+            paymentFailureCount: 2,
+            webhookFailedCount: 0,
+          },
+        },
+      },
+    });
+    expect(dependencies.billing.getAdminPeriodSummary).toHaveBeenCalled();
+    expect(
+      dependencies.database.billing.summarizeStripeWebhookEvents,
+    ).toHaveBeenCalled();
+  });
+
+  it('lists Stripe webhook events for administrators', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    vi.mocked(
+      dependencies.database.billing.listStripeWebhookEvents,
+    ).mockResolvedValue([
+      {
+        stripeEventId: 'evt_1',
+        eventType: 'invoice.paid',
+        status: 'failed',
+        payload: {
+          livemode: false,
+          subscription: {
+            id: 'sub_1',
+            customerId: 'cus_1',
+            latestInvoiceId: 'in_1',
+          },
+        },
+        error: 'customer missing',
+        receivedAt: new Date('2026-07-20T00:00:00Z'),
+        processedAt: null,
+        updatedAt: new Date('2026-07-20T00:00:00Z'),
+      },
+    ]);
+    vi.mocked(
+      dependencies.database.billing.summarizeStripeWebhookEvents,
+    ).mockResolvedValue({
+      processed: 3,
+      failed: 1,
+      ignored: 0,
+      processing: 0,
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request(
+      '/api/admin/stripe/events?status=failed&days=30',
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        summary: { processed: 3, failed: 1 },
+        events: [
+          {
+            stripeEventId: 'evt_1',
+            eventType: 'invoice.paid',
+            status: 'failed',
+            customerId: 'cus_1',
+            subscriptionId: 'sub_1',
+            invoiceId: 'in_1',
+          },
+        ],
       },
     });
   });
@@ -1646,7 +1735,7 @@ describe('createApp', () => {
     });
     expect(marketAssets.getSnapshot).toHaveBeenCalledWith('HKEX:700');
     expect(cache.set).toHaveBeenCalledWith(
-      'market-snapshot:v1:HKEX:700',
+      'market-snapshot:v2:HKEX:700',
       expect.any(String),
       20,
     );

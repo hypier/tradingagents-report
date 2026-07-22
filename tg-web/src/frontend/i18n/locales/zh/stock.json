@@ -18,8 +18,14 @@
   },
   "quote": {
     "title": "最新行情",
-    "live": "实时",
+    "live": "行情推送",
     "connecting": "连接中…",
+    "session": {
+      "pre_market": "盘前",
+      "regular": "交易中",
+      "post_market": "盘后",
+      "closed": "已休市"
+    },
     "asOf": "截至 {{time}}",
     "asOfTip": "行情最新价的更新时间（数据源最后报价时刻），不是本机当前时间。",
     "refresh": "刷新行情",

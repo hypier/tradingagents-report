@@ -43,6 +43,12 @@ describe('createStripeBillingService', () => {
       webhookSecretHint: null,
       updatedAt: null,
     });
+    await expect(
+      service.getAdminPeriodSummary({
+        from: new Date('2026-06-20T00:00:00Z'),
+        to: new Date('2026-07-20T00:00:00Z'),
+      }),
+    ).resolves.toBeNull();
     await expect(service.createPortal('cus_test', 'en')).rejects.toMatchObject({
       code: 'BILLING_NOT_CONFIGURED',
       status: 503,
