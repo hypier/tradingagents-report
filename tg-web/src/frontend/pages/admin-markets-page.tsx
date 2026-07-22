@@ -28,6 +28,7 @@ import {
   ToggleGroupItem,
 } from '@/frontend/components/ui/toggle-group';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
+import { normalizeUiLocale } from '@/frontend/i18n/locales';
 import {
   deleteAdminMarket,
   listAdminMarkets,
@@ -48,7 +49,7 @@ import {
 type SelectionFilter = 'all' | 'enabled' | 'disabled';
 
 export function AdminMarketsPage() {
-  const { t } = useTranslation('admin');
+  const { t, i18n } = useTranslation('admin');
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const isAdmin = session.data?.data.user.role === 'admin';
@@ -177,6 +178,41 @@ export function AdminMarketsPage() {
 
   const enabledCount = enabledSet.size;
   const activeRows = filteredByGroup.get(activeGroup) ?? [];
+  const activeFlagSections = useMemo(() => {
+    const locale = normalizeUiLocale(i18n.language);
+    const buckets = new Map<
+      string,
+      { flag: string; country: string; rows: ExchangeCatalogEntry[] }
+    >();
+    for (const entry of activeRows) {
+      const flag = normalizeFlagKey(entry.flag);
+      const current = buckets.get(flag);
+      if (current) {
+        current.rows.push(entry);
+      } else {
+        buckets.set(flag, {
+          flag,
+          country: entry.country?.trim().toUpperCase() ?? '',
+          rows: [entry],
+        });
+      }
+    }
+    return [...buckets.values()]
+      .map((bucket) => ({
+        flag: bucket.flag,
+        label: localizeFlagLabel(bucket.flag, bucket.country, locale, t),
+        rows: bucket.rows,
+        hasSaved: bucket.rows.some((row) =>
+          savedSet.has(row.value.trim().toUpperCase()),
+        ),
+      }))
+      .sort((left, right) => {
+        if (left.hasSaved !== right.hasSaved) {
+          return left.hasSaved ? -1 : 1;
+        }
+        return left.label.localeCompare(right.label, locale === 'zh' ? 'zh-CN' : 'en');
+      });
+  }, [activeRows, i18n.language, savedSet, t]);
   const activeStats = groupStats.get(activeGroup) ?? {
     total: 0,
     enabled: 0,
@@ -454,82 +490,97 @@ export function AdminMarketsPage() {
                   {t('markets.emptyFiltered')}
                 </p>
               ) : (
-                <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
-                  {activeRows.map((entry) => {
-                    const code = entry.value.trim().toUpperCase();
-                    const checked = enabledSet.has(code);
-                    const saved = savedSet.has(code);
-                    const changed = checked !== saved;
-                    const market = suggestMarket(entry.country, {
-                      group: entry.group,
-                    });
-                    const title = entry.name.trim() || code;
-                    const showCode = title.trim().toUpperCase() !== code;
-                    const description = cleanExchangeDescription(entry);
-                    return (
-                      <label
-                        key={code}
-                        htmlFor={`exchange-${code}`}
-                        className={cn(
-                          'flex cursor-pointer flex-col gap-2 border border-border bg-card p-3 transition-colors active:scale-[0.99]',
-                          checked
-                            ? 'border-primary/50 bg-primary/5'
-                            : 'hover:bg-muted/30',
-                          changed && 'ring-1 ring-primary/30',
-                          save.isPending && 'pointer-events-none opacity-55',
-                        )}
-                      >
-                        <span className="flex items-start gap-2.5">
-                          <InstrumentLogo
-                            symbol={code}
-                            logoUrl={exchangeLogoUrl(entry.value)}
-                            alt={title}
-                            size="lg"
-                            className="border border-border bg-background"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-start justify-between gap-2">
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-medium leading-snug">
-                                  {title}
-                                </span>
-                                <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
-                                  {showCode ? (
-                                    <span className="font-mono tracking-wide">
-                                      {code}
+                <div className="flex flex-col gap-5 p-3 sm:p-4">
+                  {activeFlagSections.map((section) => (
+                    <section key={section.flag} className="min-w-0">
+                      <header className="mb-2 flex items-baseline justify-between gap-3 border-b border-border pb-1.5">
+                        <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                          {section.label}
+                        </h3>
+                        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {section.rows.length}
+                        </span>
+                      </header>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {section.rows.map((entry) => {
+                          const code = entry.value.trim().toUpperCase();
+                          const checked = enabledSet.has(code);
+                          const saved = savedSet.has(code);
+                          const changed = checked !== saved;
+                          const market = suggestMarket(entry.country, {
+                            group: entry.group,
+                          });
+                          const title = entry.name.trim() || code;
+                          const showCode = title.trim().toUpperCase() !== code;
+                          const description = cleanExchangeDescription(entry);
+                          return (
+                            <label
+                              key={code}
+                              htmlFor={`exchange-${code}`}
+                              className={cn(
+                                'flex cursor-pointer flex-col gap-2 border border-border bg-card p-3 transition-colors active:scale-[0.99]',
+                                checked
+                                  ? 'border-primary/50 bg-primary/5'
+                                  : 'hover:bg-muted/30',
+                                changed && 'ring-1 ring-primary/30',
+                                save.isPending &&
+                                  'pointer-events-none opacity-55',
+                              )}
+                            >
+                              <span className="flex items-start gap-2.5">
+                                <InstrumentLogo
+                                  symbol={code}
+                                  logoUrl={exchangeLogoUrl(entry.value)}
+                                  alt={title}
+                                  size="lg"
+                                  className="border border-border bg-background"
+                                />
+                                <span className="min-w-0 flex-1">
+                                  <span className="flex items-start justify-between gap-2">
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-sm font-medium leading-snug">
+                                        {title}
+                                      </span>
+                                      <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                                        {showCode ? (
+                                          <span className="font-mono tracking-wide">
+                                            {code}
+                                          </span>
+                                        ) : null}
+                                        {market ? (
+                                          <span className="font-mono tabular-nums">
+                                            {showCode ? '· ' : ''}
+                                            {market}
+                                          </span>
+                                        ) : null}
+                                      </span>
                                     </span>
-                                  ) : null}
-                                  {market ? (
-                                    <span className="font-mono tabular-nums">
-                                      {showCode ? '· ' : ''}
-                                      {market}
-                                    </span>
-                                  ) : null}
+                                    <Checkbox
+                                      checked={checked}
+                                      disabled={save.isPending}
+                                      onCheckedChange={(next) => {
+                                        const enable = next === true;
+                                        if (enable === checked) return;
+                                        toggleDraft(code, enable);
+                                      }}
+                                      id={`exchange-${code}`}
+                                      className="mt-0.5 size-4 shrink-0"
+                                      aria-label={t('markets.fields.enabled')}
+                                    />
+                                  </span>
                                 </span>
                               </span>
-                              <Checkbox
-                                checked={checked}
-                                disabled={save.isPending}
-                                onCheckedChange={(next) => {
-                                  const enable = next === true;
-                                  if (enable === checked) return;
-                                  toggleDraft(code, enable);
-                                }}
-                                id={`exchange-${code}`}
-                                className="mt-0.5 size-4 shrink-0"
-                                aria-label={t('markets.fields.enabled')}
-                              />
-                            </span>
-                          </span>
-                        </span>
-                        {description ? (
-                          <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                            {description}
-                          </span>
-                        ) : null}
-                      </label>
-                    );
-                  })}
+                              {description ? (
+                                <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                                  {description}
+                                </span>
+                              ) : null}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               )}
             </section>
@@ -581,4 +632,66 @@ function localizeGroup(
   t: (key: string, options?: { defaultValue?: string }) => string,
 ): string {
   return t(`markets.groups.${group}`, { defaultValue: group });
+}
+
+function normalizeFlagKey(flag: string | null | undefined): string {
+  const value = flag?.trim().toLowerCase();
+  return value || 'other';
+}
+
+/** Prefer short product labels; fall back to region DisplayNames / humanized flag. */
+const FLAG_LABEL_OVERRIDES: Record<'en' | 'zh', Record<string, string>> = {
+  en: {
+    bitcoin: 'Cryptocurrency',
+    brasil: 'Brazil',
+    czech: 'Czechia',
+    europe: 'European Union',
+    forex: 'Forex',
+    hong_kong: 'Hong Kong',
+    other: 'Other',
+    usa: 'United States',
+  },
+  zh: {
+    bitcoin: '加密货币',
+    brasil: '巴西',
+    china: '中国大陆',
+    czech: '捷克',
+    europe: '欧盟',
+    forex: '外汇',
+    hong_kong: '香港',
+    other: '其他',
+    taiwan: '台湾',
+    usa: '美国',
+  },
+};
+
+function localizeFlagLabel(
+  flag: string,
+  country: string,
+  locale: 'en' | 'zh',
+  t: (key: string, options?: { defaultValue?: string }) => string,
+): string {
+  const fromI18n = t(`markets.flags.${flag}`, { defaultValue: '' });
+  if (fromI18n) return fromI18n;
+
+  const override = FLAG_LABEL_OVERRIDES[locale][flag];
+  if (override) return override;
+
+  if (country) {
+    try {
+      const regionLocale = locale === 'zh' ? 'zh-CN' : 'en';
+      const name = new Intl.DisplayNames([regionLocale], {
+        type: 'region',
+      }).of(country);
+      if (name) return name;
+    } catch {
+      // Invalid region codes (CRYPTO-like) fall through.
+    }
+  }
+
+  return flag
+    .split(/[_-]/u)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

@@ -586,6 +586,15 @@
       "Forex": "Forex",
       "Economy": "Economy"
     },
+    "flags": {
+      "hong_kong": "Hong Kong",
+      "china": "Mainland China",
+      "taiwan": "Taiwan",
+      "usa": "United States",
+      "bitcoin": "Cryptocurrency",
+      "forex": "Forex",
+      "other": "Other"
+    },
     "toast": {
       "saved": "Saved {{count}} change(s).",
       "saveError": "Unable to save the exchange whitelist."

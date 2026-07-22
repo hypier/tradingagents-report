@@ -586,6 +586,15 @@
       "Forex": "外汇",
       "Economy": "经济数据"
     },
+    "flags": {
+      "hong_kong": "香港",
+      "china": "中国大陆",
+      "taiwan": "台湾",
+      "usa": "美国",
+      "bitcoin": "加密货币",
+      "forex": "外汇",
+      "other": "其他"
+    },
     "toast": {
       "saved": "已保存 {{count}} 项变更。",
       "saveError": "无法保存交易所白名单。"
