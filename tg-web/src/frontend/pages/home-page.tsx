@@ -212,6 +212,7 @@ export function HomePage() {
   });
   const { identities } = useJobMarketIdentities(jobs.data?.data ?? []);
   const [watchedJobId, setWatchedJobId] = useState<string | null>(null);
+  const [stoppingJobId, setStoppingJobId] = useState<string | null>(null);
   const watchedJob = watchedJobId
     ? jobs.data?.data.find((job) => job.id === watchedJobId)
     : undefined;
@@ -254,25 +255,42 @@ export function HomePage() {
   });
   const cancel = useMutation({
     mutationFn: (id: string) => cancelResearch(id),
-    onSuccess: (result) => {
+    onSuccess: (result, id) => {
+      setStoppingJobId(id);
       queryClient.invalidateQueries({ queryKey: ['analyses'] });
+      queryClient.invalidateQueries({ queryKey: ['analysis-events', id] });
       queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
       toast.success(
         result.data.status === 'cancel_requested'
           ? t('pipeline.toastStopping')
           : t('pipeline.toastStopped'),
       );
+      if (result.data.status !== 'cancel_requested') {
+        setStoppingJobId(null);
+      }
     },
     onError: () => {
       toast.error(t('pipeline.toastStopFailed'));
     },
   });
+  const stopping =
+    cancel.isPending ||
+    (stoppingJobId != null &&
+      (active?.id === stoppingJobId || watchedJobId === stoppingJobId));
 
   useEffect(() => {
     if (!watchedJobId && activeFromList?.id) {
       setWatchedJobId(activeFromList.id);
     }
   }, [activeFromList?.id, watchedJobId]);
+
+  useEffect(() => {
+    if (!stoppingJobId) return;
+    const job = jobs.data?.data.find((item) => item.id === stoppingJobId);
+    if (!job || job.status === 'succeeded' || job.status === 'failed') {
+      setStoppingJobId(null);
+    }
+  }, [jobs.data?.data, stoppingJobId]);
 
   const createErrorCode =
     create.error &&
@@ -483,7 +501,7 @@ export function HomePage() {
                 job={pipelineJob}
                 events={events.data?.data}
                 loading={Boolean(eventsJobId) && events.isLoading}
-                stopping={cancel.isPending}
+                stopping={stopping}
                 onStop={
                   active
                     ? () => {

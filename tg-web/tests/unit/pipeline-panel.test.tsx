@@ -74,6 +74,71 @@ it('shows the full event history with timestamps in a scrollable log', () => {
   ).toBeInTheDocument();
 });
 
+it('shows cancelled badge and terminal event for user-stopped jobs', () => {
+  const { container } = render(
+    <PipelinePanel
+      job={{
+        id: 'job-1',
+        ticker: 'AAPL',
+        status: 'failed',
+        analysts,
+        progress_percent: 20,
+        current_step: 'Cancelled',
+        error: 'Cancelled by user',
+        finished_at: '2026-01-15T10:06:00+00:00',
+      }}
+      events={[
+        {
+          kind: 'stage',
+          message: 'Stop requested',
+          time: '2026-01-15T10:05:00+00:00',
+        },
+        {
+          kind: 'stage',
+          message: 'Cancelled',
+          time: '2026-01-15T10:06:00+00:00',
+        },
+      ]}
+      onAnalyzeAgain={() => undefined}
+    />,
+  );
+
+  expect(within(container).getAllByText('Cancelled').length).toBeGreaterThan(0);
+  expect(within(container).queryByText('Failed')).not.toBeInTheDocument();
+  expect(
+    within(container).getByText(
+      /stop requested; will end at the next safe checkpoint/i,
+    ),
+  ).toBeInTheDocument();
+});
+
+it('keeps the stop control locked while stopping', () => {
+  const { container } = render(
+    <PipelinePanel
+      job={{
+        id: 'job-1',
+        ticker: 'AAPL',
+        status: 'running',
+        analysts,
+        progress_percent: 20,
+        current_step: 'Running Fundamentals Analyst',
+      }}
+      stopping
+      onStop={() => undefined}
+    />,
+  );
+
+  expect(within(container).getAllByText('Stopping').length).toBeGreaterThan(0);
+  expect(
+    within(container).getByRole('button', { name: /stopping/i }),
+  ).toBeDisabled();
+  expect(
+    within(container).getByText(
+      /stop requested; will end at the next safe checkpoint/i,
+    ),
+  ).toBeInTheDocument();
+});
+
 it('marks every stage complete when Core reports success', () => {
   const { container } = render(
     <PipelinePanel

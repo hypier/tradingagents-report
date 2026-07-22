@@ -36,7 +36,12 @@ import {
 import { formatOutputLanguage } from '@/frontend/lib/format-output-language';
 import { localizeProgressMessage } from '@/frontend/lib/localize-progress-message';
 import { formatDisplayTicker } from '@/shared/listing';
-import type { AnalysisJob, AssetIdentity } from '../../lib/research';
+import {
+  displayAnalysisStatus,
+  type AnalysisDisplayStatus,
+  type AnalysisJob,
+  type AssetIdentity,
+} from '../../lib/research';
 
 function instrumentTicker(
   job: AnalysisJob,
@@ -64,9 +69,11 @@ function instrumentLogo(
   return job.display?.logo_url ?? identities[key]?.logo_url;
 }
 
-function statusVariant(status: AnalysisJob['status']) {
+function statusVariant(status: AnalysisDisplayStatus) {
   if (status === 'failed') return 'destructive';
-  if (status === 'running' || status === 'queued') return 'running';
+  if (status === 'running' || status === 'queued' || status === 'stopping') {
+    return 'running';
+  }
   if (status === 'succeeded') return 'up';
   return 'secondary';
 }
@@ -234,12 +241,17 @@ export function ReportsTable({
                       />
                       <span className="flex shrink-0 flex-col items-end gap-0.5">
                         <Badge
-                          variant={statusVariant(job.status)}
+                          variant={statusVariant(
+                            displayAnalysisStatus(job) ?? job.status,
+                          )}
                           className="h-5 px-1.5 text-[10px]"
                         >
-                          {t(`common:status.${job.status}`, {
-                            defaultValue: job.status,
-                          })}
+                          {t(
+                            `common:status.${displayAnalysisStatus(job) ?? job.status}`,
+                            {
+                              defaultValue: job.status,
+                            },
+                          )}
                         </Badge>
                         <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
                           {formatLocaleDateTime(
@@ -364,12 +376,17 @@ export function ReportsTable({
                   >
                     <TableCell className="w-[8rem] pl-5 lg:pl-6">
                       <Badge
-                        variant={statusVariant(job.status)}
+                        variant={statusVariant(
+                          displayAnalysisStatus(job) ?? job.status,
+                        )}
                         className="w-fit"
                       >
-                        {t(`common:status.${job.status}`, {
-                          defaultValue: job.status,
-                        })}
+                        {t(
+                          `common:status.${displayAnalysisStatus(job) ?? job.status}`,
+                          {
+                            defaultValue: job.status,
+                          },
+                        )}
                       </Badge>
                     </TableCell>
                     <TableCell className="min-w-0 pl-2">

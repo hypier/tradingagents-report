@@ -437,6 +437,66 @@ def test_mark_failed_returns_false_when_job_is_already_terminal(monkeypatch):
     )
 
 
+def test_cancel_job_appends_stop_requested_event_for_running_job(monkeypatch):
+    executed = []
+
+    class Cursor:
+        def __init__(self, rowcount):
+            self.rowcount = rowcount
+
+    class Connection:
+        def execute(self, sql, params=()):
+            executed.append((sql, params))
+            if "status = 'queued'" in sql:
+                return Cursor(0)
+            return Cursor(1)
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    monkeypatch.setattr(analysis_jobs.database, "connect", connect)
+
+    assert analysis_jobs.cancel_job("job-id") == "cancel_requested"
+    running_sql, running_params = executed[1]
+    event_payload = running_params[0].obj
+    assert event_payload[0]["message"] == "Stop requested"
+    assert "current_step = CASE" in running_sql
+    assert running_params[1] == "job-id"
+
+
+def test_cancel_job_appends_cancelled_event_for_queued_job(monkeypatch):
+    executed = []
+
+    class Cursor:
+        rowcount = 1
+
+        def fetchone(self):
+            return None
+
+    class Connection:
+        def execute(self, sql, params=()):
+            executed.append((sql, params))
+            return Cursor()
+
+    @contextmanager
+    def connect():
+        yield Connection()
+
+    monkeypatch.setattr(analysis_jobs.database, "connect", connect)
+    monkeypatch.setattr(
+        analysis_jobs,
+        "_settle_analysis_credits",
+        lambda *_args, **_kwargs: None,
+    )
+
+    assert analysis_jobs.cancel_job("job-id") == "cancelled"
+    queued_sql, queued_params = executed[0]
+    event_payload = queued_params[0].obj
+    assert event_payload[0]["message"] == "Cancelled"
+    assert "status = 'queued'" in queued_sql
+
+
 class _SettlementCursor:
     def __init__(self, row=None):
         self.row = row

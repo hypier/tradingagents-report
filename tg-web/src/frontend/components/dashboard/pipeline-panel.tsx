@@ -29,7 +29,13 @@ import { getStageIcon } from '../icons/research-icons';
 import { formatLocaleTime } from '@/frontend/lib/format-locale';
 import { localizeProgressMessage } from '@/frontend/lib/localize-progress-message';
 import { cn } from '@/frontend/lib/utils';
-import type { AnalysisEvent, AnalysisJob } from '../../lib/research';
+import {
+  displayAnalysisStatus,
+  isCancelledAnalysis,
+  type AnalysisDisplayStatus,
+  type AnalysisEvent,
+  type AnalysisJob,
+} from '../../lib/research';
 
 const analystStages = ['market', 'fundamentals', 'news', 'social'];
 const finalStages = [
@@ -53,9 +59,11 @@ function stageFromProgressMessage(value?: string | null) {
   return undefined;
 }
 
-function jobStatusVariant(status?: AnalysisJob['status']) {
+function jobStatusVariant(status?: AnalysisDisplayStatus) {
   if (status === 'failed') return 'destructive';
-  if (status === 'running' || status === 'queued') return 'running';
+  if (status === 'running' || status === 'queued' || status === 'stopping') {
+    return 'running';
+  }
   if (status === 'succeeded') return 'up';
   return 'secondary';
 }
@@ -115,8 +123,9 @@ export function PipelinePanel({
     return t('pipeline.pending');
   }
 
-  const jobStatus = job?.status
-    ? t(`common:status.${job.status}`, { defaultValue: job.status })
+  const displayStatus = displayAnalysisStatus(job, { stopping });
+  const jobStatus = displayStatus
+    ? t(`common:status.${displayStatus}`, { defaultValue: displayStatus })
     : t('common:status.idle');
   const isLive = job?.status === 'running' || job?.status === 'queued';
   const canStop =
@@ -126,11 +135,34 @@ export function PipelinePanel({
     job.id !== 'pending-submit';
   const isFinished =
     job?.status === 'succeeded' || job?.status === 'failed';
+  const cancelled = isCancelledAnalysis(job);
   const showResultActions =
     isFinished &&
     Boolean(onAnalyzeAgain) &&
     Boolean(job?.id) &&
     job.id !== 'pending-submit';
+  const timelineEvents = (() => {
+    const list = [...(events ?? [])];
+    const hasStopRequested = list.some(
+      (event) => event.message === 'Stop requested',
+    );
+    const hasCancelled = list.some((event) => event.message === 'Cancelled');
+    if (stopping && !cancelled && !hasStopRequested) {
+      list.push({
+        kind: 'stage',
+        message: 'Stop requested',
+        time: new Date().toISOString(),
+      });
+    }
+    if (cancelled && !hasCancelled) {
+      list.push({
+        kind: 'stage',
+        message: 'Cancelled',
+        time: job?.finished_at ?? new Date().toISOString(),
+      });
+    }
+    return list;
+  })();
 
   if (variant === 'rail') {
     return (
@@ -145,7 +177,7 @@ export function PipelinePanel({
             />
             {t('pipeline.eyebrow')}
           </p>
-          <Badge variant={jobStatusVariant(job?.status)} className="font-mono">
+          <Badge variant={jobStatusVariant(displayStatus)} className="font-mono">
             {jobStatus}
           </Badge>
         </div>
@@ -263,7 +295,7 @@ export function PipelinePanel({
             </div>
           </div>
           <Badge
-            variant={jobStatusVariant(job?.status)}
+            variant={jobStatusVariant(displayStatus)}
             className="shrink-0 font-mono"
           >
             {jobStatus}
@@ -289,7 +321,14 @@ export function PipelinePanel({
                     {t('pipeline.currentStage')}
                   </p>
                   <p className="mt-1 truncate text-base font-medium">
-                    {displayStage(activeStage ?? job?.current_step)}
+                    {displayStage(
+                      stopping && !cancelled
+                        ? (job?.current_step === 'Stopping' ||
+                          job?.current_step === 'Stop requested'
+                            ? job.current_step
+                            : 'Stopping')
+                        : (activeStage ?? job?.current_step),
+                    )}
                   </p>
                 </div>
               </div>
@@ -397,10 +436,10 @@ export function PipelinePanel({
                 <Skeleton className="h-3 w-full" />
                 <Skeleton className="h-3 w-3/4" />
               </div>
-            ) : events?.length ? (
+            ) : timelineEvents.length ? (
               <ScrollArea className="h-[11rem]">
                 <ol className="flex flex-col gap-2 px-3 py-2.5">
-                  {[...events].reverse().map((event, index) => (
+                  {[...timelineEvents].reverse().map((event, index) => (
                     <li
                       key={`${event.time ?? 'event'}-${index}`}
                       className="flex items-baseline gap-2.5 text-xs leading-5 text-muted-foreground"
@@ -506,12 +545,16 @@ export function PipelinePanel({
             <p className="text-sm font-semibold tracking-tight">
               {job?.status === 'succeeded'
                 ? t('pipeline.resultSucceededTitle')
-                : t('pipeline.resultFailedTitle')}
+                : cancelled
+                  ? t('pipeline.resultCancelledTitle')
+                  : t('pipeline.resultFailedTitle')}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {job?.status === 'succeeded'
                 ? t('pipeline.resultSucceededBody')
-                : t('pipeline.resultFailedBody')}
+                : cancelled
+                  ? t('pipeline.resultCancelledBody')
+                  : t('pipeline.resultFailedBody')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">

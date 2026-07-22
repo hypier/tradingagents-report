@@ -95,8 +95,10 @@
     "idle": "空闲",
     "queued": "排队中",
     "running": "运行中",
+    "stopping": "停止中",
     "succeeded": "已完成",
     "failed": "失败",
+    "cancelled": "已取消",
     "all": "全部状态"
   },
   "decisions": {

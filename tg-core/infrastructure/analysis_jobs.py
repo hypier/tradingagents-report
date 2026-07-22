@@ -241,13 +241,20 @@ def mark_failed(
     usage = token_usage or {}
     user_cancelled = error.startswith("Cancelled")
     current_step = "Cancelled" if user_cancelled else "Failed"
+    terminal_event = _timeline_event(
+        progress_percent=None,
+        message=current_step,
+        kind="stage",
+    )
     with database.connect() as conn:
         cursor = conn.execute(
             """
             UPDATE analysis_jobs
             SET status = 'failed', error = %s, tokens_used = %s,
                 token_usage = %s, cost_usd = %s, cost_breakdown = %s,
-                current_step = %s, finished_at = now(), updated_at = now()
+                current_step = %s,
+                events = COALESCE(events, '[]'::jsonb) || %s::jsonb,
+                finished_at = now(), updated_at = now()
             WHERE id = %s AND status = 'running'
             """,
             (
@@ -257,6 +264,7 @@ def mark_failed(
                 cost_breakdown["total_cost_usd"],
                 Jsonb(cost_breakdown),
                 current_step,
+                Jsonb([terminal_event]),
                 job_id,
             ),
         )
@@ -281,6 +289,16 @@ def cancel_job(job_id: UUID | str) -> str | None:
     Returns ``cancelled``, ``cancel_requested``, or ``None`` when the job is
     already terminal / missing.
     """
+    cancelled_event = _timeline_event(
+        progress_percent=None,
+        message="Cancelled",
+        kind="stage",
+    )
+    stop_requested_event = _timeline_event(
+        progress_percent=None,
+        message="Stop requested",
+        kind="stage",
+    )
     with database.connect() as conn:
         cursor = conn.execute(
             """
@@ -288,11 +306,12 @@ def cancel_job(job_id: UUID | str) -> str | None:
             SET status = 'failed',
                 error = 'Cancelled by user',
                 current_step = 'Cancelled',
+                events = COALESCE(events, '[]'::jsonb) || %s::jsonb,
                 finished_at = now(),
                 updated_at = now()
             WHERE id = %s AND status = 'queued'
             """,
-            (job_id,),
+            (Jsonb([cancelled_event]), job_id),
         )
         if cursor.rowcount == 1:
             _settle_analysis_credits(
@@ -313,14 +332,40 @@ def cancel_job(job_id: UUID | str) -> str | None:
                     'true'::jsonb,
                     true
                 ),
+                current_step = CASE
+                    WHEN COALESCE(request->>'cancel_requested', 'false') = 'true'
+                        THEN current_step
+                    ELSE 'Stopping'
+                END,
+                events = CASE
+                    WHEN COALESCE(request->>'cancel_requested', 'false') = 'true'
+                        THEN COALESCE(events, '[]'::jsonb)
+                    ELSE COALESCE(events, '[]'::jsonb) || %s::jsonb
+                END,
                 updated_at = now()
             WHERE id = %s AND status = 'running'
             """,
-            (job_id,),
+            (Jsonb([stop_requested_event]), job_id),
         )
         if cursor.rowcount == 1:
             return "cancel_requested"
     return None
+
+
+def _timeline_event(
+    *,
+    message: str,
+    kind: str,
+    progress_percent: int | None = None,
+) -> dict:
+    event: dict = {
+        "time": datetime.now(timezone.utc).isoformat(),
+        "message": message,
+        "kind": kind,
+    }
+    if progress_percent is not None:
+        event["progress_percent"] = progress_percent
+    return event
 
 
 def is_cancel_requested(job_id: UUID | str) -> bool:

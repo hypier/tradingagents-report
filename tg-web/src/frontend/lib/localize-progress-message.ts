@@ -49,6 +49,15 @@ export function localizeProgressMessage(
   if (message === 'Failed') {
     return t('home:pipeline.events.jobFailed');
   }
+  if (message === 'Stop requested') {
+    return t('home:pipeline.events.stopRequested');
+  }
+  if (message === 'Stopping') {
+    return t('home:pipeline.events.stopping');
+  }
+  if (message === 'Cancelled') {
+    return t('home:pipeline.events.jobCancelled');
+  }
 
   const researchDebate = message.match(RESEARCH_DEBATE_RE);
   if (researchDebate) {

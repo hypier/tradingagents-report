@@ -26,6 +26,40 @@ export type ResearchInput = {
 
 export type AnalysisStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
+/** Display-only status keys (includes cancelled mapped from failed + cancel error). */
+export type AnalysisDisplayStatus = AnalysisStatus | 'cancelled' | 'stopping';
+
+export function isCancelledAnalysis(job?: {
+  status?: AnalysisStatus | null;
+  error?: string | null;
+  current_step?: string | null;
+} | null): boolean {
+  if (!job || job.status !== 'failed') return false;
+  const error = job.error?.trim() ?? '';
+  const step = job.current_step?.trim() ?? '';
+  return (
+    error.startsWith('Cancelled') ||
+    step === 'Cancelled' ||
+    step.toLowerCase() === 'cancelled'
+  );
+}
+
+export function displayAnalysisStatus(
+  job?: {
+    status?: AnalysisStatus | null;
+    error?: string | null;
+    current_step?: string | null;
+  } | null,
+  options?: { stopping?: boolean },
+): AnalysisDisplayStatus | undefined {
+  if (!job?.status) return undefined;
+  if (options?.stopping && (job.status === 'queued' || job.status === 'running')) {
+    return 'stopping';
+  }
+  if (isCancelledAnalysis(job)) return 'cancelled';
+  return job.status;
+}
+
 export type InstrumentDisplay = {
   display_name?: string;
   english_name?: string;

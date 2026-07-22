@@ -95,8 +95,10 @@
     "idle": "Idle",
     "queued": "Queued",
     "running": "Running",
+    "stopping": "Stopping",
     "succeeded": "Succeeded",
     "failed": "Failed",
+    "cancelled": "Cancelled",
     "all": "All statuses"
   },
   "decisions": {

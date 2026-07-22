@@ -38,6 +38,15 @@ it('localizes Core tool-call and stage progress messages', () => {
   );
 });
 
+it('localizes stop and cancel progress messages', () => {
+  const t = i18n.t.bind(i18n);
+  expect(localizeProgressMessage('Stop requested', t)).toBe(
+    '已请求停止，将在下一个安全检查点结束',
+  );
+  expect(localizeProgressMessage('Stopping', t)).toBe('停止中');
+  expect(localizeProgressMessage('Cancelled', t)).toBe('已取消');
+});
+
 it('keeps unknown messages unchanged', () => {
   const t = i18n.t.bind(i18n);
   expect(localizeProgressMessage('Custom backend note', t)).toBe(
