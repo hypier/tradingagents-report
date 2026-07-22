@@ -98,14 +98,14 @@ One cool carbon-neutral system. Do not mix warm cream with cool slate.
 
 Density 8 mandate: **all numbers are monospace** — prices, percents, credits, timestamps, IDs, quantities.
 
-- **Display / UI headings:** `Inter` (Latin) + `Noto Sans SC` (CJK) — track-tight (`-0.02em`), weight 600–700. In-app page titles ~`18–22px`. Hierarchy via weight and color.
-- **Body / UI:** stack `Inter Variable` → `Noto Sans SC`, weight **300 (Light)** default — root / body **`14px`**, leading `1.45–1.55`. Emphasized UI uses 400–500; titles 600–700. Prose blocks max ~65ch. Latin glyphs from Inter; Simplified Chinese falls through to Noto Sans SC.
-- **Mono:** `Noto Sans Mono` — tabular figures. Tables `11–13px`; hero quote price ~`22–28px`.
+- **Display / UI headings:** system UI stack — track-tight (`-0.02em`), weight 600–700. In-app page titles ~`18–22px`. Hierarchy via weight and color.
+- **Body / UI:** system stack (`system-ui` → `-apple-system` / `Segoe UI` → `PingFang SC` / `Microsoft YaHei`), weight **400 (Regular)** default — root / body **`14px`**, leading `1.45–1.55`. Emphasized UI uses 500; titles 600–700. Prose blocks max ~65ch. macOS CJK uses PingFang; Windows uses YaHei.
+- **Mono:** system mono (`ui-monospace` → `SF Mono` / Menlo / Consolas) — tabular figures. Tables `11–13px`; hero quote price ~`22–28px`.
 - **Report long-form:** same sans stack, `1.0625rem`, leading `1.65–1.7` on Cool Paper. Section titles weight 600. No prestige serif.
 
 ### Type behaviors
 
-- **Instrument identity (lists, quote, headers):** company **name on top** (sans, medium/semibold); **ticker code below** (Noto Sans Mono, Dim Meta, tracking `0.04em`). Never ticker-above-name. If name is missing, ticker occupies the primary line only.
+- **Instrument identity (lists, quote, headers):** company **name on top** (sans, medium/semibold); **ticker code below** (system mono, Dim Meta, tracking `0.04em`). Never ticker-above-name. If name is missing, ticker occupies the primary line only.
 - Tickers: mono, slight tracking (`0.04em`); pair with exchange badge in headers / quote chrome — not as a substitute for the name row
 - Moves: mono + Rise/Fall + explicit sign (`+1.24%` / `-0.86%`) — no fake `99.99%`
 - Credits: mono numerals + Dim Meta label; low balance → Amber Wash chip + Signal Amber text
@@ -162,8 +162,8 @@ Canonical pattern for report library, tasks, admin ledgers, LLM providers/models
 | **Horizontal inset** | First column `pl-5 lg:pl-6`; last column `pr-5 lg:pr-6` — align with PageHeader padding. Interior columns use default head/cell padding. |
 | **Header row** | `TableRow` with `hover:bg-transparent`. Heads: medium weight, no hover wash. Prefer Dim Meta for secondary column labels when the page has many columns. |
 | **Body rows** | Row height ~40–44px feel (`TableHead` `h-10`, cells `p-2`+). Single Wire Edge `border-b` between rows; last row may drop bottom border via `TableBody` default. Hover: muted wash only — never scale or glow. |
-| **Primary identity cell** | **Name on top** (sans, medium/semibold) + **code / id below** (Noto Sans Mono, Dim Meta, slight tracking). Same stack as instrument rows. |
-| **Numeric / secret / URL cells** | Noto Sans Mono + `tabular-nums` where appropriate. Truncate long URLs with `max-w-*` + `truncate`. Masked secrets stay mono. |
+| **Primary identity cell** | **Name on top** (sans, medium/semibold) + **code / id below** (system mono, Dim Meta, slight tracking). Same stack as instrument rows. |
+| **Numeric / secret / URL cells** | System mono + `tabular-nums` where appropriate. Truncate long URLs with `max-w-*` + `truncate`. Masked secrets stay mono. |
 | **Status** | Compact rectangular Badge (`secondary` = on / open, `outline` = off / closed). Rise/Fall badges only for market data — not for admin enable flags. |
 | **Row actions** | End-aligned outline `sm` buttons in the last cell; Destructive for delete. Prefer dialogs for create/edit — do not stack edit forms under the table on the same page. |
 | **Empty** | One muted cell spanning columns, or Empty chrome in padded body — factual copy + one CTA. |
@@ -342,8 +342,8 @@ Glance test: *With logo removed, does this still read as equity research softwar
 | Fall | `#F43F5E` | Negative data |
 | Report bg | `#EEF2F6` | Long-form reading |
 | Radius | `0` | Rectangular controls / panels |
-| Font UI | Inter + Noto Sans SC | Latin Inter Variable; CJK Noto Sans SC Light |
-| Font Data | Noto Sans Mono | All numbers, tickers, credits |
+| Font UI | System UI stack | system-ui / PingFang SC / YaHei |
+| Font Data | System mono | All numbers, tickers, credits |
 | Logo (row) | `28×28` square | Tasks, library, desk rail |
 | Control h | `44px` (`h-11`) | Input / select / date |
 | Page title | `text-xl` / 600 | Ruled PageHeader only |
