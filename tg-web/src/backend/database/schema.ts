@@ -147,114 +147,7 @@ export const creditAccounts = pgTable('credit_accounts', {
     .defaultNow(),
 });
 
-/** Product-wide points-per-USD pricing configuration. */
-export const creditBillingSettings = pgTable('credit_billing_settings', {
-  id: text('id').primaryKey().default('default'),
-  pointsPerUsd: numeric('points_per_usd', { precision: 18, scale: 6 })
-    .notNull()
-    .default('100'),
-  markupBasisPoints: integer('markup_basis_points').notNull().default(1000),
-  reserveBufferBasisPoints: integer('reserve_buffer_basis_points')
-    .notNull()
-    .default(2000),
-  defaultEstimatedCostUsd: numeric('default_estimated_cost_usd', {
-    precision: 18,
-    scale: 8,
-  })
-    .notNull()
-    .default('1.00000000'),
-  signupGrantUsd: numeric('signup_grant_usd', { precision: 18, scale: 2 })
-    .notNull()
-    .default('5.00'),
-  referralRewardUsd: numeric('referral_reward_usd', {
-    precision: 18,
-    scale: 2,
-  })
-    .notNull()
-    .default('2.00'),
-  updatedByClerkUserId: text('updated_by_clerk_user_id'),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-/** Append-only audit snapshots for credit billing setting changes. */
-export const creditBillingSettingEvents = pgTable(
-  'credit_billing_setting_events',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    previousSettings: jsonb('previous_settings').$type<Record<
-      string,
-      unknown
-    > | null>(),
-    nextSettings: jsonb('next_settings')
-      .$type<Record<string, unknown>>()
-      .notNull(),
-    actorClerkUserId: text('actor_clerk_user_id').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-);
-
-/**
- * 单次分析请求的幂等积分预留。
- * 主键为客户端/API 的 `requestId`。
- */
-export const creditReservations = pgTable(
-  'credit_reservations',
-  {
-    /** 分析请求 ID；同时用于账本幂等键。 */
-    requestId: uuid('request_id').primaryKey(),
-    /** 发起预留的用户。 */
-    clerkUserId: text('clerk_user_id')
-      .notNull()
-      .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    /** Core 接受任务后关联的 `analysis_jobs.id`。 */
-    analysisJobId: uuid('analysis_job_id'),
-    /** 预留积分数（当前通常为 1）。 */
-    units: bigint('units', { mode: 'number' }).notNull(),
-    estimatedCostUsd: numeric('estimated_cost_usd', {
-      precision: 18,
-      scale: 8,
-    }),
-    pricingSnapshot: jsonb('pricing_snapshot').$type<Record<string, unknown>>(),
-    settledUnits: bigint('settled_units', { mode: 'number' }),
-    settledCostUsd: numeric('settled_cost_usd', { precision: 18, scale: 8 }),
-    /** reserved → consumed | released。 */
-    status: text('status')
-      .$type<'reserved' | 'consumed' | 'released'>()
-      .notNull(),
-    /** 释放/消费原因（可选，审计用）。 */
-    reason: text('reason'),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    /** 预留离开 `reserved` 状态的时间。 */
-    settledAt: timestamp('settled_at', { withTimezone: true }),
-  },
-  (table) => [
-    check('credit_reservations_units_check', sql`${table.units} > 0`),
-    uniqueIndex('credit_reservations_analysis_job_key')
-      .on(table.analysisJobId)
-      .where(sql`${table.analysisJobId} is not null`),
-    index('credit_reservations_user_created_idx').on(
-      table.clerkUserId,
-      desc(table.createdAt),
-    ),
-    index('credit_reservations_billing_signature_idx').on(
-      sql`(${table.pricingSnapshot}->>'billing_signature')`,
-    ),
-  ],
-);
-
-/** 追加写的积分变动流水（发放、预留、释放等）。 */
+/** 追加写的积分变动流水（发放、消费、调整等）。 */
 export const creditLedgerEntries = pgTable(
   'credit_ledger_entries',
   {
@@ -449,6 +342,10 @@ export const analysisJobs = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }),
     /** 任务到达终态的时间。 */
     finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** 产品侧任务所有者；CLI/无计费 job 为 null。 */
+    clerkUserId: text('clerk_user_id'),
+    /** 创建时冻结的计费快照（points_per_usd / markup_basis_points 等）。 */
+    creditPricing: jsonb('credit_pricing').$type<Record<string, unknown> | null>(),
   },
   (table) => [
     check(
@@ -464,6 +361,10 @@ export const analysisJobs = pgTable(
     ),
     index('analysis_jobs_status_created_idx').on(
       table.status,
+      desc(table.createdAt),
+    ),
+    index('analysis_jobs_user_created_idx').on(
+      table.clerkUserId,
       desc(table.createdAt),
     ),
   ],
@@ -601,29 +502,6 @@ export const marketConfigs = pgTable('market_configs', {
     .notNull()
     .defaultNow(),
 });
-
-/** 按市场 / 分析师数量解析分析额度消耗。 */
-export const creditRules = pgTable(
-  'credit_rules',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    label: text('label').notNull(),
-    /** null 表示匹配任意市场。 */
-    market: text('market'),
-    minAnalysts: integer('min_analysts').notNull().default(1),
-    maxAnalysts: integer('max_analysts').notNull().default(99),
-    units: integer('units').notNull(),
-    enabled: integer('enabled').notNull().default(1),
-    priority: integer('priority').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [index('credit_rules_priority_idx').on(table.priority)],
-);
 
 /** 管理员操作日志（追加写；供 /admin/audit 检索）。 */
 export const adminAuditEvents = pgTable(

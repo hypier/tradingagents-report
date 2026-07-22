@@ -75,7 +75,7 @@ describe('Node database', () => {
     });
   });
 
-  it('grants, reserves, and releases credits idempotently', async () => {
+  it('grants credits and gates analysis starts by balance threshold', async () => {
     await database.account.syncUser({
       id: 'user-1',
       displayName: 'Test User',
@@ -122,45 +122,46 @@ describe('Node database', () => {
       ledger: [{ entryType: 'grant', availableDelta: 5 }],
     });
 
-    await database.billing.updateCreditSettings({
+    await expect(
+      database.billing.estimateAnalysis({ clerkUserId: 'user-1' }),
+    ).resolves.toMatchObject({
+      analysisBalanceThreshold: 0,
+      availableCredits: 5,
+      canStart: true,
       pointsPerUsd: '100',
       markupBasisPoints: 1000,
-      reserveBufferBasisPoints: 2000,
-      defaultEstimatedCostUsd: '0.001',
-      signupGrantUsd: '5',
-      referralRewardUsd: '2',
+    });
+    await expect(
+      database.billing.assertCanStartAnalysis({ clerkUserId: 'user-1' }),
+    ).resolves.toMatchObject({
+      settings: {
+        analysisBalanceThreshold: 0,
+        pointsPerUsd: '100',
+        markupBasisPoints: 1000,
+      },
+      pricing: {
+        points_per_usd: '100',
+        markup_basis_points: 1000,
+        analysis_balance_threshold: 0,
+      },
+    });
+
+    await database.billing.updateBillingSettings({
+      analysisBalanceThreshold: 10,
+      pointsPerUsd: '100',
+      markupBasisPoints: 1000,
       actorClerkUserId: 'admin-1',
     });
-    const requestId = '00000000-0000-4000-8000-000000000020';
     await expect(
-      database.billing.reserveAnalysis({
-        clerkUserId: 'user-1',
-        requestId,
-        billingSignature: 'test-signature',
-      }),
-    ).resolves.toBe('created');
-    await expect(
-      database.billing.reserveAnalysis({
-        clerkUserId: 'user-1',
-        requestId,
-        billingSignature: 'test-signature',
-      }),
-    ).resolves.toBe('existing');
-    await expect(database.billing.getUsage('user-1')).resolves.toMatchObject({
-      availableCredits: 4,
-      reservedCredits: 1,
-    });
-    await database.billing.releaseAnalysis(requestId, 'test_failure');
-    await database.billing.releaseAnalysis(requestId, 'duplicate');
-    await expect(database.billing.getUsage('user-1')).resolves.toMatchObject({
+      database.billing.estimateAnalysis({ clerkUserId: 'user-1' }),
+    ).resolves.toMatchObject({
+      analysisBalanceThreshold: 10,
       availableCredits: 5,
-      reservedCredits: 0,
-      ledger: [
-        { entryType: 'release' },
-        { entryType: 'reserve' },
-        { entryType: 'grant' },
-      ],
+      canStart: false,
     });
+    await expect(
+      database.billing.assertCanStartAnalysis({ clerkUserId: 'user-1' }),
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_CREDITS' });
   });
 
   it('settles welcome and referral credits exactly once', async () => {

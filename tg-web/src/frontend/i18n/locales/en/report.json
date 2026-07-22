@@ -13,6 +13,7 @@
   "emptyBody": "This job does not have report content yet.",
   "tradeDate": "Analysis date · {{date}}",
   "creditCost": "Credits used · {{count}}",
+  "costUsd": "Cost · ${{amount}}",
   "metaCredits": "{{count}} credits",
   "moreActions": "More actions",
   "keyboardHint": "← → switch sections · ↑ ↓ scroll the report",

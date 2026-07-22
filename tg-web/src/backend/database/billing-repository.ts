@@ -1,17 +1,23 @@
 /**
  * 计费 / 积分领域持久化。
  *
- * 负责 Stripe Customer 关联、订阅镜像、分析积分预留/释放、账本读取，
- * 以及幂等的 webhook 落地。管理员 Stripe API 密钥由 `BillingConfigRepository` 管理。
+ * 负责 Stripe Customer 关联、订阅镜像、分析余额门槛、账本读取，
+ * 以及幂等的 webhook 落地。分析计费配置与奖励配置在 system_settings。
  */
-import { and, desc, eq, gt, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import type { StripeWebhookEvent } from '../billing/contract';
 import {
-  calculateReservedPoints,
-  discreteP90,
-} from '../billing/credit-pricing';
+  type AnalysisBillingSettings,
+  type CreditPricingSnapshot,
+  type RewardsSettings,
+  DEFAULT_BILLING_SETTINGS,
+  DEFAULT_REWARDS_SETTINGS,
+  parseBillingSettings,
+  parseRewardsSettings,
+  toCreditPricingSnapshot,
+} from '../../shared/product-credits';
 import * as schema from './schema';
 
 export type StripeWebhookEventRow =
@@ -35,35 +41,28 @@ export type CreditUsage = {
   ledger: Array<typeof schema.creditLedgerEntries.$inferSelect>;
 };
 
-export type CreditBillingSettings =
-  typeof schema.creditBillingSettings.$inferSelect;
-
 export type AnalysisCreditEstimate = {
-  estimatedCostUsd: string;
-  reservedPoints: number;
-  source: 'default' | 'history';
-  sampleCount: number;
+  analysisBalanceThreshold: number;
+  pointsPerUsd: string;
+  markupBasisPoints: number;
+  availableCredits: number;
+  canStart: boolean;
 };
 
 export interface BillingRepository {
-  /** 将 Stripe Customer ID 写入本地账户行。 */
   setStripeCustomerId(clerkUserId: string, customerId: string): Promise<void>;
-  /** 读取已关联的 Stripe Customer ID；尚未创建时为 null。 */
   getStripeCustomerId(clerkUserId: string): Promise<string | null>;
-  /** 积分余额、最新订阅镜像与近期账本行。 */
   getUsage(clerkUserId: string): Promise<CreditUsage>;
-  getCreditSettings(): Promise<CreditBillingSettings>;
-  updateCreditSettings(input: {
-    pointsPerUsd: string;
-    markupBasisPoints: number;
-    reserveBufferBasisPoints: number;
-    defaultEstimatedCostUsd: string;
-    signupGrantUsd: string;
-    referralRewardUsd: string;
-    actorClerkUserId: string;
-  }): Promise<CreditBillingSettings>;
+  getBillingSettings(): Promise<AnalysisBillingSettings>;
+  updateBillingSettings(
+    input: AnalysisBillingSettings & { actorClerkUserId: string },
+  ): Promise<AnalysisBillingSettings>;
+  getRewardsSettings(): Promise<RewardsSettings>;
+  updateRewardsSettings(
+    input: RewardsSettings & { actorClerkUserId: string },
+  ): Promise<RewardsSettings>;
   estimateAnalysis(input: {
-    billingSignature: string;
+    clerkUserId: string;
   }): Promise<AnalysisCreditEstimate>;
   getAvailableCredits(clerkUserIds: string[]): Promise<Record<string, number>>;
   adjustCredits(input: {
@@ -73,27 +72,14 @@ export interface BillingRepository {
     delta: number;
     reason?: string;
   }): Promise<number>;
-  /**
-   * 为分析请求预留积分（按 requestId 幂等）。
-   * 按 billing signature 估价预扣；可用积分不足时拒绝。
-   */
-  reserveAnalysis(input: {
+  assertCanStartAnalysis(input: {
     clerkUserId: string;
-    requestId: string;
-    billingSignature: string;
-  }): Promise<'created' | 'existing'>;
-  /** 提交成功后，将预留绑定到 Core 的 `analysis_jobs.id`。 */
-  attachAnalysis(requestId: string, analysisJobId: string): Promise<void>;
-  /** 释放仍处于 reserved 的预留，退回可用积分。 */
-  releaseAnalysis(requestId: string, reason: string): Promise<void>;
-  /**
-   * 在事务内应用规范化后的 Stripe webhook。
-   * 若事件已处理或已忽略则返回 false。
-   */
+  }): Promise<{
+    settings: AnalysisBillingSettings;
+    pricing: CreditPricingSnapshot;
+  }>;
   processStripeEvent(event: StripeWebhookEvent): Promise<boolean>;
-  /** 将 webhook 投递标记为失败，供后续排查/重试。 */
   recordStripeFailure(event: StripeWebhookEvent, error: unknown): Promise<void>;
-  /** 管理员检索本地 webhook 投递/处理日志（对账与异常排查）。 */
   listStripeWebhookEvents(input: {
     status?: StripeWebhookEventStatus;
     eventType?: string;
@@ -102,7 +88,6 @@ export interface BillingRepository {
     limit: number;
     offset: number;
   }): Promise<StripeWebhookEventRow[]>;
-  /** 按状态汇总周期内 webhook 处理结果。 */
   summarizeStripeWebhookEvents(input: {
     from?: Date;
     to?: Date;
@@ -169,43 +154,97 @@ export function createBillingRepository(database: Database): BillingRepository {
       };
     },
 
-    getCreditSettings() {
-      return ensureCreditSettings(database);
+    getBillingSettings() {
+      return loadBillingSettings(database);
     },
 
-    async updateCreditSettings(input) {
-      return database.transaction(async (tx) => {
-        await ensureCreditSettings(tx);
-        const [previous] = await tx
-          .select()
-          .from(schema.creditBillingSettings)
-          .where(eq(schema.creditBillingSettings.id, 'default'))
-          .for('update');
-        const [next] = await tx
-          .update(schema.creditBillingSettings)
-          .set({
-            pointsPerUsd: input.pointsPerUsd,
-            markupBasisPoints: input.markupBasisPoints,
-            reserveBufferBasisPoints: input.reserveBufferBasisPoints,
-            defaultEstimatedCostUsd: input.defaultEstimatedCostUsd,
-            signupGrantUsd: input.signupGrantUsd,
-            referralRewardUsd: input.referralRewardUsd,
-            updatedByClerkUserId: input.actorClerkUserId,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.creditBillingSettings.id, 'default'))
-          .returning();
-        await tx.insert(schema.creditBillingSettingEvents).values({
-          previousSettings: settingsSnapshot(previous),
-          nextSettings: settingsSnapshot(next!),
-          actorClerkUserId: input.actorClerkUserId,
-        });
-        return next!;
+    async updateBillingSettings(input) {
+      const next = parseBillingSettings({
+        analysisBalanceThreshold: input.analysisBalanceThreshold,
+        pointsPerUsd: input.pointsPerUsd,
+        markupBasisPoints: input.markupBasisPoints,
       });
+      await database
+        .insert(schema.systemSettings)
+        .values({
+          key: 'billing',
+          value: next,
+          updatedBy: input.actorClerkUserId,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.systemSettings.key,
+          set: {
+            value: next,
+            updatedBy: input.actorClerkUserId,
+            updatedAt: new Date(),
+          },
+        });
+      await database.insert(schema.adminAuditEvents).values({
+        actorClerkUserId: input.actorClerkUserId,
+        action: 'billing.settings.update',
+        targetType: 'system_settings',
+        targetId: 'billing',
+        metadata: next,
+      });
+      return next;
     },
 
-    estimateAnalysis(input) {
-      return estimateAnalysis(database, input.billingSignature);
+    getRewardsSettings() {
+      return loadRewardsSettings(database);
+    },
+
+    async updateRewardsSettings(input) {
+      const next = parseRewardsSettings({
+        signup: input.signup,
+        referral: input.referral,
+        campaign: input.campaign,
+      });
+      await database
+        .insert(schema.systemSettings)
+        .values({
+          key: 'rewards',
+          value: next,
+          updatedBy: input.actorClerkUserId,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.systemSettings.key,
+          set: {
+            value: next,
+            updatedBy: input.actorClerkUserId,
+            updatedAt: new Date(),
+          },
+        });
+      await database.insert(schema.adminAuditEvents).values({
+        actorClerkUserId: input.actorClerkUserId,
+        action: 'rewards.settings.update',
+        targetType: 'system_settings',
+        targetId: 'rewards',
+        metadata: next,
+      });
+      return next;
+    },
+
+    async estimateAnalysis(input) {
+      const [settings, usage] = await Promise.all([
+        loadBillingSettings(database),
+        database
+          .select({
+            availableCredits: schema.creditAccounts.availableCredits,
+          })
+          .from(schema.creditAccounts)
+          .where(eq(schema.creditAccounts.clerkUserId, input.clerkUserId))
+          .then((rows) => rows[0]),
+      ]);
+      const availableCredits = usage?.availableCredits ?? 0;
+      return {
+        analysisBalanceThreshold: settings.analysisBalanceThreshold,
+        pointsPerUsd: settings.pointsPerUsd,
+        markupBasisPoints: settings.markupBasisPoints,
+        availableCredits,
+        canStart: availableCredits > settings.analysisBalanceThreshold,
+      };
     },
 
     async getAvailableCredits(clerkUserIds) {
@@ -234,7 +273,7 @@ export function createBillingRepository(database: Database): BillingRepository {
             idempotencyKey,
             referenceType: 'admin_adjustment',
             referenceId: input.adjustmentId,
-            description: 'Administrator credit adjustment',
+            description: input.reason?.trim() || 'Admin credit adjustment',
             metadata: {
               actorClerkUserId: input.actorClerkUserId,
               reason: input.reason ?? null,
@@ -246,9 +285,7 @@ export function createBillingRepository(database: Database): BillingRepository {
           const [existing] = await tx
             .select()
             .from(schema.creditLedgerEntries)
-            .where(
-              eq(schema.creditLedgerEntries.idempotencyKey, idempotencyKey),
-            );
+            .where(eq(schema.creditLedgerEntries.idempotencyKey, idempotencyKey));
           if (
             existing?.clerkUserId !== input.clerkUserId ||
             existing.availableDelta !== input.delta
@@ -293,149 +330,25 @@ export function createBillingRepository(database: Database): BillingRepository {
       });
     },
 
-    async reserveAnalysis(input) {
-      return database.transaction(async (tx) => {
-        const settings = await ensureCreditSettings(tx);
-        const estimate = await estimateAnalysis(
-          tx,
-          input.billingSignature,
-          settings,
-        );
-        const [created] = await tx
-          .insert(schema.creditReservations)
-          .values({
-            requestId: input.requestId,
-            clerkUserId: input.clerkUserId,
-            units: estimate.reservedPoints,
-            estimatedCostUsd: estimate.estimatedCostUsd,
-            pricingSnapshot: {
-              points_per_usd: settings.pointsPerUsd,
-              markup_basis_points: settings.markupBasisPoints,
-              reserve_buffer_basis_points: settings.reserveBufferBasisPoints,
-              estimate_source: estimate.source,
-              sample_count: estimate.sampleCount,
-              billing_signature: input.billingSignature,
-            },
-            status: 'reserved',
-          })
-          .onConflictDoNothing()
-          .returning();
-        if (!created) {
-          const [existing] = await tx
-            .select()
-            .from(schema.creditReservations)
-            .where(eq(schema.creditReservations.requestId, input.requestId));
-          if (
-            existing?.clerkUserId === input.clerkUserId &&
-            existing.pricingSnapshot?.billing_signature ===
-              input.billingSignature &&
-            existing.status !== 'released'
-          ) {
-            return 'existing';
-          }
-          throw new BillingRepositoryError(
-            'IDEMPOTENCY_CONFLICT',
-            'The analysis request ID was already used',
-          );
-        }
-
-        const [account] = await tx
-          .update(schema.creditAccounts)
-          .set({
-            availableCredits: sql`${schema.creditAccounts.availableCredits} - ${estimate.reservedPoints}`,
-            reservedCredits: sql`${schema.creditAccounts.reservedCredits} + ${estimate.reservedPoints}`,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(schema.creditAccounts.clerkUserId, input.clerkUserId),
-              gte(
-                schema.creditAccounts.availableCredits,
-                estimate.reservedPoints,
-              ),
-            ),
-          )
-          .returning({ clerkUserId: schema.creditAccounts.clerkUserId });
-        if (!account) {
-          throw new BillingRepositoryError(
-            'INSUFFICIENT_CREDITS',
-            'There are not enough analysis credits available',
-          );
-        }
-        await tx.insert(schema.creditLedgerEntries).values({
-          clerkUserId: input.clerkUserId,
-          entryType: 'reserve',
-          availableDelta: -estimate.reservedPoints,
-          reservedDelta: estimate.reservedPoints,
-          idempotencyKey: `analysis:${input.requestId}:reserve`,
-          referenceType: 'analysis_request',
-          referenceId: input.requestId,
-          description: 'Analysis credit reserved',
-          metadata: {
-            estimatedCostUsd: estimate.estimatedCostUsd,
-            reservedPoints: estimate.reservedPoints,
-            source: estimate.source,
-            sampleCount: estimate.sampleCount,
-          },
-        });
-        return 'created';
-      });
-    },
-
-    async attachAnalysis(requestId, analysisJobId) {
-      const [reservation] = await database
-        .update(schema.creditReservations)
-        .set({ analysisJobId, updatedAt: new Date() })
-        .where(eq(schema.creditReservations.requestId, requestId))
-        .returning({ requestId: schema.creditReservations.requestId });
-      if (!reservation) {
+    async assertCanStartAnalysis(input) {
+      const settings = await loadBillingSettings(database);
+      const [account] = await database
+        .select({
+          availableCredits: schema.creditAccounts.availableCredits,
+        })
+        .from(schema.creditAccounts)
+        .where(eq(schema.creditAccounts.clerkUserId, input.clerkUserId));
+      const available = account?.availableCredits ?? 0;
+      if (!(available > settings.analysisBalanceThreshold)) {
         throw new BillingRepositoryError(
-          'RESERVATION_NOT_FOUND',
-          'Credit reservation not found',
+          'INSUFFICIENT_CREDITS',
+          'Available credits are not above the analysis balance threshold',
         );
       }
-    },
-
-    async releaseAnalysis(requestId, reason) {
-      await database.transaction(async (tx) => {
-        const [reservation] = await tx
-          .update(schema.creditReservations)
-          .set({
-            status: 'released',
-            reason,
-            settledAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(schema.creditReservations.requestId, requestId),
-              eq(schema.creditReservations.status, 'reserved'),
-            ),
-          )
-          .returning();
-        if (!reservation) return;
-        await tx
-          .update(schema.creditAccounts)
-          .set({
-            availableCredits: sql`${schema.creditAccounts.availableCredits} + ${reservation.units}`,
-            reservedCredits: sql`${schema.creditAccounts.reservedCredits} - ${reservation.units}`,
-            updatedAt: new Date(),
-          })
-          .where(
-            eq(schema.creditAccounts.clerkUserId, reservation.clerkUserId),
-          );
-        await tx.insert(schema.creditLedgerEntries).values({
-          clerkUserId: reservation.clerkUserId,
-          entryType: 'release',
-          availableDelta: reservation.units,
-          reservedDelta: -reservation.units,
-          idempotencyKey: `analysis:${requestId}:release`,
-          referenceType: 'analysis_request',
-          referenceId: requestId,
-          description: 'Analysis credit released',
-          metadata: { reason },
-        });
-      });
+      return {
+        settings,
+        pricing: toCreditPricingSnapshot(settings),
+      };
     },
 
     async processStripeEvent(event) {
@@ -632,6 +545,7 @@ export function createBillingRepository(database: Database): BillingRepository {
   };
 }
 
+
 /** 将 Stripe 的 unix 秒转为 Date；null 保持 null。 */
 function fromUnix(value: number | null): Date | null {
   return value === null ? null : new Date(value * 1000);
@@ -658,71 +572,36 @@ async function finishWebhook(
     .where(eq(schema.stripeWebhookEvents.stripeEventId, eventId));
 }
 
-async function ensureCreditSettings(
+async function loadBillingSettings(
   database: QueryDatabase,
-): Promise<CreditBillingSettings> {
-  const [created] = await database
-    .insert(schema.creditBillingSettings)
-    .values({ id: 'default' })
-    .onConflictDoNothing()
-    .returning();
-  if (created) return created;
-  const [settings] = await database
-    .select()
-    .from(schema.creditBillingSettings)
-    .where(eq(schema.creditBillingSettings.id, 'default'));
-  return settings!;
+): Promise<AnalysisBillingSettings> {
+  const [row] = await database
+    .select({ value: schema.systemSettings.value })
+    .from(schema.systemSettings)
+    .where(eq(schema.systemSettings.key, 'billing'));
+  if (!row) {
+    await database
+      .insert(schema.systemSettings)
+      .values({ key: 'billing', value: DEFAULT_BILLING_SETTINGS })
+      .onConflictDoNothing();
+    return DEFAULT_BILLING_SETTINGS;
+  }
+  return parseBillingSettings(row.value);
 }
 
-async function estimateAnalysis(
+async function loadRewardsSettings(
   database: QueryDatabase,
-  billingSignature: string,
-  currentSettings?: CreditBillingSettings,
-): Promise<AnalysisCreditEstimate> {
-  const settings = currentSettings ?? (await ensureCreditSettings(database));
-  const matchingCosts = await database
-    .select({
-      costUsd: schema.analysisJobs.costUsd,
-    })
-    .from(schema.creditReservations)
-    .innerJoin(
-      schema.analysisJobs,
-      eq(schema.creditReservations.analysisJobId, schema.analysisJobs.id),
-    )
-    .where(
-      and(
-        eq(schema.analysisJobs.status, 'succeeded'),
-        gt(schema.analysisJobs.costUsd, '0'),
-        sql`${schema.creditReservations.pricingSnapshot}->>'billing_signature' = ${billingSignature}`,
-      ),
-    )
-    .orderBy(desc(schema.analysisJobs.finishedAt))
-    .limit(100);
-  const historicalCost = discreteP90(matchingCosts.map((job) => job.costUsd));
-  const estimatedCostUsd = historicalCost ?? settings.defaultEstimatedCostUsd;
-  return {
-    estimatedCostUsd,
-    reservedPoints: calculateReservedPoints(estimatedCostUsd, {
-      pointsPerUsd: settings.pointsPerUsd,
-      markupBasisPoints: settings.markupBasisPoints,
-      reserveBufferBasisPoints: settings.reserveBufferBasisPoints,
-    }),
-    source: historicalCost === undefined ? 'default' : 'history',
-    sampleCount: matchingCosts.length,
-  };
-}
-
-function settingsSnapshot(
-  settings: CreditBillingSettings,
-): Record<string, unknown> {
-  return {
-    pointsPerUsd: settings.pointsPerUsd,
-    markupBasisPoints: settings.markupBasisPoints,
-    reserveBufferBasisPoints: settings.reserveBufferBasisPoints,
-    defaultEstimatedCostUsd: settings.defaultEstimatedCostUsd,
-    signupGrantUsd: settings.signupGrantUsd,
-    referralRewardUsd: settings.referralRewardUsd,
-    updatedByClerkUserId: settings.updatedByClerkUserId,
-    updatedAt: settings.updatedAt.toISOString(),
-  };
+): Promise<RewardsSettings> {
+  const [row] = await database
+    .select({ value: schema.systemSettings.value })
+    .from(schema.systemSettings)
+    .where(eq(schema.systemSettings.key, 'rewards'));
+  if (!row) {
+    await database
+      .insert(schema.systemSettings)
+      .values({ key: 'rewards', value: DEFAULT_REWARDS_SETTINGS })
+      .onConflictDoNothing();
+    return DEFAULT_REWARDS_SETTINGS;
+  }
+  return parseRewardsSettings(row.value);
 }

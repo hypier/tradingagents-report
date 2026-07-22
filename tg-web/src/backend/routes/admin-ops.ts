@@ -61,16 +61,6 @@ const marketUpsertSchema = z.object({
   sortOrder: z.number().int().min(0).max(10_000),
 });
 
-const creditRuleSchema = z.object({
-  label: z.string().trim().min(1).max(120),
-  market: z.string().trim().min(1).max(16).nullable(),
-  minAnalysts: z.number().int().min(1).max(20),
-  maxAnalysts: z.number().int().min(1).max(20),
-  units: z.number().int().min(0).max(100),
-  enabled: z.boolean(),
-  priority: z.number().int().min(0).max(10_000),
-});
-
 const auditQuerySchema = z.object({
   action: z.string().trim().min(1).max(100).optional(),
   actor: z.string().trim().min(1).optional(),
@@ -157,78 +147,6 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
       metadata: { enabled: Boolean(market.enabled) },
     });
     return context.json(apiSuccess(market, context.get('requestId')));
-  });
-
-  app.get('/admin/credit-rules', async (context) => {
-    return context.json(
-      apiSuccess(
-        await dependencies.database.creditRules.list(),
-        context.get('requestId'),
-      ),
-    );
-  });
-
-  app.post('/admin/credit-rules', async (context) => {
-    const input = creditRuleSchema.safeParse(
-      await context.req.json().catch(() => null),
-    );
-    if (!input.success) {
-      throw new AppError('INVALID_REQUEST', 400, 'Invalid credit rule');
-    }
-    if (input.data.minAnalysts > input.data.maxAnalysts) {
-      throw new AppError(
-        'INVALID_REQUEST',
-        400,
-        'minAnalysts cannot exceed maxAnalysts',
-      );
-    }
-    const rule = await dependencies.database.creditRules.create(input.data);
-    await dependencies.database.audit.record({
-      actorClerkUserId: context.get('auth').userId,
-      action: 'credit_rules.create',
-      targetType: 'credit_rule',
-      targetId: rule.id,
-      metadata: { units: rule.units, market: rule.market },
-    });
-    return context.json(apiSuccess(rule, context.get('requestId')), 201);
-  });
-
-  app.patch('/admin/credit-rules/:id', async (context) => {
-    const input = creditRuleSchema.partial().safeParse(
-      await context.req.json().catch(() => null),
-    );
-    if (!input.success) {
-      throw new AppError('INVALID_REQUEST', 400, 'Invalid credit rule patch');
-    }
-    const rule = await dependencies.database.creditRules.update(
-      context.req.param('id'),
-      input.data,
-    );
-    if (!rule) {
-      throw new AppError('NOT_FOUND', 404, 'Credit rule not found');
-    }
-    await dependencies.database.audit.record({
-      actorClerkUserId: context.get('auth').userId,
-      action: 'credit_rules.update',
-      targetType: 'credit_rule',
-      targetId: rule.id,
-    });
-    return context.json(apiSuccess(rule, context.get('requestId')));
-  });
-
-  app.delete('/admin/credit-rules/:id', async (context) => {
-    const id = context.req.param('id');
-    const deleted = await dependencies.database.creditRules.delete(id);
-    if (!deleted) {
-      throw new AppError('NOT_FOUND', 404, 'Credit rule not found');
-    }
-    await dependencies.database.audit.record({
-      actorClerkUserId: context.get('auth').userId,
-      action: 'credit_rules.delete',
-      targetType: 'credit_rule',
-      targetId: id,
-    });
-    return context.json(apiSuccess({ id }, context.get('requestId')));
   });
 
   app.get('/admin/datasources', async (context) => {

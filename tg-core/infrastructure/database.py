@@ -9,12 +9,10 @@ from psycopg.rows import dict_row
 
 DATABASE_URL_ENV_VAR = "TRADINGAGENTS_DATABASE_URL"
 ANALYSIS_LOCK_KEY = 8_724_631_904
-_REQUIRED_TABLES = ("analysis_jobs", "llm_providers", "llm_models")
-_REQUIRED_CREDIT_RESERVATION_COLUMNS = (
-    "estimated_cost_usd",
-    "pricing_snapshot",
-    "settled_units",
-    "settled_cost_usd",
+_REQUIRED_TABLES = ("analysis_jobs", "llm_providers", "llm_models", "credit_accounts")
+_REQUIRED_ANALYSIS_JOB_COLUMNS = (
+    "clerk_user_id",
+    "credit_pricing",
 )
 
 
@@ -46,16 +44,16 @@ def require_schema() -> None:
             SELECT COUNT(*)::int AS n
             FROM information_schema.columns
             WHERE table_schema = 'public'
-              AND table_name = 'credit_reservations'
+              AND table_name = 'analysis_jobs'
               AND column_name = ANY(%s)
             """,
-            (list(_REQUIRED_CREDIT_RESERVATION_COLUMNS),),
+            (list(_REQUIRED_ANALYSIS_JOB_COLUMNS),),
         ).fetchone()
     found = int((row or {}).get("n") or 0)
     found_columns = int((column_row or {}).get("n") or 0)
     if (
         found < len(_REQUIRED_TABLES)
-        or found_columns < len(_REQUIRED_CREDIT_RESERVATION_COLUMNS)
+        or found_columns < len(_REQUIRED_ANALYSIS_JOB_COLUMNS)
     ):
         raise RuntimeError(
             "PostgreSQL schema is missing required tables. "

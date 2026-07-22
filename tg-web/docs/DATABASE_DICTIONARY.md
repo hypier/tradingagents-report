@@ -6,18 +6,18 @@
 
 ## 1. 概述
 
-本库共 18 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。支付由 Stripe 托管，本库保存订阅镜像、积分账本与 webhook 幂等日志。
+本库共 14 张表，承载 TG-web 产品侧持久化，并与 tg-core 共享 `analysis_jobs` 分析任务表。身份认证由 Clerk 托管，本库只保存本地用户资料与业务数据。支付由 Stripe 托管，本库保存订阅镜像、积分账本与 webhook 幂等日志。分析计费配置与奖励配置分别保存在 `system_settings` 的 `billing` / `rewards` 键中；不再使用预扣表或独立计费配置表。
 
 ### 1.1 域划分
 
 | 域 | 物理表 | 说明 |
 | --- | --- | --- |
 | 账户 | `account_users` | Clerk 同步资料、偏好与推荐关系（`referred_by_clerk_user_id`） |
-| 计费 / 积分 | `billing_subscriptions`, `credit_accounts`, `credit_billing_settings`, `credit_billing_setting_events`, `credit_reservations`, `credit_ledger_entries`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events`, `credit_rules` | Stripe 订阅、积分钱包、预留结算、推荐奖励流水、计费配置 |
-| 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化 |
+| 计费 / 积分 | `billing_subscriptions`, `credit_accounts`, `credit_ledger_entries`, `stripe_webhook_events`, `billing_provider_configs`, `billing_config_audit_events` | Stripe 订阅、积分钱包与账本；分析门槛/汇率见 `system_settings.billing` |
+| 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化（含 `clerk_user_id` / `credit_pricing`） |
 | LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
 | 自选股 | `watchlist_items` | 每用户收藏的标的 |
-| 系统设置 / 市场 / 操作日志 | `system_settings`, `market_configs`, `admin_audit_events` | 系统设置、可运营市场配置、管理员操作日志 |
+| 系统设置 / 市场 / 操作日志 | `system_settings`, `market_configs`, `admin_audit_events` | 含 `billing`/`rewards`、市场配置、管理员操作日志 |
 
 ### 1.2 约定
 
@@ -40,12 +40,10 @@
 erDiagram
     account_users ||--o{ billing_subscriptions : has
     account_users ||--|| credit_accounts : owns
-    account_users ||--o{ credit_reservations : reserves
     account_users ||--o{ credit_ledger_entries : ledger
     account_users ||--o{ account_users : "referred_by"
     account_users ||--o{ watchlist_items : owns
-
-    credit_reservations }o--o| analysis_jobs : settles
+    account_users ||--o{ analysis_jobs : owns
 
     llm_providers ||--o{ llm_models : catalogs
     account_users {
@@ -60,9 +58,11 @@ erDiagram
     analysis_jobs {
         uuid id PK
         uuid request_id UK
+        text clerk_user_id
         text ticker
         text status
         numeric cost_usd
+        jsonb credit_pricing
     }
 
     credit_accounts {
@@ -116,10 +116,9 @@ erDiagram
 erDiagram
     account_users ||--o{ billing_subscriptions : subscriptions
     account_users ||--|| credit_accounts : wallet
-    account_users ||--o{ credit_reservations : reservations
     account_users ||--o{ credit_ledger_entries : entries
     account_users ||--o{ account_users : "referred_by"
-    credit_reservations }o--o| analysis_jobs : "analysis_job_id (logical)"
+    account_users ||--o{ analysis_jobs : owns
 
     billing_subscriptions {
         text stripe_subscription_id PK
@@ -138,15 +137,6 @@ erDiagram
         bigint spent_credits
     }
 
-    credit_reservations {
-        uuid request_id PK
-        text clerk_user_id FK
-        uuid analysis_job_id UK_null
-        bigint units
-        text status
-        timestamptz settled_at
-    }
-
     credit_ledger_entries {
         uuid id PK
         text clerk_user_id FK
@@ -157,21 +147,12 @@ erDiagram
         text reference_id
     }
 
-    credit_billing_settings {
-        text id PK
-        numeric points_per_usd
-        int markup_basis_points
-        numeric signup_grant_usd
-        numeric referral_reward_usd
-    }
-
-    credit_rules {
+    analysis_jobs {
         uuid id PK
-        text market
-        int min_analysts
-        int max_analysts
-        int units
-        int priority
+        text clerk_user_id
+        jsonb credit_pricing
+        numeric cost_usd
+        text status
     }
 ```
 
@@ -182,11 +163,13 @@ erDiagram
     analysis_jobs {
         uuid id PK
         uuid request_id UK_null
+        text clerk_user_id
         text ticker
         date trade_date
         text status
         jsonb request
         jsonb config
+        jsonb credit_pricing
         text decision
         numeric cost_usd
         int progress_percent
@@ -273,14 +256,6 @@ erDiagram
         timestamptz created_at
     }
 
-    credit_billing_setting_events {
-        uuid id PK
-        jsonb previous_settings
-        jsonb next_settings
-        text actor_clerk_user_id
-        timestamptz created_at
-    }
-
     system_settings {
         text key PK
         jsonb value
@@ -319,10 +294,7 @@ flowchart TB
     subgraph Billing["计费 / 积分"]
         BS[billing_subscriptions]
         CA[credit_accounts]
-        CR[credit_reservations]
         CL[credit_ledger_entries]
-        CBS[credit_billing_settings]
-        CRules[credit_rules]
         SWE[stripe_webhook_events]
         BPC[billing_provider_configs]
     end
@@ -348,7 +320,8 @@ flowchart TB
 
     PU --> Billing
     PU --> Watchlist
-    CR -.->|analysis_job_id| AJ
+    PU -->|clerk_user_id| AJ
+    PS -.->|billing / rewards| Billing
     LP --> LM
 ```
 
@@ -432,97 +405,32 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ### 3.3 `credit_accounts`
 
-每用户分析积分余额（可用 / 预留 / 已消费）。
+每用户分析积分余额（可用 / 预留遗留列 / 已消费）。提交分析不再预扣；`reserved_credits` 保留列但新路径不再写入。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `clerk_user_id` | `text` | N | — | **PK / FK → account_users**（CASCADE）。每用户一个积分钱包 |
-| `available_credits` | `bigint` | N | `0` | 可预留给新分析的积分 |
-| `reserved_credits` | `bigint` | N | `0` | 进行中分析预留占用的积分 |
-| `spent_credits` | `bigint` | N | `0` | 已完成分析永久扣减的积分 |
+| `available_credits` | `bigint` | N | `0` | 可用积分；结算可打成负值，门槛只挡新发起 |
+| `reserved_credits` | `bigint` | N | `0` | 历史预留列；新计费路径保持 0 |
+| `spent_credits` | `bigint` | N | `0` | 已完成/用户取消分析永久扣减的积分 |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 
 ---
 
-### 3.4 `credit_billing_settings`
+### 3.4 `credit_ledger_entries`
 
-产品级「积分 / 美元」定价配置（单行配置表，默认 `id = 'default'`）。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `id` | `text` | N | `'default'` | **PK** |
-| `points_per_usd` | `numeric(18,6)` | N | `100` | 每美元对应积分数 |
-| `markup_basis_points` | `integer` | N | `1000` | 加价率（基点，1000 = 10%） |
-| `reserve_buffer_basis_points` | `integer` | N | `2000` | 预留缓冲（基点） |
-| `default_estimated_cost_usd` | `numeric(18,8)` | N | `1.00000000` | 默认预估成本（美元） |
-| `signup_grant_usd` | `numeric(18,2)` | N | `5.00` | 注册赠送对应的美元额度 |
-| `referral_reward_usd` | `numeric(18,2)` | N | `2.00` | 推荐奖励对应的美元额度 |
-| `updated_by_clerk_user_id` | `text` | Y | — | 最近修改人 |
-| `created_at` | `timestamptz` | N | `now()` | 创建时间 |
-| `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
-
----
-
-### 3.5 `credit_billing_setting_events`
-
-积分计费设置变更的追加写审计快照。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `id` | `uuid` | N | `gen_random_uuid()` | **PK** |
-| `previous_settings` | `jsonb` | Y | — | 变更前快照；首次可为 null |
-| `next_settings` | `jsonb` | N | — | 变更后快照 |
-| `actor_clerk_user_id` | `text` | N | — | 操作者 Clerk 用户 ID |
-| `created_at` | `timestamptz` | N | `now()` | 事件时间 |
-
----
-
-### 3.6 `credit_reservations`
-
-单次分析请求的幂等积分预留。主键为客户端/API 的 `request_id`。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `request_id` | `uuid` | N | — | **PK**。分析请求 ID；同时用于账本幂等键 |
-| `clerk_user_id` | `text` | N | — | **FK → account_users**（CASCADE） |
-| `analysis_job_id` | `uuid` | Y | — | Core 接受任务后关联的 `analysis_jobs.id`（逻辑关联，schema 未声明 FK） |
-| `units` | `bigint` | N | — | 预留积分数；CHECK `units > 0` |
-| `estimated_cost_usd` | `numeric(18,8)` | Y | — | 预估美元成本 |
-| `pricing_snapshot` | `jsonb` | Y | — | 定价快照（含 `billing_signature` 等） |
-| `settled_units` | `bigint` | Y | — | 结算积分数 |
-| `settled_cost_usd` | `numeric(18,8)` | Y | — | 结算美元成本 |
-| `status` | `text` | N | — | `reserved` → `consumed` \| `released` |
-| `reason` | `text` | Y | — | 释放/消费原因（可选，审计用） |
-| `created_at` | `timestamptz` | N | `now()` | 创建时间 |
-| `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
-| `settled_at` | `timestamptz` | Y | — | 预留离开 `reserved` 状态的时间 |
-
-**索引 / 约束**
-
-| 名称 | 类型 | 列 / 表达式 |
-| --- | --- | --- |
-| `credit_reservations_pkey` | PRIMARY KEY | `request_id` |
-| `credit_reservations_units_check` | CHECK | `units > 0` |
-| `credit_reservations_analysis_job_key` | UNIQUE（部分，`analysis_job_id IS NOT NULL`） | `analysis_job_id` |
-| `credit_reservations_user_created_idx` | INDEX | `(clerk_user_id, created_at DESC)` |
-| `credit_reservations_billing_signature_idx` | INDEX | `(pricing_snapshot->>'billing_signature')` |
-
----
-
-### 3.7 `credit_ledger_entries`
-
-追加写的积分变动流水（发放、预留、释放等）。注册赠送与推荐奖励分别使用 `reference_type = signup_grant` / `referral_reward`；奖励金额与定价快照写在 `metadata`，不再单独建关系表。
+追加写的积分变动流水（发放、消费、人工调整等）。注册赠送与推荐奖励分别使用 `reference_type = signup_grant` / `referral_reward`；奖励积分数写在 `metadata`。分析消费使用 `reference_type = analysis_job`，幂等键 `analysis:<job_id>:consume`。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | `uuid` | N | `gen_random_uuid()` | **PK** |
 | `clerk_user_id` | `text` | N | — | **FK → account_users**（CASCADE） |
-| `entry_type` | `text` | N | — | `grant` \| `reserve` \| `consume` \| `release` \| `adjustment` |
+| `entry_type` | `text` | N | — | `grant` \| `consume` \| `adjustment`（历史可含 `reserve` / `release`） |
 | `available_delta` | `bigint` | N | `0` | 对 `available_credits` 的有符号增量 |
 | `reserved_delta` | `bigint` | N | `0` | 对 `reserved_credits` 的有符号增量 |
 | `spent_delta` | `bigint` | N | `0` | 对 `spent_credits` 的有符号增量 |
 | `idempotency_key` | `text` | N | — | 防止重复入账的唯一键 |
-| `reference_type` | `text` | N | — | 外部引用类别（如 `analysis_request`、`stripe_invoice`） |
+| `reference_type` | `text` | N | — | 外部引用类别（如 `analysis_job`、`stripe_invoice`、`signup_grant`） |
 | `reference_id` | `text` | N | — | 与 `reference_type` 对应的外部引用 ID |
 | `description` | `text` | N | — | 供 UI/审计阅读的说明 |
 | `metadata` | `jsonb` | N | `{}` | 额外结构化上下文 |
@@ -538,7 +446,7 @@ Stripe 订阅的本地镜像，用于访问权限校验。
 
 ---
 
-### 3.8 `stripe_webhook_events`
+### 3.5 `stripe_webhook_events`
 
 Stripe webhook 投递日志，用于幂等处理。
 
@@ -555,7 +463,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.9 `billing_provider_configs`
+### 3.6 `billing_provider_configs`
 
 管理员维护的计费提供商凭据（当前为 Stripe，密文存储）。
 
@@ -570,7 +478,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.10 `billing_config_audit_events`
+### 3.7 `billing_config_audit_events`
 
 计费提供商配置变更的审计流水。
 
@@ -591,9 +499,9 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.11 `analysis_jobs`
+### 3.8 `analysis_jobs`
 
-与 tg-core 共享的分析任务持久化。保存请求快照、进度、最终结果与成本核算。
+与 tg-core 共享的分析任务持久化。保存请求快照、进度、最终结果与成本核算。产品侧任务在创建时写入所有者与计费快照；Core 在成功或用户取消终态按快照扣积分，系统失败不扣。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -623,6 +531,8 @@ Stripe webhook 投递日志，用于幂等处理。
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 | `started_at` | `timestamptz` | Y | — | Worker 开始执行任务的时间 |
 | `finished_at` | `timestamptz` | Y | — | 任务到达终态的时间 |
+| `clerk_user_id` | `text` | Y | — | 产品侧所有者；CLI/无计费 job 为 null |
+| `credit_pricing` | `jsonb` | Y | — | 创建时冻结：`points_per_usd`、`markup_basis_points`、`analysis_balance_threshold` |
 
 **索引 / 约束**
 
@@ -633,10 +543,11 @@ Stripe webhook 投递日志，用于幂等处理。
 | `analysis_jobs_request_id_key` | UNIQUE（部分，`request_id IS NOT NULL`） | `request_id` |
 | `analysis_jobs_ticker_created_idx` | INDEX | `(ticker, created_at DESC)` |
 | `analysis_jobs_status_created_idx` | INDEX | `(status, created_at DESC)` |
+| `analysis_jobs_user_created_idx` | INDEX | `(clerk_user_id, created_at DESC)` |
 
 ---
 
-### 3.12 `llm_providers`
+### 3.9 `llm_providers`
 
 管理员配置的 LLM 提供商实例（含加密 API Key）。
 
@@ -663,7 +574,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.13 `llm_models`
+### 3.10 `llm_models`
 
 管理员纳管的 LLM 模型目录；`enabled` 表示对用户开放。
 
@@ -700,7 +611,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.14 `watchlist_items`
+### 3.11 `watchlist_items`
 
 用户自选股收藏条目（按 listing 字段去规范化，无分组与标签）。
 
@@ -728,20 +639,25 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.15 `system_settings`（导出名：`systemSettings`）
+### 3.12 `system_settings`（导出名：`systemSettings`）
 
-系统级 JSON 设置（维护公告、功能开关、免责声明覆盖、告警 webhook、默认 LLM 模型）。
+系统级 JSON 设置。除维护公告、功能开关、免责声明、告警 webhook、默认 LLM 外，还承载分析计费与奖励配置：
+
+- `billing`：`analysisBalanceThreshold`、`pointsPerUsd`、`markupBasisPoints`（分析扣费只读此键）
+- `rewards`：`signup` / `referral` / `campaign` 各自 `{ enabled, points, ... }`，彼此独立，不影响计费
+
+计费与奖励变更写入 `admin_audit_events`（如 `billing.settings.update`、`rewards.settings.update`）。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
-| `key` | `text` | N | — | **PK**。设置键（如 `maintenance`、`features`、`disclaimer`、`alerts`、`llm`） |
+| `key` | `text` | N | — | **PK**。设置键（如 `billing`、`rewards`、`maintenance`、`features`、`disclaimer`、`alerts`、`llm`） |
 | `value` | `jsonb` | N | — | JSON 配置值 |
 | `updated_by` | `text` | Y | — | 最近更新人 |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
 
 ---
 
-### 3.16 `market_configs`（导出名：`marketConfigs`）
+### 3.13 `market_configs`（导出名：`marketConfigs`）
 
 可运营市场配置。与代码侧 `shared/product-markets.ts` 的 `PRODUCT_MARKET_CATALOG` 保持同一套市场码；运行时以本表为准，代码目录仅作校验与空库回退。
 
@@ -759,33 +675,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 ---
 
-### 3.17 `credit_rules`
-
-按市场 / 分析师数量解析分析额度消耗。
-
-| 字段 | 类型 | 空 | 默认 | 说明 |
-| --- | --- | --- | --- | --- |
-| `id` | `uuid` | N | `gen_random_uuid()` | **PK** |
-| `label` | `text` | N | — | 规则标签 |
-| `market` | `text` | Y | — | 匹配市场；`null` 表示任意市场 |
-| `min_analysts` | `integer` | N | `1` | 最小分析师数量（含） |
-| `max_analysts` | `integer` | N | `99` | 最大分析师数量（含） |
-| `units` | `integer` | N | — | 消耗积分数 |
-| `enabled` | `integer` | N | `1` | 是否启用 |
-| `priority` | `integer` | N | `0` | 优先级（越大越优先，具体实现以业务代码为准） |
-| `created_at` | `timestamptz` | N | `now()` | 创建时间 |
-| `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
-
-**索引 / 约束**
-
-| 名称 | 类型 | 列 |
-| --- | --- | --- |
-| `credit_rules_pkey` | PRIMARY KEY | `id` |
-| `credit_rules_priority_idx` | INDEX | `priority` |
-
----
-
-### 3.18 `admin_audit_events`
+### 3.14 `admin_audit_events`
 
 管理员操作日志（追加写）。管理端 `/admin/audit` 检索；写操作在 settings / markets / LLM / 用户 / 积分调整等路径写入。
 
@@ -817,7 +707,6 @@ Stripe webhook 投递日志，用于幂等处理。
 | `account_users` | `referred_by_clerk_user_id` | `account_users` | `clerk_user_id` | SET NULL |
 | `billing_subscriptions` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
 | `credit_accounts` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
-| `credit_reservations` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
 | `credit_ledger_entries` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
 | `llm_models` | `provider_id` | `llm_providers` | `id` | CASCADE |
 | `watchlist_items` | `clerk_user_id` | `account_users` | `clerk_user_id` | CASCADE |
@@ -826,7 +715,7 @@ Stripe webhook 投递日志，用于幂等处理。
 
 | 子表 | 列 | 逻辑父表 | 说明 |
 | --- | --- | --- | --- |
-| `credit_reservations` | `analysis_job_id` | `analysis_jobs.id` | 预留结算关联；有部分唯一索引 |
+| `analysis_jobs` | `clerk_user_id` | `account_users.clerk_user_id` | 产品侧任务所有权；CLI job 可为 null |
 
 ---
 
@@ -836,13 +725,13 @@ Stripe webhook 投递日志，用于幂等处理。
 | --- | --- |
 | `account_users.interface_language` | `en` \| `zh-CN`（约定） |
 | `account_users.default_market` | `US` \| `HK` \| `CN` \| `CRYPTO`（约定） |
-| `credit_reservations.status` | `reserved` \| `consumed` \| `released` |
-| `credit_ledger_entries.entry_type` | `grant` \| `reserve` \| `consume` \| `release` \| `adjustment` |
-| `credit_ledger_entries.reference_type`（约定） | 含 `signup_grant`、`referral_reward`、`analysis_request`、`stripe_invoice` 等 |
+| `credit_ledger_entries.entry_type` | `grant` \| `consume` \| `adjustment`（历史可含 `reserve` / `release`） |
+| `credit_ledger_entries.reference_type`（约定） | 含 `signup_grant`、`referral_reward`、`analysis_job`、`stripe_invoice` 等 |
 | `stripe_webhook_events.status` | `processing` \| `processed` \| `failed` \| `ignored` |
 | `billing_provider_configs.provider` | `stripe` |
 | `billing_config_audit_events.action` | `configured` \| `cleared` |
 | `analysis_jobs.status` | `queued` \| `running` \| `succeeded` \| `failed`（CHECK） |
+| `system_settings.key`（约定） | 含 `billing`、`rewards`、`maintenance`、`features`、`disclaimer`、`alerts`、`llm` |
 
 ---
 

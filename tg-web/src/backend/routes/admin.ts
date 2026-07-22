@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import { apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
-import { buildBillingSignature } from '../billing/credit-pricing';
 import { BillingRepositoryError } from '../database/billing-repository';
 import { AppError } from '../errors/app-error';
 import type { AnalysisJob } from '../database/repositories';
@@ -448,74 +447,61 @@ export function adminRoutes(dependencies: AppDependencies) {
         : {}),
     };
 
-    let reservation: 'created' | 'existing';
+    let pricing;
     try {
-      reservation = await dependencies.database.billing.reserveAnalysis({
-        clerkUserId: ownerId,
-        requestId,
-        billingSignature: buildBillingSignature({
-          analysts,
-          configOverrides,
-        }),
-      });
+      ({ pricing } =
+        await dependencies.database.billing.assertCanStartAnalysis({
+          clerkUserId: ownerId,
+        }));
     } catch (error) {
       throw billingError(error);
     }
 
-    let data: unknown;
-    try {
-      const normalizedInstrument =
-        instrument &&
-        typeof instrument.exchange === 'string' &&
-        typeof instrument.symbol === 'string'
-          ? {
-              exchange: String(instrument.exchange).toUpperCase(),
-              symbol: String(instrument.symbol).toUpperCase(),
-              ...(typeof instrument.display_ticker === 'string'
-                ? {
-                    display_ticker: String(
-                      instrument.display_ticker,
-                    ).toUpperCase(),
-                  }
+    const normalizedInstrument =
+      instrument &&
+      typeof instrument.exchange === 'string' &&
+      typeof instrument.symbol === 'string'
+        ? {
+            exchange: String(instrument.exchange).toUpperCase(),
+            symbol: String(instrument.symbol).toUpperCase(),
+            ...(typeof instrument.display_ticker === 'string'
+              ? {
+                  display_ticker: String(
+                    instrument.display_ticker,
+                  ).toUpperCase(),
+                }
+              : {}),
+          }
+        : undefined;
+    const data = await dependencies.core.submitAnalysis({
+      ...(normalizedInstrument
+        ? {
+            ticker: `${normalizedInstrument.exchange}:${normalizedInstrument.symbol}`,
+            instrument: normalizedInstrument,
+          }
+        : { ticker: job.ticker }),
+      trade_date: job.tradeDate,
+      analysts,
+      config_overrides: configOverrides,
+      request_id: requestId,
+      clerk_user_id: ownerId,
+      credit_pricing: pricing,
+      ...(Object.keys(display).length
+        ? {
+            display: {
+              ...(typeof display.display_name === 'string'
+                ? { display_name: display.display_name }
                 : {}),
-            }
-          : undefined;
-      data = await dependencies.core.submitAnalysis({
-        ...(normalizedInstrument
-          ? {
-              ticker: `${normalizedInstrument.exchange}:${normalizedInstrument.symbol}`,
-              instrument: normalizedInstrument,
-            }
-          : { ticker: job.ticker }),
-        trade_date: job.tradeDate,
-        analysts,
-        config_overrides: configOverrides,
-        request_id: requestId,
-        ...(Object.keys(display).length
-          ? {
-              display: {
-                ...(typeof display.display_name === 'string'
-                  ? { display_name: display.display_name }
-                  : {}),
-                ...(typeof display.logo_url === 'string'
-                  ? { logo_url: display.logo_url }
-                  : {}),
-                ...(typeof display.country === 'string'
-                  ? { country: String(display.country).toUpperCase() }
-                  : {}),
-              },
-            }
-          : {}),
-      });
-    } catch (error) {
-      if (reservation === 'created') {
-        await dependencies.database.billing.releaseAnalysis(
-          requestId,
-          'admin_retry_request_rejected',
-        );
-      }
-      throw error;
-    }
+              ...(typeof display.logo_url === 'string'
+                ? { logo_url: display.logo_url }
+                : {}),
+              ...(typeof display.country === 'string'
+                ? { country: String(display.country).toUpperCase() }
+                : {}),
+            },
+          }
+        : {}),
+    });
 
     const created = z
       .object({ id: z.string().uuid() })
@@ -528,10 +514,6 @@ export function adminRoutes(dependencies: AppDependencies) {
         'Analysis service returned an invalid job response',
       );
     }
-    await dependencies.database.billing.attachAnalysis(
-      requestId,
-      created.data.id,
-    );
 
     await dependencies.database.audit.record({
       actorClerkUserId: context.get('auth').userId,

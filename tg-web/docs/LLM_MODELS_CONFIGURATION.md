@@ -5,7 +5,7 @@
 **范围边界（严格）**
 
 - **本期只做模型配置**：提供商、API Key、模型目录、默认可选模型、用户选型、去掉 Core 侧模型刷新工人。
-- **积分预扣公式本期不改**；成本估算仍走 `calculate_cost`，但单价改为从 `llm_models` 读取（删除 `llm_model_prices`）。
+- **分析积分扣费不在本期改动范围**（另见计费简化：提交门槛 + 终态按 `cost_usd` 扣分）；成本估算仍走 `calculate_cost`，单价从 `llm_models` 读取（删除 `llm_model_prices`）。
 - **不做旧版兼容**：开发时直接改表、改 API、改 UI；不保留启动爬价、环境变量 Key 回退或双读路径。
 
 落地后同步更新 `PRODUCT_FUNCTIONS.md`、`tg-core/docs/API_SERVICE.md`、`tg-core/docs/FUNCTIONAL_BACKLOG.md` §1。
@@ -21,7 +21,7 @@
 
 ## 2. 非目标
 
-- 不修改积分预估与预扣公式；`calculate_cost` 公式不变，单价数据源改为 `llm_models`。
+- 不修改分析积分门槛/终态扣费公式；`calculate_cost` 公式不变，单价数据源改为 `llm_models`。
 - 不实现每用户自带 Key、不实现多租户凭据隔离。
 - 不把行情数据源（TradingView 等）并入本页。
 - 不保留「距上次成功 N 小时自动爬价」或启动后台线程。
@@ -169,7 +169,7 @@ Core
 - 首期建议 quick/deep 属于同一提供商（实现简单；若放宽需保证 Core 能同时持有多提供商 Key——当前图一般单 provider）。
 - 无开放模型或未配置默认：禁止提交并提示管理员配置。
 
-本期**不改** estimate / 积分计算公式；若提交 body 增加模型字段，仅保证转发与校验，预扣逻辑保持现状。
+本期**不改** `calculate_cost` 成本公式；若提交 body 增加模型字段，仅保证转发与校验。分析积分门槛与终态扣费见产品计费文档，不在本设计范围。
 
 ## 9. Core 行为变更
 

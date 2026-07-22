@@ -5,7 +5,6 @@ import type { MarketTapeQuote } from '../../shared/market-board';
 import { isStockLeaderboardTab } from '../../shared/market-codes';
 import { createAnalysisSchema, apiSuccess } from '../../shared/contracts';
 import type { AppDependencies, AppEnvironment } from '../app';
-import { buildBillingSignature } from '../billing/credit-pricing';
 import { BillingRepositoryError } from '../database/billing-repository';
 import type { AnalysisJob } from '../database/repositories';
 import { AppError } from '../errors/app-error';
@@ -16,30 +15,21 @@ export function analysisRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
   app.post('/analyses/estimate', async (context) => {
-    const parsed = createAnalysisSchema.safeParse(
-      await context.req.json().catch(() => null),
-    );
-    if (!parsed.success) {
-      throw new AppError('INVALID_REQUEST', 400, 'Invalid analysis request');
-    }
-    const input = parsed.data;
-    const resolved = await resolveAnalysisLlm(
-      dependencies,
-      {
-        quickModelId: input.quickModelId,
-        deepModelId: input.deepModelId,
-      },
-      input.configOverrides ?? {},
-    );
+    const clerkUserId = context.get('auth').userId;
     const data = await dependencies.database.billing.estimateAnalysis({
-      billingSignature: buildBillingSignature({
-        analysts: input.analysts,
-        configOverrides: resolved.configOverrides,
-      }),
+      clerkUserId,
     });
     return context.json(
       apiSuccess(
-        { reservedPoints: data.reservedPoints },
+        {
+          analysisBalanceThreshold: data.analysisBalanceThreshold,
+          canStart: data.canStart,
+          pointsPerUsd: data.pointsPerUsd,
+          markupBasisPoints: data.markupBasisPoints,
+          availableCredits: data.availableCredits,
+          // Soft compat for older clients that read reservedPoints.
+          reservedPoints: data.analysisBalanceThreshold + 1,
+        },
         context.get('requestId'),
       ),
     );
@@ -63,80 +53,62 @@ export function analysisRoutes(dependencies: AppDependencies) {
       input.configOverrides ?? {},
     );
     const requestId = input.requestId ?? crypto.randomUUID();
-    let reservation: 'created' | 'existing';
+    let pricing;
     try {
-      reservation = await dependencies.database.billing.reserveAnalysis({
+      ({ pricing } = await dependencies.database.billing.assertCanStartAnalysis({
         clerkUserId,
-        requestId,
-        billingSignature: buildBillingSignature({
-          analysts: input.analysts,
-          configOverrides: resolved.configOverrides,
-        }),
-      });
+      }));
     } catch (error) {
       throw billingError(error);
     }
 
-    let data: unknown;
-    try {
-      const instrument = input.instrument
+    const instrument = input.instrument
+      ? {
+          exchange: input.instrument.exchange.toUpperCase(),
+          symbol: input.instrument.symbol.toUpperCase(),
+          ...(input.instrument.display_ticker
+            ? {
+                display_ticker:
+                  input.instrument.display_ticker.toUpperCase(),
+              }
+            : {}),
+        }
+      : undefined;
+    // Core requires ticker and instrument to resolve to the same listing.
+    // Bare symbols like "AAPL" resolve with exchange=null and conflict with
+    // NASDAQ:AAPL-style instruments from the watchlist/search UI.
+    const data = await dependencies.core.submitAnalysis({
+      ...(instrument
         ? {
-            exchange: input.instrument.exchange.toUpperCase(),
-            symbol: input.instrument.symbol.toUpperCase(),
-            ...(input.instrument.display_ticker
-              ? {
-                  display_ticker:
-                    input.instrument.display_ticker.toUpperCase(),
-                }
-              : {}),
+            ticker: `${instrument.exchange}:${instrument.symbol}`,
+            instrument,
           }
-        : undefined;
-      // Core requires ticker and instrument to resolve to the same listing.
-      // Bare symbols like "AAPL" resolve with exchange=null and conflict with
-      // NASDAQ:AAPL-style instruments from the watchlist/search UI.
-      data = await dependencies.core.submitAnalysis({
-        ...(instrument
-          ? {
-              ticker: `${instrument.exchange}:${instrument.symbol}`,
-              instrument,
-            }
-          : { ticker: input.ticker.toUpperCase() }),
-        trade_date: input.tradeDate,
-        analysts: input.analysts,
-        config_overrides: resolved.configOverrides,
-        request_id: requestId,
-        ...(input.display
-          ? {
-              display: {
-                ...(input.display.display_name
-                  ? { display_name: input.display.display_name }
-                  : {}),
-                ...(input.display.english_name
-                  ? { english_name: input.display.english_name }
-                  : {}),
-                ...(input.display.logo_url
-                  ? { logo_url: input.display.logo_url }
-                  : {}),
-                ...(input.display.country
-                  ? { country: input.display.country.toUpperCase() }
-                  : {}),
-              },
-            }
-          : {}),
-      });
-    } catch (error) {
-      if (
-        reservation === 'created' &&
-        error instanceof AppError &&
-        error.code === 'CORE_REQUEST_REJECTED'
-      ) {
-        await dependencies.database.billing.releaseAnalysis(
-          requestId,
-          'analysis_request_rejected',
-        );
-      }
-      throw error;
-    }
+        : { ticker: input.ticker.toUpperCase() }),
+      trade_date: input.tradeDate,
+      analysts: input.analysts,
+      config_overrides: resolved.configOverrides,
+      request_id: requestId,
+      clerk_user_id: clerkUserId,
+      credit_pricing: pricing,
+      ...(input.display
+        ? {
+            display: {
+              ...(input.display.display_name
+                ? { display_name: input.display.display_name }
+                : {}),
+              ...(input.display.english_name
+                ? { english_name: input.display.english_name }
+                : {}),
+              ...(input.display.logo_url
+                ? { logo_url: input.display.logo_url }
+                : {}),
+              ...(input.display.country
+                ? { country: input.display.country.toUpperCase() }
+                : {}),
+            },
+          }
+        : {}),
+    });
 
     const result = z
       .object({ id: z.string().uuid() })
@@ -148,18 +120,6 @@ export function analysisRoutes(dependencies: AppDependencies) {
         502,
         'Analysis service returned an invalid job response',
       );
-    }
-    try {
-      await dependencies.database.billing.attachAnalysis(
-        requestId,
-        result.data.id,
-      );
-    } catch (error) {
-      dependencies.logger.warn('Unable to attach analysis credit reservation', {
-        requestId,
-        analysisJobId: result.data.id,
-        error: String(error),
-      });
     }
     return context.json(apiSuccess(data, context.get('requestId')), 202);
   });
@@ -206,16 +166,11 @@ export function analysisRoutes(dependencies: AppDependencies) {
     const id = context.req.param('id');
     await requireOwnedAnalysis(dependencies, clerkUserId, id);
     const data = await dependencies.core.getAnalysis(id);
-    const creditUnits =
-      await dependencies.database.analysisJobs.getReservationUnits(
-        clerkUserId,
-        id,
-      );
     return context.json(
       apiSuccess(
         {
           ...(isRecord(data) ? data : {}),
-          credit_units: creditUnits,
+          credit_units: null,
         },
         context.get('requestId'),
       ),
@@ -692,9 +647,9 @@ function billingError(error: unknown): AppError {
     return new AppError(error.code, status, error.message, error);
   }
   return new AppError(
-    'CREDIT_RESERVATION_FAILED',
+    'CREDIT_CHECK_FAILED',
     500,
-    'Unable to reserve an analysis credit',
+    'Unable to verify analysis credit balance',
     error,
   );
 }

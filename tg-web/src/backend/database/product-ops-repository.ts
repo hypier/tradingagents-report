@@ -1,5 +1,5 @@
 /**
- * P3 产品运营仓库：系统设置、市场配置、额度规则、操作日志。
+ * P3 产品运营仓库：系统设置、市场配置、操作日志。
  */
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -9,7 +9,6 @@ import * as schema from './schema';
 type Database = NodePgDatabase<typeof schema>;
 
 export type MarketConfig = typeof schema.marketConfigs.$inferSelect;
-export type CreditRule = typeof schema.creditRules.$inferSelect;
 export type AdminAuditEvent = typeof schema.adminAuditEvents.$inferSelect;
 export type SystemSetting = typeof schema.systemSettings.$inferSelect;
 
@@ -41,33 +40,6 @@ export type MarketsRepository = {
     sortOrder: number;
   }): Promise<MarketConfig>;
   setEnabled(code: string, enabled: boolean): Promise<MarketConfig | undefined>;
-};
-
-export type CreditRulesRepository = {
-  list(): Promise<CreditRule[]>;
-  listEnabled(): Promise<CreditRule[]>;
-  create(input: {
-    label: string;
-    market: string | null;
-    minAnalysts: number;
-    maxAnalysts: number;
-    units: number;
-    enabled: boolean;
-    priority: number;
-  }): Promise<CreditRule>;
-  update(
-    id: string,
-    input: Partial<{
-      label: string;
-      market: string | null;
-      minAnalysts: number;
-      maxAnalysts: number;
-      units: number;
-      enabled: boolean;
-      priority: number;
-    }>,
-  ): Promise<CreditRule | undefined>;
-  delete(id: string): Promise<boolean>;
 };
 
 export type AdminAuditRepository = {
@@ -193,66 +165,6 @@ export function createMarketsRepository(database: Database): MarketsRepository {
         .where(eq(schema.marketConfigs.code, code))
         .returning();
       return row;
-    },
-  };
-}
-
-export function createCreditRulesRepository(
-  database: Database,
-): CreditRulesRepository {
-  return {
-    list() {
-      return database
-        .select()
-        .from(schema.creditRules)
-        .orderBy(desc(schema.creditRules.priority), schema.creditRules.label);
-    },
-    listEnabled() {
-      return database
-        .select()
-        .from(schema.creditRules)
-        .where(eq(schema.creditRules.enabled, 1))
-        .orderBy(desc(schema.creditRules.priority));
-    },
-    async create(input) {
-      const [row] = await database
-        .insert(schema.creditRules)
-        .values({
-          label: input.label,
-          market: input.market,
-          minAnalysts: input.minAnalysts,
-          maxAnalysts: input.maxAnalysts,
-          units: input.units,
-          enabled: input.enabled ? 1 : 0,
-          priority: input.priority,
-        })
-        .returning();
-      return row;
-    },
-    async update(id, input) {
-      const patch: Partial<typeof schema.creditRules.$inferInsert> = {
-        updatedAt: new Date(),
-      };
-      if (input.label !== undefined) patch.label = input.label;
-      if (input.market !== undefined) patch.market = input.market;
-      if (input.minAnalysts !== undefined) patch.minAnalysts = input.minAnalysts;
-      if (input.maxAnalysts !== undefined) patch.maxAnalysts = input.maxAnalysts;
-      if (input.units !== undefined) patch.units = input.units;
-      if (input.enabled !== undefined) patch.enabled = input.enabled ? 1 : 0;
-      if (input.priority !== undefined) patch.priority = input.priority;
-      const [row] = await database
-        .update(schema.creditRules)
-        .set(patch)
-        .where(eq(schema.creditRules.id, id))
-        .returning();
-      return row;
-    },
-    async delete(id) {
-      const rows = await database
-        .delete(schema.creditRules)
-        .where(eq(schema.creditRules.id, id))
-        .returning({ id: schema.creditRules.id });
-      return rows.length > 0;
     },
   };
 }

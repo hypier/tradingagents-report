@@ -45,6 +45,8 @@ class AnalysisRequest(BaseModel):
     )
     config_overrides: dict[str, Any] = Field(default_factory=dict)
     output_language: str | None = Field(default=None, min_length=1, max_length=64)
+    clerk_user_id: str | None = Field(default=None, min_length=1, max_length=128)
+    credit_pricing: dict[str, Any] | None = None
 
     @field_validator("ticker")
     @classmethod

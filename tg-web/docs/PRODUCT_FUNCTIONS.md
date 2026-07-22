@@ -144,17 +144,16 @@ flowchart LR
 - 已登录用户可在 `/billing` 查看 Stripe 循环套餐、当前订阅状态和账单，通过 Stripe Checkout 创建订阅，并通过 Customer Portal 处理续订、取消、换套餐、付款方式和账单。
 - 用户可在 `/account` 通过 Clerk 管理显示名称、头像、密码、社交账号和会话，并保存界面语言、报告语言、时区和默认市场；本地不保存密码或 Clerk 会话凭据。
 - Stripe Customer ID 保存在本地用户档案并镜像到 Clerk `privateMetadata`。Webhook 验签后同步本地订阅快照，`invoice.paid` 按 Stripe invoice ID 幂等发放套餐额度；应用不保存银行卡数据。
-- `/billing` 展示套餐周期积分、支持市场、功能、订阅状态、可用/预留/已消费积分、周期结束日和账本明细。分析提交前显示历史 P90 或冷启动成本形成的预计预扣；成功时按实际 AI token 美元成本多退少补，失败时全额退款。
-- 支付回调写入 `stripe_webhook_events`，额度发放、预留、核销和释放写入不可变账本并使用唯一幂等键。分析请求 UUID 同时作为 Core `request_id`，重试不会创建重复 job 或重复扣减。
+- `/billing` 展示套餐周期积分、支持市场、功能、订阅状态、可用/已消费积分、周期结束日和账本明细。分析提交前只校验可用积分是否**严格大于** `analysisBalanceThreshold`（不做预扣）；成功或用户取消时按实际 `cost_usd` 与创建时冻结的汇率/加价扣分，系统失败不扣。
+- 支付回调写入 `stripe_webhook_events`，额度发放与消费写入不可变账本并使用唯一幂等键。分析请求 UUID 同时作为 Core `request_id`，重试不会创建重复 job。
 - 管理员可在 `/admin/billing` 查看 Stripe 连接与 Webhook 配置状态，创建带周期积分、支持市场和功能元数据的循环套餐并停用价格。配置 `BILLING_CONFIG_ENCRYPTION_KEY` 后，管理员可在页面验证、替换或清除 Stripe API Key 与 Webhook Secret；密钥使用 AES-GCM 加密后保存，API 仅返回掩码与配置来源。
-- 管理员可在「积分计费」标签维护积分/美元汇率、成本加价率、预扣缓冲率和冷启动预估成本；变更与操作者在同一事务中写入审计事件。
+- 管理员在「分析计费」维护余额门槛、每美元积分与加价基点（`system_settings.billing`）；在独立区块分别维护注册/推荐/活动奖励（`system_settings.rewards`，积分数直接配置、可独立开关）。变更写入 `admin_audit_events`。
 - 管理员可通过 Stripe API 幂等初始化每月 20、50、100 美元三档标准套餐，分别在有效支付周期发放 2,000、5,000、10,000 积分；初始化会升级旧版套餐 metadata，使存量订阅在后续付款周期获得新积分，重复初始化不会创建重复 Product 或 Price，配置冲突会明确报错。
-- 分析列表与详情经 `credit_reservations` 按 Clerk 用户隔离；用户只能查看自己的任务与报告。
+- 分析列表与详情经 `analysis_jobs.clerk_user_id` 按 Clerk 用户隔离；用户只能查看自己的任务与报告。
 - 管理员运营概览 `/admin`：展示注册用户数、有效订阅、周期内分析量/成功率、额度消耗与队列积压，以及 Stripe 连接健康摘要。
 - 管理员用户钻取 `/admin/users/:userId`：查看订阅/额度账本与近期任务，可停用或恢复账号（Clerk ban/unban），并可按幂等键手动调整额度（写入 `adjustment` 账本）。
 - `/admin/users` 显示可用积分；额度调整在 `/admin/users/:userId` 完成。
-- 管理员任务列表 `/admin/analyses`：跨用户按状态/标的/用户筛选；对失败任务可发起受控重试——为原所有者预留额度并以新 `request_id` 提交替换 job（非 Core 原地重试）。
-- 可变额度规则表 `credit_rules` 仍可供运营配置参考；分析预扣与结算以服务端 P90/冷启动用量计费为准。
+- 管理员任务列表 `/admin/analyses`：跨用户按状态/标的/用户筛选；对失败任务可发起受控重试——校验所有者余额门槛并以新 `request_id` 提交替换 job（非 Core 原地重试）。
 - 系统设置：维护公告、功能开关（自选）、免责声明版本与正文覆盖、告警 webhook URL（仅存储不发送）。
 - 市场配置管理 `/admin/markets`（表 `market_configs`）；`/api/public-config` 返回已启用市场列表；账户默认市场与套餐支持市场均对齐同一市场码目录。
 - 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key 与开放状态；默认快速/深度模型在 `/admin/settings`（系统设置键 `llm`）；用户分析页从开放目录选型。
@@ -162,7 +161,7 @@ flowchart LR
 
 当前尚未实现报告 AI 对话，以及告警 webhook 的实际外发通知。
 
-分析 job 仍由 Core 统一持久化。产品额度预留通过 `request_id` 和 `analysis_job_id` 关联 Clerk 用户，Core 在 job 终态事务内结算额度；Core 的服务级 API 本身仍不提供终端用户鉴权。产品与计费表结构由 tg-web Drizzle 迁移维护，Core 不执行 DDL。
+分析 job 仍由 Core 统一持久化。产品侧在创建 job 时写入 `clerk_user_id` 与 `credit_pricing`；Core 在 billable 终态事务内扣积分。Core 的服务级 API 本身仍不提供终端用户鉴权。产品与计费表结构由 tg-web Drizzle 迁移维护，Core 不执行 DDL。
 
 ## 8. 架构边界
 

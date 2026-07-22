@@ -26,6 +26,8 @@ def insert_job(
     request_id: UUID | None = None,
     exchange: str | None = None,
     display: dict | None = None,
+    clerk_user_id: str | None = None,
+    credit_pricing: dict | None = None,
 ) -> dict:
     with database.connect() as conn:
         row = conn.execute(
@@ -33,11 +35,11 @@ def insert_job(
             INSERT INTO analysis_jobs (
                 id, ticker, exchange, trade_date, asset_type, analysts, status, request, config,
                 display, progress_percent, current_step, events, tokens_used, token_usage, cost_usd,
-                cost_breakdown, request_id
+                cost_breakdown, request_id, clerk_user_id, credit_pricing
             )
             VALUES (
                 %s, %s, %s, %s, %s, %s, 'queued', %s, %s, %s, 0, 'Queued', '[]'::jsonb, 0,
-                '{}'::jsonb, 0, '{}'::jsonb, %s
+                '{}'::jsonb, 0, '{}'::jsonb, %s, %s, %s
             )
             ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING
             RETURNING *
@@ -53,6 +55,8 @@ def insert_job(
                 Jsonb(config),
                 Jsonb(display or {}),
                 request_id,
+                clerk_user_id,
+                Jsonb(credit_pricing) if credit_pricing is not None else None,
             ),
         ).fetchone()
         if row is not None or request_id is None:
@@ -115,11 +119,12 @@ def recover_interrupted_jobs() -> int:
             )
             interrupted_jobs = cursor.fetchall()
             for job in interrupted_jobs:
-                _settle_credit_reservation(
+                _settle_analysis_credits(
                     conn,
                     job_id=job["id"],
-                    outcome="released",
+                    billable=False,
                     actual_cost_usd=Decimal(str(job.get("cost_usd") or 0)),
+                    reason="analysis_interrupted",
                 )
             conn.commit()
             return len(interrupted_jobs)
@@ -216,11 +221,12 @@ def mark_succeeded(
             ),
         )
         if cursor.rowcount == 1:
-            _settle_credit_reservation(
+            _settle_analysis_credits(
                 conn,
                 job_id=job_id,
-                outcome="consumed",
+                billable=True,
                 actual_cost_usd=Decimal(str(cost_breakdown["total_cost_usd"])),
+                reason="analysis_succeeded",
             )
     return cursor.rowcount == 1
 
@@ -233,7 +239,8 @@ def mark_failed(
     cost_breakdown: dict,
 ) -> bool:
     usage = token_usage or {}
-    current_step = "Cancelled" if error.startswith("Cancelled") else "Failed"
+    user_cancelled = error.startswith("Cancelled")
+    current_step = "Cancelled" if user_cancelled else "Failed"
     with database.connect() as conn:
         cursor = conn.execute(
             """
@@ -254,11 +261,16 @@ def mark_failed(
             ),
         )
         if cursor.rowcount == 1:
-            _settle_credit_reservation(
+            _settle_analysis_credits(
                 conn,
                 job_id=job_id,
-                outcome="released",
+                billable=user_cancelled,
                 actual_cost_usd=Decimal(str(cost_breakdown["total_cost_usd"])),
+                reason=(
+                    "analysis_cancelled_by_user"
+                    if user_cancelled
+                    else "analysis_failed"
+                ),
             )
     return cursor.rowcount == 1
 
@@ -283,11 +295,12 @@ def cancel_job(job_id: UUID | str) -> str | None:
             (job_id,),
         )
         if cursor.rowcount == 1:
-            _settle_credit_reservation(
+            _settle_analysis_credits(
                 conn,
                 job_id=job_id,
-                outcome="released",
+                billable=True,
                 actual_cost_usd=Decimal("0"),
+                reason="analysis_cancelled_by_user",
             )
             return "cancelled"
 
@@ -318,151 +331,89 @@ def is_cancel_requested(job_id: UUID | str) -> bool:
     return bool(request.get("cancel_requested"))
 
 
-def _settle_credit_reservation(
+def _settle_analysis_credits(
     conn,
     *,
     job_id: UUID | str,
-    outcome: str,
+    billable: bool,
     actual_cost_usd: Decimal,
+    reason: str,
 ) -> None:
-    """Settle an optional product credit reservation with the job transition."""
-    reason = "analysis_succeeded" if outcome == "consumed" else "analysis_failed"
-    reservation = conn.execute(
+    """Charge product credits for billable terminal states; no-op otherwise."""
+    if not billable:
+        return
+
+    job = conn.execute(
         """
-        SELECT reservation.clerk_user_id, reservation.request_id,
-               reservation.units, reservation.estimated_cost_usd,
-               reservation.pricing_snapshot
-        FROM credit_reservations AS reservation
-        JOIN analysis_jobs AS job ON (
-          reservation.analysis_job_id = job.id
-          OR (
-            reservation.analysis_job_id IS NULL
-            AND reservation.request_id = job.request_id
-          )
-        )
-        WHERE job.id = %s
-          AND reservation.status = 'reserved'
-        FOR UPDATE OF reservation
+        SELECT id, clerk_user_id, credit_pricing, request_id
+        FROM analysis_jobs
+        WHERE id = %s
+        FOR UPDATE
         """,
         (job_id,),
     ).fetchone()
-    if reservation is None:
+    if job is None:
         return
 
-    units = int(reservation["units"])
-    pricing_snapshot = reservation.get("pricing_snapshot")
-    settled_units = (
-        _calculate_actual_credit_units(actual_cost_usd, pricing_snapshot)
-        if outcome == "consumed" and pricing_snapshot
-        else units if outcome == "consumed" else 0
-    )
-    conn.execute(
-        """
-        UPDATE credit_reservations
-        SET status = %s, reason = %s, settled_units = %s,
-            settled_cost_usd = %s, settled_at = now(), updated_at = now()
-        WHERE request_id = %s AND status = 'reserved'
-        """,
-        (
-            outcome,
-            reason,
-            settled_units,
-            actual_cost_usd,
-            reservation["request_id"],
-        ),
-    )
-    if outcome == "consumed":
-        available_delta = units - settled_units
-        account = conn.execute(
-            """
-            UPDATE credit_accounts
-            SET available_credits = available_credits + %s,
-                reserved_credits = reserved_credits - %s,
-                spent_credits = spent_credits + %s,
-                updated_at = now()
-            WHERE clerk_user_id = %s AND reserved_credits >= %s
-            RETURNING clerk_user_id
-            """,
-            (
-                available_delta,
-                units,
-                settled_units,
-                reservation["clerk_user_id"],
-                units,
-            ),
-        ).fetchone()
-        deltas = (available_delta, -units, settled_units)
-        entry_type = "consume"
-        description = "Analysis credit consumed"
-    else:
-        account = conn.execute(
-            """
-            UPDATE credit_accounts
-            SET available_credits = available_credits + %s,
-                reserved_credits = reserved_credits - %s,
-                updated_at = now()
-            WHERE clerk_user_id = %s AND reserved_credits >= %s
-            RETURNING clerk_user_id
-            """,
-            (units, units, reservation["clerk_user_id"], units),
-        ).fetchone()
-        deltas = (units, -units, 0)
-        entry_type = "release"
-        description = "Analysis credit released"
-    if account is None:
-        raise RuntimeError(f"credit account is inconsistent for analysis job {job_id}")
+    clerk_user_id = job.get("clerk_user_id")
+    pricing_snapshot = job.get("credit_pricing")
+    if not clerk_user_id or not pricing_snapshot:
+        return
 
-    conn.execute(
+    settled_units = _calculate_actual_credit_units(actual_cost_usd, pricing_snapshot)
+    if settled_units <= 0:
+        return
+
+    idempotency_key = f"analysis:{job_id}:consume"
+    entry = conn.execute(
         """
         INSERT INTO credit_ledger_entries (
             clerk_user_id, entry_type, available_delta, reserved_delta,
             spent_delta, idempotency_key, reference_type, reference_id,
             description, metadata
-        ) VALUES (%s, %s, %s, %s, %s, %s, 'analysis_job', %s, %s, %s)
+        ) VALUES (%s, 'consume', %s, 0, %s, %s, 'analysis_job', %s, %s, %s)
         ON CONFLICT (idempotency_key) DO NOTHING
+        RETURNING id
         """,
         (
-            reservation["clerk_user_id"],
-            entry_type,
-            *deltas,
-            f"analysis:{reservation['request_id']}:{entry_type}",
+            clerk_user_id,
+            -settled_units,
+            settled_units,
+            idempotency_key,
             str(job_id),
-            description,
+            "Analysis credit consumed",
             Jsonb(
                 {
                     "reason": reason,
                     "actualCostUsd": str(actual_cost_usd),
-                    "estimatedCostUsd": (
-                        str(reservation["estimated_cost_usd"])
-                        if reservation.get("estimated_cost_usd") is not None
-                        else None
-                    ),
-                    "reservedPoints": units,
                     "finalPoints": settled_units,
-                    "pointsPerUsd": (
-                        pricing_snapshot.get("points_per_usd")
-                        if pricing_snapshot
-                        else None
+                    "pointsPerUsd": pricing_snapshot.get("points_per_usd"),
+                    "markupBasisPoints": pricing_snapshot.get(
+                        "markup_basis_points"
                     ),
-                    "markupBasisPoints": (
-                        pricing_snapshot.get("markup_basis_points")
-                        if pricing_snapshot
-                        else None
-                    ),
-                    "reserveBufferBasisPoints": (
-                        pricing_snapshot.get("reserve_buffer_basis_points")
-                        if pricing_snapshot
-                        else None
-                    ),
-                    "estimateSource": (
-                        pricing_snapshot.get("estimate_source")
-                        if pricing_snapshot
-                        else None
+                    "requestId": (
+                        str(job["request_id"]) if job.get("request_id") else None
                     ),
                 }
             ),
         ),
-    )
+    ).fetchone()
+    if entry is None:
+        return
+
+    account = conn.execute(
+        """
+        UPDATE credit_accounts
+        SET available_credits = available_credits - %s,
+            spent_credits = spent_credits + %s,
+            updated_at = now()
+        WHERE clerk_user_id = %s
+        RETURNING clerk_user_id
+        """,
+        (settled_units, settled_units, clerk_user_id),
+    ).fetchone()
+    if account is None:
+        raise RuntimeError(f"credit account is missing for analysis job {job_id}")
 
 
 def _calculate_actual_credit_units(actual_cost_usd: Decimal, pricing: dict) -> int:

@@ -477,23 +477,22 @@ thread ID 由 ticker、日期和图形状签名生成。图形状签名包含分
 
 ### 12.5 积分计费边界
 
-TG-web 拥有产品计费配置、历史成本估价、积分账户和任务准入。计费签名由排序后的分析师集合、LLM provider、深浅模型和辩论轮数组成，并随预扣写入定价快照；估价通过索引查询最近 100 个同签名成功任务的离散 P90，没有样本时使用冷启动成本。
+TG-web 拥有产品计费配置、积分账户和任务准入。分析计费只读 `system_settings.billing`；提交时校验 `available_credits > analysisBalanceThreshold`，不做预扣，并把汇率/加价/门槛快照写入 `analysis_jobs.credit_pricing`，所有者写入 `analysis_jobs.clerk_user_id`。
 
-预扣与最终结算公式为：
+终态扣费公式：
 
 ```text
-reserved = ceil(estimated_cost_usd * (1 + buffer) * (1 + markup) * points_per_usd)
-actual   = 0                                           当 cost_usd = 0
-actual   = max(1, ceil(cost_usd * (1 + markup) * points_per_usd))  其他情况
+actual = 0                                           当 cost_usd <= 0
+actual = max(1, ceil(cost_usd * (1 + markup) * points_per_usd))  其他情况
 ```
 
-预扣时把汇率、加价率、缓冲率、估价来源、样本数和计费签名固化到 `credit_reservations.pricing_snapshot`。Core 已拥有最终 token 成本，因此在 job 终态事务内更新 reservation、积分账户和账本，保证 job 状态与收费不分离。成功任务多退少补，失败任务全额释放；实际成本超出预扣和余额时允许负余额，后续新任务由 TG-web 拒绝。订阅只负责按周期发放积分，不是分析准入条件。
+Core 在 job 终态事务内按快照扣积分并写账本：`succeeded` 与用户取消（billable）扣费；系统失败与进程回收失败不扣。允许可用余额为负，后续新任务由 TG-web 门槛拒绝。订阅只负责按周期发放积分，不是分析准入条件。
 
-管理员配置更新在锁定 singleton 设置行后与 `credit_billing_setting_events` 审计同事务写入；人工调点只修改可用积分并写入幂等 `adjustment` 账本，不允许人工扣成负数。积分余额与账本增量使用 PostgreSQL `bigint`。所有共享表结构仍由 TG-web Drizzle 迁移维护，Core 只校验结算所需表和列，不执行 DDL。
+管理员更新 `billing` / `rewards` 时写入 `admin_audit_events`；人工调点只修改可用积分并写入幂等 `adjustment` 账本，不允许人工扣成负数。积分余额与账本增量使用 PostgreSQL `bigint`。所有共享表结构仍由 TG-web Drizzle 迁移维护，Core 只校验结算所需表和列，不执行 DDL。
 
-新用户赠送和邀请奖励复用同一积分账户与账本，不创建虚构的免费订阅。`account_users.referral_code` 是长期稳定的邀请码，`referred_by_clerk_user_id` 记录邀请人，`onboarding_completed_at` 是首访结算完成标记；奖励金额与结算时定价快照写入 `credit_ledger_entries.metadata`（`reference_type = signup_grant` / `referral_reward`）。`credit_billing_settings.signup_grant_usd` 与 `referral_reward_usd` 默认分别为 `5.00` 和 `2.00`，管理员可设置为非负、最多两位小数的金额。
+新用户赠送和邀请奖励复用同一积分账户与账本，不创建虚构的免费订阅。`account_users.referral_code` 是长期稳定的邀请码，`referred_by_clerk_user_id` 记录邀请人，`onboarding_completed_at` 是首访结算完成标记；奖励积分数写入 `credit_ledger_entries.metadata`（`reference_type = signup_grant` / `referral_reward`）。`system_settings.rewards.signup` / `referral` / `campaign` 各自独立 `enabled` 与积分数，默认注册 500、推荐 200、活动关闭。
 
-公开 `GET /invite/:code` 只校验邀请码并写入 30 天的 HttpOnly 归因 Cookie。Clerk 用户首次已认证请求在一个 PostgreSQL 事务中完成用户同步、积分账户创建、用户行锁定、新用户赠送、有效邀请关系写入（`referred_by_clerk_user_id`）、邀请人奖励和 onboarding 标记。换算公式为 `ceil(amount_usd * points_per_usd)`，不使用分析预扣的 markup 或 buffer；账本幂等键分别为 `signup:<userId>:grant` 和 `referral:<inviteeId>:reward`。数据库事务或后续请求处理失败时保留 Cookie，完整请求成功后才清除，因此可安全重试。历史用户由迁移统一回填邀请码并标记 onboarding 完成，不补发积分。
+公开 `GET /invite/:code` 只校验邀请码并写入 30 天的 HttpOnly 归因 Cookie。Clerk 用户首次已认证请求在一个 PostgreSQL 事务中完成用户同步、积分账户创建、用户行锁定、按奖励配置发分、有效邀请关系写入（`referred_by_clerk_user_id`）和 onboarding 标记。奖励直接使用配置积分数，不经分析计费汇率；账本幂等键分别为 `signup:<userId>:grant` 和 `referral:<inviteeId>:reward`。数据库事务或后续请求处理失败时保留 Cookie，完整请求成功后才清除，因此可安全重试。历史用户由迁移统一回填邀请码并标记 onboarding 完成，不补发积分。
 
 ## 13. 部署方式
 

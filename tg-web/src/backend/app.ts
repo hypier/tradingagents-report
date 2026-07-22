@@ -47,7 +47,6 @@ export type AppDependencies = {
     | 'watchlist'
     | 'settings'
     | 'markets'
-    | 'creditRules'
     | 'audit'
     | 'llmCatalog'
   >;

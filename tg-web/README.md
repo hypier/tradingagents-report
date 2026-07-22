@@ -135,12 +135,11 @@ Migrations do not run on Compose, `./start.sh`, or Web process startup. Core
 connects with `TRADINGAGENTS_DATABASE_URL` and uses the same tables through SQL;
 it does not create or alter them.
 
-Core startup also idempotently creates the shared product tables used by the
-BFF: `account_users`, `billing_subscriptions`,
-`credit_accounts`, `credit_reservations`, `credit_ledger_entries`, and
-`stripe_webhook_events`. TG-web owns product writes to these tables. The only
-Core-side product write is settlement of an optional credit reservation in the
-same transaction that marks an analysis job succeeded or failed.
+Core startup validates shared tables exist (`analysis_jobs`, `llm_providers`,
+`llm_models`, `credit_accounts`, plus `analysis_jobs.clerk_user_id` /
+`credit_pricing`). TG-web owns product writes. The only Core-side product write
+is settling analysis credits on billable job terminals (success or user cancel)
+in the same transaction that marks the job finished.
 
 Redis is the Node runtime cache. Cloudflare Workers use KV for their cache
 instead. These are separate backends with different consistency and eviction

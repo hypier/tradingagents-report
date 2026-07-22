@@ -7,6 +7,7 @@ import {
   Clipboard,
   Coins,
   CreditCard,
+  Gift,
   PackagePlus,
   Save,
   ScrollText,
@@ -19,13 +20,16 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { PRODUCT_MARKET_CODES } from '@/shared/product-markets';
+import {
+  DEFAULT_BILLING_SETTINGS,
+  DEFAULT_REWARDS_SETTINGS,
+  type RewardsSettings,
+} from '@/shared/product-credits';
 import type {
   BillingInterval,
   BillingPlan,
-  CreditBillingSettings,
   CreateBillingPlanInput,
 } from '@/backend/billing/contract';
-import { calculateGrantPoints } from '@/backend/billing/credit-pricing';
 import { AdminGate } from '@/frontend/components/admin-gate';
 import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
 import {
@@ -35,6 +39,7 @@ import {
 } from '@/frontend/components/ui/alert';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
+import { Checkbox } from '@/frontend/components/ui/checkbox';
 import {
   Empty,
   EmptyDescription,
@@ -85,16 +90,24 @@ import {
   archiveBillingPlan,
   clearStripeConfiguration,
   createBillingPlan,
+  getAnalysisBillingSettings,
   getBillingSettings,
-  getCreditBillingSettings,
+  getRewardsSettings,
   listAdminStripeEvents,
   provisionDefaultBillingPlans,
-  updateCreditBillingSettings,
+  updateAnalysisBillingSettings,
+  updateRewardsSettings,
   updateStripeConfiguration,
   type AdminStripeWebhookEvent,
 } from '@/frontend/lib/billing';
 
-const BILLING_TABS = ['connection', 'plans', 'credits', 'events'] as const;
+const BILLING_TABS = [
+  'connection',
+  'plans',
+  'credits',
+  'rewards',
+  'events',
+] as const;
 type BillingTab = (typeof BILLING_TABS)[number];
 
 function resolveBillingTab(value: string | null): BillingTab {
@@ -114,13 +127,11 @@ type PlanForm = {
   features: string;
 };
 
-type CreditSettingsForm = {
+type AnalysisSettingsForm = {
+  analysisBalanceThreshold: string;
   pointsPerUsd: string;
   markupPercent: string;
-  reserveBufferPercent: string;
-  defaultEstimatedCostUsd: string;
-  signupGrantUsd: string;
-  referralRewardUsd: string;
+  sampleCostUsd: string;
 };
 
 function createInitialPlan(features: string): PlanForm {
@@ -147,14 +158,17 @@ export function AdminBillingPage() {
     secretKey: '',
     webhookSecret: '',
   });
-  const [creditForm, setCreditForm] = useState<CreditSettingsForm>({
-    pointsPerUsd: '100',
-    markupPercent: '10',
-    reserveBufferPercent: '20',
-    defaultEstimatedCostUsd: '1',
-    signupGrantUsd: '5',
-    referralRewardUsd: '2',
+  const [analysisForm, setAnalysisForm] = useState<AnalysisSettingsForm>({
+    analysisBalanceThreshold: String(
+      DEFAULT_BILLING_SETTINGS.analysisBalanceThreshold,
+    ),
+    pointsPerUsd: DEFAULT_BILLING_SETTINGS.pointsPerUsd,
+    markupPercent: String(DEFAULT_BILLING_SETTINGS.markupBasisPoints / 100),
+    sampleCostUsd: '1',
   });
+  const [rewardsForm, setRewardsForm] = useState<RewardsSettings>(
+    DEFAULT_REWARDS_SETTINGS,
+  );
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const isAdmin = session.data?.data.user.role === 'admin';
@@ -163,30 +177,43 @@ export function AdminBillingPage() {
     queryFn: () => getBillingSettings(),
     enabled: isAdmin,
   });
-  const creditSettings = useQuery({
-    queryKey: ['admin-credit-billing-settings'],
-    queryFn: () => getCreditBillingSettings(),
+  const analysisSettings = useQuery({
+    queryKey: ['admin-analysis-billing-settings'],
+    queryFn: () => getAnalysisBillingSettings(),
+    enabled: isAdmin,
+  });
+  const rewardsSettings = useQuery({
+    queryKey: ['admin-rewards-settings'],
+    queryFn: () => getRewardsSettings(),
     enabled: isAdmin,
   });
 
   useEffect(() => {
-    const value = creditSettings.data?.data;
+    const value = analysisSettings.data?.data;
     if (!value) return;
-    setCreditForm({
+    setAnalysisForm((current) => ({
+      ...current,
+      analysisBalanceThreshold: String(value.analysisBalanceThreshold),
       pointsPerUsd: value.pointsPerUsd,
       markupPercent: String(value.markupBasisPoints / 100),
-      reserveBufferPercent: String(value.reserveBufferBasisPoints / 100),
-      defaultEstimatedCostUsd: value.defaultEstimatedCostUsd,
-      signupGrantUsd: value.signupGrantUsd,
-      referralRewardUsd: value.referralRewardUsd,
-    });
-  }, [creditSettings.data]);
+    }));
+  }, [analysisSettings.data]);
+
+  useEffect(() => {
+    const value = rewardsSettings.data?.data;
+    if (!value) return;
+    setRewardsForm(value);
+  }, [rewardsSettings.data]);
+
   const refresh = () => {
     void queryClient.invalidateQueries({
       queryKey: ['admin-billing-settings'],
     });
     void queryClient.invalidateQueries({
-      queryKey: ['admin-credit-billing-settings'],
+      queryKey: ['admin-analysis-billing-settings'],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ['admin-rewards-settings'],
     });
     void queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
   };
@@ -232,23 +259,29 @@ export function AdminBillingPage() {
     },
     onError: () => toast.error(t('billing.toasts.configClearError')),
   });
-  const saveCreditSettings = useMutation({
+  const saveAnalysisSettings = useMutation({
     mutationFn: () =>
-      updateCreditBillingSettings({
-        pointsPerUsd: creditForm.pointsPerUsd,
-        markupBasisPoints: Math.round(Number(creditForm.markupPercent) * 100),
-        reserveBufferBasisPoints: Math.round(
-          Number(creditForm.reserveBufferPercent) * 100,
+      updateAnalysisBillingSettings({
+        analysisBalanceThreshold: Math.max(
+          0,
+          Math.floor(Number(analysisForm.analysisBalanceThreshold) || 0),
         ),
-        defaultEstimatedCostUsd: creditForm.defaultEstimatedCostUsd,
-        signupGrantUsd: creditForm.signupGrantUsd,
-        referralRewardUsd: creditForm.referralRewardUsd,
+        pointsPerUsd: analysisForm.pointsPerUsd,
+        markupBasisPoints: Math.round(Number(analysisForm.markupPercent) * 100),
       }),
     onSuccess: () => {
       refresh();
       toast.success(t('billing.credits.saved'));
     },
     onError: () => toast.error(t('billing.credits.saveError')),
+  });
+  const saveRewardsSettings = useMutation({
+    mutationFn: () => updateRewardsSettings(rewardsForm),
+    onSuccess: () => {
+      refresh();
+      toast.success(t('billing.rewards.saved'));
+    },
+    onError: () => toast.error(t('billing.rewards.saveError')),
   });
 
   const data = settings.data?.data;
@@ -328,6 +361,12 @@ export function AdminBillingPage() {
                 className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
               >
                 <Coins data-icon="inline-start" /> {t('billing.tabs.credits')}
+              </TabsTrigger>
+              <TabsTrigger
+                value="rewards"
+                className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
+              >
+                <Gift data-icon="inline-start" /> {t('billing.tabs.rewards')}
               </TabsTrigger>
               <TabsTrigger
                 value="events"
@@ -541,15 +580,23 @@ export function AdminBillingPage() {
               />
             </TabsContent>
             <TabsContent value="credits" className="pt-3">
-              <CreditSettingsEditor
-                value={creditForm}
-                settings={creditSettings.data?.data}
-                loading={creditSettings.isLoading}
-                pending={saveCreditSettings.isPending}
+              <AnalysisSettingsEditor
+                value={analysisForm}
+                loading={analysisSettings.isLoading}
+                pending={saveAnalysisSettings.isPending}
                 onChange={(values) =>
-                  setCreditForm((current) => ({ ...current, ...values }))
+                  setAnalysisForm((current) => ({ ...current, ...values }))
                 }
-                onSubmit={() => saveCreditSettings.mutate()}
+                onSubmit={() => saveAnalysisSettings.mutate()}
+              />
+            </TabsContent>
+            <TabsContent value="rewards" className="pt-3">
+              <RewardsSettingsEditor
+                value={rewardsForm}
+                loading={rewardsSettings.isLoading}
+                pending={saveRewardsSettings.isPending}
+                onChange={setRewardsForm}
+                onSubmit={() => saveRewardsSettings.mutate()}
               />
             </TabsContent>
             <TabsContent value="events" className="pt-3">
@@ -731,41 +778,32 @@ function StripeEventsPanel({ enabled }: { enabled: boolean }) {
   );
 }
 
-function CreditSettingsEditor({
+function AnalysisSettingsEditor({
   value,
-  settings,
   loading,
   pending,
   onChange,
   onSubmit,
 }: {
-  value: CreditSettingsForm;
-  settings?: CreditBillingSettings;
+  value: AnalysisSettingsForm;
   loading: boolean;
   pending: boolean;
-  onChange(values: Partial<CreditSettingsForm>): void;
+  onChange(values: Partial<AnalysisSettingsForm>): void;
   onSubmit(): void;
 }) {
   const { t } = useTranslation('admin');
   const pointsPerUsd = Number(value.pointsPerUsd);
-  const markup = Number(value.markupPercent) / 100;
-  const buffer = Number(value.reserveBufferPercent) / 100;
-  const cost = Number(value.defaultEstimatedCostUsd);
+  const markupBasisPoints = Math.round(Number(value.markupPercent) * 100);
+  const cost = Number(value.sampleCostUsd);
   const preview =
-    [pointsPerUsd, markup, buffer, cost].every(Number.isFinite) &&
+    [pointsPerUsd, markupBasisPoints, cost].every(Number.isFinite) &&
     pointsPerUsd > 0 &&
-    cost > 0
-      ? Math.ceil(cost * (1 + markup) * (1 + buffer) * pointsPerUsd)
+    cost >= 0 &&
+    markupBasisPoints >= 0
+      ? Math.ceil(
+          (cost * pointsPerUsd * (10_000 + markupBasisPoints)) / 10_000,
+        )
       : 0;
-  const grantPreview = (amountUsd: string) => {
-    try {
-      return calculateGrantPoints(amountUsd, value.pointsPerUsd);
-    } catch {
-      return 0;
-    }
-  };
-  const signupPreview = grantPreview(value.signupGrantUsd);
-  const referralPreview = grantPreview(value.referralRewardUsd);
 
   if (loading) return <Skeleton className="h-72 w-full" />;
   return (
@@ -773,17 +811,9 @@ function CreditSettingsEditor({
       title={t('billing.credits.title')}
       description={t('billing.credits.description')}
       actions={
-        <div className="flex flex-wrap justify-end gap-2">
-          <Badge variant="secondary">
-            {t('billing.credits.preview', { count: preview })}
-          </Badge>
-          <Badge variant="outline">
-            {t('billing.credits.signupPreview', { count: signupPreview })}
-          </Badge>
-          <Badge variant="outline">
-            {t('billing.credits.referralPreview', { count: referralPreview })}
-          </Badge>
-        </div>
+        <Badge variant="secondary">
+          {t('billing.credits.preview', { count: preview })}
+        </Badge>
       }
     >
       <form
@@ -793,6 +823,25 @@ function CreditSettingsEditor({
         }}
       >
         <FieldGroup className="grid gap-4 md:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="analysis-balance-threshold">
+              {t('billing.credits.balanceThreshold')}
+            </FieldLabel>
+            <Input
+              id="analysis-balance-threshold"
+              type="number"
+              min="0"
+              step="1"
+              required
+              value={value.analysisBalanceThreshold}
+              onChange={(event) =>
+                onChange({ analysisBalanceThreshold: event.target.value })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('billing.credits.balanceThresholdHint')}
+            </p>
+          </Field>
           <Field>
             <FieldLabel htmlFor="points-per-usd">
               {t('billing.credits.pointsPerUsd')}
@@ -827,84 +876,25 @@ function CreditSettingsEditor({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="reserve-buffer-percent">
-              {t('billing.credits.reserveBuffer')}
+            <FieldLabel htmlFor="sample-cost-usd">
+              {t('billing.credits.sampleCost')}
             </FieldLabel>
             <Input
-              id="reserve-buffer-percent"
+              id="sample-cost-usd"
               type="number"
               min="0"
-              max="1000"
               step="0.01"
-              required
-              value={value.reserveBufferPercent}
+              value={value.sampleCostUsd}
               onChange={(event) =>
-                onChange({ reserveBufferPercent: event.target.value })
+                onChange({ sampleCostUsd: event.target.value })
               }
             />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="default-estimated-cost">
-              {t('billing.credits.defaultCost')}
-            </FieldLabel>
-            <Input
-              id="default-estimated-cost"
-              type="number"
-              min="0.00000001"
-              step="0.00000001"
-              required
-              value={value.defaultEstimatedCostUsd}
-              onChange={(event) =>
-                onChange({ defaultEstimatedCostUsd: event.target.value })
-              }
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="signup-grant-usd">
-              {t('billing.credits.signupGrantUsd')}
-            </FieldLabel>
-            <Input
-              id="signup-grant-usd"
-              type="number"
-              min="0"
-              max="1000000"
-              step="0.01"
-              required
-              value={value.signupGrantUsd}
-              onChange={(event) =>
-                onChange({ signupGrantUsd: event.target.value })
-              }
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="referral-reward-usd">
-              {t('billing.credits.referralRewardUsd')}
-            </FieldLabel>
-            <Input
-              id="referral-reward-usd"
-              type="number"
-              min="0"
-              max="1000000"
-              step="0.01"
-              required
-              value={value.referralRewardUsd}
-              onChange={(event) =>
-                onChange({ referralRewardUsd: event.target.value })
-              }
-            />
+            <p className="text-xs text-muted-foreground">
+              {t('billing.credits.formula')}
+            </p>
           </Field>
           <Field className="justify-end md:col-span-2 md:items-end">
-            {settings && (
-              <p className="text-sm text-muted-foreground">
-                {t('billing.credits.updated', {
-                  date: new Date(settings.updatedAt).toLocaleString(),
-                  actor:
-                    settings.updatedByClerkUserId ??
-                    t('billing.credits.system'),
-                })}
-              </p>
-            )}
-            <Button type="submit" disabled={pending || preview < 1}>
+            <Button type="submit" disabled={pending}>
               {pending ? (
                 <Spinner data-icon="inline-start" />
               ) : (
@@ -915,6 +905,213 @@ function CreditSettingsEditor({
           </Field>
         </FieldGroup>
       </form>
+    </SectionPanel>
+  );
+}
+
+function RewardsSettingsEditor({
+  value,
+  loading,
+  pending,
+  onChange,
+  onSubmit,
+}: {
+  value: RewardsSettings;
+  loading: boolean;
+  pending: boolean;
+  onChange(next: RewardsSettings): void;
+  onSubmit(): void;
+}) {
+  const { t } = useTranslation('admin');
+
+  if (loading) return <Skeleton className="h-72 w-full" />;
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+      className="flex flex-col gap-4"
+    >
+      <div className="grid gap-4 lg:grid-cols-3">
+        <RewardChannelCard
+          title={t('billing.rewards.signup.title')}
+          description={t('billing.rewards.signup.description')}
+          enabled={value.signup.enabled}
+          points={value.signup.points}
+          onEnabledChange={(enabled) =>
+            onChange({
+              ...value,
+              signup: { ...value.signup, enabled },
+            })
+          }
+          onPointsChange={(points) =>
+            onChange({
+              ...value,
+              signup: { ...value.signup, points },
+            })
+          }
+        />
+        <RewardChannelCard
+          title={t('billing.rewards.referral.title')}
+          description={t('billing.rewards.referral.description')}
+          enabled={value.referral.enabled}
+          points={value.referral.points}
+          onEnabledChange={(enabled) =>
+            onChange({
+              ...value,
+              referral: { ...value.referral, enabled },
+            })
+          }
+          onPointsChange={(points) =>
+            onChange({
+              ...value,
+              referral: { ...value.referral, points },
+            })
+          }
+        />
+        <SectionPanel
+          title={t('billing.rewards.campaign.title')}
+          description={t('billing.rewards.campaign.description')}
+        >
+          <FieldGroup className="gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={value.campaign.enabled}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    ...value,
+                    campaign: {
+                      ...value.campaign,
+                      enabled: checked === true,
+                    },
+                  })
+                }
+              />
+              {t('billing.rewards.enabled')}
+            </label>
+            <Field>
+              <FieldLabel htmlFor="campaign-points">
+                {t('billing.rewards.points')}
+              </FieldLabel>
+              <Input
+                id="campaign-points"
+                type="number"
+                min="0"
+                step="1"
+                value={value.campaign.points}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    campaign: {
+                      ...value.campaign,
+                      points: Math.max(
+                        0,
+                        Math.floor(Number(event.target.value) || 0),
+                      ),
+                    },
+                  })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="campaign-label">
+                {t('billing.rewards.campaign.label')}
+              </FieldLabel>
+              <Input
+                id="campaign-label"
+                value={value.campaign.label}
+                maxLength={100}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    campaign: {
+                      ...value.campaign,
+                      label: event.target.value,
+                    },
+                  })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="campaign-code">
+                {t('billing.rewards.campaign.code')}
+              </FieldLabel>
+              <Input
+                id="campaign-code"
+                value={value.campaign.code ?? ''}
+                maxLength={64}
+                placeholder={t('billing.rewards.campaign.codePlaceholder')}
+                onChange={(event) =>
+                  onChange({
+                    ...value,
+                    campaign: {
+                      ...value.campaign,
+                      code: event.target.value.trim() || null,
+                    },
+                  })
+                }
+              />
+            </Field>
+          </FieldGroup>
+        </SectionPanel>
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={pending}>
+          {pending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <Save data-icon="inline-start" />
+          )}
+          {t('billing.rewards.save')}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function RewardChannelCard({
+  title,
+  description,
+  enabled,
+  points,
+  onEnabledChange,
+  onPointsChange,
+}: {
+  title: string;
+  description: string;
+  enabled: boolean;
+  points: number;
+  onEnabledChange(enabled: boolean): void;
+  onPointsChange(points: number): void;
+}) {
+  const { t } = useTranslation('admin');
+  return (
+    <SectionPanel title={title} description={description}>
+      <FieldGroup className="gap-3">
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={enabled}
+            onCheckedChange={(checked) => onEnabledChange(checked === true)}
+          />
+          {t('billing.rewards.enabled')}
+        </label>
+        <Field>
+          <FieldLabel>{t('billing.rewards.points')}</FieldLabel>
+          <Input
+            type="number"
+            min="0"
+            step="1"
+            value={points}
+            onChange={(event) =>
+              onPointsChange(
+                Math.max(0, Math.floor(Number(event.target.value) || 0)),
+              )
+            }
+          />
+        </Field>
+      </FieldGroup>
     </SectionPanel>
   );
 }

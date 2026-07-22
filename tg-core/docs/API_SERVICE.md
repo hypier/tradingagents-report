@@ -125,18 +125,18 @@ TRADINGAGENTS_DATABASE_URL=postgresql://user:password@host:5432/db
 - `(ticker, created_at DESC)`
 - `(status, created_at DESC)`
 
-同一 PostgreSQL 中还包含 TG-web 产品表：`account_users`、`billing_subscriptions`、`credit_billing_settings`、`credit_billing_setting_events`、`credit_accounts`、`credit_reservations`、`credit_ledger_entries`、`stripe_webhook_events`、`billing_provider_configs` 和 `billing_config_audit_events`。`account_users.referral_code` 保存稳定邀请码，`account_users.referred_by_clerk_user_id` 记录邀请人，`account_users.onboarding_completed_at` 标识一次性首访结算；`credit_billing_settings.signup_grant_usd` 和 `referral_reward_usd` 分别保存新用户赠送及邀请奖励金额。注册赠送与推荐奖励以 `credit_ledger_entries`（`reference_type = signup_grant` / `referral_reward`）为金额与定价快照的唯一记录。
+同一 PostgreSQL 中还包含 TG-web 产品表：`account_users`、`billing_subscriptions`、`credit_accounts`、`credit_ledger_entries`、`stripe_webhook_events`、`billing_provider_configs`、`billing_config_audit_events`、`system_settings` 等。分析计费配置在 `system_settings` 键 `billing`（`analysisBalanceThreshold`、`pointsPerUsd`、`markupBasisPoints`）；注册/推荐/活动奖励在键 `rewards`，彼此独立且不参与分析扣费。`account_users.referral_code` 保存稳定邀请码，`account_users.referred_by_clerk_user_id` 记录邀请人，`account_users.onboarding_completed_at` 标识一次性首访结算；奖励以 `credit_ledger_entries`（`reference_type = signup_grant` / `referral_reward`）为唯一记录。`analysis_jobs` 另含产品侧 `clerk_user_id` 与创建时冻结的 `credit_pricing`。
 
-这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时校验所需表及积分结算列存在，但不执行 DDL。身份档案、Stripe Webhook、计费配置、人工调点、邀请结算和预扣由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。部署包含新版本 TG-web 前，必须先执行 Drizzle 迁移，再启动接收业务流量的容器。迁移为历史用户回填邀请码并设置 `onboarding_completed_at`，不会追溯发放新用户积分。
+这些表由 tg-web Drizzle 迁移维护（`cd tg-web && pnpm db:migrate`）；Core 启动时校验所需表及 `analysis_jobs.clerk_user_id` / `credit_pricing` 列存在，但不执行 DDL。身份档案、Stripe Webhook、计费配置、人工调点、邀请结算和提交门槛由 TG-web BFF 写入；Core 不处理 Clerk 会话或支付。部署包含新版本 TG-web 前，必须先执行 Drizzle 迁移，再启动接收业务流量的容器。迁移为历史用户回填邀请码并设置 `onboarding_completed_at`，不会追溯发放新用户积分。
 
 TG-web BFF 提供以下邀请与赠送接口（不属于 Core API）：
 
 - `GET /invite/:code`：公开入口。有效邀请码写入 30 天有效的 `HttpOnly`、`SameSite=Lax` 归因 Cookie 并跳转 `/sign-up`；无效邀请码不写 Cookie，跳转 `/sign-up?invite=invalid`。
 - `GET /api/account/referral`：需要 Clerk 会话，返回 `referralPath`、`successfulReferrals` 和 `earnedCredits`。
-- `GET /api/admin/billing/credit-settings`：管理员读取积分汇率及赠送配置。
-- `PUT /api/admin/billing/credit-settings`：管理员整体更新积分配置；请求和响应均包含 `signupGrantUsd` 与 `referralRewardUsd`。两者必须是 0 到 1,000,000 之间、最多两位小数的美元金额。
+- `GET|PUT /api/admin/billing/analysis-settings`：管理员读写分析计费（余额门槛、每美元积分、加价基点）。
+- `GET|PUT /api/admin/billing/rewards-settings`：管理员读写注册/推荐/活动奖励（各类独立 `enabled` + 积分数）。
 
-Clerk 用户首次发起已认证请求时，TG-web 在单个 PostgreSQL 事务中同步本地用户、创建积分账户、锁定首访状态、读取当前配置、发放新用户积分、绑定有效邀请关系、奖励邀请人并设置 `onboarding_completed_at`。积分按 `ceil(amount_usd * points_per_usd)` 换算，不叠加分析任务的 markup 或 reserve buffer。新用户和邀请奖励账本分别使用 `signup:<userId>:grant` 与 `referral:<inviteeId>:reward` 幂等键；事务失败时归因 Cookie 保留以便下次请求重试，成功后清除。
+Clerk 用户首次发起已认证请求时，TG-web 在单个 PostgreSQL 事务中同步本地用户、创建积分账户、锁定首访状态、按 `rewards.signup` / `rewards.referral` 独立判断是否发分、绑定有效邀请关系并设置 `onboarding_completed_at`。奖励直接使用配置积分数，不经美元汇率。新用户和邀请奖励账本分别使用 `signup:<userId>:grant` 与 `referral:<inviteeId>:reward` 幂等键；事务失败时归因 Cookie 保留以便下次请求重试，成功后清除。
 
 这里的“免费额度”是一次性注册赠送：积分用完即止，不按月刷新，也不创建 Stripe Customer、Checkout、Invoice 或 Subscription。
 
@@ -144,7 +144,14 @@ TG-web BFF 另提供仅管理员可调用的 `POST /api/admin/billing/plans/defa
 
 TG-web 的 `POST /api/billing/checkout` 和 `POST /api/billing/portal` 请求体包含当前界面语言 `locale`（仅允许 `en` 或 `zh`）；BFF 将该值传给 Stripe Checkout 和 Customer Portal，使 Stripe 托管页面与产品界面语言一致。这两个端点同样不属于 Core API。
 
-当带 `request_id` 的 HTTP job 存在 `credit_reservations` 预留时，Core 在把 `analysis_jobs` 更新为 `succeeded` 的同一事务中，使用预留时的积分汇率和加价快照将 `cost_usd` 向上取整换算为最终积分，并执行多退少补；补扣可以使可用积分为负。`failed` 或进程重启回收的 job 在同一终态事务中全额释放预扣。旧的无快照 reservation 继续按原 `units` 结算。CLI、程序化调用和没有预留记录的 API job 保持原行为。账本写入使用 `analysis:<request_id>:consume|release` 幂等键。
+产品侧创建分析时校验 `available_credits > analysisBalanceThreshold`，并向 Core 传入 `clerk_user_id` 与 `credit_pricing` 快照（不做预扣）。Core 在 `succeeded` 或用户取消（billable）终态事务内按
+
+```text
+cost_usd <= 0 → 0
+否则 → max(1, ceil(cost_usd × points_per_usd × (1 + markup_basis_points/10000)))
+```
+
+扣减积分，允许可用余额为负；系统失败或进程回收失败不扣。账本幂等键为 `analysis:<job_id>:consume`。CLI、程序化调用和没有 `clerk_user_id`/`credit_pricing` 的 API job 保持原行为（不扣产品积分）。
 
 ## 4. 接口列表
 

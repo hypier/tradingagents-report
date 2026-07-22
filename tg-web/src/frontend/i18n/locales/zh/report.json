@@ -13,6 +13,7 @@
   "emptyBody": "该任务还没有报告内容。",
   "tradeDate": "分析日期 · {{date}}",
   "creditCost": "消耗额度 · {{count}}",
+  "costUsd": "成本 · ${{amount}}",
   "metaCredits": "{{count}} 额度",
   "moreActions": "更多操作",
   "keyboardHint": "左右键切换章节，上下键滚动报告",

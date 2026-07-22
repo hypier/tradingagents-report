@@ -70,22 +70,24 @@ const positiveDecimal = (maximumFractionDigits: number) =>
     )
     .refine((value) => Number(value) > 0 && Number(value) <= 1_000_000);
 
-const nonNegativeDecimal = (maximumFractionDigits: number) =>
-  z
-    .string()
-    .trim()
-    .regex(
-      new RegExp(`^(?:0|[1-9]\\d*)(?:\\.\\d{1,${maximumFractionDigits}})?$`),
-    )
-    .refine((value) => Number(value) <= 1_000_000);
+const rewardChannelSchema = z.object({
+  enabled: z.boolean(),
+  points: z.number().int().min(0).max(1_000_000),
+});
 
-const creditSettingsSchema = z.object({
+const analysisSettingsSchema = z.object({
+  analysisBalanceThreshold: z.number().int().min(0).max(1_000_000),
   pointsPerUsd: positiveDecimal(6),
   markupBasisPoints: z.number().int().min(0).max(100_000),
-  reserveBufferBasisPoints: z.number().int().min(0).max(100_000),
-  defaultEstimatedCostUsd: positiveDecimal(8),
-  signupGrantUsd: nonNegativeDecimal(2),
-  referralRewardUsd: nonNegativeDecimal(2),
+});
+
+const rewardsSettingsSchema = z.object({
+  signup: rewardChannelSchema,
+  referral: rewardChannelSchema,
+  campaign: rewardChannelSchema.extend({
+    label: z.string().trim().max(120),
+    code: z.string().trim().min(1).max(64).nullable(),
+  }),
 });
 
 export function billingRoutes(dependencies: AppDependencies) {
@@ -169,27 +171,54 @@ export function billingRoutes(dependencies: AppDependencies) {
     return context.json(apiSuccess(settings, context.get('requestId')));
   });
 
-  app.get('/admin/billing/credit-settings', async (context) => {
+  app.get('/admin/billing/analysis-settings', async (context) => {
     return context.json(
       apiSuccess(
-        await dependencies.database.billing.getCreditSettings(),
+        await dependencies.database.billing.getBillingSettings(),
         context.get('requestId'),
       ),
     );
   });
 
-  app.put('/admin/billing/credit-settings', async (context) => {
-    const input = creditSettingsSchema.safeParse(
+  app.put('/admin/billing/analysis-settings', async (context) => {
+    const input = analysisSettingsSchema.safeParse(
       await context.req.json().catch(() => null),
     );
     if (!input.success) {
       throw new AppError(
-        'INVALID_CREDIT_SETTINGS',
+        'INVALID_ANALYSIS_SETTINGS',
         400,
-        'Invalid credit billing settings',
+        'Invalid analysis billing settings',
       );
     }
-    const settings = await dependencies.database.billing.updateCreditSettings({
+    const settings = await dependencies.database.billing.updateBillingSettings({
+      ...input.data,
+      actorClerkUserId: context.get('auth').userId,
+    });
+    return context.json(apiSuccess(settings, context.get('requestId')));
+  });
+
+  app.get('/admin/billing/rewards-settings', async (context) => {
+    return context.json(
+      apiSuccess(
+        await dependencies.database.billing.getRewardsSettings(),
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.put('/admin/billing/rewards-settings', async (context) => {
+    const input = rewardsSettingsSchema.safeParse(
+      await context.req.json().catch(() => null),
+    );
+    if (!input.success) {
+      throw new AppError(
+        'INVALID_REWARDS_SETTINGS',
+        400,
+        'Invalid rewards settings',
+      );
+    }
+    const settings = await dependencies.database.billing.updateRewardsSettings({
       ...input.data,
       actorClerkUserId: context.get('auth').userId,
     });

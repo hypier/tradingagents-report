@@ -8,14 +8,6 @@ export type PublicMarket = {
   sessionNotes: string | null;
 };
 
-export type PublicCreditRule = {
-  market: string | null;
-  minAnalysts: number;
-  maxAnalysts: number;
-  units: number;
-  priority: number;
-};
-
 export type PublicConfig = {
   clerkPublishableKey: string;
   maintenance: {
@@ -27,7 +19,6 @@ export type PublicConfig = {
   };
   markets: PublicMarket[];
   disclaimerMarkdown: { en: string | null; zh: string | null };
-  creditRules: PublicCreditRule[];
 };
 
 const defaultPublicConfig = (
@@ -38,7 +29,6 @@ const defaultPublicConfig = (
   features: { watchlist: true },
   markets: [],
   disclaimerMarkdown: { en: null, zh: null },
-  creditRules: [],
 });
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -103,29 +93,6 @@ function parsePublicConfig(data: Record<string, unknown>): PublicConfig | null {
           ? disclaimerMarkdown.zh
           : null,
     },
-    creditRules: Array.isArray(data.creditRules)
-      ? data.creditRules.flatMap((row) => {
-          const item = asRecord(row);
-          if (
-            typeof item.minAnalysts !== 'number' ||
-            typeof item.maxAnalysts !== 'number' ||
-            typeof item.units !== 'number' ||
-            typeof item.priority !== 'number'
-          ) {
-            return [];
-          }
-          return [
-            {
-              market:
-                typeof item.market === 'string' ? item.market : null,
-              minAnalysts: item.minAnalysts,
-              maxAnalysts: item.maxAnalysts,
-              units: item.units,
-              priority: item.priority,
-            },
-          ];
-        })
-      : [],
   };
 }
 
@@ -145,27 +112,6 @@ export async function fetchPublicConfig(
   } catch {
     return null;
   }
-}
-
-export async function fetchCreditEstimate(
-  market: string | null | undefined,
-  analysts: number,
-  fetchImplementation: FetchImplementation = fetch,
-): Promise<number> {
-  const params = new URLSearchParams();
-  if (market) params.set('market', market);
-  params.set('analysts', String(Math.max(1, Math.floor(analysts) || 1)));
-  const response = await fetchImplementation(
-    `/api/credit-estimate?${params.toString()}`,
-  );
-  if (!response.ok) {
-    throw new Error('Unable to estimate credits');
-  }
-  const body = (await response.json()) as {
-    data?: { units?: unknown };
-  };
-  const units = body.data?.units;
-  return typeof units === 'number' && Number.isFinite(units) ? units : 1;
 }
 
 /** Prefer runtime BFF config; fall back to Vite build-time env for local dev. */

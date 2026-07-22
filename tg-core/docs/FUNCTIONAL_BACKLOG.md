@@ -26,7 +26,7 @@
 - [ ] 分析路径从 `llm_providers` 解密读取 API Key（及必要的 `backend_url`）；缺失时任务失败且不泄露 Key。
 - [ ] 使用请求中的 `llm_provider` / `quick_think_llm` / `deep_think_llm`；不在 Core 内做开放目录 CRUD 或校验。
 - [ ] 日志、API、任务 config 不出现 Key 明文；产品路径无 env Key 回退。
-- [ ] **不改** `calculate_cost`、积分预扣与 `cost_usd` 结算（另需求）。
+- [ ] **不改** `calculate_cost` 公式；分析积分门槛/终态结算见另需求（已落地：无预扣、`analysis_jobs.credit_pricing`）。
 
 ### 验收标准
 

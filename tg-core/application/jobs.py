@@ -64,6 +64,8 @@ class CreateAnalysisJob:
     instrument: dict[str, str] | None = None
     display: dict[str, Any] | None = None
     output_language: str | None = None
+    clerk_user_id: str | None = None
+    credit_pricing: dict[str, Any] | None = None
 
 
 def create_job(request: CreateAnalysisJob) -> dict:
@@ -101,6 +103,8 @@ def create_job(request: CreateAnalysisJob) -> dict:
         request=payload,
         config=public_config(config),
         display=display,
+        clerk_user_id=request.clerk_user_id,
+        credit_pricing=request.credit_pricing,
     )
 
 

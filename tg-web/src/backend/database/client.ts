@@ -15,7 +15,6 @@ import {
   type AdminAuditRepository,
   type BillingConfigRepository,
   type BillingRepository,
-  type CreditRulesRepository,
   type MarketsRepository,
   type LlmCatalogRepository,
   type SystemSettingsRepository,
@@ -36,7 +35,6 @@ export type DatabaseHealth = {
   watchlist: WatchlistRepository;
   settings: SystemSettingsRepository;
   markets: MarketsRepository;
-  creditRules: CreditRulesRepository;
   audit: AdminAuditRepository;
 };
 

@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp, type AppDependencies } from '../../src/backend/app';
-import { buildBillingSignature } from '../../src/backend/billing/credit-pricing';
 import { BillingRepositoryError } from '../../src/backend/database/billing-repository';
 import { AppError } from '../../src/backend/errors/app-error';
 import { Logger } from '../../src/backend/logging/logger';
+import {
+  DEFAULT_BILLING_SETTINGS,
+  toCreditPricingSnapshot,
+} from '../../src/shared/product-credits';
 
 function fakeDependencies(
   overrides: Partial<AppDependencies> = {},
@@ -106,28 +109,25 @@ function fakeDependencies(
         }),
         getAvailableCredits: vi.fn().mockResolvedValue({}),
         estimateAnalysis: vi.fn().mockResolvedValue({
-          estimatedCostUsd: '1.00000000',
-          reservedPoints: 132,
-          source: 'default',
-          sampleCount: 0,
-        }),
-        getCreditSettings: vi.fn().mockResolvedValue({
-          id: 'default',
-          pointsPerUsd: '100.000000',
+          analysisBalanceThreshold: 0,
+          canStart: true,
+          pointsPerUsd: '100',
           markupBasisPoints: 1000,
-          reserveBufferBasisPoints: 2000,
-          defaultEstimatedCostUsd: '1.00000000',
-          signupGrantUsd: '5.00',
-          referralRewardUsd: '2.00',
-          updatedByClerkUserId: null,
-          createdAt: new Date('2026-07-20T00:00:00Z'),
-          updatedAt: new Date('2026-07-20T00:00:00Z'),
+          availableCredits: 10,
         }),
-        updateCreditSettings: vi.fn(),
+        getBillingSettings: vi.fn().mockResolvedValue(DEFAULT_BILLING_SETTINGS),
+        updateBillingSettings: vi.fn().mockResolvedValue(DEFAULT_BILLING_SETTINGS),
+        getRewardsSettings: vi.fn().mockResolvedValue({
+          signup: { enabled: true, points: 500 },
+          referral: { enabled: true, points: 200 },
+          campaign: { enabled: false, points: 0, label: '', code: null },
+        }),
+        updateRewardsSettings: vi.fn(),
         adjustCredits: vi.fn().mockResolvedValue(100),
-        reserveAnalysis: vi.fn().mockResolvedValue('created'),
-        attachAnalysis: vi.fn().mockResolvedValue(undefined),
-        releaseAnalysis: vi.fn().mockResolvedValue(undefined),
+        assertCanStartAnalysis: vi.fn().mockResolvedValue({
+          settings: DEFAULT_BILLING_SETTINGS,
+          pricing: toCreditPricingSnapshot(DEFAULT_BILLING_SETTINGS),
+        }),
         processStripeEvent: vi.fn().mockResolvedValue(true),
         recordStripeFailure: vi.fn().mockResolvedValue(undefined),
         listStripeWebhookEvents: vi.fn().mockResolvedValue([]),
@@ -154,7 +154,6 @@ function fakeDependencies(
         listAllForAdmin: vi.fn().mockResolvedValue([]),
         getOwner: vi.fn().mockResolvedValue(null),
         ownsJob: vi.fn().mockResolvedValue(true),
-        getReservationUnits: vi.fn().mockResolvedValue(1),
         getAdminOverview: vi.fn().mockResolvedValue({
           userCount: 0,
           activeSubscriptionCount: 0,
@@ -224,26 +223,6 @@ function fakeDependencies(
         get: vi.fn(),
         upsert: vi.fn(),
         setEnabled: vi.fn(),
-      },
-      creditRules: {
-        list: vi.fn().mockResolvedValue([]),
-        listEnabled: vi.fn().mockResolvedValue([
-          {
-            id: 'rule-1',
-            label: 'Default',
-            market: null,
-            minAnalysts: 1,
-            maxAnalysts: 99,
-            units: 1,
-            enabled: 1,
-            priority: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ]),
-        create: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
       },
       audit: {
         record: vi.fn().mockResolvedValue({
@@ -902,17 +881,18 @@ describe('createApp', () => {
         job: { id: createdJobId },
       },
     });
-    expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(dependencies.database.billing.assertCanStartAnalysis).toHaveBeenCalledWith(
+      {
         clerkUserId: 'user-2',
-        billingSignature: expect.any(String),
-      }),
+      },
     );
     expect(dependencies.core.submitAnalysis).toHaveBeenCalledWith(
       expect.objectContaining({
         ticker: 'NASDAQ:AAPL',
         trade_date: '2026-07-18',
         request_id: expect.any(String),
+        clerk_user_id: 'user-2',
+        credit_pricing: toCreditPricingSnapshot(DEFAULT_BILLING_SETTINGS),
         instrument: { exchange: 'NASDAQ', symbol: 'AAPL' },
       }),
     );
@@ -1164,55 +1144,28 @@ describe('createApp', () => {
     const response = await app.request('/api/analyses/estimate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ticker: 'AAPL',
-        tradeDate: '2026-07-15',
-        analysts: ['news', 'market'],
-        configOverrides: { llm_provider: 'openai' },
-      }),
+      body: JSON.stringify({}),
     });
 
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toMatchObject({
-      data: { reservedPoints: 132 },
-    });
-    expect(body.data).not.toHaveProperty('estimatedCostUsd');
-    expect(dependencies.database.billing.estimateAnalysis).toHaveBeenCalledWith(
-      {
-        billingSignature: buildBillingSignature({
-          analysts: ['news', 'market'],
-          configOverrides: {
-            llm_provider: 'openai',
-            quick_think_llm: 'gpt-quick',
-            deep_think_llm: 'gpt-deep',
-          },
-        }),
+      data: {
+        analysisBalanceThreshold: 0,
+        canStart: true,
+        pointsPerUsd: '100',
+        markupBasisPoints: 1000,
+        availableCredits: 10,
+        reservedPoints: 1,
       },
-    );
+    });
+    expect(dependencies.database.billing.estimateAnalysis).toHaveBeenCalledWith({
+      clerkUserId: 'user-1',
+    });
     expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
   });
 
-  it('rejects an invalid analysis estimate request as a client error', async () => {
-    const dependencies = fakeDependencies();
-    const app = createApp(dependencies);
-
-    const response = await app.request('/api/analyses/estimate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker: '', analysts: [] }),
-    });
-
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({
-      error: { code: 'INVALID_REQUEST' },
-    });
-    expect(
-      dependencies.database.billing.estimateAnalysis,
-    ).not.toHaveBeenCalled();
-  });
-
-  it('lets an administrator read and update credit billing settings', async () => {
+  it('lets an administrator read and update analysis billing settings', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.auth.getUser).mockResolvedValue({
       id: 'user-1',
@@ -1221,46 +1174,80 @@ describe('createApp', () => {
       imageUrl: '',
       role: 'admin',
     });
+    const updated = {
+      analysisBalanceThreshold: 50,
+      pointsPerUsd: '200',
+      markupBasisPoints: 1500,
+    };
     vi.mocked(
-      dependencies.database.billing.updateCreditSettings,
-    ).mockResolvedValue(
-      await dependencies.database.billing.getCreditSettings(),
-    );
+      dependencies.database.billing.updateBillingSettings,
+    ).mockResolvedValue(updated);
     const app = createApp(dependencies);
 
-    const getResponse = await app.request('/api/admin/billing/credit-settings');
+    const getResponse = await app.request(
+      '/api/admin/billing/analysis-settings',
+    );
     expect(getResponse.status).toBe(200);
 
     const putResponse = await app.request(
-      '/api/admin/billing/credit-settings',
+      '/api/admin/billing/analysis-settings',
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pointsPerUsd: '200',
-          markupBasisPoints: 1500,
-          reserveBufferBasisPoints: 2500,
-          defaultEstimatedCostUsd: '2.5',
-          signupGrantUsd: '5.25',
-          referralRewardUsd: '0',
-        }),
+        body: JSON.stringify(updated),
       },
     );
     expect(putResponse.status).toBe(200);
     expect(
-      dependencies.database.billing.updateCreditSettings,
+      dependencies.database.billing.updateBillingSettings,
     ).toHaveBeenCalledWith({
-      pointsPerUsd: '200',
-      markupBasisPoints: 1500,
-      reserveBufferBasisPoints: 2500,
-      defaultEstimatedCostUsd: '2.5',
-      signupGrantUsd: '5.25',
-      referralRewardUsd: '0',
+      ...updated,
       actorClerkUserId: 'user-1',
     });
   });
 
-  it('rejects reward settings with more than two decimal places', async () => {
+  it('lets an administrator read and update rewards settings', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    const updated = {
+      signup: { enabled: true, points: 600 },
+      referral: { enabled: false, points: 0 },
+      campaign: { enabled: true, points: 100, label: 'Launch', code: 'LAUNCH' },
+    };
+    vi.mocked(
+      dependencies.database.billing.updateRewardsSettings,
+    ).mockResolvedValue(updated);
+    const app = createApp(dependencies);
+
+    const getResponse = await app.request(
+      '/api/admin/billing/rewards-settings',
+    );
+    expect(getResponse.status).toBe(200);
+
+    const putResponse = await app.request(
+      '/api/admin/billing/rewards-settings',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      },
+    );
+    expect(putResponse.status).toBe(200);
+    expect(
+      dependencies.database.billing.updateRewardsSettings,
+    ).toHaveBeenCalledWith({
+      ...updated,
+      actorClerkUserId: 'user-1',
+    });
+  });
+
+  it('rejects invalid analysis billing settings', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.auth.getUser).mockResolvedValue({
       id: 'user-1',
@@ -1271,24 +1258,21 @@ describe('createApp', () => {
     });
 
     const response = await createApp(dependencies).request(
-      '/api/admin/billing/credit-settings',
+      '/api/admin/billing/analysis-settings',
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          analysisBalanceThreshold: -1,
           pointsPerUsd: '100',
           markupBasisPoints: 1000,
-          reserveBufferBasisPoints: 2000,
-          defaultEstimatedCostUsd: '1',
-          signupGrantUsd: '5.001',
-          referralRewardUsd: '2',
         }),
       },
     );
 
     expect(response.status).toBe(400);
     expect(
-      dependencies.database.billing.updateCreditSettings,
+      dependencies.database.billing.updateBillingSettings,
     ).not.toHaveBeenCalled();
   });
 
@@ -1394,6 +1378,8 @@ describe('createApp', () => {
         deep_think_llm: 'gpt-deep',
       },
       request_id: '00000000-0000-4000-8000-000000000003',
+      clerk_user_id: 'user-1',
+      credit_pricing: toCreditPricingSnapshot(DEFAULT_BILLING_SETTINGS),
     });
   });
 
@@ -1456,6 +1442,8 @@ describe('createApp', () => {
         deep_think_llm: 'gpt-deep',
       },
       request_id: '00000000-0000-4000-8000-000000000007',
+      clerk_user_id: 'user-1',
+      credit_pricing: toCreditPricingSnapshot(DEFAULT_BILLING_SETTINGS),
       instrument: {
         exchange: 'HKEX',
         symbol: '700',
@@ -1468,7 +1456,7 @@ describe('createApp', () => {
     });
   });
 
-  it('releases a new credit reservation when Core rejects the request', async () => {
+  it('checks analysis balance before submitting and surfaces Core rejections', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.core.submitAnalysis).mockRejectedValue(
       new AppError(
@@ -1492,25 +1480,15 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith({
+    expect(
+      dependencies.database.billing.assertCanStartAnalysis,
+    ).toHaveBeenCalledWith({
       clerkUserId: 'user-1',
-      requestId,
-      billingSignature: buildBillingSignature({
-        analysts: ['market'],
-        configOverrides: {
-          llm_provider: 'openai',
-          quick_think_llm: 'gpt-quick',
-          deep_think_llm: 'gpt-deep',
-        },
-      }),
     });
-    expect(dependencies.database.billing.releaseAnalysis).toHaveBeenCalledWith(
-      requestId,
-      'analysis_request_rejected',
-    );
+    expect(dependencies.core.submitAnalysis).toHaveBeenCalled();
   });
 
-  it('attaches a credit reservation to an accepted Core job', async () => {
+  it('passes a frozen credit pricing snapshot to Core when creating an analysis', async () => {
     const dependencies = fakeDependencies({
       core: {
         healthcheck: vi.fn(),
@@ -1551,30 +1529,28 @@ describe('createApp', () => {
     });
 
     expect(response.status).toBe(202);
-    expect(dependencies.database.billing.reserveAnalysis).toHaveBeenCalledWith({
+    expect(
+      dependencies.database.billing.assertCanStartAnalysis,
+    ).toHaveBeenCalledWith({
       clerkUserId: 'user-1',
-      requestId,
-      billingSignature: buildBillingSignature({
-        analysts: ['market'],
-        configOverrides: {
-          llm_provider: 'openai',
-          quick_think_llm: 'gpt-quick',
-          deep_think_llm: 'gpt-deep',
-        },
-      }),
     });
-    expect(dependencies.database.billing.attachAnalysis).toHaveBeenCalledWith(
-      requestId,
-      '00000000-0000-4000-8000-000000000005',
+    expect(dependencies.core.submitAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clerk_user_id: 'user-1',
+        credit_pricing: toCreditPricingSnapshot(DEFAULT_BILLING_SETTINGS),
+        request_id: requestId,
+      }),
     );
   });
 
   it('returns 402 without submitting to Core when credits are insufficient', async () => {
     const dependencies = fakeDependencies();
-    vi.mocked(dependencies.database.billing.reserveAnalysis).mockRejectedValue(
+    vi.mocked(
+      dependencies.database.billing.assertCanStartAnalysis,
+    ).mockRejectedValue(
       new BillingRepositoryError(
         'INSUFFICIENT_CREDITS',
-        'There are not enough analysis credits available',
+        'Available credits are not above the analysis balance threshold',
       ),
     );
     const app = createApp(dependencies);
@@ -2077,14 +2053,14 @@ describe('createApp', () => {
           setStripeCustomerId: vi.fn(),
           getStripeCustomerId: vi.fn(),
           getUsage: vi.fn(),
-          getCreditSettings: vi.fn(),
-          updateCreditSettings: vi.fn(),
+          getBillingSettings: vi.fn(),
+          updateBillingSettings: vi.fn(),
+          getRewardsSettings: vi.fn(),
+          updateRewardsSettings: vi.fn(),
           estimateAnalysis: vi.fn(),
           getAvailableCredits: vi.fn(),
           adjustCredits: vi.fn(),
-          reserveAnalysis: vi.fn(),
-          attachAnalysis: vi.fn(),
-          releaseAnalysis: vi.fn(),
+          assertCanStartAnalysis: vi.fn(),
           processStripeEvent: vi.fn(),
           recordStripeFailure: vi.fn(),
         },
@@ -2104,7 +2080,6 @@ describe('createApp', () => {
           listAllForAdmin: vi.fn(),
           getOwner: vi.fn(),
           ownsJob: vi.fn(),
-          getReservationUnits: vi.fn(),
           getAdminOverview: vi.fn(),
         },
         watchlist: {
@@ -2124,13 +2099,6 @@ describe('createApp', () => {
           get: vi.fn(),
           upsert: vi.fn(),
           setEnabled: vi.fn(),
-        },
-        creditRules: {
-          list: vi.fn().mockResolvedValue([]),
-          listEnabled: vi.fn().mockResolvedValue([]),
-          create: vi.fn(),
-          update: vi.fn(),
-          delete: vi.fn(),
         },
         audit: {
           record: vi.fn(),

@@ -8,13 +8,10 @@ import {
   llmModels,
   accountUsers,
   creditAccounts,
-  creditReservations,
   creditLedgerEntries,
   stripeWebhookEvents,
   billingProviderConfigs,
   billingConfigAuditEvents,
-  creditBillingSettings,
-  creditBillingSettingEvents,
   systemSettings,
   marketConfigs,
   adminAuditEvents,
@@ -30,7 +27,6 @@ describe('Core table mappings', () => {
   it('maps product identity, billing, and credit audit tables', () => {
     expect(getTableName(accountUsers)).toBe('account_users');
     expect(getTableName(creditAccounts)).toBe('credit_accounts');
-    expect(getTableName(creditReservations)).toBe('credit_reservations');
     expect(getTableName(creditLedgerEntries)).toBe('credit_ledger_entries');
     expect(getTableName(stripeWebhookEvents)).toBe('stripe_webhook_events');
     expect(getTableName(billingProviderConfigs)).toBe(
@@ -39,10 +35,7 @@ describe('Core table mappings', () => {
     expect(getTableName(billingConfigAuditEvents)).toBe(
       'billing_config_audit_events',
     );
-    expect(getTableName(creditBillingSettings)).toBe('credit_billing_settings');
-    expect(getTableName(creditBillingSettingEvents)).toBe(
-      'credit_billing_setting_events',
-    );
+    expect(getTableName(systemSettings)).toBe('system_settings');
   });
 
   it('maps system settings, market configs, and operation log tables', () => {
@@ -51,7 +44,7 @@ describe('Core table mappings', () => {
     expect(getTableName(adminAuditEvents)).toBe('admin_audit_events');
   });
 
-  it('maps referral onboarding and reward settings', () => {
+  it('maps referral onboarding columns on account users', () => {
     expect(
       getTableConfig(accountUsers).columns.map((column) => column.name),
     ).toEqual(
@@ -61,27 +54,15 @@ describe('Core table mappings', () => {
         'onboarding_completed_at',
       ]),
     );
-    expect(
-      getTableConfig(creditBillingSettings).columns.map(
-        (column) => column.name,
-      ),
-    ).toEqual(
-      expect.arrayContaining(['signup_grant_usd', 'referral_reward_usd']),
-    );
   });
 
-  it('stores pricing snapshots and settlement results on reservations', () => {
-    const columns = getTableConfig(creditReservations).columns.map(
+  it('stores product ownership and frozen credit pricing on analysis jobs', () => {
+    const columns = getTableConfig(analysisJobs).columns.map(
       (column) => column.name,
     );
 
     expect(columns).toEqual(
-      expect.arrayContaining([
-        'estimated_cost_usd',
-        'pricing_snapshot',
-        'settled_units',
-        'settled_cost_usd',
-      ]),
+      expect.arrayContaining(['clerk_user_id', 'credit_pricing']),
     );
   });
 
@@ -89,11 +70,6 @@ describe('Core table mappings', () => {
     const sqlTypes = [
       ...getTableConfig(creditAccounts)
         .columns.filter((column) => column.name.endsWith('_credits'))
-        .map((column) => column.getSQLType()),
-      ...getTableConfig(creditReservations)
-        .columns.filter((column) =>
-          ['units', 'settled_units'].includes(column.name),
-        )
         .map((column) => column.getSQLType()),
       ...getTableConfig(creditLedgerEntries)
         .columns.filter((column) => column.name.endsWith('_delta'))

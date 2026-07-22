@@ -3,7 +3,11 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import type { ReferralSummary } from '../account/contract';
 import type { AuthUser } from '../auth/contract';
-import { calculateGrantPoints } from '../billing/credit-pricing';
+import {
+  DEFAULT_REWARDS_SETTINGS,
+  parseRewardsSettings,
+  type RewardsSettings,
+} from '../../shared/product-credits';
 import { createReferralCode } from './referral-code';
 import * as schema from './schema';
 
@@ -48,37 +52,29 @@ export function createReferralRepository(
           .for('update');
         if (localUser?.onboardingCompletedAt) return;
 
-        const settings = await ensureCreditSettings(tx);
-        const signupGrantPoints = calculateGrantPoints(
-          settings.signupGrantUsd,
-          settings.pointsPerUsd,
-        );
-        const referralRewardPoints = calculateGrantPoints(
-          settings.referralRewardUsd,
-          settings.pointsPerUsd,
-        );
+        const rewards = await loadRewardsSettings(tx);
 
-        if (signupGrantPoints > 0) {
+        if (rewards.signup.enabled && rewards.signup.points > 0) {
+          const points = rewards.signup.points;
           const [entry] = await tx
             .insert(schema.creditLedgerEntries)
             .values({
               clerkUserId: user.id,
               entryType: 'grant',
-              availableDelta: signupGrantPoints,
+              availableDelta: points,
               idempotencyKey: `signup:${user.id}:grant`,
               referenceType: 'signup_grant',
               referenceId: user.id,
               description: 'New user welcome credits',
               metadata: {
-                amountUsd: settings.signupGrantUsd,
-                pointsPerUsd: settings.pointsPerUsd,
-                points: signupGrantPoints,
+                points,
+                channel: 'signup',
               },
             })
             .onConflictDoNothing()
             .returning({ id: schema.creditLedgerEntries.id });
           if (entry) {
-            await addAvailableCredits(tx, user.id, signupGrantPoints);
+            await addAvailableCredits(tx, user.id, points);
           }
         }
 
@@ -99,13 +95,14 @@ export function createReferralRepository(
               ),
             );
 
-          if (referralRewardPoints > 0) {
+          if (rewards.referral.enabled && rewards.referral.points > 0) {
+            const points = rewards.referral.points;
             const [entry] = await tx
               .insert(schema.creditLedgerEntries)
               .values({
                 clerkUserId: inviter.clerkUserId,
                 entryType: 'grant',
-                availableDelta: referralRewardPoints,
+                availableDelta: points,
                 idempotencyKey: `referral:${user.id}:reward`,
                 referenceType: 'referral_reward',
                 referenceId: user.id,
@@ -114,19 +111,14 @@ export function createReferralRepository(
                   inviteeClerkUserId: user.id,
                   inviterClerkUserId: inviter.clerkUserId,
                   referralCode: inviter.referralCode,
-                  amountUsd: settings.referralRewardUsd,
-                  pointsPerUsd: settings.pointsPerUsd,
-                  points: referralRewardPoints,
+                  points,
+                  channel: 'referral',
                 },
               })
               .onConflictDoNothing()
               .returning({ id: schema.creditLedgerEntries.id });
             if (entry) {
-              await addAvailableCredits(
-                tx,
-                inviter.clerkUserId,
-                referralRewardPoints,
-              );
+              await addAvailableCredits(tx, inviter.clerkUserId, points);
             }
           }
         }
@@ -197,16 +189,19 @@ async function upsertUser(tx: Transaction, user: AuthUser) {
     });
 }
 
-async function ensureCreditSettings(tx: Transaction) {
-  await tx
-    .insert(schema.creditBillingSettings)
-    .values({ id: 'default' })
-    .onConflictDoNothing();
-  const [settings] = await tx
-    .select()
-    .from(schema.creditBillingSettings)
-    .where(eq(schema.creditBillingSettings.id, 'default'));
-  return settings!;
+async function loadRewardsSettings(tx: Transaction): Promise<RewardsSettings> {
+  const [row] = await tx
+    .select({ value: schema.systemSettings.value })
+    .from(schema.systemSettings)
+    .where(eq(schema.systemSettings.key, 'rewards'));
+  if (!row) {
+    await tx
+      .insert(schema.systemSettings)
+      .values({ key: 'rewards', value: DEFAULT_REWARDS_SETTINGS })
+      .onConflictDoNothing();
+    return DEFAULT_REWARDS_SETTINGS;
+  }
+  return parseRewardsSettings(row.value);
 }
 
 async function findInviter(

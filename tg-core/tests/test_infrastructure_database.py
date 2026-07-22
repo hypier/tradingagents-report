@@ -15,7 +15,9 @@ class _Connection:
 
     def fetchone(self):
         sql = self.executed[-1][0]
-        return {"n": 4 if "information_schema.columns" in sql else 4}
+        if "information_schema.columns" in sql:
+            return {"n": 2}
+        return {"n": 4}
 
 
 def test_database_url_uses_environment_override(monkeypatch):
@@ -68,7 +70,11 @@ def test_require_schema_accepts_existing_tables(monkeypatch):
         "analysis_jobs",
         "llm_providers",
         "llm_models",
+        "credit_accounts",
     ],)
+    column_sql, column_params = connection.executed[1]
+    assert "information_schema.columns" in column_sql
+    assert column_params == (["clerk_user_id", "credit_pricing"],)
 
 
 def test_require_schema_fails_when_tables_are_missing(monkeypatch):
@@ -92,7 +98,7 @@ def test_require_schema_fails_when_credit_settlement_columns_are_missing(monkeyp
     class MissingColumnsConnection(_Connection):
         def fetchone(self):
             sql = self.executed[-1][0]
-            return {"n": 3 if "information_schema.columns" in sql else 3}
+            return {"n": 1 if "information_schema.columns" in sql else 4}
 
     connection = MissingColumnsConnection()
 

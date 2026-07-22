@@ -14,29 +14,6 @@ export type AdminMarket = {
   updatedAt?: string | Date;
 };
 
-export type CreditRule = {
-  id: string;
-  label: string;
-  market: string | null;
-  minAnalysts: number;
-  maxAnalysts: number;
-  units: number;
-  enabled: boolean | number;
-  priority: number;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
-};
-
-export type CreditRuleInput = {
-  label: string;
-  market: string | null;
-  minAnalysts: number;
-  maxAnalysts: number;
-  units: number;
-  enabled: boolean;
-  priority: number;
-};
-
 export type DatasourceHealth = {
   dependencies: Array<{
     id: string;
@@ -134,40 +111,6 @@ export const upsertAdminMarket = (
       method: 'PUT',
       body: { ...input, code },
     },
-    fetchImplementation,
-  );
-
-export const listCreditRules = (fetchImplementation?: FetchImplementation) =>
-  read<CreditRule[]>('/api/admin/credit-rules', fetchImplementation);
-
-export const createCreditRule = (
-  input: CreditRuleInput,
-  fetchImplementation?: FetchImplementation,
-) =>
-  send<CreditRule>(
-    '/api/admin/credit-rules',
-    { method: 'POST', body: input },
-    fetchImplementation,
-  );
-
-export const updateCreditRule = (
-  id: string,
-  input: Partial<CreditRuleInput>,
-  fetchImplementation?: FetchImplementation,
-) =>
-  send<CreditRule>(
-    `/api/admin/credit-rules/${encodeURIComponent(id)}`,
-    { method: 'PATCH', body: input },
-    fetchImplementation,
-  );
-
-export const deleteCreditRule = (
-  id: string,
-  fetchImplementation?: FetchImplementation,
-) =>
-  send<{ id: string }>(
-    `/api/admin/credit-rules/${encodeURIComponent(id)}`,
-    { method: 'DELETE' },
     fetchImplementation,
   );
 

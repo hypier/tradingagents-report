@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  fetchCreditEstimate,
   fetchPublicConfig,
   resolveClerkPublishableKey,
 } from '../../src/frontend/lib/public-config';
@@ -37,15 +36,6 @@ describe('public config client', () => {
             },
             features: { watchlist: false },
             markets: [{ code: 'US', displayName: 'United States' }],
-            creditRules: [
-              {
-                market: 'US',
-                minAnalysts: 1,
-                maxAnalysts: 4,
-                units: 2,
-                priority: 10,
-              },
-            ],
           },
           requestId: 'req-2',
         }),
@@ -60,24 +50,7 @@ describe('public config client', () => {
       },
       features: { watchlist: false },
       markets: [{ code: 'US', displayName: 'United States' }],
-      creditRules: [{ market: 'US', units: 2 }],
     });
-  });
-
-  it('fetches credit estimates', async () => {
-    const fetchImplementation = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ data: { units: 3 }, requestId: 'req-3' }),
-        { status: 200 },
-      ),
-    );
-
-    await expect(
-      fetchCreditEstimate('US', 4, fetchImplementation),
-    ).resolves.toBe(3);
-    expect(fetchImplementation).toHaveBeenCalledWith(
-      '/api/credit-estimate?market=US&analysts=4',
-    );
   });
 
   it('prefers runtime config over the Vite build-time key', async () => {

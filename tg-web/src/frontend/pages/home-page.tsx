@@ -419,12 +419,15 @@ export function HomePage() {
     enabled: pendingResearchInput !== null,
     staleTime: 30_000,
   });
-  const reservedPoints = estimate.data?.data.reservedPoints;
+  const estimateData = estimate.data?.data;
+  const reservedPoints = estimateData?.reservedPoints;
   const insufficientCredits =
     billing.isSuccess &&
     estimate.isSuccess &&
-    reservedPoints !== undefined &&
-    availableCredits < reservedPoints;
+    (estimateData?.canStart === false ||
+      (estimateData?.canStart === undefined &&
+        reservedPoints !== undefined &&
+        availableCredits < reservedPoints));
   const defaultMarket = profile.data?.data.profile.defaultMarket;
 
   function submit() {
@@ -822,9 +825,10 @@ export function HomePage() {
                       ? t('submit.submitting')
                       : estimate.isLoading
                         ? t('submit.estimating')
-                        : estimate.data
+                        : estimateData
                           ? t('submit.runWithEstimate', {
-                              count: estimate.data.data.reservedPoints,
+                              threshold:
+                                estimateData.analysisBalanceThreshold,
                             })
                           : t('submit.run')}
                   </Button>

@@ -63,7 +63,8 @@
     "tabs": {
       "connection": "Connection",
       "plans": "Plans",
-      "credits": "Credit billing",
+      "credits": "Analysis billing",
+      "rewards": "Rewards",
       "events": "Stripe events"
     },
     "events": {
@@ -185,22 +186,40 @@
       "archive": "Archive {{name}}"
     },
     "credits": {
-      "title": "Usage-based credit billing",
-      "description": "Convert actual AI token cost in USD into product credits.",
+      "title": "Analysis credit billing",
+      "description": "Gate starts by balance threshold; charge points from actual AI cost after completion.",
+      "balanceThreshold": "Start balance threshold",
+      "balanceThresholdHint": "Users need at least this many available points to start an analysis. Points are charged after the run finishes.",
       "pointsPerUsd": "Points per USD",
       "markup": "Cost markup (%)",
-      "reserveBuffer": "Reserve buffer (%)",
-      "defaultCost": "Default estimated cost (USD)",
+      "sampleCost": "Sample cost (USD)",
+      "formula": "Charge preview: ceil(cost × pointsPerUsd × (1 + markup))",
       "preview": "{{count}} points",
-      "signupGrantUsd": "New user grant (USD)",
-      "referralRewardUsd": "Referral reward (USD)",
-      "signupPreview": "Signup: {{count}} points",
-      "referralPreview": "Referral: {{count}} points",
-      "updated": "Updated {{date}} by {{actor}}",
-      "system": "system",
-      "save": "Save credit settings",
-      "saved": "Credit billing settings saved.",
-      "saveError": "Unable to save credit billing settings."
+      "save": "Save analysis settings",
+      "saved": "Analysis billing settings saved.",
+      "saveError": "Unable to save analysis billing settings."
+    },
+    "rewards": {
+      "enabled": "Enabled",
+      "points": "Points",
+      "save": "Save rewards settings",
+      "saved": "Rewards settings saved.",
+      "saveError": "Unable to save rewards settings.",
+      "signup": {
+        "title": "Signup grant",
+        "description": "Points granted when a new account is created."
+      },
+      "referral": {
+        "title": "Referral reward",
+        "description": "Points granted to the referrer when an invite succeeds."
+      },
+      "campaign": {
+        "title": "Campaign reward",
+        "description": "Optional campaign code and grant.",
+        "label": "Label",
+        "code": "Code",
+        "codePlaceholder": "Optional promo code"
+      }
     },
     "toasts": {
       "planCreated": "Subscription plan created.",

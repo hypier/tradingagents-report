@@ -101,6 +101,8 @@ def submit_analysis(request: AnalysisRequest) -> dict:
                 analysts=tuple(request.analysts),
                 config_overrides=request.config_overrides,
                 output_language=request.output_language,
+                clerk_user_id=request.clerk_user_id,
+                credit_pricing=request.credit_pricing,
             )
         )
     except analysis_jobs.RequestIdConflictError as exc:

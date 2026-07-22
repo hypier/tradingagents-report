@@ -5,7 +5,7 @@
  * - 分析任务、管理员 Stripe 配置等轻量 CRUD 在此内联定义。
  * - LLM 提供商/模型目录见 llm-catalog-repository。
  */
-import { and, desc, eq, gt, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, isNotNull, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { analysisJobs } from './schema';
@@ -24,11 +24,9 @@ import {
 } from './llm-catalog-repository';
 import {
   createAdminAuditRepository,
-  createCreditRulesRepository,
   createMarketsRepository,
   createSystemSettingsRepository,
   type AdminAuditRepository,
-  type CreditRulesRepository,
   type MarketsRepository,
   type SystemSettingsRepository,
 } from './product-ops-repository';
@@ -45,7 +43,6 @@ export type { AccountRepository } from './account-repository';
 export type { BillingRepository } from './billing-repository';
 export type {
   AdminAuditRepository,
-  CreditRulesRepository,
   MarketsRepository,
   SystemSettingsRepository,
 } from './product-ops-repository';
@@ -57,6 +54,7 @@ export type { LlmCatalogRepository } from './llm-catalog-repository';
 
 export type UserAnalysisListItem = {
   job: AnalysisJob;
+  /** Reserved units are obsolete under balance-threshold billing; kept null for API compat. */
   creditUnits: number | null;
 };
 
@@ -126,10 +124,6 @@ export type AnalysisJobsRepository = {
   }): Promise<AdminAnalysisListItem[]>;
   getOwner(analysisJobId: string): Promise<string | null>;
   ownsJob(clerkUserId: string, analysisJobId: string): Promise<boolean>;
-  getReservationUnits(
-    clerkUserId: string,
-    analysisJobId: string,
-  ): Promise<number | null>;
   getAdminOverview(input: { from: Date; to: Date }): Promise<AdminOverviewMetrics>;
 };
 
@@ -159,7 +153,6 @@ export function createRepositories(database: Database): {
   watchlist: WatchlistRepository;
   settings: SystemSettingsRepository;
   markets: MarketsRepository;
-  creditRules: CreditRulesRepository;
   audit: AdminAuditRepository;
 } {
   return {
@@ -169,7 +162,6 @@ export function createRepositories(database: Database): {
     watchlist: createWatchlistRepository(database),
     settings: createSystemSettingsRepository(database),
     markets: createMarketsRepository(database),
-    creditRules: createCreditRulesRepository(database),
     audit: createAdminAuditRepository(database),
     llmCatalog: createLlmCatalogRepository(database),
     billingConfig: {
@@ -249,10 +241,7 @@ export function createRepositories(database: Database): {
           .offset(input.offset);
       },
       async listForUser(input) {
-        const conditions = [
-          eq(schema.creditReservations.clerkUserId, input.clerkUserId),
-          sql`${schema.creditReservations.analysisJobId} is not null`,
-        ];
+        const conditions = [eq(analysisJobs.clerkUserId, input.clerkUserId)];
         if (input.ticker) {
           conditions.push(
             eq(analysisJobs.ticker, input.ticker.trim().toUpperCase()),
@@ -294,59 +283,35 @@ export function createRepositories(database: Database): {
         }
 
         const rows = await database
-          .select({
-            job: analysisJobs,
-            creditUnits: schema.creditReservations.units,
-          })
-          .from(schema.creditReservations)
-          .innerJoin(
-            analysisJobs,
-            eq(schema.creditReservations.analysisJobId, analysisJobs.id),
-          )
+          .select()
+          .from(analysisJobs)
           .where(and(...conditions))
           .orderBy(desc(analysisJobs.createdAt))
           .limit(input.limit)
           .offset(input.offset);
 
-        return rows.map((row) => ({
-          job: row.job,
-          creditUnits: row.creditUnits,
+        return rows.map((job) => ({
+          job,
+          creditUnits: null,
         }));
       },
       async ownsJob(clerkUserId, analysisJobId) {
         const [row] = await database
-          .select({ id: schema.creditReservations.requestId })
-          .from(schema.creditReservations)
+          .select({ id: analysisJobs.id })
+          .from(analysisJobs)
           .where(
             and(
-              eq(schema.creditReservations.clerkUserId, clerkUserId),
-              eq(schema.creditReservations.analysisJobId, analysisJobId),
+              eq(analysisJobs.id, analysisJobId),
+              eq(analysisJobs.clerkUserId, clerkUserId),
             ),
           )
           .limit(1);
         return Boolean(row);
       },
-      async getReservationUnits(clerkUserId, analysisJobId) {
-        const [row] = await database
-          .select({ units: schema.creditReservations.units })
-          .from(schema.creditReservations)
-          .where(
-            and(
-              eq(schema.creditReservations.clerkUserId, clerkUserId),
-              eq(schema.creditReservations.analysisJobId, analysisJobId),
-            ),
-          )
-          .limit(1);
-        return row?.units ?? null;
-      },
       async listAllForAdmin(input) {
-        const conditions = [
-          sql`${schema.creditReservations.analysisJobId} is not null`,
-        ];
+        const conditions = [isNotNull(analysisJobs.clerkUserId)];
         if (input.clerkUserId) {
-          conditions.push(
-            eq(schema.creditReservations.clerkUserId, input.clerkUserId),
-          );
+          conditions.push(eq(analysisJobs.clerkUserId, input.clerkUserId));
         }
         if (input.ticker) {
           conditions.push(
@@ -357,31 +322,29 @@ export function createRepositories(database: Database): {
           conditions.push(eq(analysisJobs.status, input.status));
         }
         const rows = await database
-          .select({
-            job: analysisJobs,
-            clerkUserId: schema.creditReservations.clerkUserId,
-            creditUnits: schema.creditReservations.units,
-          })
-          .from(schema.creditReservations)
-          .innerJoin(
-            analysisJobs,
-            eq(schema.creditReservations.analysisJobId, analysisJobs.id),
-          )
+          .select()
+          .from(analysisJobs)
           .where(and(...conditions))
           .orderBy(desc(analysisJobs.createdAt))
           .limit(input.limit)
           .offset(input.offset);
-        return rows.map((row) => ({
-          job: row.job,
-          clerkUserId: row.clerkUserId,
-          creditUnits: row.creditUnits,
-        }));
+        return rows.flatMap((job) =>
+          job.clerkUserId
+            ? [
+                {
+                  job,
+                  clerkUserId: job.clerkUserId,
+                  creditUnits: null,
+                },
+              ]
+            : [],
+        );
       },
       async getOwner(analysisJobId) {
         const [row] = await database
-          .select({ clerkUserId: schema.creditReservations.clerkUserId })
-          .from(schema.creditReservations)
-          .where(eq(schema.creditReservations.analysisJobId, analysisJobId))
+          .select({ clerkUserId: analysisJobs.clerkUserId })
+          .from(analysisJobs)
+          .where(eq(analysisJobs.id, analysisJobId))
           .limit(1);
         return row?.clerkUserId ?? null;
       },

@@ -63,7 +63,8 @@
     "tabs": {
       "connection": "连接",
       "plans": "套餐",
-      "credits": "积分计费",
+      "credits": "分析计费",
+      "rewards": "奖励",
       "events": "Stripe 事件"
     },
     "events": {
@@ -185,22 +186,40 @@
       "archive": "归档 {{name}}"
     },
     "credits": {
-      "title": "按用量积分计费",
-      "description": "将 AI token 的实际美元成本换算为产品积分。",
+      "title": "分析积分计费",
+      "description": "以余额门槛控制能否开跑；完成后按实际 AI 成本扣积分。",
+      "balanceThreshold": "开跑余额门槛",
+      "balanceThresholdHint": "可用积分至少达到该值才能开始分析。积分在任务完成后按实际成本扣减。",
       "pointsPerUsd": "每美元积分",
       "markup": "成本加价（%）",
-      "reserveBuffer": "预扣缓冲（%）",
-      "defaultCost": "默认预估成本（美元）",
+      "sampleCost": "示例成本（美元）",
+      "formula": "扣费预览：ceil(成本 × 每美元积分 × (1 + 加价))",
       "preview": "{{count}} 积分",
-      "signupGrantUsd": "新用户赠送金额（美元）",
-      "referralRewardUsd": "邀请人奖励金额（美元）",
-      "signupPreview": "注册赠送：{{count}} 积分",
-      "referralPreview": "邀请奖励：{{count}} 积分",
-      "updated": "{{date}} 由 {{actor}} 更新",
-      "system": "系统",
-      "save": "保存积分设置",
-      "saved": "积分计费设置已保存。",
-      "saveError": "无法保存积分计费设置。"
+      "save": "保存分析计费设置",
+      "saved": "分析计费设置已保存。",
+      "saveError": "无法保存分析计费设置。"
+    },
+    "rewards": {
+      "enabled": "启用",
+      "points": "积分",
+      "save": "保存奖励设置",
+      "saved": "奖励设置已保存。",
+      "saveError": "无法保存奖励设置。",
+      "signup": {
+        "title": "注册赠送",
+        "description": "新账户创建时发放的积分。"
+      },
+      "referral": {
+        "title": "邀请奖励",
+        "description": "邀请成功时发给邀请人的积分。"
+      },
+      "campaign": {
+        "title": "活动奖励",
+        "description": "可选活动码与赠送积分。",
+        "label": "名称",
+        "code": "活动码",
+        "codePlaceholder": "可选促销码"
+      }
     },
     "toasts": {
       "planCreated": "订阅套餐已创建。",

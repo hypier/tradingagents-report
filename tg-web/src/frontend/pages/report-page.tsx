@@ -56,7 +56,6 @@ import {
   removeWatchlistItem,
 } from '../lib/watchlist';
 import { cn } from '../lib/utils';
-import { ANALYSIS_CREDIT_UNITS } from '@/shared/analysis-credits';
 import {
   formatDisplayTicker,
   listingFromParts,
@@ -240,7 +239,14 @@ export function ReportPage() {
   const watchlistItem = watchlist.data?.data.items.find(
     (item) => item.providerSymbol === providerSymbol,
   );
-  const creditUnits = job?.credit_units ?? ANALYSIS_CREDIT_UNITS;
+  const costUsd =
+    typeof job?.cost_usd === 'number' && Number.isFinite(job.cost_usd)
+      ? job.cost_usd
+      : null;
+  const creditUnits =
+    typeof job?.credit_units === 'number' && Number.isFinite(job.credit_units)
+      ? job.credit_units
+      : null;
   const tradeDate =
     typeof job?.trade_date === 'string'
       ? job.trade_date
@@ -293,7 +299,11 @@ export function ReportPage() {
       tradeDate
         ? t('tradeDate', { date: formatLocaleCalendarDate(tradeDate) })
         : '',
-      t('creditCost', { count: creditUnits }),
+      costUsd != null
+        ? t('costUsd', { amount: costUsd })
+        : creditUnits != null
+          ? t('creditCost', { count: creditUnits })
+          : '',
       t('dataAsOf'),
       t('riskNotice'),
       '',

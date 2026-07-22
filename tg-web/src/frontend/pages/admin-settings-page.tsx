@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Save, Trash2 } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -24,23 +24,11 @@ import {
   SelectValue,
 } from '@/frontend/components/ui/select';
 import { Spinner } from '@/frontend/components/ui/spinner';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/frontend/components/ui/table';
 import { useAuthSession } from '@/frontend/hooks/use-auth-session';
 import { listAdminLlmModels } from '@/frontend/lib/admin-llm';
 import {
-  createCreditRule,
-  deleteCreditRule,
   getAdminSettings,
-  listCreditRules,
   updateAdminSettings,
-  type CreditRuleInput,
 } from '@/frontend/lib/admin-ops';
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -62,16 +50,6 @@ type SettingsForm = {
   defaultDeepModelId: string;
 };
 
-const emptyRule: CreditRuleInput = {
-  label: '',
-  market: null,
-  minAnalysts: 1,
-  maxAnalysts: 4,
-  units: 1,
-  enabled: true,
-  priority: 100,
-};
-
 export function AdminSettingsPage() {
   const { t } = useTranslation('admin');
   const session = useAuthSession();
@@ -87,11 +65,6 @@ export function AdminSettingsPage() {
     queryFn: () => listAdminLlmModels(),
     enabled: isAdmin,
   });
-  const rules = useQuery({
-    queryKey: ['admin-credit-rules'],
-    queryFn: () => listCreditRules(),
-    enabled: isAdmin,
-  });
   const [form, setForm] = useState<SettingsForm>({
     maintenanceEnabled: false,
     maintenanceEn: '',
@@ -104,7 +77,6 @@ export function AdminSettingsPage() {
     defaultQuickModelId: '',
     defaultDeepModelId: '',
   });
-  const [ruleForm, setRuleForm] = useState<CreditRuleInput>(emptyRule);
   const enabledModels = (modelsQuery.data?.data.models ?? []).filter(
     (model) => model.enabled,
   );
@@ -178,29 +150,6 @@ export function AdminSettingsPage() {
       toast.error(error.message || t('settings.saveError')),
   });
 
-  const createRule = useMutation({
-    mutationFn: () =>
-      createCreditRule({
-        ...ruleForm,
-        market: ruleForm.market?.trim() || null,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-credit-rules'] });
-      setRuleForm(emptyRule);
-      toast.success(t('settings.ruleCreated'));
-    },
-    onError: () => toast.error(t('settings.ruleCreateError')),
-  });
-
-  const removeRule = useMutation({
-    mutationFn: (id: string) => deleteCreditRule(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-credit-rules'] });
-      toast.success(t('settings.ruleDeleted'));
-    },
-    onError: () => toast.error(t('settings.ruleDeleteError')),
-  });
-
   function onSave(event: FormEvent) {
     event.preventDefault();
     if (
@@ -211,11 +160,6 @@ export function AdminSettingsPage() {
       return;
     }
     saveSettings.mutate();
-  }
-
-  function onCreateRule(event: FormEvent) {
-    event.preventDefault();
-    createRule.mutate();
   }
 
   return (
@@ -437,128 +381,6 @@ export function AdminSettingsPage() {
             </div>
           </form>
         )}
-
-        <SectionPanel
-          title={t('settings.creditRulesTitle')}
-          description={t('settings.creditRulesDescription')}
-        >
-          <div className="flex flex-col gap-4">
-            <form
-              onSubmit={onCreateRule}
-              className="grid gap-3 md:grid-cols-3 lg:grid-cols-6"
-            >
-              <Input
-                placeholder={t('settings.ruleLabel')}
-                value={ruleForm.label}
-                onChange={(event) =>
-                  setRuleForm((current) => ({
-                    ...current,
-                    label: event.target.value,
-                  }))
-                }
-                required
-              />
-              <Input
-                placeholder={t('settings.ruleMarket')}
-                value={ruleForm.market ?? ''}
-                onChange={(event) =>
-                  setRuleForm((current) => ({
-                    ...current,
-                    market: event.target.value || null,
-                  }))
-                }
-              />
-              <Input
-                type="number"
-                min={1}
-                max={20}
-                placeholder={t('settings.ruleMin')}
-                value={ruleForm.minAnalysts}
-                onChange={(event) =>
-                  setRuleForm((current) => ({
-                    ...current,
-                    minAnalysts: Number(event.target.value) || 1,
-                  }))
-                }
-              />
-              <Input
-                type="number"
-                min={1}
-                max={20}
-                placeholder={t('settings.ruleMax')}
-                value={ruleForm.maxAnalysts}
-                onChange={(event) =>
-                  setRuleForm((current) => ({
-                    ...current,
-                    maxAnalysts: Number(event.target.value) || 1,
-                  }))
-                }
-              />
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                placeholder={t('settings.ruleUnits')}
-                value={ruleForm.units}
-                onChange={(event) =>
-                  setRuleForm((current) => ({
-                    ...current,
-                    units: Number(event.target.value) || 0,
-                  }))
-                }
-              />
-              <Button type="submit" disabled={createRule.isPending}>
-                {createRule.isPending ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <Plus data-icon="inline-start" />
-                )}
-                {t('settings.addRule')}
-              </Button>
-            </form>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('settings.columns.label')}</TableHead>
-                  <TableHead>{t('settings.columns.market')}</TableHead>
-                  <TableHead>{t('settings.columns.analysts')}</TableHead>
-                  <TableHead>{t('settings.columns.units')}</TableHead>
-                  <TableHead>{t('settings.columns.enabled')}</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(rules.data?.data ?? []).map((rule) => (
-                  <TableRow key={rule.id} className="h-11">
-                    <TableCell>{rule.label}</TableCell>
-                    <TableCell>{rule.market ?? '—'}</TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {rule.minAnalysts}–{rule.maxAnalysts}
-                    </TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {rule.units}
-                    </TableCell>
-                    <TableCell>
-                      {rule.enabled ? t('settings.yes') : t('settings.no')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={removeRule.isPending}
-                        onClick={() => removeRule.mutate(rule.id)}
-                        aria-label={t('settings.deleteRule')}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </SectionPanel>
       </PageFrame>
     </AdminGate>
   );

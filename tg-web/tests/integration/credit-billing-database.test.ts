@@ -2,14 +2,17 @@ import { Client } from 'pg';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { buildBillingSignature } from '../../src/backend/billing/credit-pricing';
 import {
   createNodeDatabase,
   type NodeDatabase,
 } from '../../src/backend/database/client';
 import { migrateDatabase } from '../../src/backend/database/migrate';
+import {
+  DEFAULT_BILLING_SETTINGS,
+  DEFAULT_REWARDS_SETTINGS,
+} from '../../src/shared/product-credits';
 
-describe('usage-based credit billing repository', () => {
+describe('analysis billing settings repository', () => {
   let container: StartedTestContainer | undefined;
   let database!: NodeDatabase;
   let connection: Client | undefined;
@@ -43,87 +46,72 @@ describe('usage-based credit billing repository', () => {
     await container?.stop();
   });
 
-  it('stores default settings and audits administrator updates', async () => {
-    await expect(database.billing.getCreditSettings()).resolves.toMatchObject({
-      pointsPerUsd: '100.000000',
-      markupBasisPoints: 1000,
-      reserveBufferBasisPoints: 2000,
-      defaultEstimatedCostUsd: '1.00000000',
-      signupGrantUsd: '5.00',
-      referralRewardUsd: '2.00',
-    });
+  it('stores default billing and rewards settings and audits updates', async () => {
+    await expect(database.billing.getBillingSettings()).resolves.toEqual(
+      DEFAULT_BILLING_SETTINGS,
+    );
+    await expect(database.billing.getRewardsSettings()).resolves.toEqual(
+      DEFAULT_REWARDS_SETTINGS,
+    );
 
-    await database.billing.updateCreditSettings({
+    await database.billing.updateBillingSettings({
+      analysisBalanceThreshold: 25,
       pointsPerUsd: '200',
       markupBasisPoints: 1500,
-      reserveBufferBasisPoints: 2500,
-      defaultEstimatedCostUsd: '2.5',
-      signupGrantUsd: '7.5',
-      referralRewardUsd: '0',
+      actorClerkUserId: 'admin-1',
+    });
+    await database.billing.updateRewardsSettings({
+      signup: { enabled: true, points: 750 },
+      referral: { enabled: false, points: 0 },
+      campaign: {
+        enabled: true,
+        points: 100,
+        label: 'Launch',
+        code: 'LAUNCH',
+      },
       actorClerkUserId: 'admin-1',
     });
 
-    await expect(database.billing.getCreditSettings()).resolves.toMatchObject({
-      pointsPerUsd: '200.000000',
+    await expect(database.billing.getBillingSettings()).resolves.toEqual({
+      analysisBalanceThreshold: 25,
+      pointsPerUsd: '200',
       markupBasisPoints: 1500,
-      reserveBufferBasisPoints: 2500,
-      defaultEstimatedCostUsd: '2.50000000',
-      signupGrantUsd: '7.50',
-      referralRewardUsd: '0.00',
-      updatedByClerkUserId: 'admin-1',
     });
+    await expect(database.billing.getRewardsSettings()).resolves.toEqual({
+      signup: { enabled: true, points: 750 },
+      referral: { enabled: false, points: 0 },
+      campaign: {
+        enabled: true,
+        points: 100,
+        label: 'Launch',
+        code: 'LAUNCH',
+      },
+    });
+
     const audit = await connection!.query(
-      'SELECT actor_clerk_user_id, previous_settings, next_settings FROM credit_billing_setting_events',
+      `SELECT action, target_id, metadata
+       FROM admin_audit_events
+       WHERE action IN ('billing.settings.update', 'rewards.settings.update')
+       ORDER BY action`,
     );
-    expect(audit.rows).toHaveLength(1);
-    expect(audit.rows[0]).toMatchObject({ actor_clerk_user_id: 'admin-1' });
+    expect(audit.rows).toHaveLength(2);
+    expect(audit.rows[0]).toMatchObject({
+      action: 'billing.settings.update',
+      target_id: 'billing',
+    });
+    expect(audit.rows[1]).toMatchObject({
+      action: 'rewards.settings.update',
+      target_id: 'rewards',
+    });
   });
 
-  it('estimates matching history and reserves points without a subscription', async () => {
-    await database.billing.updateCreditSettings({
+  it('estimates and gates analysis starts against the balance threshold', async () => {
+    await database.billing.updateBillingSettings({
+      analysisBalanceThreshold: 100,
       pointsPerUsd: '100',
       markupBasisPoints: 1000,
-      reserveBufferBasisPoints: 2000,
-      defaultEstimatedCostUsd: '1',
-      signupGrantUsd: '5',
-      referralRewardUsd: '2',
       actorClerkUserId: 'admin-1',
     });
-    const signature = buildBillingSignature({
-      analysts: ['market'],
-      configOverrides: { output_language: 'en' },
-    });
-    for (const [index, cost] of ['0.10', '0.20', '0.30'].entries()) {
-      await connection!.query(
-        `INSERT INTO analysis_jobs (
-          id, ticker, trade_date, asset_type, analysts, status, request,
-          config, cost_usd, finished_at
-        ) VALUES ($1, 'AAPL', '2026-07-20', 'stock', '["market"]', 'succeeded',
-          '{}', $2, $3, now())`,
-        [
-          `00000000-0000-4000-8000-00000000010${index}`,
-          {
-            llm_provider: 'openai',
-            deep_think_llm: 'gpt-deep',
-            quick_think_llm: 'gpt-quick',
-            max_debate_rounds: 1,
-            max_risk_discuss_rounds: 1,
-          },
-          cost,
-        ],
-      );
-      await connection!.query(
-        `INSERT INTO credit_reservations (
-          request_id, clerk_user_id, analysis_job_id, units,
-          pricing_snapshot, status, settled_units, settled_cost_usd, settled_at
-        ) VALUES ($1, 'user-credit', $1, 1, $2, 'consumed', 1, $3, now())`,
-        [
-          `00000000-0000-4000-8000-00000000010${index}`,
-          { billing_signature: signature },
-          cost,
-        ],
-      );
-    }
     await database.billing.adjustCredits({
       adjustmentId: '00000000-0000-4000-8000-000000000200',
       clerkUserId: 'user-credit',
@@ -133,26 +121,44 @@ describe('usage-based credit billing repository', () => {
     });
 
     await expect(
-      database.billing.estimateAnalysis({ billingSignature: signature }),
+      database.billing.estimateAnalysis({ clerkUserId: 'user-credit' }),
     ).resolves.toMatchObject({
-      estimatedCostUsd: '0.30000000',
-      reservedPoints: 40,
-      source: 'history',
-      sampleCount: 3,
+      analysisBalanceThreshold: 100,
+      availableCredits: 1000,
+      canStart: true,
+      pointsPerUsd: '100',
+      markupBasisPoints: 1000,
     });
     await expect(
-      database.billing.reserveAnalysis({
+      database.billing.assertCanStartAnalysis({
         clerkUserId: 'user-credit',
-        requestId: '00000000-0000-4000-8000-000000000201',
-        billingSignature: signature,
       }),
-    ).resolves.toBe('created');
-    await expect(
-      database.billing.getUsage('user-credit'),
     ).resolves.toMatchObject({
-      availableCredits: 960,
-      reservedCredits: 40,
+      pricing: {
+        points_per_usd: '100',
+        markup_basis_points: 1000,
+        analysis_balance_threshold: 100,
+      },
     });
+
+    await database.billing.updateBillingSettings({
+      analysisBalanceThreshold: 2000,
+      pointsPerUsd: '100',
+      markupBasisPoints: 1000,
+      actorClerkUserId: 'admin-1',
+    });
+    await expect(
+      database.billing.estimateAnalysis({ clerkUserId: 'user-credit' }),
+    ).resolves.toMatchObject({
+      analysisBalanceThreshold: 2000,
+      availableCredits: 1000,
+      canStart: false,
+    });
+    await expect(
+      database.billing.assertCanStartAnalysis({
+        clerkUserId: 'user-credit',
+      }),
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_CREDITS' });
   });
 
   it('adjusts credits idempotently and reads balances in bulk', async () => {
@@ -168,6 +174,6 @@ describe('usage-based credit billing repository', () => {
 
     await expect(
       database.billing.getAvailableCredits(['user-credit', 'missing-user']),
-    ).resolves.toEqual({ 'user-credit': 950, 'missing-user': 0 });
+    ).resolves.toEqual({ 'user-credit': 990, 'missing-user': 0 });
   });
 });

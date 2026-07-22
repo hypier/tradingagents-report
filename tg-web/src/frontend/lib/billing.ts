@@ -2,10 +2,12 @@ import type {
   BillingOverview,
   BillingPlan,
   BillingSettings,
-  CreditBillingSettings,
   CreateBillingPlanInput,
+  RewardsBillingSettings,
   UpdateCreditBillingSettingsInput,
+  UpdateRewardsSettingsInput,
 } from '@/backend/billing/contract';
+import type { AnalysisBillingSettings } from '@/shared/product-credits';
 import i18n from '@/frontend/i18n';
 import { normalizeUiLocale } from '@/frontend/i18n/locales';
 
@@ -41,20 +43,39 @@ export const getBillingOverview = (fetchImplementation?: FetchImplementation) =>
 export const getBillingSettings = (fetchImplementation?: FetchImplementation) =>
   read<BillingSettings>('/api/admin/billing/settings', fetchImplementation);
 
-export const getCreditBillingSettings = (
+export const getAnalysisBillingSettings = (
   fetchImplementation?: FetchImplementation,
 ) =>
-  read<CreditBillingSettings>(
-    '/api/admin/billing/credit-settings',
+  read<AnalysisBillingSettings>(
+    '/api/admin/billing/analysis-settings',
     fetchImplementation,
   );
 
-export const updateCreditBillingSettings = (
+export const updateAnalysisBillingSettings = (
   input: UpdateCreditBillingSettingsInput,
   fetchImplementation?: FetchImplementation,
 ) =>
-  write<CreditBillingSettings>(
-    '/api/admin/billing/credit-settings',
+  write<AnalysisBillingSettings>(
+    '/api/admin/billing/analysis-settings',
+    input,
+    fetchImplementation,
+    'PUT',
+  );
+
+export const getRewardsSettings = (
+  fetchImplementation?: FetchImplementation,
+) =>
+  read<RewardsBillingSettings>(
+    '/api/admin/billing/rewards-settings',
+    fetchImplementation,
+  );
+
+export const updateRewardsSettings = (
+  input: UpdateRewardsSettingsInput,
+  fetchImplementation?: FetchImplementation,
+) =>
+  write<RewardsBillingSettings>(
+    '/api/admin/billing/rewards-settings',
     input,
     fetchImplementation,
     'PUT',

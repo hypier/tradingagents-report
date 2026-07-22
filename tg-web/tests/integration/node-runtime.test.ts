@@ -63,7 +63,6 @@ function fakeDependencies(): AppDependencies {
       watchlist: fakeWatchlistRepository(),
       settings: fakeSettingsRepository(),
       markets: fakeMarketsRepository(),
-      creditRules: fakeCreditRulesRepository(),
       audit: fakeAuditRepository(),
       llmCatalog: {
         listProviders: vi.fn().mockResolvedValue([]),
@@ -131,15 +130,14 @@ function fakeBillingRepository() {
     setStripeCustomerId: vi.fn(),
     getStripeCustomerId: vi.fn().mockResolvedValue(null),
     getUsage: vi.fn(),
-    getCreditSettings: vi.fn(),
-    updateCreditSettings: vi.fn(),
+    getBillingSettings: vi.fn(),
+    updateBillingSettings: vi.fn(),
+    getRewardsSettings: vi.fn(),
+    updateRewardsSettings: vi.fn(),
     estimateAnalysis: vi.fn(),
     getAvailableCredits: vi.fn(),
     adjustCredits: vi.fn(),
-    reserveAnalysis: vi.fn(),
-    attachAnalysis: vi.fn(),
-    releaseAnalysis: vi.fn(),
-    adjustCredits: vi.fn(),
+    assertCanStartAnalysis: vi.fn(),
     processStripeEvent: vi.fn(),
     recordStripeFailure: vi.fn(),
   };
@@ -153,7 +151,6 @@ function fakeAnalysisJobsRepository() {
     listAllForAdmin: vi.fn().mockResolvedValue([]),
     getOwner: vi.fn().mockResolvedValue(null),
     ownsJob: vi.fn().mockResolvedValue(true),
-    getReservationUnits: vi.fn().mockResolvedValue(1),
     getAdminOverview: vi.fn(),
   };
 }
@@ -182,16 +179,6 @@ function fakeMarketsRepository() {
     get: vi.fn(),
     upsert: vi.fn(),
     setEnabled: vi.fn(),
-  };
-}
-
-function fakeCreditRulesRepository() {
-  return {
-    list: vi.fn().mockResolvedValue([]),
-    listEnabled: vi.fn().mockResolvedValue([]),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
   };
 }
 

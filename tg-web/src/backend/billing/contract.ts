@@ -1,3 +1,8 @@
+import type {
+  AnalysisBillingSettings,
+  RewardsSettings,
+} from '../../shared/product-credits';
+
 export type BillingInterval = 'month' | 'year';
 export type BillingLocale = 'en' | 'zh';
 
@@ -68,32 +73,23 @@ export type BillingOverview = {
   };
 };
 
-export type CreditBillingSettings = {
-  id: string;
-  pointsPerUsd: string;
-  markupBasisPoints: number;
-  reserveBufferBasisPoints: number;
-  defaultEstimatedCostUsd: string;
-  signupGrantUsd: string;
-  referralRewardUsd: string;
-  updatedByClerkUserId: string | null;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-};
+export type CreditBillingSettings = AnalysisBillingSettings;
 
-export type UpdateCreditBillingSettingsInput = Pick<
-  CreditBillingSettings,
-  | 'pointsPerUsd'
-  | 'markupBasisPoints'
-  | 'reserveBufferBasisPoints'
-  | 'defaultEstimatedCostUsd'
-  | 'signupGrantUsd'
-  | 'referralRewardUsd'
->;
+export type UpdateCreditBillingSettingsInput = AnalysisBillingSettings;
 
 export type AnalysisCreditEstimate = {
-  reservedPoints: number;
+  analysisBalanceThreshold: number;
+  pointsPerUsd: string;
+  markupBasisPoints: number;
+  availableCredits: number;
+  canStart: boolean;
+  /** Soft compat: threshold + 1 for older clients that gate on reservedPoints. */
+  reservedPoints?: number;
 };
+
+export type RewardsBillingSettings = RewardsSettings;
+
+export type UpdateRewardsSettingsInput = RewardsSettings;
 
 export type BillingSettings = {
   configured: boolean;

@@ -19,8 +19,10 @@ const state = vi.hoisted(() => ({ role: 'user' as 'user' | 'admin' }));
 const billing = vi.hoisted(() => ({
   getBillingOverview: vi.fn(),
   getBillingSettings: vi.fn(),
-  getCreditBillingSettings: vi.fn(),
-  updateCreditBillingSettings: vi.fn(),
+  getAnalysisBillingSettings: vi.fn(),
+  updateAnalysisBillingSettings: vi.fn(),
+  getRewardsSettings: vi.fn(),
+  updateRewardsSettings: vi.fn(),
   createCheckout: vi.fn(),
   createBillingPortal: vi.fn(),
   createBillingPlan: vi.fn(),
@@ -97,22 +99,27 @@ beforeEach(() => {
     },
     requestId: 'request-1',
   });
-  billing.getCreditBillingSettings.mockResolvedValue({
+  billing.getAnalysisBillingSettings.mockResolvedValue({
     data: {
-      id: 'default',
-      pointsPerUsd: '100.000000',
+      analysisBalanceThreshold: 100,
+      pointsPerUsd: '100',
       markupBasisPoints: 1000,
-      reserveBufferBasisPoints: 2000,
-      defaultEstimatedCostUsd: '1.00000000',
-      signupGrantUsd: '5.00',
-      referralRewardUsd: '2.00',
-      updatedByClerkUserId: 'admin-1',
-      createdAt: '2026-07-20T00:00:00.000Z',
-      updatedAt: '2026-07-20T00:00:00.000Z',
     },
     requestId: 'request-1',
   });
-  billing.updateCreditBillingSettings.mockImplementation(async (input) => ({
+  billing.updateAnalysisBillingSettings.mockImplementation(async (input) => ({
+    data: input,
+    requestId: 'request-2',
+  }));
+  billing.getRewardsSettings.mockResolvedValue({
+    data: {
+      signup: { enabled: true, points: 500 },
+      referral: { enabled: true, points: 200 },
+      campaign: { enabled: false, points: 0, label: '', code: null },
+    },
+    requestId: 'request-1',
+  });
+  billing.updateRewardsSettings.mockImplementation(async (input) => ({
     data: input,
     requestId: 'request-2',
   }));
@@ -420,50 +427,37 @@ it('lets an administrator save Stripe credentials without displaying them', asyn
   );
 });
 
-it('lets an administrator preview and save credit billing settings', async () => {
+it('lets an administrator preview and save analysis billing settings', async () => {
   state.role = 'admin';
   render(
-    <MemoryRouter initialEntries={['/admin/billing']}>
+    <MemoryRouter initialEntries={['/admin/billing?tab=credits']}>
       <App />
     </MemoryRouter>,
   );
 
-  fireEvent.mouseDown(
-    await screen.findByRole('tab', { name: 'Credit billing' }),
-    {
-      button: 0,
-      ctrlKey: false,
-    },
-  );
-  expect(await screen.findByText('132 points')).toBeInTheDocument();
+  expect(await screen.findByLabelText('Points per USD')).toBeInTheDocument();
+  expect(screen.getByText('110 points')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Points per USD'), {
     target: { value: '200' },
   });
   fireEvent.change(screen.getByLabelText('Cost markup (%)'), {
     target: { value: '15' },
   });
-  fireEvent.change(screen.getByLabelText('Reserve buffer (%)'), {
-    target: { value: '25' },
+  fireEvent.change(screen.getByLabelText('Start balance threshold'), {
+    target: { value: '250' },
   });
-  fireEvent.change(screen.getByLabelText('Default estimated cost (USD)'), {
+  fireEvent.change(screen.getByLabelText('Sample cost (USD)'), {
     target: { value: '2.5' },
   });
-  fireEvent.change(screen.getByLabelText('New user grant (USD)'), {
-    target: { value: '7.5' },
-  });
-  fireEvent.change(screen.getByLabelText('Referral reward (USD)'), {
-    target: { value: '3.25' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Save credit settings' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Save analysis settings' }),
+  );
 
   await waitFor(() =>
-    expect(billing.updateCreditBillingSettings).toHaveBeenCalledWith({
+    expect(billing.updateAnalysisBillingSettings).toHaveBeenCalledWith({
+      analysisBalanceThreshold: 250,
       pointsPerUsd: '200',
       markupBasisPoints: 1500,
-      reserveBufferBasisPoints: 2500,
-      defaultEstimatedCostUsd: '2.5',
-      signupGrantUsd: '7.5',
-      referralRewardUsd: '3.25',
     }),
   );
 });
