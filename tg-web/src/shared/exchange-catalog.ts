@@ -22,9 +22,43 @@ type ExchangesFile = {
 
 const DATA = exchangesData as ExchangesFile;
 
-const BY_VALUE = new Map(
-  DATA.exchanges.map((entry) => [entry.value.trim().toUpperCase(), entry]),
-);
+/** Prefer a non-hidden row when TradingView lists the same `value` twice. */
+const BY_VALUE = new Map<string, ExchangeCatalogEntry>();
+for (const entry of DATA.exchanges) {
+  const key = entry.value.trim().toUpperCase();
+  const existing = BY_VALUE.get(key);
+  if (!existing || (existing.hidden && !entry.hidden)) {
+    BY_VALUE.set(key, entry);
+  }
+}
+
+/** Continent-style groups are equity / stock venues in this catalog. */
+export const EQUITY_CATALOG_GROUPS = [
+  'North America',
+  'Europe',
+  'Asia / Pacific',
+  'Middle East / Africa',
+  'Mexico and South America',
+] as const;
+
+const EQUITY_GROUP_SET = new Set<string>(EQUITY_CATALOG_GROUPS);
+
+const GROUP_SORT_ORDER = [
+  ...EQUITY_CATALOG_GROUPS,
+  'Cryptocurrency',
+  'Forex',
+  'Economy',
+] as const;
+
+function groupSortKey(group: string): number {
+  const index = (GROUP_SORT_ORDER as readonly string[]).indexOf(group);
+  return index >= 0 ? index : GROUP_SORT_ORDER.length;
+}
+
+export function isEquityCatalogGroup(group: string | null | undefined): boolean {
+  if (!group) return false;
+  return EQUITY_GROUP_SET.has(group);
+}
 
 /** First-party seed: technically analyzable today and present in exchanges.json. */
 export const DEFAULT_ANALYSIS_EXCHANGE_SEEDS = [
@@ -61,14 +95,35 @@ export function listExchangeCatalog(options?: {
   includeHidden?: boolean;
 }): ExchangeCatalogEntry[] {
   const includeHidden = options?.includeHidden === true;
-  return DATA.exchanges
-    .filter((entry) => includeHidden || !entry.hidden)
-    .slice()
-    .sort((a, b) => {
-      const group = a.group.localeCompare(b.group);
-      if (group !== 0) return group;
-      return a.name.localeCompare(b.name);
-    });
+  const byValue = new Map<string, ExchangeCatalogEntry>();
+  for (const entry of DATA.exchanges) {
+    if (!includeHidden && entry.hidden) continue;
+    const key = entry.value.trim().toUpperCase();
+    const existing = byValue.get(key);
+    if (!existing || (existing.hidden && !entry.hidden)) {
+      byValue.set(key, entry);
+    }
+  }
+  return [...byValue.values()].sort((a, b) => {
+    const group = groupSortKey(a.group) - groupSortKey(b.group);
+    if (group !== 0) return group;
+    const groupName = a.group.localeCompare(b.group);
+    if (groupName !== 0) return groupName;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/** Unique `group` values in catalog display order. */
+export function listCatalogGroups(options?: {
+  includeHidden?: boolean;
+}): string[] {
+  const groups = new Set(
+    listExchangeCatalog(options).map((entry) => entry.group),
+  );
+  return [...groups].sort((a, b) => {
+    const order = groupSortKey(a) - groupSortKey(b);
+    return order !== 0 ? order : a.localeCompare(b);
+  });
 }
 
 export function getExchangeCatalogEntry(
@@ -140,6 +195,13 @@ export function resolveExchangeTimezone(input: {
 export function defaultDisplayNameForExchange(code: string): string {
   const entry = getExchangeCatalogEntry(code);
   return entry?.name || entry?.desc || code.trim().toUpperCase();
+}
+
+/** TradingView exchange source logo. */
+export function exchangeLogoUrl(code: string | null | undefined): string | null {
+  const value = code?.trim();
+  if (!value) return null;
+  return `https://tv-logo.tradingviewapi.com/logo/source/${encodeURIComponent(value)}.svg`;
 }
 
 /** Catalog exchange codes whose derived market matches (e.g. US → NASDAQ, NYSE…). */

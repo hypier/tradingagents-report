@@ -56,7 +56,7 @@ flowchart LR
 - 股票详情：公司名称、代码、交易所、币种、最新价格、涨跌、数据来源、数据时间和交易时段状态。
 - 行情展示必须标注数据来源和时间。"实时"应按数据供应商的实际延迟定义，不能将最新快照表述为无延迟行情。
 - 自选股：添加、移除、排序和从收藏列表进入行情或报告。
-- 分析交易所白名单管理可分析交易所（表 `analysis_exchanges`；候选清单见 `shared/exchanges.json`）。
+- 分析交易所白名单管理可分析交易所（表 `analysis_exchanges`；管理端展示 `shared/exchanges.json` 全量清单并勾选启用）。
 - 支持美股、港股、台股、日股等市场；实际开放范围取决于可用数据源和标的搜索覆盖。
 
 ### 4.4 分析任务与报告
@@ -155,7 +155,7 @@ flowchart LR
 - `/admin/users` 显示可用积分；额度调整在 `/admin/users/:userId` 完成。
 - 管理员任务列表 `/admin/analyses`：跨用户按状态/标的/用户筛选；对失败任务可发起受控重试——校验所有者余额门槛并以新 `request_id` 提交替换 job（非 Core 原地重试）。
 - 系统设置：默认 LLM 模型，以及注册/推荐积分奖励（`system_settings.rewards`）。
-- 分析交易所管理 `/admin/markets`（表 `analysis_exchanges`）；`/api/public-config` 返回已启用交易所；创建分析时校验交易所白名单；账户默认市场由启用交易所的 `market`（catalog `country` / CRYPTO）推导。
+- 分析交易所管理 `/admin/markets`：展示 `exchanges.json` 全量清单（按 `group` 分组），勾选后点保存写入 `analysis_exchanges` 白名单；支持「已勾选」等快捷筛选。`/api/public-config` 返回已启用交易所；创建分析时校验白名单；账户默认市场由启用交易所的 `market`（catalog `country` / CRYPTO）推导。
 - 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key 与开放状态；默认快速/深度模型在 `/admin/settings`（系统设置键 `llm`）；用户分析页从开放目录选型。
 - 操作日志 `/admin/audit`：记录管理员写操作（系统设置、分析交易所、模型、用户角色、积分调整等）；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
 

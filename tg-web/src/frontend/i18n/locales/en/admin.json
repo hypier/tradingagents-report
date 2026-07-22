@@ -544,7 +544,7 @@
   "markets": {
     "title": "Analysis exchanges",
     "heading": "Analysis exchanges",
-    "subtitle": "Whitelist exchanges that can start analysis.",
+    "subtitle": "Browse the full exchange catalog and check venues for analysis. Changes apply only after you save.",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage analysis exchanges."
@@ -553,43 +553,45 @@
       "title": "Unable to load analysis exchanges",
       "body": "Check database connectivity and retry."
     },
-    "empty": "No analysis exchanges configured. Add from the catalog to enable the gate.",
+    "emptyFiltered": "No exchanges match the current filters.",
+    "summary": "{{enabled}} enabled / {{total}}",
+    "unsaved": "{{count}} unsaved",
+    "groupsLabel": "Groups",
+    "panelHint": "Showing {{visible}} · whitelist {{enabled}} / {{total}}",
     "enabled": "Enabled",
-    "disabled": "Disabled",
-    "addTitle": "Add exchange",
-    "editTitle": "Edit exchange",
-    "formDescription": "Pick an exchange from the catalog. Only enabled exchanges can start analysis.",
-    "deleteTitle": "Remove exchange",
-    "deleteBody": "Remove “{{name}}” from the analysis whitelist?",
+    "disabled": "Not enabled",
     "fields": {
-      "catalogSearch": "Search catalog",
-      "catalogSearchPlaceholder": "Code, name, or group",
-      "exchange": "Exchange",
-      "exchangePlaceholder": "Select exchange",
-      "displayName": "Display name",
-      "market": "Market",
-      "marketNone": "Unspecified",
-      "enabled": "Allow analysis",
-      "enabledHint": "When disabled, symbols on this exchange cannot start analysis and are filtered from analysis search."
+      "enabled": "Allow analysis"
+    },
+    "filters": {
+      "all": "All",
+      "enabled": "Checked",
+      "disabled": "Unchecked",
+      "searchPlaceholder": "Search code, name, or description"
     },
     "actions": {
-      "add": "Add exchange",
-      "edit": "Edit",
-      "delete": "Remove",
-      "confirmDelete": "Remove",
       "save": "Save",
-      "cancel": "Cancel"
+      "discard": "Discard"
+    },
+    "kind": {
+      "other": "Non-equity"
+    },
+    "groups": {
+      "North America": "North America",
+      "Europe": "Europe",
+      "Asia / Pacific": "Asia / Pacific",
+      "Middle East / Africa": "Middle East / Africa",
+      "Mexico and South America": "Latin America",
+      "Cryptocurrency": "Cryptocurrency",
+      "Forex": "Forex",
+      "Economy": "Economy"
     },
     "toast": {
-      "saved": "Exchange saved.",
-      "saveError": "Unable to save exchange.",
-      "deleted": "Exchange removed.",
-      "deleteError": "Unable to remove exchange."
+      "saved": "Saved {{count}} change(s).",
+      "saveError": "Unable to save the exchange whitelist."
     },
     "columns": {
-      "exchange": "Exchange",
-      "market": "Market",
-      "status": "Status"
+      "market": "Market"
     }
   },
   "audit": {

@@ -544,7 +544,7 @@
   "markets": {
     "title": "分析交易所",
     "heading": "分析交易所",
-    "subtitle": "配置允许发起分析的交易所白名单。",
+    "subtitle": "从完整交易所清单勾选可分析的交易所；修改后需保存才会写入白名单。",
     "accessRequired": {
       "title": "需要管理员权限",
       "body": "当前账号没有管理分析交易所的权限。"
@@ -553,43 +553,45 @@
       "title": "无法加载分析交易所",
       "body": "请检查数据库连接后重试。"
     },
-    "empty": "尚未配置可分析交易所。从清单中添加后即可作为分析门禁。",
+    "emptyFiltered": "没有符合筛选条件的交易所。",
+    "summary": "已启用 {{enabled}} / {{total}}",
+    "unsaved": "未保存 {{count}} 项",
+    "groupsLabel": "分组",
+    "panelHint": "显示 {{visible}} · 白名单 {{enabled}} / {{total}}",
     "enabled": "已启用",
-    "disabled": "已停用",
-    "addTitle": "添加交易所",
-    "editTitle": "编辑交易所",
-    "formDescription": "从交易所清单中选择并启用；仅已启用的交易所可发起分析。",
-    "deleteTitle": "移除交易所",
-    "deleteBody": "确定将「{{name}}」从分析白名单中移除吗？",
+    "disabled": "未启用",
     "fields": {
-      "catalogSearch": "搜索清单",
-      "catalogSearchPlaceholder": "代码、名称或分组",
-      "exchange": "交易所",
-      "exchangePlaceholder": "选择交易所",
-      "displayName": "显示名称",
-      "market": "所属市场",
-      "marketNone": "未指定",
-      "enabled": "允许分析",
-      "enabledHint": "停用后，该交易所的标的无法发起分析，也不会出现在分析搜索结果中。"
+      "enabled": "允许分析"
+    },
+    "filters": {
+      "all": "全部",
+      "enabled": "已勾选",
+      "disabled": "未勾选",
+      "searchPlaceholder": "搜索代码、名称或描述"
     },
     "actions": {
-      "add": "添加交易所",
-      "edit": "编辑",
-      "delete": "移除",
-      "confirmDelete": "确认移除",
       "save": "保存",
-      "cancel": "取消"
+      "discard": "撤销"
+    },
+    "kind": {
+      "other": "非股票"
+    },
+    "groups": {
+      "North America": "北美",
+      "Europe": "欧洲",
+      "Asia / Pacific": "亚太",
+      "Middle East / Africa": "中东 / 非洲",
+      "Mexico and South America": "拉美",
+      "Cryptocurrency": "加密货币",
+      "Forex": "外汇",
+      "Economy": "经济数据"
     },
     "toast": {
-      "saved": "交易所已保存。",
-      "saveError": "无法保存交易所。",
-      "deleted": "交易所已移除。",
-      "deleteError": "无法移除交易所。"
+      "saved": "已保存 {{count}} 项变更。",
+      "saveError": "无法保存交易所白名单。"
     },
     "columns": {
-      "exchange": "交易所",
-      "market": "所属市场",
-      "status": "状态"
+      "market": "所属市场"
     }
   },
   "audit": {

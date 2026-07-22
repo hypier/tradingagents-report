@@ -4,6 +4,8 @@ import {
   DEFAULT_ANALYSIS_EXCHANGE_SEEDS,
   exchangesForMarket,
   getExchangeCatalogEntry,
+  isEquityCatalogGroup,
+  listCatalogGroups,
   listCatalogMarketCodes,
   listExchangeCatalog,
   suggestMarket,
@@ -33,6 +35,15 @@ describe('exchange catalog', () => {
     expect(markets).toContain('JP');
     expect(markets).toContain('CRYPTO');
     expect(markets.length).toBeGreaterThan(20);
+  });
+
+  it('dedupes catalog values and orders groups', () => {
+    const rows = listExchangeCatalog();
+    const values = rows.map((row) => row.value.toUpperCase());
+    expect(new Set(values).size).toBe(values.length);
+    expect(listCatalogGroups()[0]).toBe('North America');
+    expect(isEquityCatalogGroup('North America')).toBe(true);
+    expect(isEquityCatalogGroup('Cryptocurrency')).toBe(false);
   });
 
   it('lists exchanges for a catalog market', () => {
