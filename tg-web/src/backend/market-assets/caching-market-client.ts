@@ -17,8 +17,8 @@ import {
 
 const IDENTITY_TTL_SECONDS = 7 * 24 * 60 * 60;
 const IDENTITY_KEY_PREFIX = 'market-identity:v1:';
-/** Short TTL — leaderboards refresh often but RapidAPI calls are expensive. */
-const LEADERBOARD_TTL_SECONDS = 45;
+/** 3 minutes — movers are not tick-level; poison guard skips caching bad slices. */
+const LEADERBOARD_TTL_SECONDS = 180;
 const LEADERBOARD_KEY_PREFIX = 'market-leaderboard:v1:';
 
 function identityCacheKey(ticker: string) {
