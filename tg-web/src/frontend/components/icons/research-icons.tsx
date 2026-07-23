@@ -54,109 +54,57 @@ export function BrandMark({ className }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      {/* Pit tile */}
+      {/* Pit tile + single hairline rim */}
       <rect width="48" height="48" rx="3" fill="currentColor" />
-      {/* Double wire rim */}
       <rect
-        x="1.5"
-        y="1.5"
-        width="45"
-        height="45"
+        x="2"
+        y="2"
+        width="44"
+        height="44"
         rx="2"
         stroke="#070a0e"
-        strokeOpacity="0.14"
-        strokeWidth="1"
-      />
-      <rect
-        x="4"
-        y="4"
-        width="40"
-        height="40"
-        rx="1"
-        stroke="#070a0e"
-        strokeOpacity="0.1"
+        strokeOpacity="0.16"
         strokeWidth="1"
       />
 
-      {/* Baseline */}
-      <path
-        d="M12 36.5H36"
-        stroke="#070a0e"
-        strokeOpacity="0.22"
-        strokeWidth="1"
-        strokeLinecap="square"
-      />
-      <path
-        d="M12 35.25V36.5M36 35.25V36.5"
-        stroke="#070a0e"
-        strokeOpacity="0.28"
-        strokeWidth="1"
-        strokeLinecap="square"
-      />
-
-      {/* Ascending research bars — optical spacing */}
+      {/* Ascending bars */}
       <rect
         x="13"
-        y="24"
+        y="25"
         width="5"
-        height="12.5"
+        height="11"
         fill="#070a0e"
-        fillOpacity="0.34"
+        fillOpacity="0.32"
       />
       <rect
         x="21.5"
-        y="17.5"
+        y="18"
         width="5"
-        height="19"
+        height="18"
         fill="#070a0e"
-        fillOpacity="0.58"
+        fillOpacity="0.55"
       />
       <rect
         x="30"
         y="11"
         width="5"
-        height="25.5"
+        height="25"
         fill="#070a0e"
-        fillOpacity="0.88"
+        fillOpacity="0.9"
       />
 
-      {/* Thin wick caps (candlestick hint) */}
+      {/* Signal line + nodes */}
       <path
-        d="M15.5 21.5V24M24 14.5V17.5M32.5 8V11"
+        d="M15.5 22.5L24 15.5L32.5 9"
         stroke="#070a0e"
-        strokeOpacity="0.4"
-        strokeWidth="1"
-        strokeLinecap="square"
-      />
-
-      {/* Live signal through agent nodes */}
-      <path
-        d="M15.5 21.5L24 14.5L32.5 8"
-        stroke="#070a0e"
-        strokeOpacity="0.55"
-        strokeWidth="1.25"
+        strokeOpacity="0.5"
+        strokeWidth="1.5"
         strokeLinecap="square"
         strokeLinejoin="miter"
       />
-      {/* Agent nodes */}
-      <rect
-        x="14.25"
-        y="20.25"
-        width="2.5"
-        height="2.5"
-        fill="#070a0e"
-      />
-      <rect x="22.75" y="13.25" width="2.5" height="2.5" fill="#070a0e" />
-      <rect x="31.25" y="6.75" width="2.5" height="2.5" fill="#070a0e" />
-      {/* Live tip */}
-      <rect
-        x="34.25"
-        y="5.25"
-        width="1.5"
-        height="1.5"
-        fill="#070a0e"
-        fillOpacity="0.7"
-      />
+      <rect x="14.25" y="21.25" width="2.5" height="2.5" fill="#070a0e" />
+      <rect x="22.75" y="14.25" width="2.5" height="2.5" fill="#070a0e" />
+      <rect x="31.25" y="7.75" width="2.5" height="2.5" fill="#070a0e" />
     </svg>
   );
 }

@@ -6,74 +6,157 @@ import { BrandMark } from '@/frontend/components/icons/research-icons';
 import { PageBody } from '@/frontend/components/page-chrome';
 import { Button } from '@/frontend/components/ui/button';
 
+const SIGNAL_NODES = [
+  [80, 300],
+  [200, 240],
+  [320, 270],
+  [440, 160],
+  [560, 190],
+  [680, 95],
+  [800, 130],
+] as const;
+
 /** Wireframe signal backdrop — Signal Floor instrument chrome. */
 function FloorBackdrop() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <style>{`
+        @keyframes welcome-signal-dash {
+          to { stroke-dashoffset: -120; }
+        }
+        @keyframes welcome-pulse {
+          0%, 100% { opacity: 0.35; transform: scale(1); }
+          50% { opacity: 0.85; transform: scale(1.35); }
+        }
+        @keyframes welcome-scan {
+          0% { transform: translateX(-30%); opacity: 0; }
+          15% { opacity: 0.55; }
+          85% { opacity: 0.55; }
+          100% { transform: translateX(130%); opacity: 0; }
+        }
+        .welcome-signal-dash {
+          stroke-dasharray: 8 10;
+          animation: welcome-signal-dash 14s linear infinite;
+        }
+        .welcome-node-pulse {
+          transform-origin: center;
+          transform-box: fill-box;
+          animation: welcome-pulse 2.8s ease-in-out infinite;
+        }
+        .welcome-scan {
+          animation: welcome-scan 7.5s ease-in-out infinite;
+        }
+      `}</style>
+
       {/* Ledger grid */}
       <div
-        className="absolute inset-0 opacity-[0.45] dark:opacity-[0.55]"
+        className="absolute inset-0 opacity-[0.55] dark:opacity-[0.65]"
         style={{
           backgroundImage: `
-            linear-gradient(to right, rgba(148,163,184,0.10) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(148,163,184,0.10) 1px, transparent 1px)
+            linear-gradient(to right, rgba(148,163,184,0.12) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(148,163,184,0.12) 1px, transparent 1px)
           `,
-          backgroundSize: '48px 48px',
+          backgroundSize: '40px 40px',
           maskImage:
-            'radial-gradient(ellipse at 50% 42%, black 18%, transparent 72%)',
+            'radial-gradient(ellipse at 50% 45%, black 22%, transparent 78%)',
           WebkitMaskImage:
-            'radial-gradient(ellipse at 50% 42%, black 18%, transparent 72%)',
+            'radial-gradient(ellipse at 50% 45%, black 22%, transparent 78%)',
         }}
       />
 
-      {/* Soft amber pit wash — restrained */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_36%,rgba(217,119,6,0.12),transparent_62%)]" />
+      {/* Amber atmosphere */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_34%,rgba(217,119,6,0.18),rgba(217,119,6,0.05)_46%,transparent_70%)]" />
+      <div className="absolute inset-y-0 left-0 w-1/4 bg-[linear-gradient(to_right,rgba(217,119,6,0.07),transparent)]" />
+      <div className="absolute inset-y-0 right-0 w-1/4 bg-[linear-gradient(to_left,rgba(217,119,6,0.07),transparent)]" />
 
-      {/* Ascending research signal */}
+      {/* Research signal field */}
       <svg
-        className="absolute top-[18%] left-1/2 h-[52%] w-[min(920px,120%)] -translate-x-1/2 text-[#d97706]"
+        className="absolute top-[14%] left-1/2 h-[58%] w-[min(1100px,140%)] -translate-x-1/2 text-[#d97706]"
         viewBox="0 0 920 420"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
+        {/* Ghost volume bars */}
+        {[
+          [70, 48],
+          [140, 72],
+          [210, 40],
+          [280, 96],
+          [350, 58],
+          [420, 110],
+          [490, 68],
+          [560, 124],
+          [630, 82],
+          [700, 140],
+          [770, 96],
+          [840, 118],
+        ].map(([x, h]) => (
+          <rect
+            key={`bar-${x}`}
+            x={x}
+            y={340 - h}
+            width="18"
+            height={h}
+            fill="currentColor"
+            fillOpacity="0.05"
+          />
+        ))}
+
+        {/* Step rail */}
         <path
           d="M40 320 H180 V250 H300 V290 H420 V180 H540 V210 H660 V110 H780 V150 H880"
           stroke="currentColor"
-          strokeOpacity="0.14"
+          strokeOpacity="0.12"
           strokeWidth="1.25"
         />
+
+        {/* Live dashed guide */}
+        <path
+          className="welcome-signal-dash"
+          d="M60 310 L180 255 L300 275 L420 175 L540 195 L660 105 L800 135 L880 120"
+          stroke="currentColor"
+          strokeOpacity="0.22"
+          strokeWidth="1"
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+        />
+
+        {/* Primary signal */}
         <path
           d="M80 300 L200 240 L320 270 L440 160 L560 190 L680 95 L800 130"
           stroke="currentColor"
-          strokeOpacity="0.28"
-          strokeWidth="1.5"
+          strokeOpacity="0.38"
+          strokeWidth="1.75"
           strokeLinejoin="miter"
           strokeLinecap="square"
         />
-        {[
-          [80, 300],
-          [200, 240],
-          [320, 270],
-          [440, 160],
-          [560, 190],
-          [680, 95],
-          [800, 130],
-        ].map(([x, y]) => (
+
+        {SIGNAL_NODES.map(([x, y], index) => (
           <rect
             key={`${x}-${y}`}
-            x={x - 2.5}
-            y={y - 2.5}
-            width="5"
-            height="5"
+            className={index === SIGNAL_NODES.length - 1 ? 'welcome-node-pulse' : undefined}
+            x={x - 3}
+            y={y - 3}
+            width="6"
+            height="6"
             fill="currentColor"
-            fillOpacity="0.35"
+            fillOpacity={index === SIGNAL_NODES.length - 1 ? 0.7 : 0.4}
           />
         ))}
       </svg>
 
-      {/* Horizontal floor rules */}
-      <div className="absolute inset-x-0 top-[14%] h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-      <div className="absolute inset-x-0 bottom-[18%] h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+      {/* Slow amber scan */}
+      <div className="welcome-scan absolute inset-y-[16%] left-0 w-24 bg-[linear-gradient(90deg,transparent,rgba(217,119,6,0.08),transparent)]" />
+
+      {/* Floor rules */}
+      <div className="absolute inset-x-0 top-[12%] h-px bg-gradient-to-r from-transparent via-[#d97706]/25 to-transparent" />
+      <div className="absolute inset-x-0 bottom-[16%] h-px bg-gradient-to-r from-transparent via-[#d97706]/20 to-transparent" />
+
+      {/* Outer instrument corners */}
+      <span className="absolute top-5 left-5 h-6 w-6 border-t border-l border-[#d97706]/35" />
+      <span className="absolute top-5 right-5 h-6 w-6 border-t border-r border-[#d97706]/35" />
+      <span className="absolute bottom-8 left-5 h-6 w-6 border-b border-l border-[#d97706]/35" />
+      <span className="absolute right-5 bottom-8 h-6 w-6 border-r border-b border-[#d97706]/35" />
     </div>
   );
 }
