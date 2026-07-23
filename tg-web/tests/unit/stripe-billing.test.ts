@@ -165,6 +165,46 @@ describe('normalizeWebhookEvent', () => {
     });
   });
 
+  it('treats cancel_at as scheduled cancel-at-period-end', async () => {
+    const scheduled = await normalizeWebhookEvent(
+      {
+        id: 'evt_cancel_at',
+        type: 'customer.subscription.updated',
+        created: 1,
+        livemode: false,
+        data: {
+          object: {
+            id: 'sub_1',
+            customer: 'cus_1',
+            status: 'active',
+            cancel_at_period_end: false,
+            cancel_at: 200,
+            canceled_at: 150,
+            latest_invoice: null,
+            items: {
+              data: [
+                {
+                  current_period_start: 100,
+                  current_period_end: 200,
+                  price: { id: 'price_1' },
+                },
+              ],
+            },
+          },
+        },
+      } as unknown as Stripe.Event,
+      stripe,
+    );
+    expect(scheduled).toMatchObject({
+      subscription: {
+        status: 'active',
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: 200,
+      },
+    });
+    expect(scheduled.expirePeriod).toBeFalsy();
+  });
+
   it('marks canceled subscriptions for period expiry and builds refund clawbacks', async () => {
     await expect(
       normalizeWebhookEvent(

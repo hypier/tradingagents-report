@@ -97,12 +97,15 @@ export function SubscriptionPage() {
                 actions={
                   <Badge
                     variant={
-                      data.subscription.status === 'active'
-                        ? 'default'
-                        : 'secondary'
+                      data.subscription.cancelAtPeriodEnd ||
+                      data.subscription.status !== 'active'
+                        ? 'secondary'
+                        : 'default'
                     }
                   >
-                    {formatBillingStatus(data.subscription.status)}
+                    {data.subscription.cancelAtPeriodEnd
+                      ? t('subscription.statusCanceled')
+                      : formatBillingStatus(data.subscription.status)}
                   </Badge>
                 }
               >
@@ -119,7 +122,9 @@ export function SubscriptionPage() {
                     </span>
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {t('subscription.cancelNote')}
+                    {data.subscription.cancelAtPeriodEnd
+                      ? t('subscription.canceledNote')
+                      : t('subscription.cancelNote')}
                   </p>
                   <Button
                     disabled={portal.isPending}

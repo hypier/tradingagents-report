@@ -802,6 +802,15 @@ export async function normalizeWebhookEvent(
   return normalized;
 }
 
+function isScheduledToCancel(subscription: Stripe.Subscription): boolean {
+  // Billing Portal / newer Stripe flows may set `cancel_at` without
+  // flipping `cancel_at_period_end`.
+  return (
+    subscription.cancel_at_period_end === true ||
+    (typeof subscription.cancel_at === 'number' && subscription.cancel_at > 0)
+  );
+}
+
 function subscriptionSnapshot(
   subscription: Stripe.Subscription,
 ): StripeSubscriptionSnapshot {
@@ -811,9 +820,10 @@ function subscriptionSnapshot(
     customerId: objectId(subscription.customer) ?? '',
     priceId: item?.price.id ?? '',
     status: subscription.status as StripeSubscriptionSnapshot['status'],
-    cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    cancelAtPeriodEnd: isScheduledToCancel(subscription),
     currentPeriodStart: item?.current_period_start ?? null,
-    currentPeriodEnd: item?.current_period_end ?? null,
+    currentPeriodEnd:
+      item?.current_period_end ?? subscription.cancel_at ?? null,
     latestInvoiceId: objectId(subscription.latest_invoice),
   };
 }
@@ -882,8 +892,9 @@ function mapSubscription(
     status: subscription.status,
     planName,
     priceId: item?.price.id ?? '',
-    cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    currentPeriodEnd: item?.current_period_end ?? null,
+    cancelAtPeriodEnd: isScheduledToCancel(subscription),
+    currentPeriodEnd:
+      item?.current_period_end ?? subscription.cancel_at ?? null,
   };
 }
 

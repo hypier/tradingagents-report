@@ -47,10 +47,12 @@
   },
   "subscription": {
     "title": "Current subscription",
+    "statusCanceled": "Canceled",
     "ends": "Ends (current cycle stays active; no renewal)",
     "renews": "Renews",
     "manage": "Manage subscription",
     "cancelNote": "After cancel-at-period-end, plan points remain usable until the cycle ends. Then billing stops, unused plan points clear, and reward points stay.",
+    "canceledNote": "Subscription canceled. Plan points remain usable until the cycle ends. Then billing stops, unused plan points clear, and reward points stay.",
     "noSubTitle": "No active subscription",
     "noSubBody": "Choose a plan below to subscribe. You can also run analyses with signup or other reward points."
   },
