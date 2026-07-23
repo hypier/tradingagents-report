@@ -92,7 +92,7 @@ it('shows Clerk sign-in and sign-up actions on the homepage', () => {
   renderApp();
 
   expect(
-    screen.getByRole('heading', { name: 'TradingAgents' }),
+    screen.getByRole('heading', { name: 'TradingAgents Report' }),
   ).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Sign up' })).toBeInTheDocument();

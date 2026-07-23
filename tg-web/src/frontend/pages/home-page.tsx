@@ -40,7 +40,11 @@ import {
 } from '../components/ui/tooltip';
 import { getAccountProfile } from '../lib/account';
 import { getBillingOverview } from '../lib/billing';
-import { OUTPUT_LANGUAGE_IDS, formatOutputLanguage } from '../lib/format-output-language';
+import {
+  OUTPUT_LANGUAGE_IDS,
+  formatOutputLanguage,
+  normalizeOutputLanguageId,
+} from '../lib/format-output-language';
 import {
   getLlmCatalog,
   type LlmCatalog,
@@ -136,7 +140,9 @@ export function HomePage() {
     return symbol ? instrumentFromProviderSymbol(symbol) : null;
   });
   const [analysts, setAnalysts] = useState<string[]>(analystOptions);
-  const [outputLanguage, setOutputLanguage] = useState('English');
+  const [outputLanguageOverride, setOutputLanguageOverride] = useState<
+    string | null
+  >(null);
   const [quickModelId, setQuickModelId] = useState('');
   const [deepModelId, setDeepModelId] = useState('');
   const [tradeDate, setTradeDate] = useState(() =>
@@ -159,6 +165,10 @@ export function HomePage() {
     queryFn: () => getLlmCatalog(),
     staleTime: 30_000,
   });
+  const preferredOutputLanguage =
+    normalizeOutputLanguageId(profile.data?.data.profile.reportLanguage) ??
+    'English';
+  const outputLanguage = outputLanguageOverride ?? preferredOutputLanguage;
 
   useEffect(() => {
     const catalog = llmCatalog.data?.data;
@@ -190,12 +200,6 @@ export function HomePage() {
   useEffect(() => {
     const current = profile.data?.data.profile;
     if (!current || prefsReady) return;
-    const preferred = current.reportLanguage || 'English';
-    setOutputLanguage(
-      (OUTPUT_LANGUAGE_IDS as readonly string[]).includes(preferred)
-        ? preferred
-        : 'English',
-    );
     setTradeDate(todayInTimezone(current.timezone));
     setPrefsReady(true);
   }, [prefsReady, profile.data?.data.profile]);
@@ -752,7 +756,7 @@ export function HomePage() {
                       </FieldLabel>
                       <Select
                         value={outputLanguage}
-                        onValueChange={setOutputLanguage}
+                        onValueChange={setOutputLanguageOverride}
                       >
                         <SelectTrigger
                           id="output-language"

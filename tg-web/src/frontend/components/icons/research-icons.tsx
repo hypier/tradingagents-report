@@ -54,46 +54,71 @@ export function BrandMark({ className }: { className?: string }) {
       className={className}
       aria-hidden="true"
     >
-      <rect width="32" height="32" rx="8" fill="currentColor" />
+      {/* Sharp pit tile — Signal Floor rectangular chrome */}
+      <rect width="32" height="32" rx="2" fill="currentColor" />
+      <rect
+        x="1"
+        y="1"
+        width="30"
+        height="30"
+        rx="1.5"
+        stroke="var(--sidebar-primary-foreground)"
+        strokeOpacity="0.18"
+      />
       {/* Ascending research bars */}
       <rect
         x="7"
-        y="17"
-        width="4"
+        y="18"
+        width="3.5"
         height="7"
-        rx="1.2"
-        fill="var(--primary-foreground)"
-        fillOpacity="0.55"
+        fill="var(--sidebar-primary-foreground)"
+        fillOpacity="0.42"
       />
       <rect
-        x="14"
-        y="12.5"
-        width="4"
-        height="11.5"
-        rx="1.2"
-        fill="var(--primary-foreground)"
-        fillOpacity="0.78"
+        x="14.25"
+        y="13"
+        width="3.5"
+        height="12"
+        fill="var(--sidebar-primary-foreground)"
+        fillOpacity="0.68"
       />
       <rect
-        x="21"
+        x="21.5"
         y="8"
-        width="4"
-        height="16"
-        rx="1.2"
-        fill="var(--primary-foreground)"
+        width="3.5"
+        height="17"
+        fill="var(--sidebar-primary-foreground)"
       />
-      {/* Agent nodes linked along the signal */}
+      {/* Live signal through agent nodes */}
       <path
-        d="M9 15.5h5.2L16 12.2 23 7.2"
-        stroke="var(--primary-foreground)"
-        strokeOpacity="0.45"
+        d="M8.5 16.5h5.5L16.5 12.5 24 7"
+        stroke="var(--sidebar-primary-foreground)"
+        strokeOpacity="0.55"
         strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
       />
-      <circle cx="9" cy="15.5" r="1.9" fill="var(--primary-foreground)" />
-      <circle cx="16" cy="12.2" r="1.9" fill="var(--primary-foreground)" />
-      <circle cx="23" cy="7.2" r="1.9" fill="var(--primary-foreground)" />
+      <rect
+        x="7.4"
+        y="15.4"
+        width="2.2"
+        height="2.2"
+        fill="var(--sidebar-primary-foreground)"
+      />
+      <rect
+        x="15.4"
+        y="11.4"
+        width="2.2"
+        height="2.2"
+        fill="var(--sidebar-primary-foreground)"
+      />
+      <rect
+        x="22.9"
+        y="5.9"
+        width="2.2"
+        height="2.2"
+        fill="var(--sidebar-primary-foreground)"
+      />
     </svg>
   );
 }

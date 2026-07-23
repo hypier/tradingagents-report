@@ -285,16 +285,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton
               asChild
               size="lg"
-              className="h-16 rounded-none px-3.5 hover:bg-transparent data-active:bg-transparent [&_svg]:size-8!"
+              className="group/brand h-16 gap-3 rounded-none px-3.5 hover:bg-transparent data-active:bg-transparent [&_svg]:size-8!"
             >
               <Link to={isAdminMenu ? '/admin' : '/'}>
-                <BrandMark className="size-8 text-sidebar-primary" />
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-base font-normal tracking-tight text-sidebar-foreground">
+                <BrandMark className="size-8 shrink-0 text-sidebar-primary transition-transform duration-200 group-hover/brand:scale-[1.03]" />
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="truncate text-[15px] leading-none font-normal tracking-[-0.02em] text-sidebar-foreground">
                     {t('brand.name')}
                   </span>
-                  <span className="font-mono text-xs tracking-[0.16em] text-sidebar-primary/80 uppercase">
-                    {isAdminMenu ? t('brand.adminFloorTag') : t('brand.floorTag')}
+                  <span className="flex items-center gap-1.5 font-mono text-[10px] leading-none tracking-[0.2em] text-sidebar-primary uppercase">
+                    <span
+                      className="size-1 shrink-0 bg-sidebar-primary"
+                      aria-hidden="true"
+                    />
+                    {isAdminMenu
+                      ? t('brand.adminFloorTag')
+                      : t('brand.floorTag')}
                   </span>
                 </span>
               </Link>

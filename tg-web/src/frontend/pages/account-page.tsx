@@ -39,6 +39,11 @@ import {
   updateAccountPreferences,
 } from '@/frontend/lib/account';
 import { setDisplayTimezone } from '@/frontend/lib/display-timezone';
+import {
+  OUTPUT_LANGUAGE_IDS,
+  formatOutputLanguage,
+  normalizeOutputLanguageId,
+} from '@/frontend/lib/format-output-language';
 import { fetchPublicConfig } from '@/frontend/lib/public-config';
 import { cn } from '@/frontend/lib/utils';
 import { interfaceLanguageToUiLocale } from '@/frontend/i18n/locales';
@@ -69,7 +74,8 @@ export function AccountPage() {
     if (current) {
       setPreferences({
         interfaceLanguage: current.interfaceLanguage,
-        reportLanguage: current.reportLanguage,
+        reportLanguage:
+          normalizeOutputLanguageId(current.reportLanguage) ?? 'English',
         timezone: current.timezone,
         defaultMarket: current.defaultMarket,
       });
@@ -157,26 +163,29 @@ export function AccountPage() {
                         )
                       }
                     />
-                    <Field>
-                      <FieldLabel htmlFor="report-language">
-                        {t('preferences.reportLanguage')}
-                      </FieldLabel>
-                      <Input
-                        id="report-language"
-                        value={preferences.reportLanguage}
-                        maxLength={64}
-                        onChange={(event) =>
-                          setPreferences((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  reportLanguage: event.target.value,
-                                }
-                              : current,
-                          )
-                        }
-                      />
-                    </Field>
+                    <PreferenceSelect
+                      label={t('preferences.reportLanguage')}
+                      value={
+                        (OUTPUT_LANGUAGE_IDS as readonly string[]).includes(
+                          preferences.reportLanguage,
+                        )
+                          ? preferences.reportLanguage
+                          : 'English'
+                      }
+                      values={OUTPUT_LANGUAGE_IDS.map((value) => [
+                        value,
+                        formatOutputLanguage(value, (key, options) =>
+                          t(`common:${key}`, options),
+                        ),
+                      ])}
+                      onChange={(reportLanguage) =>
+                        setPreferences((current) =>
+                          current
+                            ? { ...current, reportLanguage }
+                            : current,
+                        )
+                      }
+                    />
                     <Field>
                       <FieldLabel htmlFor="timezone">
                         {t('preferences.timezone')}
