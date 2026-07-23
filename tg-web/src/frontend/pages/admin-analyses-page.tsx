@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpenText, FileText, Info, RotateCcw } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { BookOpenText, FileText, Info, RotateCcw, Search } from 'lucide-react';
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -264,11 +264,20 @@ export function AdminAnalysesPage() {
   const { t } = useTranslation(['admin', 'common']);
   const session = useAuthSession();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<string>('all');
-  const [ticker, setTicker] = useState('');
-  const [userId, setUserId] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const detailJobId = searchParams.get('detail');
+  const initialStatus = searchParams.get('status') ?? 'all';
+  const initialTicker = searchParams.get('ticker') ?? '';
+  const initialUserId = searchParams.get('clerkUserId') ?? '';
+
+  const [status, setStatus] = useState(initialStatus);
+  const [ticker, setTicker] = useState(initialTicker);
+  const [userId, setUserId] = useState(initialUserId);
+  const [applied, setApplied] = useState({
+    status: initialStatus,
+    ticker: initialTicker,
+    userId: initialUserId,
+  });
 
   function openDetail(jobId: string) {
     const next = new URLSearchParams(searchParams);
@@ -282,13 +291,29 @@ export function AdminAnalysesPage() {
     setSearchParams(next, { replace: true });
   }
 
+  function onFilter(event: FormEvent) {
+    event.preventDefault();
+    const next = {
+      status,
+      ticker: ticker.trim(),
+      userId: userId.trim(),
+    };
+    setApplied(next);
+    const params = new URLSearchParams();
+    if (next.status !== 'all') params.set('status', next.status);
+    if (next.ticker) params.set('ticker', next.ticker);
+    if (next.userId) params.set('clerkUserId', next.userId);
+    if (detailJobId) params.set('detail', detailJobId);
+    setSearchParams(params, { replace: true });
+  }
+
   const analyses = useQuery({
-    queryKey: ['admin-analyses', status, ticker, userId],
+    queryKey: ['admin-analyses', applied],
     queryFn: () =>
       listAdminAnalyses({
-        status: status === 'all' ? undefined : status,
-        ticker: ticker.trim() || undefined,
-        clerkUserId: userId.trim() || undefined,
+        status: applied.status === 'all' ? undefined : applied.status,
+        ticker: applied.ticker || undefined,
+        clerkUserId: applied.userId || undefined,
       }),
     enabled: session.data?.data.user.role === 'admin',
   });
@@ -328,50 +353,64 @@ export function AdminAnalysesPage() {
       <PageFrame
         title={t('admin:analyses.heading')}
         description={t('admin:analyses.subtitle')}
+        bodyClassName="gap-0 p-0"
         toolbar={
-          <PageToolbar className="grid gap-3 md:grid-cols-3">
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {['all', 'queued', 'running', 'succeeded', 'failed'].map(
-                  (value) => (
-                    <SelectItem key={value} value={value}>
-                      {value === 'all'
-                        ? t('common:status.all')
-                        : t(`common:status.${value}`)}
-                    </SelectItem>
-                  ),
-                )}
-              </SelectContent>
-            </Select>
-            <Input
-              value={ticker}
-              onChange={(event) => setTicker(event.target.value)}
-              placeholder={t('admin:analyses.tickerPlaceholder')}
-              className="font-mono"
-            />
-            <Input
-              value={userId}
-              onChange={(event) => setUserId(event.target.value)}
-              placeholder={t('admin:analyses.userPlaceholder')}
-              className="font-mono"
-            />
+          <PageToolbar>
+            <form
+              onSubmit={onFilter}
+              className="flex flex-wrap items-end gap-3"
+            >
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {['all', 'queued', 'running', 'succeeded', 'failed'].map(
+                    (value) => (
+                      <SelectItem key={value} value={value}>
+                        {value === 'all'
+                          ? t('common:status.all')
+                          : t(`common:status.${value}`)}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+              <Input
+                value={ticker}
+                onChange={(event) => setTicker(event.target.value)}
+                placeholder={t('admin:analyses.tickerPlaceholder')}
+                className="min-w-[12rem] flex-1 basis-40 font-mono"
+              />
+              <Input
+                value={userId}
+                onChange={(event) => setUserId(event.target.value)}
+                placeholder={t('admin:analyses.userPlaceholder')}
+                className="min-w-[12rem] flex-1 basis-40 font-mono"
+              />
+              <Button type="submit" variant="secondary">
+                <Search data-icon="inline-start" />
+                {t('admin:analyses.filter')}
+              </Button>
+            </form>
           </PageToolbar>
         }
       >
         {analyses.isLoading ? (
-          <Skeleton className="h-64 w-full" />
+          <div className="p-5">
+            <Skeleton className="h-64 w-full" />
+          </div>
         ) : analyses.isError ? (
-          <Alert variant="destructive">
-            <AlertTitle>{t('admin:analyses.loadError.title')}</AlertTitle>
-            <AlertDescription>
-              {t('admin:analyses.loadError.body')}
-            </AlertDescription>
-          </Alert>
+          <div className="p-5">
+            <Alert variant="destructive">
+              <AlertTitle>{t('admin:analyses.loadError.title')}</AlertTitle>
+              <AlertDescription>
+                {t('admin:analyses.loadError.body')}
+              </AlertDescription>
+            </Alert>
+          </div>
         ) : (
-          <div className="overflow-hidden border border-border">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

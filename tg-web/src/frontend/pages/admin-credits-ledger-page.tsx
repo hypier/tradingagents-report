@@ -200,16 +200,10 @@ export function AdminCreditsLedgerPage() {
           <PageToolbar>
             <form
               onSubmit={onFilter}
-              className="grid gap-3 md:grid-cols-[1fr_10rem_1fr_auto]"
+              className="flex flex-wrap items-end gap-3"
             >
-              <Input
-                value={userId}
-                onChange={(event) => setUserId(event.target.value)}
-                placeholder={t('admin:credits.userPlaceholder')}
-                className="font-mono"
-              />
               <Select value={entryType} onValueChange={setEntryType}>
-                <SelectTrigger>
+                <SelectTrigger className="w-44">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -223,10 +217,16 @@ export function AdminCreditsLedgerPage() {
                 </SelectContent>
               </Select>
               <Input
+                value={userId}
+                onChange={(event) => setUserId(event.target.value)}
+                placeholder={t('admin:credits.userPlaceholder')}
+                className="min-w-[12rem] flex-1 basis-40 font-mono"
+              />
+              <Input
                 value={referenceId}
                 onChange={(event) => setReferenceId(event.target.value)}
                 placeholder={t('admin:credits.referencePlaceholder')}
-                className="font-mono"
+                className="min-w-[12rem] flex-1 basis-40 font-mono"
               />
               <Button type="submit" variant="secondary">
                 <Search data-icon="inline-start" />
@@ -250,7 +250,7 @@ export function AdminCreditsLedgerPage() {
             </Alert>
           </div>
         ) : (
-          <div className="overflow-hidden border-t border-border">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

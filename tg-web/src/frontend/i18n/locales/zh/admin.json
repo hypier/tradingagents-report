@@ -295,6 +295,7 @@
     },
     "tickerPlaceholder": "股票代码",
     "userPlaceholder": "Clerk 用户 ID",
+    "filter": "筛选",
     "logoAlt": "{{ticker}} 标志",
     "columns": {
       "ticker": "代码",

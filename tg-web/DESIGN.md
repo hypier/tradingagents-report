@@ -145,7 +145,7 @@ Every standard page follows one composition — do not invent a second title sty
 | **Page title** | One ruled `h1` in the page body: `text-xl` (~20px), weight 600, track-tight. Optional one-line Dim Meta subtitle under it. |
 | **Title row** | `border-b` Wire Edge; padding `px-5 py-3.5` (`lg:px-6`). Actions (if any) sit end-aligned on the same row. |
 | **Toolbar** | Optional filter / tab strip **flush under** the title row, separated by `border-t`. Same horizontal padding. Not a floating card. |
-| **Body** | Scrollable column; default padding `px-5 py-5` (`lg:px-6`), gap `1.25rem`. Flush tables may drop body padding (`gap-0 p-0`). **Do not** add a second `border-t` on the table wrapper under PageHeader — the title row already ends with `border-b`; stacking both creates a thick double rule. |
+| **Body** | Scrollable column; default padding `px-5 py-5` (`lg:px-6`), gap `1.25rem`. Flush tables may drop body padding (`gap-0 p-0`). **Do not** add a second `border-t` on the table wrapper (or any first body child) under PageHeader — the header block already ends with `border-b` (and when a PageToolbar is present, that same outer `border-b` is the only rule between filters and the table). Stacking `border-b` + `border-t` creates a thick double hairline. |
 | **Site header title** | Suppressed when the page owns its `h1` (desk, tasks, reports, watchlist, billing, account, stock, admin, report detail). Header keeps utilities only: theme, language, account / sign out. |
 | **Split workspaces** | Research desk & tasks may keep a custom ruled header inside the main pane; right rail is pipeline / recent runs — not a second page title. |
 

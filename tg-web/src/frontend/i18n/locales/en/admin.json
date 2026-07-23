@@ -295,6 +295,7 @@
     },
     "tickerPlaceholder": "Ticker",
     "userPlaceholder": "Clerk user ID",
+    "filter": "Filter",
     "logoAlt": "{{ticker}} logo",
     "columns": {
       "ticker": "Ticker",
