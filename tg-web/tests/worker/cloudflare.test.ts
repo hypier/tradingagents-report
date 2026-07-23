@@ -99,6 +99,7 @@ describe('Cloudflare Worker runtime', () => {
       createCheckout: vi.fn(),
       createPortal: vi.fn(),
       createPlan: vi.fn(),
+      updatePlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
       restorePlan: vi.fn(),

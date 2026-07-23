@@ -164,6 +164,15 @@
         "markets": "支持全部市场"
       },
       "archive": "归档 {{name}}",
+      "edit": "编辑 {{name}}",
+      "editTitle": "编辑套餐",
+      "editDescription": "可修改名称、说明、周期积分、市场与功能。价格、币种与计费周期由 Stripe Price 锁定，不可更改。",
+      "priceTerms": "价格条款（不可改）",
+      "cancel": "取消",
+      "save": "保存修改",
+      "archiveConfirmTitle": "确认归档套餐？",
+      "archiveConfirmBody": "归档「{{name}}」后，订阅页将不再展示该套餐；已有订阅不受影响。可在下方已归档列表中恢复。",
+      "archiveConfirm": "确认归档",
       "restore": "恢复 {{name}}",
       "archivedTitle": "已归档套餐",
       "archivedDescription": "归档后前台不可见；恢复后重新出现在生效套餐与订阅页。"
@@ -210,6 +219,8 @@
     "toasts": {
       "planCreated": "订阅套餐已创建。",
       "planCreateError": "无法创建订阅套餐。",
+      "planUpdated": "订阅套餐已更新。",
+      "planUpdateError": "无法更新订阅套餐。",
       "defaultsProvisioned": "每月 20、50、100 美元三档套餐已就绪。",
       "defaultsProvisionError": "无法初始化默认月付套餐。",
       "planArchived": "订阅套餐已归档。",
@@ -217,7 +228,8 @@
       "planRestored": "订阅套餐已恢复。",
       "planRestoreError": "无法恢复订阅套餐。",
       "invalidPrice": "请输入至少 0.50 的有效价格。",
-      "invalidCredits": "请输入至少一个分析额度。"
+      "invalidCredits": "请输入至少一个分析额度。",
+      "invalidFeatures": "请至少填写一项功能说明。"
     },
     "defaults": {
       "features": "完整分析师团队、PDF 报告"

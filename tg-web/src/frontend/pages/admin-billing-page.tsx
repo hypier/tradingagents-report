@@ -8,6 +8,7 @@ import {
   Clipboard,
   CreditCard,
   PackagePlus,
+  Pencil,
   Save,
   ScrollText,
   Search,
@@ -22,6 +23,7 @@ import type {
   BillingInterval,
   BillingPlan,
   CreateBillingPlanInput,
+  UpdateBillingPlanInput,
 } from '@/backend/billing/contract';
 import { AdminGate } from '@/frontend/components/admin-gate';
 import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
@@ -33,6 +35,14 @@ import {
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
 import { Checkbox } from '@/frontend/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/frontend/components/ui/dialog';
 import {
   Empty,
   EmptyDescription,
@@ -86,6 +96,7 @@ import {
   listAdminStripeEvents,
   provisionDefaultBillingPlans,
   restoreBillingPlan,
+  updateBillingPlan,
   type AdminStripeWebhookEvent,
 } from '@/frontend/lib/billing';
 
@@ -109,6 +120,14 @@ type PlanForm = {
   features: string;
 };
 
+type EditPlanForm = {
+  name: string;
+  description: string;
+  analysisCredits: string;
+  supportedMarkets: string[];
+  features: string;
+};
+
 function createInitialPlan(features: string): PlanForm {
   return {
     name: '',
@@ -122,6 +141,23 @@ function createInitialPlan(features: string): PlanForm {
   };
 }
 
+function planToEditForm(plan: BillingPlan): EditPlanForm {
+  return {
+    name: plan.name,
+    description: plan.description ?? '',
+    analysisCredits: String(plan.analysisCredits),
+    supportedMarkets: [...plan.supportedMarkets],
+    features: plan.features.join(', '),
+  };
+}
+
+function parsePlanFeatures(features: string): string[] {
+  return features
+    .split(',')
+    .map((feature) => feature.trim())
+    .filter(Boolean);
+}
+
 export function AdminBillingPage() {
   const { t } = useTranslation('admin');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -130,6 +166,9 @@ export function AdminBillingPage() {
   const [plan, setPlan] = useState(() =>
     createInitialPlan(t('billing.defaults.features')),
   );
+  const [archiveTarget, setArchiveTarget] = useState<BillingPlan | null>(null);
+  const [editTarget, setEditTarget] = useState<BillingPlan | null>(null);
+  const [editForm, setEditForm] = useState<EditPlanForm | null>(null);
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const isAdmin = session.data?.data.user.role === 'admin';
@@ -154,6 +193,22 @@ export function AdminBillingPage() {
     },
     onError: () => toast.error(t('billing.toasts.planCreateError')),
   });
+  const updatePlan = useMutation({
+    mutationFn: ({
+      priceId,
+      input,
+    }: {
+      priceId: string;
+      input: UpdateBillingPlanInput;
+    }) => updateBillingPlan(priceId, input),
+    onSuccess: () => {
+      setEditTarget(null);
+      setEditForm(null);
+      refresh();
+      toast.success(t('billing.toasts.planUpdated'));
+    },
+    onError: () => toast.error(t('billing.toasts.planUpdateError')),
+  });
   const provisionPlans = useMutation({
     mutationFn: () => provisionDefaultBillingPlans(),
     onSuccess: () => {
@@ -165,6 +220,7 @@ export function AdminBillingPage() {
   const archivePlan = useMutation({
     mutationFn: (priceId: string) => archiveBillingPlan(priceId),
     onSuccess: () => {
+      setArchiveTarget(null);
       refresh();
       toast.success(t('billing.toasts.planArchived'));
     },
@@ -205,10 +261,37 @@ export function AdminBillingPage() {
       interval: plan.interval,
       analysisCredits,
       supportedMarkets: plan.supportedMarkets,
-      features: plan.features
-        .split(',')
-        .map((feature) => feature.trim())
-        .filter(Boolean),
+      features: parsePlanFeatures(plan.features),
+    });
+  };
+
+  const openEdit = (target: BillingPlan) => {
+    setEditTarget(target);
+    setEditForm(planToEditForm(target));
+  };
+
+  const submitEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editTarget || !editForm) return;
+    const analysisCredits = Number(editForm.analysisCredits);
+    if (!Number.isSafeInteger(analysisCredits) || analysisCredits < 1) {
+      toast.error(t('billing.toasts.invalidCredits'));
+      return;
+    }
+    const features = parsePlanFeatures(editForm.features);
+    if (features.length === 0) {
+      toast.error(t('billing.toasts.invalidFeatures'));
+      return;
+    }
+    updatePlan.mutate({
+      priceId: editTarget.id,
+      input: {
+        name: editForm.name.trim(),
+        description: editForm.description.trim() || undefined,
+        analysisCredits,
+        supportedMarkets: editForm.supportedMarkets,
+        features,
+      },
     });
   };
 
@@ -386,9 +469,14 @@ export function AdminBillingPage() {
               <PlansTable
                 plans={data.plans}
                 pendingId={
-                  archivePlan.isPending ? archivePlan.variables : undefined
+                  archivePlan.isPending
+                    ? archivePlan.variables
+                    : updatePlan.isPending
+                      ? updatePlan.variables?.priceId
+                      : undefined
                 }
-                onArchive={(priceId) => archivePlan.mutate(priceId)}
+                onEdit={openEdit}
+                onArchive={(target) => setArchiveTarget(target)}
               />
               <ArchivedPlansTable
                 plans={data.archivedPlans}
@@ -404,6 +492,206 @@ export function AdminBillingPage() {
           </Tabs>
         ) : null}
       </PageFrame>
+
+      <Dialog
+        open={Boolean(archiveTarget)}
+        onOpenChange={(open) => {
+          if (!open && !archivePlan.isPending) setArchiveTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('billing.plans.archiveConfirmTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('billing.plans.archiveConfirmBody', {
+                name: archiveTarget
+                  ? localizeBillingPlan(
+                      archiveTarget,
+                      t,
+                      'billing.plans.defaultPlans',
+                    ).name
+                  : '',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={archivePlan.isPending}
+              onClick={() => setArchiveTarget(null)}
+            >
+              {t('billing.plans.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!archiveTarget || archivePlan.isPending}
+              onClick={() => {
+                if (archiveTarget) archivePlan.mutate(archiveTarget.id);
+              }}
+            >
+              {archivePlan.isPending && <Spinner data-icon="inline-start" />}
+              {t('billing.plans.archiveConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(editTarget && editForm)}
+        onOpenChange={(open) => {
+          if (!open && !updatePlan.isPending) {
+            setEditTarget(null);
+            setEditForm(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{t('billing.plans.editTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('billing.plans.editDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          {editTarget && editForm ? (
+            <form onSubmit={submitEdit}>
+              <FieldGroup className="grid gap-4 md:grid-cols-2">
+                <Field className="md:col-span-2">
+                  <FieldLabel>{t('billing.plans.priceTerms')}</FieldLabel>
+                  <p className="font-mono text-sm tabular-nums text-muted-foreground">
+                    {formatLocaleCurrency(
+                      editTarget.unitAmount,
+                      editTarget.currency,
+                    )}{' '}
+                    ·{' '}
+                    {localizeBillingInterval(
+                      editTarget.interval,
+                      t,
+                      'billing.plans.intervals',
+                    )}
+                  </p>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="edit-plan-name">
+                    {t('billing.plans.name')}
+                  </FieldLabel>
+                  <Input
+                    id="edit-plan-name"
+                    value={editForm.name}
+                    required
+                    maxLength={100}
+                    onChange={(event) =>
+                      setEditForm((current) =>
+                        current
+                          ? { ...current, name: event.target.value }
+                          : current,
+                      )
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="edit-plan-description">
+                    {t('billing.plans.description')}
+                  </FieldLabel>
+                  <Input
+                    id="edit-plan-description"
+                    value={editForm.description}
+                    maxLength={500}
+                    onChange={(event) =>
+                      setEditForm((current) =>
+                        current
+                          ? { ...current, description: event.target.value }
+                          : current,
+                      )
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="edit-plan-credits">
+                    {t('billing.plans.credits')}
+                  </FieldLabel>
+                  <Input
+                    id="edit-plan-credits"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={editForm.analysisCredits}
+                    required
+                    onChange={(event) =>
+                      setEditForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              analysisCredits: event.target.value,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>{t('billing.plans.markets')}</FieldLabel>
+                  <ToggleGroup
+                    type="multiple"
+                    variant="outline"
+                    value={editForm.supportedMarkets}
+                    onValueChange={(supportedMarkets) =>
+                      supportedMarkets.length &&
+                      setEditForm((current) =>
+                        current ? { ...current, supportedMarkets } : current,
+                      )
+                    }
+                  >
+                    {PRODUCT_MARKET_CODES.map((market) => (
+                      <ToggleGroupItem key={market} value={market}>
+                        {market}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </Field>
+                <Field className="md:col-span-2">
+                  <FieldLabel htmlFor="edit-plan-features">
+                    {t('billing.plans.features')}
+                  </FieldLabel>
+                  <Input
+                    id="edit-plan-features"
+                    value={editForm.features}
+                    required
+                    placeholder={t('billing.plans.featuresPlaceholder')}
+                    onChange={(event) =>
+                      setEditForm((current) =>
+                        current
+                          ? { ...current, features: event.target.value }
+                          : current,
+                      )
+                    }
+                  />
+                </Field>
+              </FieldGroup>
+              <DialogFooter className="mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={updatePlan.isPending}
+                  onClick={() => {
+                    setEditTarget(null);
+                    setEditForm(null);
+                  }}
+                >
+                  {t('billing.plans.cancel')}
+                </Button>
+                <Button type="submit" disabled={updatePlan.isPending}>
+                  {updatePlan.isPending && (
+                    <Spinner data-icon="inline-start" />
+                  )}
+                  {t('billing.plans.save')}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </AdminGate>
   );
 }
@@ -761,11 +1049,13 @@ function PlanEditor({
 function PlansTable({
   plans,
   pendingId,
+  onEdit,
   onArchive,
 }: {
   plans: BillingPlan[];
   pendingId?: string;
-  onArchive(priceId: string): void;
+  onEdit(plan: BillingPlan): void;
+  onArchive(plan: BillingPlan): void;
 }) {
   const { t } = useTranslation('admin');
   if (!plans.length) {
@@ -793,7 +1083,7 @@ function PlansTable({
               <TableHead>{t('billing.plans.columns.price')}</TableHead>
               <TableHead>{t('billing.plans.columns.interval')}</TableHead>
               <TableHead>{t('billing.plans.columns.credits')}</TableHead>
-              <TableHead className="w-16" />
+              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -831,21 +1121,38 @@ function PlansTable({
                     {plan.analysisCredits}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      title={t('billing.plans.archive', {
-                        name: displayPlan.name,
-                      })}
-                      aria-label={t('billing.plans.archive', {
-                        name: displayPlan.name,
-                      })}
-                      disabled={pendingId === plan.id}
-                      onClick={() => onArchive(plan.id)}
-                    >
-                      <Archive />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title={t('billing.plans.edit', {
+                          name: displayPlan.name,
+                        })}
+                        aria-label={t('billing.plans.edit', {
+                          name: displayPlan.name,
+                        })}
+                        disabled={pendingId === plan.id}
+                        onClick={() => onEdit(plan)}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title={t('billing.plans.archive', {
+                          name: displayPlan.name,
+                        })}
+                        aria-label={t('billing.plans.archive', {
+                          name: displayPlan.name,
+                        })}
+                        disabled={pendingId === plan.id}
+                        onClick={() => onArchive(plan)}
+                      >
+                        <Archive />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

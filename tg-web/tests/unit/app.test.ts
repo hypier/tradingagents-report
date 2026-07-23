@@ -81,6 +81,7 @@ function fakeDependencies(
         .fn()
         .mockResolvedValue('https://billing.stripe.test/session'),
       createPlan: vi.fn(),
+      updatePlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
       restorePlan: vi.fn(),
@@ -1130,6 +1131,60 @@ describe('createApp', () => {
     await expect(response.json()).resolves.toMatchObject({
       data: restored,
     });
+  });
+
+  it('lets an administrator update editable fields on a managed Stripe plan', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    const updated = {
+      id: 'price_test123',
+      catalogKey: null,
+      name: 'Pro Plus',
+      description: 'Updated',
+      unitAmount: 1900,
+      currency: 'usd',
+      interval: 'month' as const,
+      intervalCount: 1,
+      analysisCredits: 80,
+      supportedMarkets: ['US', 'HK'],
+      features: ['Full analyst team'],
+    };
+    vi.mocked(dependencies.billing.updatePlan).mockResolvedValue(updated);
+    const app = createApp(dependencies);
+
+    const response = await app.request(
+      '/api/admin/billing/plans/price_test123',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Pro Plus',
+          description: 'Updated',
+          analysisCredits: 80,
+          supportedMarkets: ['US', 'HK'],
+          features: ['Full analyst team'],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(dependencies.billing.updatePlan).toHaveBeenCalledWith(
+      'price_test123',
+      {
+        name: 'Pro Plus',
+        description: 'Updated',
+        analysisCredits: 80,
+        supportedMarkets: ['US', 'HK'],
+        features: ['Full analyst team'],
+      },
+    );
+    await expect(response.json()).resolves.toMatchObject({ data: updated });
   });
 
   it('requires a Stripe signature and preserves the raw webhook body', async () => {

@@ -26,6 +26,7 @@ const billing = vi.hoisted(() => ({
   createCheckout: vi.fn(),
   createBillingPortal: vi.fn(),
   createBillingPlan: vi.fn(),
+  updateBillingPlan: vi.fn(),
   provisionDefaultBillingPlans: vi.fn(),
   archiveBillingPlan: vi.fn(),
   restoreBillingPlan: vi.fn(),
@@ -348,8 +349,20 @@ it('lets an administrator inspect Stripe settings and active plans', async () =>
     await screen.findByRole('heading', { name: 'Create recurring plan' }),
   ).toBeInTheDocument();
   expect(
+    screen.getByRole('button', { name: 'Edit Pro' }),
+  ).toBeInTheDocument();
+  expect(
     screen.getByRole('button', { name: 'Archive Pro' }),
   ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Archive Pro' }));
+  expect(
+    await screen.findByRole('heading', { name: 'Archive this plan?' }),
+  ).toBeInTheDocument();
+  expect(billing.archiveBillingPlan).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Archive plan' }));
+  await waitFor(() =>
+    expect(billing.archiveBillingPlan).toHaveBeenCalledWith('price_pro'),
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Create default plans' }));
   await waitFor(() =>
     expect(billing.provisionDefaultBillingPlans).toHaveBeenCalledOnce(),

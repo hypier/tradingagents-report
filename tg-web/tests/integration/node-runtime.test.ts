@@ -45,6 +45,7 @@ function fakeDependencies(): AppDependencies {
       createCheckout: vi.fn(),
       createPortal: vi.fn(),
       createPlan: vi.fn(),
+      updatePlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
       restorePlan: vi.fn(),

@@ -164,6 +164,15 @@
         "markets": "All supported markets"
       },
       "archive": "Archive {{name}}",
+      "edit": "Edit {{name}}",
+      "editTitle": "Edit plan",
+      "editDescription": "Update name, description, credits, markets, and features. Stripe locks price, currency, and interval on the Price object.",
+      "priceTerms": "Price terms (locked)",
+      "cancel": "Cancel",
+      "save": "Save changes",
+      "archiveConfirmTitle": "Archive this plan?",
+      "archiveConfirmBody": "Archiving “{{name}}” hides it from the subscription page. Existing subscriptions keep working. You can restore it from the archived list.",
+      "archiveConfirm": "Archive plan",
       "restore": "Restore {{name}}",
       "archivedTitle": "Archived plans",
       "archivedDescription": "Archived prices stay hidden from checkout until restored."
@@ -210,6 +219,8 @@
     "toasts": {
       "planCreated": "Subscription plan created.",
       "planCreateError": "Unable to create the subscription plan.",
+      "planUpdated": "Subscription plan updated.",
+      "planUpdateError": "Unable to update the subscription plan.",
       "defaultsProvisioned": "The USD 20, 50, and 100 monthly plans are ready.",
       "defaultsProvisionError": "Unable to provision the default monthly plans.",
       "planArchived": "Subscription plan archived.",
@@ -217,7 +228,8 @@
       "planRestored": "Subscription plan restored.",
       "planRestoreError": "Unable to restore the subscription plan.",
       "invalidPrice": "Enter a valid price of at least 0.50.",
-      "invalidCredits": "Enter at least one analysis credit."
+      "invalidCredits": "Enter at least one analysis credit.",
+      "invalidFeatures": "Enter at least one feature."
     },
     "defaults": {
       "features": "Full analyst team, PDF reports"
