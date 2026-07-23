@@ -183,7 +183,7 @@ export function WelcomePage() {
 
         <section className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-3 text-center sm:px-4">
           <div className="relative w-full border border-border/80 bg-background/55 px-8 py-10 backdrop-blur-[2px] sm:px-14 sm:py-12 dark:bg-card/40">
-            <CornerMarks className="absolute inset-0" />
+            <CornerMarks className="pointer-events-none absolute inset-0" />
 
             <div className="flex flex-col items-center gap-6">
               <BrandMark className="size-24 text-[#d97706] sm:size-28" />
