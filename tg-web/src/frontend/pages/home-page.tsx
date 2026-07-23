@@ -834,7 +834,7 @@ export function HomePage() {
                       ? t('submit.submitting')
                       : estimate.isLoading
                         ? t('submit.estimating')
-                        : estimateData
+                        : insufficientCredits && estimateData
                           ? t('submit.runWithEstimate', {
                               threshold:
                                 estimateData.analysisBalanceThreshold,

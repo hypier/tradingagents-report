@@ -166,8 +166,8 @@ export function PipelinePanel({
 
   if (variant === 'rail') {
     return (
-      <div className={cn('flex min-h-0 flex-col', className)}>
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+      <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
           <p className="inline-flex items-center gap-2 font-label-caps text-muted-foreground">
             <span
               className={cn(
@@ -183,40 +183,42 @@ export function PipelinePanel({
         </div>
 
         {job ? (
-          <div className="space-y-3 px-4 py-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-normal tracking-tight">
-                  {displayName}
-                </p>
-                {showTickerUnderName ? (
-                  <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
-                    {job.ticker}
+          <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-4">
+            <div className="shrink-0 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-normal tracking-tight">
+                    {displayName}
                   </p>
-                ) : null}
-                <p className="mt-1 truncate text-sm text-muted-foreground">
-                  {displayStage(activeStage ?? job.current_step)}
-                </p>
+                  {showTickerUnderName ? (
+                    <p className="mt-0.5 truncate font-mono text-xs tracking-wide text-muted-foreground">
+                      {job.ticker}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    {displayStage(activeStage ?? job.current_step)}
+                  </p>
+                </div>
+                <span className="shrink-0 font-mono text-sm tabular-nums text-primary">
+                  {job.progress_percent ?? 0}%
+                </span>
               </div>
-              <span className="shrink-0 font-mono text-sm tabular-nums text-primary">
-                {job.progress_percent ?? 0}%
-              </span>
+              <Progress
+                value={job.progress_percent ?? 0}
+                className={cn('h-1', isLive && 'bg-primary/15')}
+              />
             </div>
-            <Progress
-              value={job.progress_percent ?? 0}
-              className={cn('h-1', isLive && 'bg-primary/15')}
-            />
             {loading ? (
               <div className="flex flex-col gap-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-4/5" />
               </div>
             ) : events?.length ? (
-              <ol className="flex max-h-48 flex-col gap-2 overflow-y-auto border-l border-border pl-3">
-                {[...events].slice(-6).reverse().map((event, index) => (
+              <ol className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto border-l border-border pl-3">
+                {[...events].reverse().map((event, index) => (
                   <li
                     key={`${event.time ?? 'event'}-${index}`}
-                    className="relative text-sm leading-5 text-muted-foreground"
+                    className="relative text-sm leading-5"
                   >
                     <span
                       className={cn(
@@ -228,17 +230,12 @@ export function PipelinePanel({
                       {event.time ? (
                         <time
                           dateTime={event.time}
-                          className="shrink-0 font-mono text-[11px] tabular-nums"
+                          className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground"
                         >
                           {formatLocaleTime(event.time)}
                         </time>
                       ) : null}
-                      <span
-                        className={cn(
-                          'min-w-0 break-words',
-                          index === 0 && 'text-foreground',
-                        )}
-                      >
+                      <span className="min-w-0 break-words text-muted-foreground/65">
                         {localizeProgressMessage(event.message, t)}
                       </span>
                     </div>

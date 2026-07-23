@@ -157,14 +157,13 @@ export function TasksPage() {
 
         {showPipeline ? (
           <aside className="flex w-full min-h-0 shrink-0 flex-col border-t border-border bg-muted/15 lg:w-[min(100%,22rem)] lg:border-t-0 xl:w-[24rem]">
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <PipelinePanel
-                variant="rail"
-                job={active}
-                events={events.data?.data}
-                loading={events.isLoading}
-              />
-            </div>
+            <PipelinePanel
+              variant="rail"
+              className="min-h-0 flex-1"
+              job={active}
+              events={events.data?.data}
+              loading={events.isLoading}
+            />
           </aside>
         ) : null}
       </div>

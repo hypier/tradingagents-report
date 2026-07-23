@@ -424,6 +424,22 @@ def _settle_analysis_credits(
     period_credits = int(account.get("period_credits") or 0)
     period_spent = min(period_credits, settled_units)
     bonus_spent = settled_units - period_spent
+    # Single-pool spends also set `pool` so usage UI can label 套餐/奖励;
+    # split spends rely on periodDelta/bonusDelta alone.
+    ledger_metadata: dict = {
+        "reason": reason,
+        "actualCostUsd": str(actual_cost_usd),
+        "finalPoints": settled_units,
+        "periodDelta": -period_spent,
+        "bonusDelta": -bonus_spent,
+        "pointsPerUsd": pricing_snapshot.get("points_per_usd"),
+        "markupBasisPoints": pricing_snapshot.get("markup_basis_points"),
+        "requestId": str(job["request_id"]) if job.get("request_id") else None,
+    }
+    if period_spent > 0 and bonus_spent == 0:
+        ledger_metadata["pool"] = "period"
+    elif bonus_spent > 0 and period_spent == 0:
+        ledger_metadata["pool"] = "bonus"
 
     idempotency_key = f"analysis:{job_id}:consume"
     entry = conn.execute(
@@ -443,22 +459,7 @@ def _settle_analysis_credits(
             idempotency_key,
             str(job_id),
             "Analysis credit consumed",
-            Jsonb(
-                {
-                    "reason": reason,
-                    "actualCostUsd": str(actual_cost_usd),
-                    "finalPoints": settled_units,
-                    "periodDelta": -period_spent,
-                    "bonusDelta": -bonus_spent,
-                    "pointsPerUsd": pricing_snapshot.get("points_per_usd"),
-                    "markupBasisPoints": pricing_snapshot.get(
-                        "markup_basis_points"
-                    ),
-                    "requestId": (
-                        str(job["request_id"]) if job.get("request_id") else None
-                    ),
-                }
-            ),
+            Jsonb(ledger_metadata),
         ),
     ).fetchone()
     if entry is None:

@@ -605,6 +605,7 @@ def test_settle_analysis_credits_uses_actual_cost(actual_cost_usd, settled_units
     assert ledger_params[-1].obj["finalPoints"] == settled_units
     assert ledger_params[-1].obj["periodDelta"] == -settled_units
     assert ledger_params[-1].obj["bonusDelta"] == 0
+    assert ledger_params[-1].obj["pool"] == "period"
 
 
 def test_settle_analysis_credits_splits_period_then_bonus():
@@ -630,6 +631,32 @@ def test_settle_analysis_credits_splits_period_then_bonus():
     assert ledger_params[-1].obj["finalPoints"] == 14
     assert ledger_params[-1].obj["periodDelta"] == -5
     assert ledger_params[-1].obj["bonusDelta"] == -9
+    assert "pool" not in ledger_params[-1].obj
+
+
+def test_settle_analysis_credits_bonus_only_sets_pool():
+    connection = _SettlementConnection(
+        _product_job(),
+        period_credits=0,
+        bonus_credits=500,
+    )
+
+    analysis_jobs._settle_analysis_credits(
+        connection,
+        job_id=UUID("00000000-0000-4000-8000-000000000011"),
+        billable=True,
+        actual_cost_usd=Decimal("0.123"),
+        reason="analysis_succeeded",
+    )
+
+    ledger_params = next(
+        params
+        for sql, params in connection.executed
+        if "INSERT INTO credit_ledger_entries" in sql
+    )
+    assert ledger_params[-1].obj["periodDelta"] == 0
+    assert ledger_params[-1].obj["bonusDelta"] == -14
+    assert ledger_params[-1].obj["pool"] == "bonus"
 
 
 def test_settle_analysis_credits_skips_when_not_billable():
