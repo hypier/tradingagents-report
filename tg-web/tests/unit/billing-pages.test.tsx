@@ -146,24 +146,51 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it('shows subscription plans and invoices to an authenticated user', async () => {
+it('shows subscription plans to an authenticated user', async () => {
   render(
-    <MemoryRouter initialEntries={['/billing']}>
+    <MemoryRouter initialEntries={['/billing/subscription']}>
       <App />
     </MemoryRouter>,
   );
 
   expect(
-    await screen.findByRole('heading', { name: 'Subscription and billing' }),
+    await screen.findByRole('heading', { name: 'Subscription' }),
   ).toBeInTheDocument();
   expect(
     await screen.findByRole('heading', { name: 'Pro' }),
   ).toBeInTheDocument();
-  expect(await screen.findByText('INV-001')).toBeInTheDocument();
   expect(
     screen.getByRole('link', { name: 'Subscription' }),
   ).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Billable usage' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Invoices' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Payment settings' })).toBeNull();
+});
+
+it('shows invoices on the subscription page', async () => {
+  render(
+    <MemoryRouter initialEntries={['/billing/subscription']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(
+    await screen.findByRole('heading', { name: 'Subscription' }),
+  ).toBeInTheDocument();
+  expect(await screen.findByText('INV-001')).toBeInTheDocument();
+});
+
+it('redirects the legacy invoices route to subscription', async () => {
+  render(
+    <MemoryRouter initialEntries={['/billing/invoices']}>
+      <App />
+    </MemoryRouter>,
+  );
+
+  expect(
+    await screen.findByRole('heading', { name: 'Subscription' }),
+  ).toBeInTheDocument();
+  expect(await screen.findByText('INV-001')).toBeInTheDocument();
 });
 
 it('shows actual USD cost and final points in credit activity', async () => {
@@ -175,6 +202,8 @@ it('shows actual USD cost and final points in credit activity', async () => {
       invoices: [],
       usage: {
         availableCredits: 118,
+        periodCredits: 100,
+        bonusCredits: 18,
         reservedCredits: 0,
         spentCredits: 14,
         periodEnd: null,
@@ -186,6 +215,7 @@ it('shows actual USD cost and final points in credit activity', async () => {
             reservedDelta: -132,
             spentDelta: 14,
             description: 'Analysis credit consumed',
+            referenceType: 'analysis_job',
             referenceId: 'job-1',
             metadata: {
               actualCostUsd: '0.123',
@@ -202,7 +232,7 @@ it('shows actual USD cost and final points in credit activity', async () => {
   });
 
   render(
-    <MemoryRouter initialEntries={['/billing']}>
+    <MemoryRouter initialEntries={['/billing/usage']}>
       <App />
     </MemoryRouter>,
   );
@@ -221,6 +251,8 @@ it('localizes signup and referral credit activity', async () => {
       invoices: [],
       usage: {
         availableCredits: 700,
+        periodCredits: 0,
+        bonusCredits: 700,
         reservedCredits: 0,
         spentCredits: 0,
         periodEnd: null,
@@ -256,7 +288,7 @@ it('localizes signup and referral credit activity', async () => {
   });
 
   render(
-    <MemoryRouter initialEntries={['/billing']}>
+    <MemoryRouter initialEntries={['/billing/usage']}>
       <App />
     </MemoryRouter>,
   );
@@ -279,7 +311,7 @@ it('localizes the default subscription catalog in Chinese', async () => {
   });
 
   render(
-    <MemoryRouter initialEntries={['/billing']}>
+    <MemoryRouter initialEntries={['/billing/subscription']}>
       <App />
     </MemoryRouter>,
   );

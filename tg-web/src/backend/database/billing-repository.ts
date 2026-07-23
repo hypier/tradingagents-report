@@ -35,8 +35,11 @@ export type StripeWebhookEventsSummary = {
 /** 供 UI 聚合的积分钱包 + 最新订阅 + 近期流水。 */
 export type CreditUsage = {
   availableCredits: number;
+  periodCredits: number;
+  bonusCredits: number;
   reservedCredits: number;
   spentCredits: number;
+  periodEnd: Date | null;
   subscription: typeof schema.billingSubscriptions.$inferSelect | null;
   ledger: Array<typeof schema.creditLedgerEntries.$inferSelect>;
 };
@@ -147,8 +150,11 @@ export function createBillingRepository(database: Database): BillingRepository {
       ]);
       return {
         availableCredits: account?.availableCredits ?? 0,
+        periodCredits: account?.periodCredits ?? 0,
+        bonusCredits: account?.bonusCredits ?? 0,
         reservedCredits: account?.reservedCredits ?? 0,
         spentCredits: account?.spentCredits ?? 0,
+        periodEnd: account?.periodEnd ?? null,
         subscription: subscriptions[0] ?? null,
         ledger,
       };
@@ -277,6 +283,8 @@ export function createBillingRepository(database: Database): BillingRepository {
             metadata: {
               actorClerkUserId: input.actorClerkUserId,
               reason: input.reason ?? null,
+              pool: 'bonus',
+              grantKind: 'admin_adjustment',
             },
           })
           .onConflictDoNothing()
@@ -304,17 +312,18 @@ export function createBillingRepository(database: Database): BillingRepository {
           return account?.availableCredits ?? 0;
         }
 
-        const minimumBalance = input.delta < 0 ? -input.delta : 0;
+        const minimumBonus = input.delta < 0 ? -input.delta : 0;
         const [account] = await tx
           .update(schema.creditAccounts)
           .set({
+            bonusCredits: sql`${schema.creditAccounts.bonusCredits} + ${input.delta}`,
             availableCredits: sql`${schema.creditAccounts.availableCredits} + ${input.delta}`,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(schema.creditAccounts.clerkUserId, input.clerkUserId),
-              gte(schema.creditAccounts.availableCredits, minimumBalance),
+              gte(schema.creditAccounts.bonusCredits, minimumBonus),
             ),
           )
           .returning({
@@ -323,7 +332,7 @@ export function createBillingRepository(database: Database): BillingRepository {
         if (!account) {
           throw new BillingRepositoryError(
             'INSUFFICIENT_CREDITS',
-            'The adjustment would make the available balance negative',
+            'The adjustment would make the bonus balance negative',
           );
         }
         return account.availableCredits;
@@ -380,7 +389,9 @@ export function createBillingRepository(database: Database): BillingRepository {
         }
 
         const customerId =
-          event.subscription?.customerId ?? event.creditGrant?.customerId;
+          event.subscription?.customerId ??
+          event.creditGrant?.customerId ??
+          event.creditClawback?.customerId;
         if (!customerId) {
           await finishWebhook(tx, event.id, 'ignored');
           return true;
@@ -425,37 +436,32 @@ export function createBillingRepository(database: Database): BillingRepository {
             });
         }
 
-        if (event.creditGrant && event.creditGrant.credits > 0) {
-          const grant = event.creditGrant;
-          const [entry] = await tx
-            .insert(schema.creditLedgerEntries)
-            .values({
-              clerkUserId: user.clerkUserId,
-              entryType: 'grant',
-              availableDelta: grant.credits,
-              idempotencyKey: `stripe:invoice:${grant.invoiceId}:grant`,
-              referenceType: 'stripe_invoice',
-              referenceId: grant.invoiceId,
-              description: 'Subscription cycle credits granted',
-              metadata: {
-                subscriptionId: grant.subscriptionId,
-                priceId: grant.priceId,
-                periodStart: grant.periodStart,
-                periodEnd: grant.periodEnd,
-              },
-            })
-            .onConflictDoNothing()
-            .returning({ id: schema.creditLedgerEntries.id });
-          if (entry) {
-            await tx
-              .update(schema.creditAccounts)
-              .set({
-                availableCredits: sql`${schema.creditAccounts.availableCredits} + ${grant.credits}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(schema.creditAccounts.clerkUserId, user.clerkUserId));
-          }
+        if (event.expirePeriod) {
+          const periodEndUnix =
+            event.subscription?.currentPeriodEnd ??
+            Math.floor(Date.now() / 1000);
+          await expirePeriodCredits(tx, {
+            clerkUserId: user.clerkUserId,
+            idempotencyKey: `stripe:sub:${event.subscription?.id ?? customerId}:expire:${periodEndUnix}`,
+            referenceType: 'stripe_subscription',
+            referenceId: event.subscription?.id ?? customerId,
+            description: 'Subscription period credits expired',
+            metadata: {
+              pool: 'period',
+              reason: event.subscription?.status ?? 'expire',
+              subscriptionId: event.subscription?.id ?? null,
+            },
+          });
         }
+
+        if (event.creditGrant && event.creditGrant.credits > 0) {
+          await applySubscriptionCreditGrant(tx, user.clerkUserId, event.creditGrant);
+        }
+
+        if (event.creditClawback) {
+          await applyCreditClawback(tx, user.clerkUserId, event.creditClawback);
+        }
+
         await finishWebhook(tx, event.id, 'processed');
         return true;
       });
@@ -556,8 +562,295 @@ function webhookAuditPayload(event: StripeWebhookEvent) {
   return {
     ...event.payload,
     subscription: event.subscription,
+    expirePeriod: event.expirePeriod ?? false,
     creditGrant: event.creditGrant,
+    creditClawback: event.creditClawback,
   };
+}
+
+async function ensureCreditAccount(tx: Transaction, clerkUserId: string) {
+  await tx
+    .insert(schema.creditAccounts)
+    .values({ clerkUserId })
+    .onConflictDoNothing();
+}
+
+async function expirePeriodCredits(
+  tx: Transaction,
+  input: {
+    clerkUserId: string;
+    idempotencyKey: string;
+    referenceType: string;
+    referenceId: string;
+    description: string;
+    metadata: Record<string, unknown>;
+  },
+) {
+  await ensureCreditAccount(tx, input.clerkUserId);
+  const [account] = await tx
+    .select({
+      periodCredits: schema.creditAccounts.periodCredits,
+      bonusCredits: schema.creditAccounts.bonusCredits,
+    })
+    .from(schema.creditAccounts)
+    .where(eq(schema.creditAccounts.clerkUserId, input.clerkUserId))
+    .for('update');
+  const periodCredits = account?.periodCredits ?? 0;
+  if (periodCredits <= 0) {
+    await tx
+      .update(schema.creditAccounts)
+      .set({
+        periodBaselineCredits: 0,
+        periodEnd: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.creditAccounts.clerkUserId, input.clerkUserId));
+    return;
+  }
+
+  const [entry] = await tx
+    .insert(schema.creditLedgerEntries)
+    .values({
+      clerkUserId: input.clerkUserId,
+      entryType: 'expire',
+      availableDelta: -periodCredits,
+      idempotencyKey: input.idempotencyKey,
+      referenceType: input.referenceType,
+      referenceId: input.referenceId,
+      description: input.description,
+      metadata: input.metadata,
+    })
+    .onConflictDoNothing()
+    .returning({ id: schema.creditLedgerEntries.id });
+  if (!entry) return;
+
+  const bonusCredits = account?.bonusCredits ?? 0;
+  await tx
+    .update(schema.creditAccounts)
+    .set({
+      periodCredits: 0,
+      periodBaselineCredits: 0,
+      periodEnd: null,
+      availableCredits: bonusCredits,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.creditAccounts.clerkUserId, input.clerkUserId));
+}
+
+async function applySubscriptionCreditGrant(
+  tx: Transaction,
+  clerkUserId: string,
+  grant: NonNullable<StripeWebhookEvent['creditGrant']>,
+) {
+  await ensureCreditAccount(tx, clerkUserId);
+  const [account] = await tx
+    .select({
+      periodCredits: schema.creditAccounts.periodCredits,
+      bonusCredits: schema.creditAccounts.bonusCredits,
+      periodBaselineCredits: schema.creditAccounts.periodBaselineCredits,
+    })
+    .from(schema.creditAccounts)
+    .where(eq(schema.creditAccounts.clerkUserId, clerkUserId))
+    .for('update');
+
+  if (grant.expireBeforeGrant || grant.grantKind === 'cycle') {
+    await expirePeriodCredits(tx, {
+      clerkUserId,
+      idempotencyKey: `stripe:invoice:${grant.invoiceId}:expire`,
+      referenceType: 'stripe_invoice',
+      referenceId: grant.invoiceId,
+      description: 'Unused period credits cleared before renewal',
+      metadata: {
+        pool: 'period',
+        grantKind: grant.grantKind,
+        subscriptionId: grant.subscriptionId,
+      },
+    });
+  }
+
+  let grantAmount = grant.credits;
+  let nextBaseline = grant.credits;
+  if (grant.grantKind === 'upgrade_delta') {
+    const baseline = account?.periodBaselineCredits ?? 0;
+    grantAmount = Math.max(0, grant.credits - baseline);
+    nextBaseline = Math.max(baseline, grant.credits);
+    if (grantAmount <= 0) {
+      await tx
+        .update(schema.creditAccounts)
+        .set({
+          periodBaselineCredits: nextBaseline,
+          periodEnd: fromUnix(grant.periodEnd),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.creditAccounts.clerkUserId, clerkUserId));
+      return;
+    }
+  }
+
+  const [entry] = await tx
+    .insert(schema.creditLedgerEntries)
+    .values({
+      clerkUserId,
+      entryType: 'grant',
+      availableDelta: grantAmount,
+      idempotencyKey: `stripe:invoice:${grant.invoiceId}:grant`,
+      referenceType: 'stripe_invoice',
+      referenceId: grant.invoiceId,
+      description:
+        grant.grantKind === 'upgrade_delta'
+          ? 'Subscription upgrade credits granted'
+          : 'Subscription cycle credits granted',
+      metadata: {
+        pool: 'period',
+        grantKind: grant.grantKind,
+        planCredits: grant.credits,
+        subscriptionId: grant.subscriptionId,
+        priceId: grant.priceId,
+        periodStart: grant.periodStart,
+        periodEnd: grant.periodEnd,
+      },
+    })
+    .onConflictDoNothing()
+    .returning({ id: schema.creditLedgerEntries.id });
+  if (!entry) return;
+
+  await tx
+    .update(schema.creditAccounts)
+    .set({
+      periodCredits: sql`${schema.creditAccounts.periodCredits} + ${grantAmount}`,
+      availableCredits: sql`${schema.creditAccounts.availableCredits} + ${grantAmount}`,
+      periodBaselineCredits: nextBaseline,
+      periodEnd: fromUnix(grant.periodEnd),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.creditAccounts.clerkUserId, clerkUserId));
+}
+
+async function applyCreditClawback(
+  tx: Transaction,
+  clerkUserId: string,
+  clawback: NonNullable<StripeWebhookEvent['creditClawback']>,
+) {
+  if (clawback.amountPaid <= 0 || clawback.amountRefunded <= 0) return;
+  await ensureCreditAccount(tx, clerkUserId);
+
+  let grantCredits = 0;
+  if (clawback.invoiceId) {
+    const [grant] = await tx
+      .select({
+        availableDelta: schema.creditLedgerEntries.availableDelta,
+        metadata: schema.creditLedgerEntries.metadata,
+      })
+      .from(schema.creditLedgerEntries)
+      .where(
+        and(
+          eq(schema.creditLedgerEntries.clerkUserId, clerkUserId),
+          eq(schema.creditLedgerEntries.entryType, 'grant'),
+          eq(schema.creditLedgerEntries.referenceType, 'stripe_invoice'),
+          eq(schema.creditLedgerEntries.referenceId, clawback.invoiceId),
+        ),
+      )
+      .limit(1);
+    if (grant) {
+      const planCredits = Number(grant.metadata?.planCredits);
+      grantCredits =
+        Number.isFinite(planCredits) && planCredits > 0
+          ? planCredits
+          : Math.max(0, grant.availableDelta);
+    }
+  }
+  if (grantCredits <= 0) {
+    const [account] = await tx
+      .select({
+        periodBaselineCredits: schema.creditAccounts.periodBaselineCredits,
+      })
+      .from(schema.creditAccounts)
+      .where(eq(schema.creditAccounts.clerkUserId, clerkUserId));
+    grantCredits = account?.periodBaselineCredits ?? 0;
+  }
+  if (grantCredits <= 0) return;
+
+  const ratio = Math.min(1, clawback.amountRefunded / clawback.amountPaid);
+  const targetClaw = Math.floor(grantCredits * ratio);
+  if (targetClaw <= 0) return;
+
+  const prior = await tx
+    .select({
+      availableDelta: schema.creditLedgerEntries.availableDelta,
+    })
+    .from(schema.creditLedgerEntries)
+    .where(
+      and(
+        eq(schema.creditLedgerEntries.clerkUserId, clerkUserId),
+        eq(schema.creditLedgerEntries.entryType, 'clawback'),
+        eq(schema.creditLedgerEntries.referenceType, 'stripe_charge'),
+        eq(schema.creditLedgerEntries.referenceId, clawback.chargeId),
+      ),
+    );
+  const alreadyClawed = prior.reduce(
+    (sum, row) => sum + Math.abs(row.availableDelta),
+    0,
+  );
+  const remainingTarget = targetClaw - alreadyClawed;
+  if (remainingTarget <= 0) return;
+
+  const [account] = await tx
+    .select({
+      periodCredits: schema.creditAccounts.periodCredits,
+      bonusCredits: schema.creditAccounts.bonusCredits,
+      periodBaselineCredits: schema.creditAccounts.periodBaselineCredits,
+      periodEnd: schema.creditAccounts.periodEnd,
+    })
+    .from(schema.creditAccounts)
+    .where(eq(schema.creditAccounts.clerkUserId, clerkUserId))
+    .for('update');
+  const claw = Math.min(remainingTarget, account?.periodCredits ?? 0);
+  if (claw <= 0) return;
+
+  const [entry] = await tx
+    .insert(schema.creditLedgerEntries)
+    .values({
+      clerkUserId,
+      entryType: 'clawback',
+      availableDelta: -claw,
+      idempotencyKey: `stripe:charge:${clawback.chargeId}:clawback:${clawback.amountRefunded}`,
+      referenceType: 'stripe_charge',
+      referenceId: clawback.chargeId,
+      description:
+        clawback.reason === 'dispute'
+          ? 'Period credits clawed back after dispute'
+          : 'Period credits clawed back after refund',
+      metadata: {
+        pool: 'period',
+        reason: clawback.reason,
+        chargeId: clawback.chargeId,
+        invoiceId: clawback.invoiceId,
+        amountRefunded: clawback.amountRefunded,
+        amountPaid: clawback.amountPaid,
+        refundRatio: ratio,
+        targetClaw,
+        claw,
+      },
+    })
+    .onConflictDoNothing()
+    .returning({ id: schema.creditLedgerEntries.id });
+  if (!entry) return;
+
+  const nextPeriod = (account?.periodCredits ?? 0) - claw;
+  const bonusCredits = account?.bonusCredits ?? 0;
+  const fullClaw = ratio >= 1;
+  await tx
+    .update(schema.creditAccounts)
+    .set({
+      periodCredits: nextPeriod,
+      availableCredits: nextPeriod + bonusCredits,
+      periodBaselineCredits: fullClaw
+        ? 0
+        : (account?.periodBaselineCredits ?? 0),
+      periodEnd: fullClaw ? null : (account?.periodEnd ?? null),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.creditAccounts.clerkUserId, clerkUserId));
 }
 
 /** 成功处理后将 webhook 行标记为终态。 */

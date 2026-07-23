@@ -176,8 +176,10 @@ actual_points = max(1, ceil(A × (1 + M) × R)) 当 A > 0
 7. Core 失败落库时记录实际成本用于运营分析，但将预留全额释放，用户收费为 0。
 8. 若 TG-web 提交 Core 前被明确拒绝，沿用当前逻辑立即释放预留。
 
-删除 `reserveAnalysis()` 中的有效订阅查询。Stripe webhook 仍按付费周期发放套餐积分；
-订阅失效后不再发放新积分，但用户可继续消费已有积分。
+删除 `reserveAnalysis()` 中的有效订阅查询。Stripe webhook 按付费周期发放套餐积分到
+`period_credits`（续费前清零未用套餐积分；升级补差额；`canceled`/`unpaid`/删除时清零套餐积分）。
+活动奖励写入 `bonus_credits` 并跨周期保留。`past_due` 宽限期内可继续消费，不发新周期。
+退款与败诉争议仅回收未使用的套餐积分。
 
 ## 管理员计费设置
 

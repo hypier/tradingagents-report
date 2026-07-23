@@ -151,7 +151,7 @@ cost_usd <= 0 → 0
 否则 → max(1, ceil(cost_usd × points_per_usd × (1 + markup_basis_points/10000)))
 ```
 
-扣减积分，允许可用余额为负；系统失败或进程回收失败不扣。账本幂等键为 `analysis:<job_id>:consume`。CLI、程序化调用和没有 `clerk_user_id`/`credit_pricing` 的 API job 保持原行为（不扣产品积分）。
+扣减积分（先 `period_credits` 再 `bonus_credits`，并同步 `available_credits`），允许可用余额为负；系统失败或进程回收失败不扣。账本幂等键为 `analysis:<job_id>:consume`。CLI、程序化调用和没有 `clerk_user_id`/`credit_pricing` 的 API job 保持原行为（不扣产品积分）。
 
 ## 4. 接口列表
 

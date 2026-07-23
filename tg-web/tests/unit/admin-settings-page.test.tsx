@@ -87,7 +87,13 @@ beforeEach(async () => {
       plans: [],
       subscription: null,
       invoices: [],
-      usage: { availableCredits: 0, spentCredits: 0, periodEnd: null },
+      usage: {
+        availableCredits: 0,
+        periodCredits: 0,
+        bonusCredits: 0,
+        spentCredits: 0,
+        periodEnd: null,
+      },
     },
     requestId: 'request-1',
   });

@@ -55,6 +55,8 @@ export type BillingOverview = {
   invoices: BillingInvoice[];
   usage?: {
     availableCredits: number;
+    periodCredits: number;
+    bonusCredits: number;
     reservedCredits: number;
     spentCredits: number;
     periodEnd: number | null;
@@ -71,6 +73,30 @@ export type BillingOverview = {
       createdAt: Date;
     }>;
   };
+};
+
+export type CreditGrantKind = 'create' | 'cycle' | 'upgrade_delta';
+
+export type StripeCreditGrant = {
+  invoiceId: string;
+  customerId: string;
+  subscriptionId: string;
+  priceId: string;
+  /** Plan analysis_credits for this invoice (full plan amount). */
+  credits: number;
+  grantKind: CreditGrantKind;
+  expireBeforeGrant: boolean;
+  periodStart: number | null;
+  periodEnd: number | null;
+};
+
+export type StripeCreditClawback = {
+  chargeId: string;
+  customerId: string;
+  invoiceId: string | null;
+  amountRefunded: number;
+  amountPaid: number;
+  reason: 'refund' | 'dispute';
 };
 
 export type CreditBillingSettings = AnalysisBillingSettings;
@@ -148,15 +174,10 @@ export type StripeWebhookEvent = {
   type: string;
   payload: Record<string, unknown>;
   subscription?: StripeSubscriptionSnapshot;
-  creditGrant?: {
-    invoiceId: string;
-    customerId: string;
-    subscriptionId: string;
-    priceId: string;
-    credits: number;
-    periodStart: number | null;
-    periodEnd: number | null;
-  };
+  /** Clear remaining period credits (canceled / unpaid / deleted). */
+  expirePeriod?: boolean;
+  creditGrant?: StripeCreditGrant;
+  creditClawback?: StripeCreditClawback;
 };
 
 export interface BillingService {

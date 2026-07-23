@@ -7,6 +7,7 @@ import {
   ListTodo,
   CandlestickChart,
   ChevronRight,
+  Coins,
   Shield,
   SlidersHorizontal,
   UserRound,
@@ -55,6 +56,8 @@ type NavLeaf = {
     | 'nav.reports'
     | 'nav.quotes'
     | 'nav.watchlist'
+    | 'nav.subscription'
+    | 'nav.usage'
     | 'nav.billing'
     | 'nav.account'
     | 'nav.adminOverview'
@@ -108,7 +111,8 @@ const watchlistNavigation: NavLeaf = {
 };
 
 const accountNavigation: NavLeaf[] = [
-  { titleKey: 'nav.billing', icon: CreditCard, href: '/billing' },
+  { titleKey: 'nav.subscription', icon: CreditCard, href: '/billing/subscription' },
+  { titleKey: 'nav.usage', icon: Coins, href: '/billing/usage' },
   { titleKey: 'nav.account', icon: UserRound, href: '/account' },
 ];
 
@@ -246,6 +250,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ? [quotesNavigation, watchlistNavigation]
     : [quotesNavigation];
   const availableCredits = billing.data?.data.usage?.availableCredits;
+  const periodCredits = billing.data?.data.usage?.periodCredits;
+  const bonusCredits = billing.data?.data.usage?.bonusCredits;
   const periodEnd = billing.data?.data.usage?.periodEnd;
 
   return (
@@ -404,14 +410,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
         {!isAdminMenu && typeof availableCredits === 'number' ? (
           <Link
-            to="/billing"
+            to="/billing/usage"
             className="group block rounded-none border border-sidebar-border bg-[#151c25] px-3 py-3 transition-colors hover:border-sidebar-primary/40"
           >
             <div className="flex items-start justify-between gap-2">
               <p className="font-mono text-xs tracking-[0.14em] text-sidebar-foreground/45 uppercase">
                 {t('nav.creditsLedger')}
               </p>
-              <CreditCard className="size-4 text-sidebar-primary opacity-80 transition-opacity group-hover:opacity-100" />
+              <Coins className="size-4 text-sidebar-primary opacity-80 transition-opacity group-hover:opacity-100" />
             </div>
             <p className="mt-1.5 font-mono text-2xl font-semibold leading-none tabular-nums text-sidebar-foreground">
               <span className="mr-2 text-xs font-normal tracking-wide text-sidebar-foreground/45 uppercase">
@@ -419,8 +425,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </span>
               {availableCredits}
             </p>
-            {periodEnd ? (
+            {typeof periodCredits === 'number' &&
+            typeof bonusCredits === 'number' ? (
               <p className="mt-2 font-mono text-xs text-sidebar-foreground/45">
+                {t('nav.creditsSplit', {
+                  period: periodCredits,
+                  bonus: bonusCredits,
+                })}
+              </p>
+            ) : null}
+            {periodEnd ? (
+              <p className="mt-1 font-mono text-xs text-sidebar-foreground/45">
                 {t('nav.creditsCycle', {
                   date: formatLocaleDate(periodEnd, '—'),
                 })}

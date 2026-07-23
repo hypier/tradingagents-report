@@ -69,12 +69,14 @@ export function createReferralRepository(
               metadata: {
                 points,
                 channel: 'signup',
+                pool: 'bonus',
+                grantKind: 'signup',
               },
             })
             .onConflictDoNothing()
             .returning({ id: schema.creditLedgerEntries.id });
           if (entry) {
-            await addAvailableCredits(tx, user.id, points);
+            await addBonusCredits(tx, user.id, points);
           }
         }
 
@@ -113,12 +115,14 @@ export function createReferralRepository(
                   referralCode: inviter.referralCode,
                   points,
                   channel: 'referral',
+                  pool: 'bonus',
+                  grantKind: 'referral',
                 },
               })
               .onConflictDoNothing()
               .returning({ id: schema.creditLedgerEntries.id });
             if (entry) {
-              await addAvailableCredits(tx, inviter.clerkUserId, points);
+              await addBonusCredits(tx, inviter.clerkUserId, points);
             }
           }
         }
@@ -219,7 +223,7 @@ async function findInviter(
   return inviter?.clerkUserId === inviteeClerkUserId ? undefined : inviter;
 }
 
-async function addAvailableCredits(
+async function addBonusCredits(
   tx: Transaction,
   clerkUserId: string,
   credits: number,
@@ -227,6 +231,7 @@ async function addAvailableCredits(
   await tx
     .update(schema.creditAccounts)
     .set({
+      bonusCredits: sql`${schema.creditAccounts.bonusCredits} + ${credits}`,
       availableCredits: sql`${schema.creditAccounts.availableCredits} + ${credits}`,
       updatedAt: new Date(),
     })

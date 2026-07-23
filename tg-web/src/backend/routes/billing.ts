@@ -97,11 +97,18 @@ export function billingRoutes(dependencies: AppDependencies) {
           ...overview,
           usage: {
             availableCredits: usage.availableCredits,
+            periodCredits: usage.periodCredits,
+            bonusCredits: usage.bonusCredits,
             reservedCredits: usage.reservedCredits,
             spentCredits: usage.spentCredits,
-            periodEnd: usage.subscription?.currentPeriodEnd
-              ? Math.floor(usage.subscription.currentPeriodEnd.getTime() / 1000)
-              : null,
+            periodEnd:
+              usage.periodEnd
+                ? Math.floor(usage.periodEnd.getTime() / 1000)
+                : usage.subscription?.currentPeriodEnd
+                  ? Math.floor(
+                      usage.subscription.currentPeriodEnd.getTime() / 1000,
+                    )
+                  : null,
             ledger: usage.ledger,
           },
         },

@@ -228,8 +228,11 @@ export function adminRoutes(dependencies: AppDependencies) {
           profile,
           usage: {
             availableCredits: usage.availableCredits,
+            periodCredits: usage.periodCredits,
+            bonusCredits: usage.bonusCredits,
             reservedCredits: usage.reservedCredits,
             spentCredits: usage.spentCredits,
+            periodEnd: usage.periodEnd,
             subscription: usage.subscription,
             ledger: usage.ledger.slice(0, 50),
           },

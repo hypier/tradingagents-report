@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | 账户 | `account_users` | Clerk 同步资料、偏好与推荐关系（`referred_by_clerk_user_id`） |
 | 计费 | `billing_subscriptions`, `stripe_webhook_events` | Stripe 订阅镜像与 Webhook 幂等；凭据来自环境变量；周期发分写入积分账本（跨域写） |
-| 积分 | `credit_accounts`, `credit_ledger_entries` | 可用/已消费余额与不可变流水；分析门槛/汇率见 `system_settings.billing`，奖励见 `system_settings.rewards`；结算快照在 `analysis_jobs.credit_pricing` |
+| 积分 | `credit_accounts`, `credit_ledger_entries` | 双余额（`period_credits` 套餐 + `bonus_credits` 活动）与不可变流水；分析门槛/汇率见 `system_settings.billing`，奖励见 `system_settings.rewards`；结算快照在 `analysis_jobs.credit_pricing` |
 | 分析任务 | `analysis_jobs` | 与 tg-core 共享的 job 持久化（含 `clerk_user_id` / `credit_pricing`） |
 | LLM | `llm_providers`, `llm_models` | 提供商凭据、对用户开放的模型目录（含单价） |
 | 自选股 | `watchlist_items` | 每用户收藏的标的 |
@@ -69,6 +69,10 @@ erDiagram
     credit_accounts {
         text clerk_user_id PK_FK
         bigint available_credits
+        bigint period_credits
+        bigint bonus_credits
+        bigint period_baseline_credits
+        timestamptz period_end
         bigint reserved_credits
         bigint spent_credits
     }
@@ -153,6 +157,10 @@ erDiagram
     credit_accounts {
         text clerk_user_id PK_FK
         bigint available_credits
+        bigint period_credits
+        bigint bonus_credits
+        bigint period_baseline_credits
+        timestamptz period_end
         bigint reserved_credits
         bigint spent_credits
     }
@@ -406,12 +414,16 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ### 3.3 `credit_accounts`
 
-**域：积分。** 每用户分析积分余额（可用 / 预留遗留列 / 已消费）。提交分析不再预扣；`reserved_credits` 保留列但新路径不再写入。
+**域：积分。** 每用户分析积分钱包。`available_credits = period_credits + bonus_credits`。提交分析不再预扣；`reserved_credits` 保留列但新路径不再写入。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `clerk_user_id` | `text` | N | — | **PK / FK → account_users**（CASCADE）。每用户一个积分钱包 |
-| `available_credits` | `bigint` | N | `0` | 可用积分；结算可打成负值，门槛只挡新发起 |
+| `available_credits` | `bigint` | N | `0` | 可用总额（period + bonus）；结算可打成负值，门槛只挡新发起 |
+| `period_credits` | `bigint` | N | `0` | 本周期套餐积分；续费/终止时清零 |
+| `bonus_credits` | `bigint` | N | `0` | 活动奖励积分；跨周期保留 |
+| `period_baseline_credits` | `bigint` | N | `0` | 本周期套餐基准（升级补差） |
+| `period_end` | `timestamptz` | Y | — | 当前套餐积分所属周期结束时间 |
 | `reserved_credits` | `bigint` | N | `0` | 历史预留列；新计费路径保持 0 |
 | `spent_credits` | `bigint` | N | `0` | 已完成/用户取消分析永久扣减的积分 |
 | `updated_at` | `timestamptz` | N | `now()` | 更新时间 |
@@ -420,13 +432,13 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 
 ### 3.4 `credit_ledger_entries`
 
-**域：积分。** 追加写的积分变动流水（发放、消费、人工调整等）。注册赠送与推荐奖励分别使用 `reference_type = signup_grant` / `referral_reward`；奖励积分数写在 `metadata`。分析消费使用 `reference_type = analysis_job`，幂等键 `analysis:<job_id>:consume`。Stripe 周期发分使用 `stripe_invoice` 等引用（由计费域事件触发写入）。
+**域：积分。** 追加写的积分变动流水（发放、消费、清零、回收、人工调整等）。注册赠送与推荐奖励分别使用 `reference_type = signup_grant` / `referral_reward`（写入 bonus）；分析消费使用 `reference_type = analysis_job`；Stripe 套餐发放/清零/退款回收使用 `stripe_invoice` / `stripe_subscription` / `stripe_charge`。
 
 | 字段 | 类型 | 空 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | `uuid` | N | `gen_random_uuid()` | **PK** |
 | `clerk_user_id` | `text` | N | — | **FK → account_users**（CASCADE） |
-| `entry_type` | `text` | N | — | `grant` \| `consume` \| `adjustment`（历史可含 `reserve` / `release`） |
+| `entry_type` | `text` | N | — | `grant` \| `consume` \| `adjustment` \| `expire` \| `clawback`（历史可含 `reserve` / `release`） |
 | `available_delta` | `bigint` | N | `0` | 对 `available_credits` 的有符号增量 |
 | `reserved_delta` | `bigint` | N | `0` | 对 `reserved_credits` 的有符号增量 |
 | `spent_delta` | `bigint` | N | `0` | 对 `spent_credits` 的有符号增量 |

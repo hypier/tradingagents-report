@@ -15,7 +15,8 @@ import { AdminLlmModelsPage } from '../pages/admin-llm-models-page';
 import { AdminSettingsPage } from '../pages/admin-settings-page';
 import { AdminMarketsPage } from '../pages/admin-markets-page';
 import { AdminAuditPage } from '../pages/admin-audit-page';
-import { BillingPage } from '../pages/billing-page';
+import { SubscriptionPage } from '../pages/subscription-page';
+import { UsagePage } from '../pages/usage-page';
 import { AccountPage } from '../pages/account-page';
 import { LegalPage } from '../pages/legal-page';
 import { WatchlistPage } from '../pages/watchlist-page';
@@ -48,7 +49,18 @@ export function AppRouter() {
       <Route path="/admin/settings" element={<AdminSettingsPage />} />
       <Route path="/admin/markets" element={<AdminMarketsPage />} />
       <Route path="/admin/audit" element={<AdminAuditPage />} />
-      <Route path="/billing" element={<BillingPage />} />
+      <Route
+        path="/billing"
+        element={<Navigate replace to="/billing/subscription" />}
+      />
+      <Route path="/billing/subscription" element={<SubscriptionPage />} />
+      <Route path="/billing/usage" element={<UsagePage />} />
+      <Route
+        path="/billing/invoices"
+        element={
+          <Navigate replace to="/billing/subscription?tab=invoices" />
+        }
+      />
       <Route path="/account" element={<AccountPage />} />
       <Route path="/legal/:document" element={<LegalPage />} />
       <Route

@@ -486,11 +486,11 @@ actual = 0                                           当 cost_usd <= 0
 actual = max(1, ceil(cost_usd * (1 + markup) * points_per_usd))  其他情况
 ```
 
-Core 在 job 终态事务内按快照扣积分并写账本：`succeeded` 与用户取消（billable）扣费；系统失败与进程回收失败不扣。允许可用余额为负，后续新任务由 TG-web 门槛拒绝。订阅只负责按周期发放积分，不是分析准入条件。
+Core 在 job 终态事务内按快照扣积分并写账本：`succeeded` 与用户取消（billable）扣费；系统失败与进程回收失败不扣。扣费先减 `period_credits` 再减 `bonus_credits`，并同步 `available_credits`。允许可用余额为负，后续新任务由 TG-web 门槛拒绝。订阅按周期发放/清零套餐积分，不是分析准入条件。
 
-管理员更新 `billing` / `rewards` 时写入 `admin_audit_events`；人工调点只修改可用积分并写入幂等 `adjustment` 账本，不允许人工扣成负数。积分余额与账本增量使用 PostgreSQL `bigint`。所有共享表结构仍由 TG-web Drizzle 迁移维护，Core 只校验结算所需表和列，不执行 DDL。
+管理员更新 `billing` / `rewards` 时写入 `admin_audit_events`；人工调点只修改 `bonus_credits`（并同步 `available_credits`）并写入幂等 `adjustment` 账本，不允许把 bonus 扣成负数。积分余额与账本增量使用 PostgreSQL `bigint`。所有共享表结构仍由 TG-web Drizzle 迁移维护，Core 只校验结算所需表和列，不执行 DDL。
 
-新用户赠送和邀请奖励复用同一积分账户与账本，不创建虚构的免费订阅。`account_users.referral_code` 是长期稳定的邀请码，`referred_by_clerk_user_id` 记录邀请人，`onboarding_completed_at` 是首访结算完成标记；奖励积分数写入 `credit_ledger_entries.metadata`（`reference_type = signup_grant` / `referral_reward`）。`system_settings.rewards.signup` / `referral` / `campaign` 各自独立 `enabled` 与积分数，默认注册 500、推荐 200、活动关闭。
+新用户赠送和邀请奖励写入 `bonus_credits`，不创建虚构的免费订阅。`account_users.referral_code` 是长期稳定的邀请码，`referred_by_clerk_user_id` 记录邀请人，`onboarding_completed_at` 是首访结算完成标记；奖励积分数写入 `credit_ledger_entries.metadata`（`reference_type = signup_grant` / `referral_reward`）。`system_settings.rewards.signup` / `referral` / `campaign` 各自独立 `enabled` 与积分数，默认注册 500、推荐 200、活动关闭。
 
 公开 `GET /invite/:code` 只校验邀请码并写入 30 天的 HttpOnly 归因 Cookie。Clerk 用户首次已认证请求在一个 PostgreSQL 事务中完成用户同步、积分账户创建、用户行锁定、按奖励配置发分、有效邀请关系写入（`referred_by_clerk_user_id`）和 onboarding 标记。奖励直接使用配置积分数，不经分析计费汇率；账本幂等键分别为 `signup:<userId>:grant` 和 `referral:<inviteeId>:reward`。数据库事务或后续请求处理失败时保留 Cookie，完整请求成功后才清除，因此可安全重试。历史用户由迁移统一回填邀请码并标记 onboarding 完成，不补发积分。
 

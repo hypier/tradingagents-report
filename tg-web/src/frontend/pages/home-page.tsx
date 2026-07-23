@@ -781,7 +781,7 @@ export function HomePage() {
                     <Alert>
                       <AlertTitle>{t('submit.creditsRequiredTitle')}</AlertTitle>
                       <AlertDescription>
-                        <Link className="underline" to="/billing">
+                        <Link className="underline" to="/billing/usage">
                           {t('submit.insufficientCredits')}
                         </Link>
                       </AlertDescription>
@@ -799,7 +799,7 @@ export function HomePage() {
                       <AlertDescription>
                         {createErrorCode === 'INSUFFICIENT_CREDITS' ||
                         createErrorCode === 'SUBSCRIPTION_REQUIRED' ? (
-                          <Link className="underline" to="/billing">
+                          <Link className="underline" to="/billing/subscription">
                             {t('submit.creditsRequiredBody')}
                           </Link>
                         ) : (

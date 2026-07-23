@@ -1,7 +1,21 @@
 {
-  "title": "订阅",
-  "heading": "订阅与账单",
-  "subtitle": "套餐、续订状态与发票",
+  "title": "账单",
+  "heading": "账单",
+  "subtitle": "订阅、用量与发票",
+  "pages": {
+    "subscription": {
+      "heading": "订阅功能",
+      "subtitle": "套餐、续订、Portal 与账单"
+    },
+    "usage": {
+      "heading": "计费用量",
+      "subtitle": "余额与额度流水"
+    },
+    "invoices": {
+      "heading": "账单",
+      "subtitle": "Stripe 发票与付款记录"
+    }
+  },
   "loadError": {
     "title": "无法加载账单",
     "body": "当前无法获取 Stripe 账单数据。"
@@ -13,18 +27,59 @@
   "checkoutError": "无法启动 Stripe Checkout。",
   "portalError": "无法打开账单门户。",
   "usage": {
-    "title": "用量",
-    "description": "按 AI token 实际成本换算积分并结算",
-    "available": "可用",
+    "title": "用量概览",
+    "description": "套餐积分按计费周期清零重发；活动奖励跨周期保留。消费时先扣套餐积分。",
+    "available": "可用总额",
+    "period": "本周期套餐",
+    "bonus": "活动奖励",
     "reserved": "预留",
     "consumed": "已消耗",
-    "cycleEnds": "周期结束"
+    "cycleEnds": "周期结束",
+    "splitTitle": "两类积分",
+    "splitBody": "分析扣费时优先消耗套餐积分，不足再扣活动奖励。",
+    "periodHelp": "订阅发放的积分。续费或订阅终止时未用部分清零。",
+    "bonusHelp": "注册赠送、邀请奖励、管理员调整等。跨周期保留，退款不回收。",
+    "emptyTitle": "暂无用量数据",
+    "emptyBody": "登录并同步账户后即可查看积分余额。"
   },
   "subscription": {
     "title": "当前订阅",
-    "ends": "结束于",
+    "ends": "结束于（本周期仍有效，到期不再续订）",
     "renews": "续订于",
-    "manage": "管理订阅"
+    "manage": "管理订阅",
+    "cancelNote": "取消后本周期套餐积分仍可使用；到期后不再续费，剩余套餐积分清零，活动奖励保留。",
+    "noSubTitle": "尚未订阅",
+    "noSubBody": "选择下方套餐开始订阅。也可先使用注册赠送等活动积分进行分析。"
+  },
+  "guide": {
+    "title": "积分规则",
+    "intro": "订阅负责按周期发放套餐积分；活动奖励单独累计。",
+    "sections": {
+      "dualBalance": {
+        "title": "双余额",
+        "body": "可用总额 = 本周期套餐积分 + 活动奖励。"
+      },
+      "spendOrder": {
+        "title": "消费顺序",
+        "body": "分析扣费先扣套餐积分，再扣活动奖励。"
+      },
+      "cycle": {
+        "title": "续费周期",
+        "body": "续费成功时先清零未用套餐积分，再发放本周期套餐额度；活动奖励不动。"
+      },
+      "upgradeDowngrade": {
+        "title": "升降级",
+        "body": "升级立即补发套餐差额；降级下个计费周期按新套餐发放。"
+      },
+      "cancel": {
+        "title": "取消订阅",
+        "body": "通常为期末取消：本周期仍可用，下一周期不续订；到期后清零剩余套餐积分。"
+      },
+      "refund": {
+        "title": "退款与争议",
+        "body": "仅按比例回收未使用的套餐积分，不追溯已消费部分，也不动活动奖励。"
+      }
+    }
   },
   "plans": {
     "title": "可用套餐",
@@ -57,9 +112,12 @@
   },
   "ledger": {
     "title": "额度明细",
-    "description": "发放、预留、核销与释放记录",
+    "description": "发放、清零、回收与消费记录",
     "date": "日期",
     "activity": "活动",
+    "pool": "积分池",
+    "poolPeriod": "套餐",
+    "poolBonus": "活动奖励",
     "reference": "关联",
     "available": "可用变动",
     "spent": "已消费",
@@ -67,6 +125,20 @@
     "finalPoints": "{{count}} 积分",
     "signupGrant": "新用户注册赠送",
     "referralReward": "邀请注册奖励",
+    "expire": "套餐积分清零",
+    "clawback": "退款/争议回收",
+    "createGrant": "首订发放套餐积分",
+    "cycleGrant": "续费发放套餐积分",
+    "upgradeGrant": "升级补发套餐积分",
+    "entryTypes": {
+      "grant": "发放",
+      "consume": "消费",
+      "adjustment": "调整",
+      "expire": "清零",
+      "clawback": "回收",
+      "reserve": "预留",
+      "release": "释放"
+    },
     "reserved": "预留变动",
     "emptyTitle": "暂无额度活动",
     "emptyBody": "周期发放与分析用量将显示在这里。"

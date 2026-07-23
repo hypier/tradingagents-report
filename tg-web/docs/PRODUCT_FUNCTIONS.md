@@ -44,11 +44,13 @@ flowchart LR
 ### 4.2 订阅、支付与额度
 
 - 套餐页展示套餐价格、计费周期、每周期发放的积分、支持市场和可用功能。
-- 使用 Stripe Checkout 开始订阅；使用 Stripe Customer Portal 管理续订、取消、换套餐、付款方式、发票和账单历史。
-- Stripe Webhook 同步订阅状态；在每个有效结算周期向用户额度账本发放套餐额度。
-- 用量中心展示当前套餐、订阅状态、剩余额度、周期结束日和额度变动明细。
-- 分析任务在创建前校验并预留额度，任务完成后按规则扣减或释放预留额度。
-- 支付回调、额度发放和额度结算必须具备幂等标识与审计记录，避免重复回调或重复提交造成重复扣费。
+- 使用 Stripe Checkout 开始订阅；使用 Stripe Customer Portal 管理续订、取消、换套餐、付款方式、发票和账单历史。取消为期末取消：本周期权益有效，下一周期不再续订。
+- 积分双余额：`period_credits`（套餐，按周期清零重发）与 `bonus_credits`（注册/邀请/管理员等活动奖励，跨周期保留）；可用总额为二者之和。消费时先扣套餐积分。
+- Stripe Webhook：首订/续费发放套餐积分（续费前清零未用套餐积分）；升级按套餐差额补发；`canceled`/`unpaid`/删除订阅时清零套餐积分；退款与败诉争议按比例回收未用套餐积分。`past_due` 为付款宽限，保留余额但不发新周期。
+- 免费层不创建 Stripe 订阅，仅活动奖励积分；分析准入只校验可用余额门槛。
+- 订阅页展示套餐、当前订阅与 Stripe 发票；用量中心展示可用总额、本周期套餐、活动奖励、已消耗、周期结束日与额度明细。用户侧菜单拆为「订阅功能」「计费用量」两个入口。
+- 分析提交前校验余额门槛（不做预扣）；成功或用户取消时按实际成本扣分，系统失败不扣。
+- 支付回调、额度发放、清零、回收与结算必须具备幂等标识与审计记录。
 
 ### 4.3 标的、行情与多市场
 
@@ -143,9 +145,9 @@ flowchart LR
 - 首个注册账号在首次建立应用会话时自动写入 Clerk `publicMetadata.role=admin`；管理员拥有受 BFF 强制鉴权保护的用户列表、搜索与角色调整功能，普通用户无法调用对应接口。
 - 已登录用户可在 `/billing` 查看 Stripe 循环套餐、当前订阅状态和账单，通过 Stripe Checkout 创建订阅，并通过 Customer Portal 处理续订、取消、换套餐、付款方式和账单。
 - 用户可在 `/account` 通过 Clerk 管理显示名称、头像、密码、社交账号和会话，并保存界面语言、报告语言、时区和默认市场；本地不保存密码或 Clerk 会话凭据。
-- Stripe Customer ID 保存在本地用户档案并镜像到 Clerk `privateMetadata`。Webhook 验签后同步本地订阅快照，`invoice.paid` 按 Stripe invoice ID 幂等发放套餐额度；应用不保存银行卡数据。
-- `/billing` 展示套餐周期积分、支持市场、功能、订阅状态、可用/已消费积分、周期结束日和账本明细。分析提交前只校验可用积分是否**严格大于** `analysisBalanceThreshold`（不做预扣）；成功或用户取消时按实际 `cost_usd` 与创建时冻结的汇率/加价扣分，系统失败不扣。
-- 支付回调写入 `stripe_webhook_events`，额度发放与消费写入不可变账本并使用唯一幂等键。分析请求 UUID 同时作为 Core `request_id`，重试不会创建重复 job。
+- Stripe Customer ID 保存在本地用户档案并镜像到 Clerk `privateMetadata`。Webhook 验签后同步本地订阅快照；`invoice.paid` 按 invoice ID 幂等发放/清零套餐积分，升级补差，退款与争议回收未用套餐积分；应用不保存银行卡数据。
+- `/billing` 展示可用总额、本周期套餐积分、活动奖励、订阅状态、周期结束日和账本明细。分析提交前只校验可用积分是否**严格大于** `analysisBalanceThreshold`（不做预扣）；成功或用户取消时按实际 `cost_usd` 与创建时冻结的汇率/加价扣分（先套餐后活动奖励），系统失败不扣。
+- 支付回调写入 `stripe_webhook_events`，额度发放、清零、回收与消费写入不可变账本并使用唯一幂等键。分析请求 UUID 同时作为 Core `request_id`，重试不会创建重复 job。
 - 管理员可在 `/admin/billing` 查看 Stripe 连接与 Webhook 配置状态，创建带周期积分、支持市场和功能元数据的循环套餐并停用价格。Stripe Secret Key 与 Webhook Secret 仅通过部署环境变量（`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`）配置；管理端只展示连接状态与掩码提示。
 - 管理员在「系统设置」与「计费 → 分析计费」维护余额门槛、每美元积分汇率与加价倍率（`system_settings.billing`）；注册/推荐奖励在「系统设置」独立配置（`system_settings.rewards`，积分数直接配置、可独立开关）。变更写入 `admin_audit_events`。
 - 管理员可通过 Stripe API 幂等初始化每月 20、50、100 美元三档标准套餐，分别在有效支付周期发放 2,000、5,000、10,000 积分；初始化会升级旧版套餐 metadata，使存量订阅在后续付款周期获得新积分，重复初始化不会创建重复 Product 或 Price，配置冲突会明确报错。

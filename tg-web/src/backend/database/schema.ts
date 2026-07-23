@@ -124,16 +124,30 @@ export const billingSubscriptions = pgTable(
   ],
 );
 
-/** 每用户分析积分余额（可用 / 预留 / 已消费）。 */
+/** 每用户分析积分余额（可用 / 预留 / 已消费；套餐 period + 活动 bonus）。 */
 export const creditAccounts = pgTable('credit_accounts', {
   /** 每个 Clerk 用户一个积分钱包。 */
   clerkUserId: text('clerk_user_id')
     .primaryKey()
     .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-  /** 可预留给新分析的积分。 */
+  /** 可用总额 = period_credits + bonus_credits。 */
   availableCredits: bigint('available_credits', { mode: 'number' })
     .notNull()
     .default(0),
+  /** 本周期套餐积分（续费/终止时清零）。 */
+  periodCredits: bigint('period_credits', { mode: 'number' })
+    .notNull()
+    .default(0),
+  /** 活动奖励积分（注册/邀请/管理员调整等，跨周期保留）。 */
+  bonusCredits: bigint('bonus_credits', { mode: 'number' })
+    .notNull()
+    .default(0),
+  /** 本周期已计入的套餐基准积分（升级补差用）。 */
+  periodBaselineCredits: bigint('period_baseline_credits', { mode: 'number' })
+    .notNull()
+    .default(0),
+  /** 当前套餐积分所属计费周期结束时间。 */
+  periodEnd: timestamp('period_end', { withTimezone: true }),
   /** 进行中分析预留占用的积分。 */
   reservedCredits: bigint('reserved_credits', { mode: 'number' })
     .notNull()
@@ -156,9 +170,17 @@ export const creditLedgerEntries = pgTable(
     clerkUserId: text('clerk_user_id')
       .notNull()
       .references(() => accountUsers.clerkUserId, { onDelete: 'cascade' }),
-    /** 变动类型：grant | reserve | consume | release | adjustment。 */
+    /** 变动类型：grant | reserve | consume | release | adjustment | expire | clawback。 */
     entryType: text('entry_type')
-      .$type<'grant' | 'reserve' | 'consume' | 'release' | 'adjustment'>()
+      .$type<
+        | 'grant'
+        | 'reserve'
+        | 'consume'
+        | 'release'
+        | 'adjustment'
+        | 'expire'
+        | 'clawback'
+      >()
       .notNull(),
     /** 对 available_credits 的有符号增量。 */
     availableDelta: bigint('available_delta', { mode: 'number' })

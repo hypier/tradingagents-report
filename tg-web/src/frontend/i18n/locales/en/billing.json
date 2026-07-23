@@ -1,7 +1,21 @@
 {
-  "title": "Subscription",
-  "heading": "Subscription and billing",
-  "subtitle": "Plans, renewal status, and invoices",
+  "title": "Billing",
+  "heading": "Billing",
+  "subtitle": "Subscription, usage, and invoices",
+  "pages": {
+    "subscription": {
+      "heading": "Subscription",
+      "subtitle": "Plans, renewal, portal, and invoices"
+    },
+    "usage": {
+      "heading": "Billable usage",
+      "subtitle": "Balances and credit activity"
+    },
+    "invoices": {
+      "heading": "Invoices",
+      "subtitle": "Stripe invoices and payment records"
+    }
+  },
   "loadError": {
     "title": "Unable to load billing",
     "body": "Stripe billing data is currently unavailable."
@@ -13,18 +27,59 @@
   "checkoutError": "Unable to start Stripe Checkout.",
   "portalError": "Unable to open the billing portal.",
   "usage": {
-    "title": "Usage",
-    "description": "Actual AI token cost is converted into points at settlement",
-    "available": "Available",
+    "title": "Usage overview",
+    "description": "Plan points reset each billing cycle; reward points carry over. Usage spends plan points first.",
+    "available": "Total available",
+    "period": "Plan (this cycle)",
+    "bonus": "Rewards",
     "reserved": "Reserved",
     "consumed": "Consumed",
-    "cycleEnds": "Cycle ends"
+    "cycleEnds": "Cycle ends",
+    "splitTitle": "Two credit pools",
+    "splitBody": "Analyses spend plan points first, then reward points.",
+    "periodHelp": "Credits from your subscription. Unused plan points clear on renewal or when the subscription ends.",
+    "bonusHelp": "Signup, referral, and admin grants. These carry across cycles and are not clawed back on refunds.",
+    "emptyTitle": "No usage yet",
+    "emptyBody": "Balances appear after your account is synced."
   },
   "subscription": {
     "title": "Current subscription",
-    "ends": "Ends",
+    "ends": "Ends (current cycle stays active; no renewal)",
     "renews": "Renews",
-    "manage": "Manage subscription"
+    "manage": "Manage subscription",
+    "cancelNote": "After cancel-at-period-end, plan points remain usable until the cycle ends. Then billing stops, unused plan points clear, and reward points stay.",
+    "noSubTitle": "No active subscription",
+    "noSubBody": "Choose a plan below to subscribe. You can also run analyses with signup or other reward points."
+  },
+  "guide": {
+    "title": "How credits work",
+    "intro": "Subscriptions grant plan points each cycle; rewards accumulate separately.",
+    "sections": {
+      "dualBalance": {
+        "title": "Dual balance",
+        "body": "Available total = plan points + reward points."
+      },
+      "spendOrder": {
+        "title": "Spend order",
+        "body": "Analyses deduct plan points first, then reward points."
+      },
+      "cycle": {
+        "title": "Renewal cycle",
+        "body": "On successful renewal, unused plan points clear and the new cycle grant is issued. Rewards are unchanged."
+      },
+      "upgradeDowngrade": {
+        "title": "Upgrades and downgrades",
+        "body": "Upgrades grant the plan-point difference immediately. Downgrades take effect on the next billing cycle."
+      },
+      "cancel": {
+        "title": "Cancellation",
+        "body": "Usually cancel-at-period-end: keep the current cycle, then stop renewing and clear leftover plan points."
+      },
+      "refund": {
+        "title": "Refunds and disputes",
+        "body": "Only unused plan points are clawed back in proportion. Spent points and rewards are not taken."
+      }
+    }
   },
   "plans": {
     "title": "Available plans",
@@ -57,17 +112,34 @@
   },
   "ledger": {
     "title": "Credit activity",
-    "description": "Grants, reservations, consumption, and releases",
+    "description": "Grants, clears, clawbacks, and consumption",
     "date": "Date",
     "activity": "Activity",
+    "pool": "Pool",
+    "poolPeriod": "Plan",
+    "poolBonus": "Rewards",
     "reference": "Reference",
     "available": "Available",
-    "reserved": "Reserved",
     "spent": "Spent",
     "actualCost": "Actual AI cost",
     "finalPoints": "{{count}} points",
     "signupGrant": "New user signup credit",
     "referralReward": "Referral signup reward",
+    "expire": "Plan points cleared",
+    "clawback": "Refund/dispute clawback",
+    "createGrant": "Initial plan grant",
+    "cycleGrant": "Renewal plan grant",
+    "upgradeGrant": "Upgrade plan grant",
+    "entryTypes": {
+      "grant": "Grant",
+      "consume": "Consume",
+      "adjustment": "Adjustment",
+      "expire": "Expire",
+      "clawback": "Clawback",
+      "reserve": "Reserve",
+      "release": "Release"
+    },
+    "reserved": "Reserved",
     "emptyTitle": "No credit activity",
     "emptyBody": "Cycle grants and analysis usage will appear here."
   },

@@ -15,7 +15,7 @@
       "paragraphs": [
         "You may use the service only for lawful research purposes and must not attempt to bypass access controls, quotas, provider terms, or security safeguards.",
         "Subscriptions renew according to the billing cycle shown at checkout until canceled. Plan changes, cancellation, payment methods, invoices, and billing history are managed through Stripe Customer Portal.",
-        "Usage points are issued for the applicable billing period. Points are reserved when a job is submitted, settled from actual AI token cost when it succeeds, and fully released when it fails. Service availability is not guaranteed."
+        "Plan points are granted each billing cycle; unused plan points clear on renewal or subscription termination. Signup, referral, and admin reward points carry across cycles. Upgrades grant the plan-point difference immediately; downgrades take effect next cycle. Refunds or lost disputes claw back only unused plan points. After cancel-at-period-end, the current cycle remains usable and does not renew. Successful analyses deduct points from actual AI token cost (plan points first, then rewards); system failures are not charged. Service availability is not guaranteed."
       ]
     },
     "privacy": {

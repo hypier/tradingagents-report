@@ -565,8 +565,18 @@ def test_settle_analysis_credits_uses_actual_cost(actual_cost_usd, settled_units
     account_sql, account_params = next(
         item for item in connection.executed if "UPDATE credit_accounts" in item[0]
     )
-    assert "available_credits = available_credits - %s" in account_sql
-    assert account_params == (settled_units, settled_units, "user-1")
+    assert "period_credits = period_credits - LEAST(period_credits, %s)" in account_sql
+    assert "bonus_credits = bonus_credits - (%s - LEAST(period_credits, %s))" in account_sql
+    assert account_params == (
+        settled_units,
+        settled_units,
+        settled_units,
+        settled_units,
+        settled_units,
+        settled_units,
+        settled_units,
+        "user-1",
+    )
     ledger_params = next(
         params
         for sql, params in connection.executed

@@ -669,7 +669,8 @@ function defaultPlanTermsMatch(
   );
 }
 
-async function normalizeWebhookEvent(
+/** Exported for unit tests; production path is `handleWebhook`. */
+export async function normalizeWebhookEvent(
   event: Stripe.Event,
   stripe: Stripe,
 ): Promise<StripeWebhookEvent> {
@@ -679,11 +680,61 @@ async function normalizeWebhookEvent(
     payload: { stripeCreatedAt: event.created, livemode: event.livemode },
   };
   if (event.type.startsWith('customer.subscription.')) {
-    normalized.subscription = subscriptionSnapshot(
-      event.data.object as Stripe.Subscription,
-    );
+    const subscription = event.data.object as Stripe.Subscription;
+    const snapshot = subscriptionSnapshot(subscription);
+    normalized.subscription = snapshot;
+    if (
+      event.type === 'customer.subscription.deleted' ||
+      snapshot.status === 'canceled' ||
+      snapshot.status === 'unpaid'
+    ) {
+      normalized.expirePeriod = true;
+    }
     return normalized;
   }
+
+  if (
+    event.type === 'charge.refunded' ||
+    event.type === 'charge.refund.updated'
+  ) {
+    const charge = event.data.object as StripeChargeLike;
+    const customerId = objectId(charge.customer);
+    if (!customerId || charge.amount_refunded <= 0) return normalized;
+    normalized.creditClawback = {
+      chargeId: charge.id,
+      customerId,
+      invoiceId: objectId(charge.invoice),
+      amountRefunded: charge.amount_refunded,
+      amountPaid: charge.amount,
+      reason: 'refund',
+    };
+    return normalized;
+  }
+
+  if (
+    event.type === 'charge.dispute.funds_withdrawn' ||
+    (event.type === 'charge.dispute.closed' &&
+      (event.data.object as Stripe.Dispute).status === 'lost')
+  ) {
+    const dispute = event.data.object as Stripe.Dispute;
+    const chargeId = objectId(dispute.charge);
+    if (!chargeId) return normalized;
+    const charge = (await stripe.charges.retrieve(
+      chargeId,
+    )) as unknown as StripeChargeLike;
+    const customerId = objectId(charge.customer);
+    if (!customerId) return normalized;
+    normalized.creditClawback = {
+      chargeId: charge.id,
+      customerId,
+      invoiceId: objectId(charge.invoice),
+      amountRefunded: charge.amount,
+      amountPaid: charge.amount,
+      reason: 'dispute',
+    };
+    return normalized;
+  }
+
   if (event.type !== 'invoice.paid') return normalized;
 
   const invoice = event.data.object as Stripe.Invoice;
@@ -703,20 +754,47 @@ async function normalizeWebhookEvent(
         ? product.metadata.analysis_credits
         : undefined),
   );
-  const grantsCycleCredits =
-    invoice.billing_reason === 'subscription_create' ||
-    invoice.billing_reason === 'subscription_cycle';
   if (
-    grantsCycleCredits &&
-    credits > 0 &&
-    (subscription.status === 'active' || subscription.status === 'trialing')
+    credits <= 0 ||
+    (subscription.status !== 'active' && subscription.status !== 'trialing')
   ) {
+    return normalized;
+  }
+
+  const reason = invoice.billing_reason;
+  if (reason === 'subscription_create') {
     normalized.creditGrant = {
       invoiceId: invoice.id,
       customerId,
       subscriptionId,
       priceId: item?.price.id ?? '',
       credits,
+      grantKind: 'create',
+      expireBeforeGrant: false,
+      periodStart: snapshot.currentPeriodStart,
+      periodEnd: snapshot.currentPeriodEnd,
+    };
+  } else if (reason === 'subscription_cycle') {
+    normalized.creditGrant = {
+      invoiceId: invoice.id,
+      customerId,
+      subscriptionId,
+      priceId: item?.price.id ?? '',
+      credits,
+      grantKind: 'cycle',
+      expireBeforeGrant: true,
+      periodStart: snapshot.currentPeriodStart,
+      periodEnd: snapshot.currentPeriodEnd,
+    };
+  } else if (reason === 'subscription_update') {
+    normalized.creditGrant = {
+      invoiceId: invoice.id,
+      customerId,
+      subscriptionId,
+      priceId: item?.price.id ?? '',
+      credits,
+      grantKind: 'upgrade_delta',
+      expireBeforeGrant: false,
       periodStart: snapshot.currentPeriodStart,
       periodEnd: snapshot.currentPeriodEnd,
     };
@@ -732,7 +810,7 @@ function subscriptionSnapshot(
     id: subscription.id,
     customerId: objectId(subscription.customer) ?? '',
     priceId: item?.price.id ?? '',
-    status: subscription.status,
+    status: subscription.status as StripeSubscriptionSnapshot['status'],
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     currentPeriodStart: item?.current_period_start ?? null,
     currentPeriodEnd: item?.current_period_end ?? null,
@@ -754,6 +832,14 @@ function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
     value.subscription ?? value.parent?.subscription_details?.subscription,
   );
 }
+
+type StripeChargeLike = {
+  id: string;
+  customer?: string | { id: string } | null;
+  invoice?: string | { id: string } | null;
+  amount: number;
+  amount_refunded: number;
+};
 
 function objectId(value: { id: string } | string | null | undefined) {
   return typeof value === 'string' ? value : (value?.id ?? null);

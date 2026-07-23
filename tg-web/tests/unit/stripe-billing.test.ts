@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type Stripe from 'stripe';
 
 import { BillingServiceError } from '../../src/backend/billing/contract';
 import { DEFAULT_MONTHLY_BILLING_PLANS } from '../../src/backend/billing/default-plans';
-import { createStripeBillingService } from '../../src/backend/billing/stripe-billing';
+import {
+  createStripeBillingService,
+  normalizeWebhookEvent,
+} from '../../src/backend/billing/stripe-billing';
 
 describe('createStripeBillingService', () => {
   it('defines the USD 20, 50, and 100 monthly catalog', () => {
@@ -55,5 +59,186 @@ describe('createStripeBillingService', () => {
       code: 'BILLING_NOT_CONFIGURED',
       status: 503,
     } satisfies Partial<BillingServiceError>);
+  });
+});
+
+describe('normalizeWebhookEvent', () => {
+  const stripe = {
+    subscriptions: {
+      retrieve: vi.fn(),
+    },
+    charges: {
+      retrieve: vi.fn(),
+    },
+  } as unknown as Stripe;
+
+  it('maps create, cycle, and upgrade invoice grants', async () => {
+    stripe.subscriptions.retrieve = vi.fn().mockResolvedValue({
+      id: 'sub_1',
+      customer: 'cus_1',
+      status: 'active',
+      cancel_at_period_end: false,
+      latest_invoice: 'in_1',
+      items: {
+        data: [
+          {
+            current_period_start: 100,
+            current_period_end: 200,
+            price: {
+              id: 'price_1',
+              metadata: { analysis_credits: '2000' },
+              product: { id: 'prod_1', deleted: false, metadata: {} },
+            },
+          },
+        ],
+      },
+    });
+
+    const baseInvoice = {
+      id: 'in_1',
+      customer: 'cus_1',
+      subscription: 'sub_1',
+      parent: { subscription_details: { subscription: 'sub_1' } },
+    };
+
+    await expect(
+      normalizeWebhookEvent(
+        {
+          id: 'evt_create',
+          type: 'invoice.paid',
+          created: 1,
+          livemode: false,
+          data: {
+            object: { ...baseInvoice, billing_reason: 'subscription_create' },
+          },
+        } as unknown as Stripe.Event,
+        stripe,
+      ),
+    ).resolves.toMatchObject({
+      creditGrant: {
+        grantKind: 'create',
+        expireBeforeGrant: false,
+        credits: 2000,
+      },
+    });
+
+    await expect(
+      normalizeWebhookEvent(
+        {
+          id: 'evt_cycle',
+          type: 'invoice.paid',
+          created: 1,
+          livemode: false,
+          data: {
+            object: { ...baseInvoice, billing_reason: 'subscription_cycle' },
+          },
+        } as unknown as Stripe.Event,
+        stripe,
+      ),
+    ).resolves.toMatchObject({
+      creditGrant: {
+        grantKind: 'cycle',
+        expireBeforeGrant: true,
+        credits: 2000,
+      },
+    });
+
+    await expect(
+      normalizeWebhookEvent(
+        {
+          id: 'evt_update',
+          type: 'invoice.paid',
+          created: 1,
+          livemode: false,
+          data: {
+            object: { ...baseInvoice, billing_reason: 'subscription_update' },
+          },
+        } as unknown as Stripe.Event,
+        stripe,
+      ),
+    ).resolves.toMatchObject({
+      creditGrant: {
+        grantKind: 'upgrade_delta',
+        expireBeforeGrant: false,
+        credits: 2000,
+      },
+    });
+  });
+
+  it('marks canceled subscriptions for period expiry and builds refund clawbacks', async () => {
+    await expect(
+      normalizeWebhookEvent(
+        {
+          id: 'evt_canceled',
+          type: 'customer.subscription.updated',
+          created: 1,
+          livemode: false,
+          data: {
+            object: {
+              id: 'sub_1',
+              customer: 'cus_1',
+              status: 'canceled',
+              cancel_at_period_end: false,
+              latest_invoice: null,
+              items: { data: [{ price: { id: 'price_1' } }] },
+            },
+          },
+        } as unknown as Stripe.Event,
+        stripe,
+      ),
+    ).resolves.toMatchObject({
+      expirePeriod: true,
+      subscription: { status: 'canceled' },
+    });
+
+    const pastDue = await normalizeWebhookEvent(
+      {
+        id: 'evt_past_due',
+        type: 'customer.subscription.updated',
+        created: 1,
+        livemode: false,
+        data: {
+          object: {
+            id: 'sub_1',
+            customer: 'cus_1',
+            status: 'past_due',
+            cancel_at_period_end: false,
+            latest_invoice: null,
+            items: { data: [{ price: { id: 'price_1' } }] },
+          },
+        },
+      } as unknown as Stripe.Event,
+      stripe,
+    );
+    expect(pastDue.subscription?.status).toBe('past_due');
+    expect(pastDue.expirePeriod).toBeFalsy();
+
+    await expect(
+      normalizeWebhookEvent(
+        {
+          id: 'evt_refund',
+          type: 'charge.refunded',
+          created: 1,
+          livemode: false,
+          data: {
+            object: {
+              id: 'ch_1',
+              customer: 'cus_1',
+              invoice: 'in_1',
+              amount: 2000,
+              amount_refunded: 1000,
+            },
+          },
+        } as unknown as Stripe.Event,
+        stripe,
+      ),
+    ).resolves.toMatchObject({
+      creditClawback: {
+        chargeId: 'ch_1',
+        amountRefunded: 1000,
+        amountPaid: 2000,
+        reason: 'refund',
+      },
+    });
   });
 });
