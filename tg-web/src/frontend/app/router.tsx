@@ -10,6 +10,7 @@ import { AdminUserDetailPage } from '../pages/admin-user-detail-page';
 import { AdminBillingPage } from '../pages/admin-billing-page';
 import { AdminOverviewPage } from '../pages/admin-overview-page';
 import { AdminAnalysesPage } from '../pages/admin-analyses-page';
+import { AdminAnalysisInterpretPage } from '../pages/admin-analysis-interpret-page';
 import { AdminLlmProvidersPage } from '../pages/admin-llm-providers-page';
 import { AdminLlmModelsPage } from '../pages/admin-llm-models-page';
 import { AdminSettingsPage } from '../pages/admin-settings-page';
@@ -37,6 +38,10 @@ export function AppRouter() {
       <Route path="/admin/users" element={<AdminUsersPage />} />
       <Route path="/admin/users/:userId" element={<AdminUserDetailPage />} />
       <Route path="/admin/analyses" element={<AdminAnalysesPage />} />
+      <Route
+        path="/admin/analyses/:id"
+        element={<AdminAnalysisInterpretPage />}
+      />
       <Route path="/admin/billing" element={<AdminBillingPage />} />
       <Route
         path="/admin/models"

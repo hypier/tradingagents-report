@@ -9,6 +9,8 @@ import { SidebarTrigger } from '@/frontend/components/ui/sidebar';
 
 function headerTitleKey(pathname: string) {
   if (pathname.startsWith('/admin/billing')) return 'header.adminBilling' as const;
+  if (/^\/admin\/analyses\/[^/]+/.test(pathname))
+    return 'header.adminAnalysisInterpret' as const;
   if (pathname.startsWith('/admin/analyses')) return 'header.adminAnalyses' as const;
   if (pathname.startsWith('/admin/llm/providers'))
     return 'header.adminLlmProviders' as const;

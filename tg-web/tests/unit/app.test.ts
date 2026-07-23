@@ -91,6 +91,7 @@ function fakeDependencies(
       account: {
         syncUser: vi.fn().mockResolvedValue(undefined),
         getProfile: vi.fn(),
+        listProfilesByIds: vi.fn().mockResolvedValue(new Map()),
         updatePreferences: vi.fn(),
       },
       billing: {
@@ -2001,6 +2002,7 @@ describe('createApp', () => {
         account: {
           syncUser: vi.fn(),
           getProfile: vi.fn(),
+          listProfilesByIds: vi.fn().mockResolvedValue(new Map()),
           updatePreferences: vi.fn(),
         },
         billing: {

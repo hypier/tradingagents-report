@@ -397,14 +397,42 @@ export function adminRoutes(dependencies: AppDependencies) {
     const rows = await dependencies.database.analysisJobs.listAllForAdmin(
       input.data,
     );
+    const profiles = await dependencies.database.account.listProfilesByIds(
+      rows.map((row) => row.clerkUserId),
+    );
     return context.json(
       apiSuccess(
         rows.map((row) =>
           toPublicJob(row.job, {
             clerkUserId: row.clerkUserId,
             creditUnits: row.creditUnits,
+            user: profiles.get(row.clerkUserId) ?? null,
           }),
         ),
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.get('/admin/analyses/:id', async (context) => {
+    const jobId = context.req.param('id');
+    const job = await dependencies.database.analysisJobs.getById(jobId);
+    if (!job) {
+      throw new AppError('NOT_FOUND', 404, 'Analysis job not found');
+    }
+    const ownerId =
+      job.clerkUserId ??
+      (await dependencies.database.analysisJobs.getOwner(jobId));
+    const profiles = ownerId
+      ? await dependencies.database.account.listProfilesByIds([ownerId])
+      : new Map();
+    return context.json(
+      apiSuccess(
+        toAdminJobDetail(job, {
+          clerkUserId: ownerId ?? undefined,
+          creditUnits: null,
+          user: ownerId ? (profiles.get(ownerId) ?? null) : null,
+        }),
         context.get('requestId'),
       ),
     );
@@ -549,7 +577,11 @@ export function adminRoutes(dependencies: AppDependencies) {
 
 function toPublicJob(
   job: AnalysisJob,
-  extras: { clerkUserId?: string; creditUnits: number | null },
+  extras: {
+    clerkUserId?: string;
+    creditUnits: number | null;
+    user?: { displayName: string; avatarUrl: string; email: string | null } | null;
+  },
 ) {
   const request = isRecord(job.request) ? job.request : {};
   const config = isRecord(job.config) ? job.config : {};
@@ -582,6 +614,39 @@ function toPublicJob(
     finished_at: job.finishedAt,
     credit_units: extras.creditUnits,
     ...(extras.clerkUserId ? { clerk_user_id: extras.clerkUserId } : {}),
+    ...(extras.user
+      ? {
+          user: {
+            display_name: extras.user.displayName,
+            image_url: extras.user.avatarUrl,
+            email: extras.user.email,
+          },
+        }
+      : {}),
+  };
+}
+
+/** Admin detail: list fields plus cost/token/config metadata; no final_state/reports. */
+function toAdminJobDetail(
+  job: AnalysisJob,
+  extras: {
+    clerkUserId?: string;
+    creditUnits: number | null;
+    user?: { displayName: string; avatarUrl: string; email: string | null } | null;
+  },
+) {
+  const request = isRecord(job.request) ? job.request : {};
+  const config = isRecord(job.config) ? job.config : {};
+  return {
+    ...toPublicJob(job, extras),
+    tokens_used: job.tokensUsed,
+    token_usage: isRecord(job.tokenUsage) ? job.tokenUsage : {},
+    cost_breakdown: isRecord(job.costBreakdown) ? job.costBreakdown : {},
+    credit_pricing: job.creditPricing,
+    report_path: job.reportPath,
+    request,
+    config,
+    events: Array.isArray(job.events) ? job.events : [],
   };
 }
 

@@ -120,6 +120,7 @@ function fakeAccountRepository() {
   return {
     syncUser: vi.fn(),
     getProfile: vi.fn(),
+    listProfilesByIds: vi.fn().mockResolvedValue(new Map()),
     updatePreferences: vi.fn(),
   };
 }

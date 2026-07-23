@@ -4,7 +4,7 @@
  * 负责从 Clerk 同步本地用户资料与偏好设置。
  * 创建用户时会同时确保存在余额为 0 的 `credit_accounts` 行。
  */
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import type {
@@ -20,6 +20,10 @@ export interface AccountRepository {
   syncUser(user: AuthUser): Promise<void>;
   /** 加载账户设置页所需的资料。 */
   getProfile(clerkUserId: string): Promise<AccountProfile>;
+  /** 按 Clerk 用户 ID 批量加载资料（用于管理端列表联表展示）。 */
+  listProfilesByIds(
+    clerkUserIds: string[],
+  ): Promise<Map<string, Pick<AccountProfile, 'displayName' | 'avatarUrl' | 'email'>>>;
   /** 持久化界面/报告偏好字段，并返回刷新后的资料。 */
   updatePreferences(
     clerkUserId: string,
@@ -94,6 +98,36 @@ export function createAccountRepository(database: Database): AccountRepository {
     },
 
     getProfile,
+
+    async listProfilesByIds(clerkUserIds) {
+      const unique = [
+        ...new Set(
+          clerkUserIds.map((id) => id.trim()).filter(Boolean),
+        ),
+      ];
+      const result = new Map<
+        string,
+        Pick<AccountProfile, 'displayName' | 'avatarUrl' | 'email'>
+      >();
+      if (unique.length === 0) return result;
+      const rows = await database
+        .select({
+          clerkUserId: schema.accountUsers.clerkUserId,
+          displayName: schema.accountUsers.displayName,
+          avatarUrl: schema.accountUsers.avatarUrl,
+          email: schema.accountUsers.email,
+        })
+        .from(schema.accountUsers)
+        .where(inArray(schema.accountUsers.clerkUserId, unique));
+      for (const row of rows) {
+        result.set(row.clerkUserId, {
+          displayName: row.displayName,
+          avatarUrl: row.avatarUrl,
+          email: row.email,
+        });
+      }
+      return result;
+    },
 
     async updatePreferences(clerkUserId, preferences) {
       const [updated] = await database

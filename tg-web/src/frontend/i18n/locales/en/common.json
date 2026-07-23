@@ -63,6 +63,7 @@
     "adminUsers": "User management",
     "adminUser": "User detail",
     "adminAnalyses": "Analysis jobs",
+    "adminAnalysisInterpret": "JSON interpretation",
     "adminBilling": "Payment settings",
     "adminLlmProviders": "Providers",
     "adminLlmModels": "Models",

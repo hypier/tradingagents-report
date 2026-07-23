@@ -166,6 +166,16 @@ export const listAdminAnalyses = (
   );
 };
 
+export async function getAdminAnalysis(
+  jobId: string,
+  fetchImplementation?: FetchImplementation,
+) {
+  return read<Record<string, unknown>>(
+    `/api/admin/analyses/${encodeURIComponent(jobId)}`,
+    fetchImplementation,
+  );
+}
+
 export async function retryAdminAnalysis(
   jobId: string,
   fetchImplementation: FetchImplementation = fetch,
