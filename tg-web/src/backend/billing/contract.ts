@@ -206,7 +206,11 @@ export interface BillingService {
     idempotencyKey: string,
     locale: BillingLocale,
   ): Promise<string>;
-  createPortal(customerId: string, locale: BillingLocale): Promise<string>;
+  createPortal(
+    customerId: string,
+    locale: BillingLocale,
+    priceId?: string,
+  ): Promise<string>;
   createPlan(input: CreateBillingPlanInput): Promise<BillingPlan>;
   provisionDefaultPlans(): Promise<BillingPlan[]>;
   archivePlan(priceId: string): Promise<void>;

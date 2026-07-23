@@ -19,7 +19,7 @@ describe('billing locale', () => {
     );
 
     await createCheckout('price_test123', fetchImplementation);
-    await createBillingPortal(fetchImplementation);
+    await createBillingPortal(undefined, fetchImplementation);
 
     expect(requestBody(fetchImplementation.mock.calls[0]?.[1])).toMatchObject({
       priceId: 'price_test123',

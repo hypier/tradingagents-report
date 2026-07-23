@@ -67,6 +67,9 @@ describe('normalizeWebhookEvent', () => {
     subscriptions: {
       retrieve: vi.fn(),
     },
+    prices: {
+      retrieve: vi.fn(),
+    },
     charges: {
       retrieve: vi.fn(),
     },
@@ -203,6 +206,56 @@ describe('normalizeWebhookEvent', () => {
       },
     });
     expect(scheduled.expirePeriod).toBeFalsy();
+  });
+
+  it('grants upgrade deltas when portal changes price without invoice.paid', async () => {
+    stripe.prices.retrieve = vi.fn().mockResolvedValue({
+      id: 'price_growth',
+      metadata: { analysis_credits: '5000' },
+      product: { id: 'prod_growth', deleted: false, metadata: {} },
+    });
+
+    const upgraded = await normalizeWebhookEvent(
+      {
+        id: 'evt_upgrade_items',
+        type: 'customer.subscription.updated',
+        created: 1,
+        livemode: false,
+        data: {
+          object: {
+            id: 'sub_1',
+            customer: 'cus_1',
+            status: 'active',
+            cancel_at_period_end: false,
+            latest_invoice: 'in_old',
+            items: {
+              data: [
+                {
+                  current_period_start: 100,
+                  current_period_end: 200,
+                  price: { id: 'price_growth' },
+                },
+              ],
+            },
+          },
+          previous_attributes: {
+            items: {
+              data: [{ id: 'si_1', price: { id: 'price_starter' } }],
+            },
+          },
+        },
+      } as unknown as Stripe.Event,
+      stripe,
+    );
+
+    expect(upgraded.creditGrant).toMatchObject({
+      grantKind: 'upgrade_delta',
+      credits: 5000,
+      priceId: 'price_growth',
+      expireBeforeGrant: false,
+      invoiceId: 'subupd:sub_1:price_growth:200',
+    });
+    expect(upgraded.expirePeriod).toBeFalsy();
   });
 
   it('marks canceled subscriptions for period expiry and builds refund clawbacks', async () => {

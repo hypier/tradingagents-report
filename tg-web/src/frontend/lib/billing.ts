@@ -96,11 +96,15 @@ export const createCheckout = (
   );
 
 export const createBillingPortal = (
+  options?: { priceId?: string },
   fetchImplementation?: FetchImplementation,
 ) =>
   write<{ url: string }>(
     '/api/billing/portal',
-    { locale: normalizeUiLocale(i18n.resolvedLanguage) },
+    {
+      locale: normalizeUiLocale(i18n.resolvedLanguage),
+      ...(options?.priceId ? { priceId: options.priceId } : {}),
+    },
     fetchImplementation,
   );
 

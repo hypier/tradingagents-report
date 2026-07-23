@@ -309,6 +309,59 @@ describe('default Stripe plan provisioning', () => {
       return_url: 'https://app.example.test/billing',
     });
   });
+
+  it('deep-links portal sessions to subscription_update_confirm', async () => {
+    const current = existingPrice(DEFAULT_MONTHLY_BILLING_PLANS[0]!, true);
+    const target = existingPrice(DEFAULT_MONTHLY_BILLING_PLANS[1]!, true);
+    stripe.prices.retrieve.mockResolvedValue(target);
+    stripe.subscriptions.list.mockResolvedValue({
+      data: [
+        {
+          id: 'sub_test',
+          status: 'active',
+          cancel_at_period_end: false,
+          items: {
+            data: [
+              {
+                id: 'si_test',
+                quantity: 1,
+                price: { id: current.id },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    stripe.billingPortal.sessions.create.mockResolvedValue({
+      url: 'https://billing.stripe.test/confirm',
+    });
+    const service = createStripeBillingService({
+      secretKey: 'sk_test_secret',
+      appBaseUrl: new URL('https://app.example.test'),
+    });
+
+    await expect(
+      service.createPortal('cus_test', 'en', target.id),
+    ).resolves.toBe('https://billing.stripe.test/confirm');
+    expect(stripe.billingPortal.sessions.create).toHaveBeenCalledWith({
+      customer: 'cus_test',
+      locale: 'en',
+      return_url: 'https://app.example.test/billing',
+      flow_data: {
+        type: 'subscription_update_confirm',
+        subscription_update_confirm: {
+          subscription: 'sub_test',
+          items: [
+            {
+              id: 'si_test',
+              price: target.id,
+              quantity: 1,
+            },
+          ],
+        },
+      },
+    });
+  });
 });
 
 function existingPrice(

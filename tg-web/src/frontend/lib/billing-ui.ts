@@ -15,6 +15,21 @@ export function formatBillingStatus(status: string) {
   return status.replaceAll('_', ' ');
 }
 
+export type PlanCardAction = 'subscribe' | 'upgrade' | 'downgrade' | 'current';
+
+/** Compare catalog prices to decide subscribe / upgrade / downgrade / current. */
+export function resolvePlanCardAction(
+  plan: { id: string; unitAmount: number },
+  subscription: { priceId: string } | null | undefined,
+  plans: Array<{ id: string; unitAmount: number }>,
+): PlanCardAction {
+  if (!subscription) return 'subscribe';
+  if (plan.id === subscription.priceId) return 'current';
+  const current = plans.find((candidate) => candidate.id === subscription.priceId);
+  if (!current) return 'upgrade';
+  return plan.unitAmount > current.unitAmount ? 'upgrade' : 'downgrade';
+}
+
 export function formatCreditDelta(value: number) {
   return value > 0 ? `+${value}` : String(value);
 }

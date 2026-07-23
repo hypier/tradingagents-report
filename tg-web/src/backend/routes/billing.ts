@@ -17,8 +17,13 @@ const checkoutSchema = z.object({
   locale: z.enum(['en', 'zh']),
 });
 
-const billingLocaleSchema = z.object({
+const portalSchema = z.object({
   locale: z.enum(['en', 'zh']),
+  priceId: z
+    .string()
+    .trim()
+    .regex(/^price_[A-Za-z0-9]+$/)
+    .optional(),
 });
 
 const priceIdSchema = z
@@ -146,18 +151,22 @@ export function billingRoutes(dependencies: AppDependencies) {
   });
 
   app.post('/billing/portal', async (context) => {
-    const input = billingLocaleSchema.safeParse(
+    const input = portalSchema.safeParse(
       await context.req.json().catch(() => null),
     );
     if (!input.success) {
-      throw new AppError('INVALID_REQUEST', 400, 'Invalid billing locale');
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid billing portal request');
     }
     const customerId = await ensureCustomer(
       dependencies,
       context.get('auth').userId,
     );
     const url = await callBilling(() =>
-      dependencies.billing.createPortal(customerId, input.data.locale),
+      dependencies.billing.createPortal(
+        customerId,
+        input.data.locale,
+        input.data.priceId,
+      ),
     );
     return context.json(apiSuccess({ url }, context.get('requestId')));
   });

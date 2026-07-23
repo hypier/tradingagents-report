@@ -286,12 +286,92 @@ class StripeBillingService implements BillingService {
   async createPortal(
     customerId: string,
     locale: BillingLocale,
+    priceId?: string,
   ): Promise<string> {
+    const returnUrl = new URL(
+      '/billing',
+      this.options.appBaseUrl,
+    ).toString();
+    if (!priceId) {
+      const session = await this.stripe.billingPortal.sessions.create({
+        customer: customerId,
+        locale,
+        return_url: returnUrl,
+      });
+      if (!session.url) {
+        throw new BillingServiceError(
+          'BILLING_PORTAL_UNAVAILABLE',
+          502,
+          'Stripe did not return a billing portal URL',
+        );
+      }
+      return session.url;
+    }
+
+    const [price, subscriptions] = await Promise.all([
+      this.stripe.prices.retrieve(priceId),
+      this.stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 10,
+      }),
+    ]);
+    if (
+      !price.active ||
+      !price.recurring ||
+      metadataInteger(price.metadata.analysis_credits) < 1
+    ) {
+      throw new BillingServiceError(
+        'INVALID_BILLING_PLAN',
+        400,
+        'The selected subscription plan is unavailable',
+      );
+    }
+
+    const subscription = subscriptions.data.find((candidate) =>
+      MANAGEABLE_SUBSCRIPTION_STATUSES.has(candidate.status),
+    );
+    const item = subscription?.items.data[0];
+    if (!subscription || !item) {
+      throw new BillingServiceError(
+        'SUBSCRIPTION_NOT_FOUND',
+        404,
+        'No manageable subscription found',
+      );
+    }
+    if (item.price.id === priceId) {
+      throw new BillingServiceError(
+        'SAME_BILLING_PLAN',
+        409,
+        'Already subscribed to this plan',
+      );
+    }
+
     const session = await this.stripe.billingPortal.sessions.create({
       customer: customerId,
       locale,
-      return_url: new URL('/billing', this.options.appBaseUrl).toString(),
+      return_url: returnUrl,
+      flow_data: {
+        type: 'subscription_update_confirm',
+        subscription_update_confirm: {
+          subscription: subscription.id,
+          items: [
+            {
+              id: item.id,
+              price: priceId,
+              quantity: item.quantity ?? 1,
+            },
+          ],
+        },
+      },
     });
+    if (!session.url) {
+      throw new BillingServiceError(
+        'BILLING_PORTAL_UNAVAILABLE',
+        502,
+        'Stripe did not return a billing portal URL',
+      );
+    }
     return session.url;
   }
 
@@ -690,6 +770,20 @@ export async function normalizeWebhookEvent(
     ) {
       normalized.expirePeriod = true;
     }
+    // Portal plan switches may update the subscription without an immediate
+    // invoice.paid (no proration). Grant upgrade deltas from price changes.
+    if (
+      event.type === 'customer.subscription.updated' &&
+      subscriptionItemsChanged(event) &&
+      (snapshot.status === 'active' || snapshot.status === 'trialing')
+    ) {
+      const creditGrant = await upgradeCreditGrantFromSubscription(
+        subscription,
+        snapshot,
+        stripe,
+      );
+      if (creditGrant) normalized.creditGrant = creditGrant;
+    }
     return normalized;
   }
 
@@ -809,6 +903,59 @@ function isScheduledToCancel(subscription: Stripe.Subscription): boolean {
     subscription.cancel_at_period_end === true ||
     (typeof subscription.cancel_at === 'number' && subscription.cancel_at > 0)
   );
+}
+
+function subscriptionItemsChanged(event: Stripe.Event): boolean {
+  const previous = (
+    event.data as Stripe.Event.Data & {
+      previous_attributes?: { items?: unknown };
+    }
+  ).previous_attributes;
+  return previous != null && Object.prototype.hasOwnProperty.call(previous, 'items');
+}
+
+async function upgradeCreditGrantFromSubscription(
+  subscription: Stripe.Subscription,
+  snapshot: StripeSubscriptionSnapshot,
+  stripe: Stripe,
+): Promise<StripeWebhookEvent['creditGrant'] | null> {
+  const customerId = snapshot.customerId;
+  const priceId = snapshot.priceId;
+  if (!customerId || !priceId) return null;
+
+  const item = subscription.items.data[0];
+  let credits = 0;
+  if (item?.price && typeof item.price !== 'string') {
+    credits = metadataInteger(item.price.metadata?.analysis_credits);
+  }
+  if (credits <= 0) {
+    const price = await stripe.prices.retrieve(priceId, {
+      expand: ['product'],
+    });
+    const product = price.product;
+    credits = metadataInteger(
+      price.metadata.analysis_credits ??
+        (product && typeof product !== 'string' && !product.deleted
+          ? product.metadata.analysis_credits
+          : undefined),
+    );
+  }
+  if (credits <= 0) return null;
+
+  // Stable across webhook retries; invoice.paid upgrade_delta stays safe via
+  // periodBaselineCredits (grant amount collapses to 0 after this applies).
+  const periodEnd = snapshot.currentPeriodEnd ?? 0;
+  return {
+    invoiceId: `subupd:${snapshot.id}:${priceId}:${periodEnd}`,
+    customerId,
+    subscriptionId: snapshot.id,
+    priceId,
+    credits,
+    grantKind: 'upgrade_delta',
+    expireBeforeGrant: false,
+    periodStart: snapshot.currentPeriodStart,
+    periodEnd: snapshot.currentPeriodEnd,
+  };
 }
 
 function subscriptionSnapshot(

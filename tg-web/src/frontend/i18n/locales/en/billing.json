@@ -89,6 +89,7 @@
   "plans": {
     "title": "Available plans",
     "description": "Recurring Stripe plans",
+    "descriptionWithSubscription": "Upgrade to a higher plan or downgrade to a lower one. Confirmation is hosted by Stripe.",
     "emptyTitle": "No subscription plans",
     "emptyBody": "No active recurring prices are available.",
     "fallbackDescription": "Subscription",
@@ -113,7 +114,13 @@
     "per": "per {{interval}}",
     "perCount": "per {{count}} {{interval}}",
     "analysesPerCycle": "{{count}} points per cycle",
-    "subscribe": "Subscribe"
+    "subscribe": "Subscribe",
+    "actions": {
+      "subscribe": "Subscribe",
+      "upgrade": "Upgrade",
+      "downgrade": "Downgrade",
+      "current": "Current plan"
+    }
   },
   "ledger": {
     "title": "Credit activity",

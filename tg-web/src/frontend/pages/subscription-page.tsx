@@ -34,7 +34,11 @@ import {
   createCheckout,
   getBillingOverview,
 } from '@/frontend/lib/billing';
-import { formatBillingStatus } from '@/frontend/lib/billing-ui';
+import {
+  formatBillingStatus,
+  resolvePlanCardAction,
+  type PlanCardAction,
+} from '@/frontend/lib/billing-ui';
 import {
   formatLocaleCurrency,
   formatLocaleDate,
@@ -45,7 +49,7 @@ import {
   localizeBillingPlanName,
 } from '@/frontend/lib/localize-billing-plan';
 
-/** 订阅：当前套餐、Checkout、Portal 管理。 */
+/** 订阅：当前套餐、Checkout、Portal 管理（含升级/降级深链）。 */
 export function SubscriptionPage() {
   const { t } = useTranslation('billing');
   const overview = useQuery({
@@ -58,11 +62,14 @@ export function SubscriptionPage() {
     onError: () => toast.error(t('checkoutError')),
   });
   const portal = useMutation({
-    mutationFn: () => createBillingPortal(),
+    mutationFn: (priceId?: string) =>
+      createBillingPortal(priceId ? { priceId } : undefined),
     onSuccess: ({ data }) => window.location.assign(data.url),
     onError: () => toast.error(t('portalError')),
   });
   const data = overview.data?.data;
+  const busy =
+    checkout.isPending || portal.isPending;
 
   return (
     <AppShell>
@@ -127,11 +134,11 @@ export function SubscriptionPage() {
                       : t('subscription.cancelNote')}
                   </p>
                   <Button
-                    disabled={portal.isPending}
-                    onClick={() => portal.mutate()}
+                    disabled={busy}
+                    onClick={() => portal.mutate(undefined)}
                     className="self-start"
                   >
-                    {portal.isPending ? (
+                    {portal.isPending && portal.variables === undefined ? (
                       <Spinner data-icon="inline-start" />
                     ) : (
                       <ExternalLink data-icon="inline-start" />
@@ -153,19 +160,44 @@ export function SubscriptionPage() {
               <div>
                 <h3 className="text-base font-semibold">{t('plans.title')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {t('plans.description')}
+                  {data.subscription
+                    ? t('plans.descriptionWithSubscription')
+                    : t('plans.description')}
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {data.plans.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    disabled={Boolean(data.subscription) || checkout.isPending}
-                    pending={checkout.variables === plan.id}
-                    onSubscribe={() => checkout.mutate(plan.id)}
-                  />
-                ))}
+                {data.plans.map((plan) => {
+                  const action = resolvePlanCardAction(
+                    plan,
+                    data.subscription,
+                    data.plans,
+                  );
+                  const pending =
+                    (action === 'subscribe' &&
+                      checkout.isPending &&
+                      checkout.variables === plan.id) ||
+                    ((action === 'upgrade' || action === 'downgrade') &&
+                      portal.isPending &&
+                      portal.variables === plan.id);
+                  return (
+                    <PlanCard
+                      key={plan.id}
+                      plan={plan}
+                      action={action}
+                      pending={pending}
+                      disabled={busy && !pending}
+                      onAction={() => {
+                        if (action === 'subscribe') {
+                          checkout.mutate(plan.id);
+                          return;
+                        }
+                        if (action === 'upgrade' || action === 'downgrade') {
+                          portal.mutate(plan.id);
+                        }
+                      }}
+                    />
+                  );
+                })}
               </div>
               {data.plans.length === 0 && (
                 <Empty>
@@ -185,18 +217,21 @@ export function SubscriptionPage() {
 
 function PlanCard({
   plan,
+  action,
   disabled,
   pending,
-  onSubscribe,
+  onAction,
 }: {
   plan: BillingPlan;
+  action: PlanCardAction;
   disabled: boolean;
   pending: boolean;
-  onSubscribe(): void;
+  onAction(): void;
 }) {
   const { t } = useTranslation('billing');
   const displayPlan = localizeBillingPlan(plan, t, 'plans.defaultPlans');
   const interval = localizeBillingInterval(plan.interval, t, 'plans.intervals');
+  const isCurrent = action === 'current';
   return (
     <Card>
       <CardHeader>
@@ -236,9 +271,24 @@ function PlanCard({
         </ul>
       </CardContent>
       <CardFooter>
-        <Button disabled={disabled} onClick={onSubscribe}>
+        <Button
+          disabled={disabled || isCurrent}
+          variant={
+            action === 'upgrade'
+              ? 'default'
+              : action === 'downgrade'
+                ? 'outline'
+                : isCurrent
+                  ? 'secondary'
+                  : 'default'
+          }
+          onClick={onAction}
+        >
           {pending && <Spinner data-icon="inline-start" />}
-          {t('plans.subscribe')}
+          {!pending && (action === 'upgrade' || action === 'downgrade') && (
+            <ExternalLink data-icon="inline-start" />
+          )}
+          {t(`plans.actions.${action}`)}
         </Button>
       </CardFooter>
     </Card>

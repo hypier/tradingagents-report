@@ -963,6 +963,25 @@ describe('createApp', () => {
     expect(dependencies.billing.createPortal).toHaveBeenCalledWith(
       'cus_test',
       'zh',
+      undefined,
+    );
+  });
+
+  it('opens a portal deep link when upgrading to a specific price', async () => {
+    const dependencies = fakeDependencies();
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/billing/portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: 'zh', priceId: 'price_growth50' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(dependencies.billing.createPortal).toHaveBeenCalledWith(
+      'cus_test',
+      'zh',
+      'price_growth50',
     );
   });
 

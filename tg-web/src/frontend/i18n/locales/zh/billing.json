@@ -89,6 +89,7 @@
   "plans": {
     "title": "可用套餐",
     "description": "Stripe 循环计费套餐",
+    "descriptionWithSubscription": "选择更高档可升级，更低档可降级；确认页由 Stripe 托管。",
     "emptyTitle": "暂无订阅套餐",
     "emptyBody": "当前没有可用的循环价格。",
     "fallbackDescription": "订阅",
@@ -113,7 +114,13 @@
     "per": "每{{interval}}",
     "perCount": "每 {{count}} {{interval}}",
     "analysesPerCycle": "每周期 {{count}} 积分",
-    "subscribe": "订阅"
+    "subscribe": "订阅",
+    "actions": {
+      "subscribe": "订阅",
+      "upgrade": "升级",
+      "downgrade": "降级",
+      "current": "当前套餐"
+    }
   },
   "ledger": {
     "title": "额度明细",
