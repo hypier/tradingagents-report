@@ -151,7 +151,7 @@ flowchart LR
 - 管理员可在 `/admin/billing` 查看 Stripe 连接与 Webhook 配置状态，创建带周期积分、支持市场和功能元数据的循环套餐并停用价格。Stripe Secret Key 与 Webhook Secret 仅通过部署环境变量（`STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`）配置；管理端只展示连接状态与掩码提示。
 - 管理员在「系统设置」与「计费 → 分析计费」维护余额门槛、每美元积分汇率与加价倍率（`system_settings.billing`）；注册/推荐奖励在「系统设置」独立配置（`system_settings.rewards`，积分数直接配置、可独立开关）。变更写入 `admin_audit_events`。
 - 管理员可通过 Stripe API 幂等初始化每月 20、50、100 美元三档标准套餐，分别在有效支付周期发放 2,000、5,000、10,000 积分；初始化会升级旧版套餐 metadata，使存量订阅在后续付款周期获得新积分，重复初始化不会创建重复 Product 或 Price，配置冲突会明确报错。
-- 分析列表与详情经 `analysis_jobs.clerk_user_id` 按 Clerk 用户隔离；用户只能查看自己的任务与报告。
+- 分析列表与详情经 `analysis_jobs.clerk_user_id` 按 Clerk 用户隔离；普通用户只能查看自己的任务与报告。管理员可通过报告详情 `/reports/:id`（`GET /api/analyses/:id`）浏览任意用户报告；取消任务仍仅限所有者。
 - 管理员运营概览 `/admin`：展示注册用户数、有效订阅、周期内分析量/成功率、额度消耗与队列积压，以及 Stripe 连接健康摘要。
 - 管理员用户钻取 `/admin/users/:userId`：查看订阅/额度账本与近期任务，可停用或恢复账号（Clerk ban/unban），并可按幂等键手动调整额度（写入 `adjustment` 账本）。
 - `/admin/users` 显示可用积分；额度调整在 `/admin/users/:userId` 完成。

@@ -1123,6 +1123,79 @@ describe('createApp', () => {
     expect(dependencies.core.submitAnalysis).not.toHaveBeenCalled();
   });
 
+  it('lets owners read their report and hides other users reports from non-admins', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.database.analysisJobs.ownsJob).mockResolvedValue(
+      false,
+    );
+    vi.mocked(dependencies.core.getAnalysis).mockResolvedValue({
+      id: 'job-other',
+      status: 'succeeded',
+    });
+    const app = createApp(dependencies);
+
+    const denied = await app.request('/api/analyses/job-other');
+    expect(denied.status).toBe(404);
+    expect(dependencies.core.getAnalysis).not.toHaveBeenCalled();
+
+    vi.mocked(dependencies.database.analysisJobs.ownsJob).mockResolvedValue(
+      true,
+    );
+    const allowed = await app.request('/api/analyses/job-own');
+    expect(allowed.status).toBe(200);
+    expect(dependencies.core.getAnalysis).toHaveBeenCalledWith('job-own');
+  });
+
+  it('lets administrators read another users report detail', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    vi.mocked(dependencies.database.analysisJobs.ownsJob).mockResolvedValue(
+      false,
+    );
+    vi.mocked(dependencies.database.analysisJobs.getOwner).mockResolvedValue(
+      'user-2',
+    );
+    vi.mocked(dependencies.core.getAnalysis).mockResolvedValue({
+      id: 'job-other',
+      status: 'succeeded',
+      reports: { final_trade_decision: 'Buy' },
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses/job-other');
+    expect(response.status).toBe(200);
+    expect(dependencies.database.analysisJobs.getOwner).toHaveBeenCalledWith(
+      'job-other',
+    );
+    expect(dependencies.database.analysisJobs.ownsJob).not.toHaveBeenCalled();
+    expect(dependencies.core.getAnalysis).toHaveBeenCalledWith('job-other');
+    const body = await response.json();
+    expect(body.data).toMatchObject({
+      id: 'job-other',
+      reports: { final_trade_decision: 'Buy' },
+    });
+  });
+
+  it('still requires ownership for non-admins to cancel analyses', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.database.analysisJobs.ownsJob).mockResolvedValue(
+      false,
+    );
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses/job-other/cancel', {
+      method: 'POST',
+    });
+    expect(response.status).toBe(404);
+    expect(dependencies.core.cancelAnalysis).not.toHaveBeenCalled();
+  });
+
   it('lets an administrator read and update analysis billing settings', async () => {
     const dependencies = fakeDependencies();
     vi.mocked(dependencies.auth.getUser).mockResolvedValue({

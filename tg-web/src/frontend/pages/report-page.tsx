@@ -401,6 +401,14 @@ export function ReportPage() {
     getReportScrollParent()?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function goBack() {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/reports');
+  }
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-5 px-5 py-3.5 md:gap-5 lg:px-6">
@@ -410,7 +418,7 @@ export function ReportPage() {
             size="icon"
             aria-label={t('backAria')}
             className="shrink-0"
-            onClick={() => navigate('/reports')}
+            onClick={goBack}
           >
             <ArrowLeft />
           </Button>

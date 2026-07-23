@@ -71,7 +71,7 @@ function DetailRow({
   children: ReactNode;
 }) {
   return (
-    <div className="grid gap-1 border-b border-border py-3 last:border-b-0 sm:grid-cols-[minmax(8rem,12rem)_1fr] sm:gap-4">
+    <div className="grid gap-1 border-b border-border py-3 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0">
       <dt className="text-xs font-medium tracking-wide text-muted-foreground">
         {label}
       </dt>
@@ -169,9 +169,9 @@ export function AdminCreditsLedgerDetailPage() {
             ) : null
           }
         >
-          <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
             <SectionPanel title={t('admin:credits.sections.summary')}>
-              <dl>
+              <dl className="grid gap-x-6 sm:grid-cols-2">
                 <DetailRow label={t('admin:credits.fields.entryId')}>
                   <span className="font-mono text-xs break-all">{entry.id}</span>
                 </DetailRow>
@@ -182,6 +182,9 @@ export function AdminCreditsLedgerDetailPage() {
                 </DetailRow>
                 <DetailRow label={t('admin:credits.fields.activity')}>
                   {localizeLedgerActivity(billingEntry, t)}
+                </DetailRow>
+                <DetailRow label={t('admin:credits.fields.when')}>
+                  {formatLocaleDateTimeValue(entry.created_at)}
                 </DetailRow>
                 <DetailRow label={t('admin:credits.fields.availableDelta')}>
                   <span
@@ -215,7 +218,10 @@ export function AdminCreditsLedgerDetailPage() {
                           {localizeLedgerPool(
                             {
                               ...billingEntry,
-                              metadata: { ...billingEntry.metadata, pool: 'period' },
+                              metadata: {
+                                ...billingEntry.metadata,
+                                pool: 'period',
+                              },
                             },
                             t,
                           )}{' '}
@@ -227,7 +233,10 @@ export function AdminCreditsLedgerDetailPage() {
                           {localizeLedgerPool(
                             {
                               ...billingEntry,
-                              metadata: { ...billingEntry.metadata, pool: 'bonus' },
+                              metadata: {
+                                ...billingEntry.metadata,
+                                pool: 'bonus',
+                              },
                             },
                             t,
                           )}{' '}
@@ -237,14 +246,11 @@ export function AdminCreditsLedgerDetailPage() {
                     </div>
                   </DetailRow>
                 ) : null}
-                <DetailRow label={t('admin:credits.fields.when')}>
-                  {formatLocaleDateTimeValue(entry.created_at)}
-                </DetailRow>
               </dl>
             </SectionPanel>
 
             <SectionPanel title={t('admin:credits.sections.user')}>
-              <dl>
+              <dl className="grid gap-x-6 sm:grid-cols-2">
                 <DetailRow label={t('admin:credits.fields.user')}>
                   <Link
                     className="inline-flex items-center gap-2 hover:underline"
@@ -279,7 +285,7 @@ export function AdminCreditsLedgerDetailPage() {
             </SectionPanel>
 
             <SectionPanel title={t('admin:credits.sections.reference')}>
-              <dl>
+              <dl className="grid gap-x-6 sm:grid-cols-2">
                 <DetailRow label={t('admin:credits.fields.referenceType')}>
                   <span className="text-sm">
                     {localizeReferenceType(entry.reference_type, t)}

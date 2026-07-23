@@ -4,7 +4,7 @@
   "finalDecision": "Final decision · {{decision}}",
   "analysisFor": "Analysis for {{ticker}}",
   "fallbackSubtitle": "Report content returned by the Core analysis job.",
-  "backAria": "Back to report library",
+  "backAria": "Go back",
   "logoAlt": "{{name}} logo",
   "instrumentFallback": "Instrument",
   "loadErrorTitle": "Unable to load report",

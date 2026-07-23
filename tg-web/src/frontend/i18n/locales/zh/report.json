@@ -4,7 +4,7 @@
   "finalDecision": "最终决策 · {{decision}}",
   "analysisFor": "{{ticker}} 的分析",
   "fallbackSubtitle": "由 Core 分析任务返回的报告内容。",
-  "backAria": "返回报告库",
+  "backAria": "返回",
   "logoAlt": "{{name}} 标志",
   "instrumentFallback": "标的",
   "loadErrorTitle": "无法加载报告",

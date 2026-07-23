@@ -103,11 +103,11 @@ function InterpretRowList({
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
   }
   return (
-    <dl className="divide-y divide-border">
+    <dl className="grid gap-x-6 gap-y-0 sm:grid-cols-2">
       {rows.map((row, index) => (
         <div
           key={`${row.fieldKey}-${row.note ?? ''}-${index}`}
-          className="grid gap-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(8rem,12rem)_1fr] sm:gap-4"
+          className="grid gap-1 border-b border-border py-3 first:pt-0 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0"
         >
           <dt className="text-xs font-medium tracking-wide text-muted-foreground">
             {fieldLabel(row.fieldKey)}
@@ -265,11 +265,17 @@ export function AdminAnalysisInterpretPage() {
             </Button>
           }
         >
-          <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
             {sections.map((section) => (
               <SectionPanel
                 key={section.sectionKey}
                 title={t(`admin:analyses.sections.${section.sectionKey}`)}
+                className={
+                  section.sectionKey === 'events' ||
+                  section.sectionKey === 'config'
+                    ? 'lg:col-span-2'
+                    : undefined
+                }
               >
                 <InterpretRowList
                   rows={section.rows}

@@ -186,8 +186,9 @@ export function analysisRoutes(dependencies: AppDependencies) {
 
   app.get('/analyses/:id', async (context) => {
     const clerkUserId = context.get('auth').userId;
+    const role = context.get('authUser').role;
     const id = context.req.param('id');
-    await requireOwnedAnalysis(dependencies, clerkUserId, id);
+    await requireReadableAnalysis(dependencies, clerkUserId, id, role);
     const data = await dependencies.core.getAnalysis(id);
     return context.json(
       apiSuccess(
@@ -202,8 +203,9 @@ export function analysisRoutes(dependencies: AppDependencies) {
 
   app.get('/analyses/:id/events', async (context) => {
     const clerkUserId = context.get('auth').userId;
+    const role = context.get('authUser').role;
     const id = context.req.param('id');
-    await requireOwnedAnalysis(dependencies, clerkUserId, id);
+    await requireReadableAnalysis(dependencies, clerkUserId, id, role);
     return context.json(
       apiSuccess(
         await dependencies.core.getAnalysisEvents(id),
@@ -600,6 +602,24 @@ async function requireOwnedAnalysis(
   if (!owned) {
     throw new AppError('NOT_FOUND', 404, 'Analysis job not found');
   }
+}
+
+/** Report/detail read: owner always; admin may read any existing job. */
+async function requireReadableAnalysis(
+  dependencies: AppDependencies,
+  clerkUserId: string,
+  analysisJobId: string,
+  role: string,
+) {
+  if (role === 'admin') {
+    const owner =
+      await dependencies.database.analysisJobs.getOwner(analysisJobId);
+    if (!owner) {
+      throw new AppError('NOT_FOUND', 404, 'Analysis job not found');
+    }
+    return;
+  }
+  await requireOwnedAnalysis(dependencies, clerkUserId, analysisJobId);
 }
 
 function toPublicJob(
