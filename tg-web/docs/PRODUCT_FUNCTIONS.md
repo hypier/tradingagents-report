@@ -152,14 +152,14 @@ flowchart LR
 - 管理员在「系统设置」与「计费 → 分析计费」维护余额门槛、每美元积分汇率与加价倍率（`system_settings.billing`）；注册/推荐奖励在「系统设置」独立配置（`system_settings.rewards`，积分数直接配置、可独立开关）。变更写入 `admin_audit_events`。
 - 管理员可通过 Stripe API 幂等初始化每月 20、50、100 美元三档标准套餐，分别在有效支付周期发放 2,000、5,000、10,000 积分；初始化会升级旧版套餐 metadata，使存量订阅在后续付款周期获得新积分，重复初始化不会创建重复 Product 或 Price，配置冲突会明确报错。
 - 分析列表与详情经 `analysis_jobs.clerk_user_id` 按 Clerk 用户隔离；普通用户只能查看自己的任务与报告。管理员可通过报告详情 `/reports/:id`（`GET /api/analyses/:id`）浏览任意用户报告；取消任务仍仅限所有者。
-- 管理员运营概览 `/admin`：展示注册用户数、有效订阅、周期内分析量/成功率、额度消耗与队列积压，以及 Stripe 连接健康摘要。
+- 管理员运营概览 `/admin`：展示注册用户数、有效订阅、周期内分析量/成功率与耗时、积分池与周期消耗，以及 Stripe 连接/收入/失败摘要与需关注项；队列健康由独立页面承载（规划中）。
 - 管理员用户钻取 `/admin/users/:userId`：查看订阅/额度账本与近期任务，可停用或恢复账号（Clerk ban/unban），并可按幂等键手动调整额度（写入 `adjustment` 账本）。
 - `/admin/users` 显示可用积分；额度调整在 `/admin/users/:userId` 完成。
 - 管理员任务列表 `/admin/analyses`：跨用户按状态/标的/用户筛选；对失败任务可发起受控重试——校验所有者余额门槛并以新 `request_id` 提交替换 job（非 Core 原地重试）。
 - 系统设置：默认 LLM 模型、分析扣分汇率/加价（`system_settings.billing`），以及注册/推荐积分奖励（`system_settings.rewards`）。
 - 分析交易所管理 `/admin/markets`：展示 `exchanges.json` 全量清单（按 `group` 分组），勾选后点保存写入 `analysis_exchanges` 白名单；支持「已勾选」等快捷筛选。`/api/public-config` 返回已启用交易所；创建分析时校验白名单；账户默认市场由启用交易所的 `market`（catalog `country` / CRYPTO）推导。
 - 管理员模型配置：`/admin/llm/providers` + `/admin/llm/models` 维护 `llm_providers` / `llm_models`、API Key 与开放状态；默认快速/深度模型在 `/admin/settings`（系统设置键 `llm`）；用户分析页从开放目录选型。
-- 操作日志 `/admin/audit`：记录管理员写操作（系统设置、分析交易所、模型、用户角色、积分调整等）；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
+- 操作日志 `/admin/audit`：记录管理员写操作（系统设置、分析交易所、模型、用户角色、积分调整等）；列表展示本地化操作名（悬停可见原始 action key）、操作者头像/显示名（关联 `account_users`），详情按钮打开完整 metadata JSON；错误监控复用失败任务、Stripe webhook 失败与定价来源错误。
 
 当前尚未实现报告 AI 对话。
 

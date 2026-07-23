@@ -166,20 +166,45 @@ export function StatTile({
   hint,
   icon: Icon,
   className,
+  iconClassName,
+  valueClassName,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   icon?: LucideIcon;
   className?: string;
+  /** When set, wraps the icon in a rectangular wash well. */
+  iconClassName?: string;
+  valueClassName?: string;
 }) {
   return (
     <div className={cn('border border-border bg-card px-4 py-3', className)}>
       <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-        {Icon ? <Icon className="size-4 shrink-0" aria-hidden /> : null}
+        {Icon ? (
+          iconClassName ? (
+            <span
+              className={cn(
+                'inline-flex size-7 shrink-0 items-center justify-center border',
+                iconClassName,
+              )}
+            >
+              <Icon className="size-3.5" aria-hidden />
+            </span>
+          ) : (
+            <Icon className="size-4 shrink-0" aria-hidden />
+          )
+        ) : null}
         {label}
       </p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+      <p
+        className={cn(
+          'mt-1 font-mono text-2xl font-semibold tabular-nums tracking-tight',
+          valueClassName,
+        )}
+      >
+        {value}
+      </p>
       {hint ? (
         <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
       ) : null}

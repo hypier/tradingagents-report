@@ -36,6 +36,11 @@ export type AuditEvent = {
   targetId: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string | Date;
+  user?: {
+    display_name: string;
+    image_url: string;
+    email?: string | null;
+  } | null;
 };
 
 export type AuditQuery = {

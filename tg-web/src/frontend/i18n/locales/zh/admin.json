@@ -220,7 +220,8 @@
   "overview": {
     "title": "运营概览",
     "heading": "运营概览",
-    "subtitle": "最近 30 天的用户、订阅、分析结果与队列健康。",
+    "subtitle": "最近 {{days}} 天的用户增长、分析产出、积分消耗与收款健康。",
+    "periodLabel": "统计窗口：{{from}} - {{to}}",
     "accessRequired": {
       "title": "需要管理员权限",
       "body": "当前账号没有查看运营数据的权限。"
@@ -232,39 +233,65 @@
     "links": {
       "users": "用户",
       "analyses": "任务",
+      "credits": "积分账本",
       "billing": "支付设置",
       "stripeEvents": "Stripe 事件"
     },
     "metrics": {
       "users": "注册用户",
+      "usersHint": "本地账户总数",
       "activeSubscriptions": "有效订阅",
+      "activeSubscriptionsHint": "active / trialing 且未过期",
       "periodAnalyses": "周期内分析次数",
       "successRate": "成功率 {{rate}}",
-      "periodCredits": "周期额度消耗",
+      "periodCredits": "周期积分消耗",
       "availableReserved": "可用 {{available}} · 预留 {{reserved}}"
     },
-    "queue": {
-      "title": "队列健康",
-      "description": "当前积压与周期失败",
-      "queued": "{{count}} 排队",
-      "running": "{{count}} 运行中",
-      "failed": "本周期失败 {{count}}",
-      "avgDuration": "成功任务平均耗时：{{seconds}} 秒"
+    "attention": {
+      "title": "需要关注",
+      "clear": "运行正常",
+      "count": "{{count}} 项待处理",
+      "stripeUnconfigured": "Stripe 尚未配置，订阅收款不可用。",
+      "stripeUnhealthy": "Stripe 连接异常，请检查部署凭据或服务可用性。",
+      "webhookFailures": "近周期有 {{count}} 条 Webhook 处理失败。",
+      "paymentFailures": "近周期有 {{count}} 次付款失败。",
+      "lowSuccessRate": "分析成功率偏低（{{rate}}），失败 {{failed}} 次。"
+    },
+    "analyses": {
+      "title": "分析产出",
+      "description": "周期内任务结果与平均耗时",
+      "succeeded": "成功",
+      "failed": "失败",
+      "successRate": "成功率",
+      "avgDuration": "成功任务平均耗时",
+      "viewFailed": "查看失败任务"
+    },
+    "credits": {
+      "title": "积分池",
+      "description": "全站可用余额与周期消耗",
+      "available": "可用合计",
+      "reserved": "预留合计",
+      "periodConsumed": "周期消耗",
+      "spentTotal": "历史已消耗"
+    },
+    "duration": {
+      "seconds": "{{value}} 秒",
+      "minutes": "{{value}} 分钟"
     },
     "stripe": {
-      "title": "Stripe 摘要",
-      "description": "连接健康与周期内 Stripe 收入摘要",
-      "configured": "已配置",
-      "yes": "是",
-      "no": "否",
-      "health": "连接",
-      "healthy": "正常",
-      "unhealthy": "异常",
-      "mode": "模式",
-      "revenue": "毛收入（30 天）",
-      "refunds": "退款（30 天）",
-      "paymentFailures": "付款失败（30 天）",
-      "webhookFailures": "Webhook 失败（30 天）"
+      "title": "收款与 Stripe",
+      "description": "连接状态与周期内收入、退款、失败摘要",
+      "configuredYes": "已配置",
+      "configuredNo": "未配置",
+      "healthUnknown": "连接未知",
+      "healthy": "连接正常",
+      "unhealthy": "连接异常",
+      "modeLabel": "模式 {{mode}}",
+      "revenue": "毛收入",
+      "refunds": "退款",
+      "paymentFailures": "付款失败",
+      "webhookFailures": "Webhook 失败",
+      "noPeriod": "当前窗口暂无 Stripe 收入摘要。"
     }
   },
   "analyses": {
@@ -792,6 +819,55 @@
       "action": "操作",
       "target": "目标",
       "detail": "详情"
+    },
+    "viewDetail": "查看详情",
+    "detailTitle": "操作详情",
+    "detailSubtitle": "该管理员操作的完整元数据。",
+    "detailEmpty": "此操作没有记录元数据。",
+    "detailClose": "关闭",
+    "actions": {
+      "settings": {
+        "update": "更新系统设置"
+      },
+      "analysis_exchanges": {
+        "upsert": "保存分析交易所",
+        "delete": "删除分析交易所"
+      },
+      "billing": {
+        "settings": {
+          "update": "更新计费设置"
+        }
+      },
+      "rewards": {
+        "settings": {
+          "update": "更新奖励设置"
+        }
+      },
+      "users": {
+        "set_role": "设置用户角色",
+        "ban": "封禁用户",
+        "unban": "解封用户"
+      },
+      "credits": {
+        "adjust": "调整积分"
+      },
+      "analyses": {
+        "retry": "重试分析"
+      },
+      "llm_providers": {
+        "upsert": "保存 LLM 供应商",
+        "clear_api_key": "清除 LLM 供应商 API Key",
+        "delete": "删除 LLM 供应商"
+      },
+      "llm_models": {
+        "create": "创建 LLM 模型",
+        "update": "更新 LLM 模型",
+        "delete": "删除 LLM 模型",
+        "sync": "同步 LLM 模型"
+      },
+      "llm_defaults": {
+        "update": "更新默认 LLM 模型"
+      }
     }
   }
 }

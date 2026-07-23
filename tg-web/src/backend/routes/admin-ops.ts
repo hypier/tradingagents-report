@@ -258,7 +258,27 @@ export function adminOpsRoutes(dependencies: AppDependencies) {
       limit: input.data.limit,
       offset: input.data.offset,
     });
-    return context.json(apiSuccess(rows, context.get('requestId')));
+    const profiles = await dependencies.database.account.listProfilesByIds(
+      rows.map((row) => row.actorClerkUserId),
+    );
+    return context.json(
+      apiSuccess(
+        rows.map((row) => {
+          const user = profiles.get(row.actorClerkUserId);
+          return {
+            ...row,
+            user: user
+              ? {
+                  display_name: user.displayName,
+                  image_url: user.avatarUrl,
+                  email: user.email,
+                }
+              : null,
+          };
+        }),
+        context.get('requestId'),
+      ),
+    );
   });
 
   return app;

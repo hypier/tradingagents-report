@@ -220,7 +220,8 @@
   "overview": {
     "title": "Ops overview",
     "heading": "Operations overview",
-    "subtitle": "Users, subscriptions, analysis outcomes, and queue health for the last 30 days.",
+    "subtitle": "User growth, analysis outcomes, credit burn, and billing health for the last {{days}} days.",
+    "periodLabel": "Window: {{from}} - {{to}}",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to view operations."
@@ -232,39 +233,65 @@
     "links": {
       "users": "Users",
       "analyses": "Jobs",
+      "credits": "Credit ledger",
       "billing": "Billing settings",
       "stripeEvents": "Stripe events"
     },
     "metrics": {
       "users": "Registered users",
+      "usersHint": "Local account total",
       "activeSubscriptions": "Active subscriptions",
+      "activeSubscriptionsHint": "Active / trialing and not expired",
       "periodAnalyses": "Analyses this period",
       "successRate": "Success rate {{rate}}",
       "periodCredits": "Credits consumed",
       "availableReserved": "{{available}} available · {{reserved}} reserved"
     },
-    "queue": {
-      "title": "Queue health",
-      "description": "Current backlog and period failures",
-      "queued": "{{count}} queued",
-      "running": "{{count}} running",
-      "failed": "{{count}} failed this period",
-      "avgDuration": "Avg succeeded duration: {{seconds}}s"
+    "attention": {
+      "title": "Needs attention",
+      "clear": "All clear",
+      "count": "{{count}} open",
+      "stripeUnconfigured": "Stripe is not configured; subscription billing is unavailable.",
+      "stripeUnhealthy": "Stripe connection is unhealthy. Check deploy credentials or Stripe availability.",
+      "webhookFailures": "{{count}} webhook deliveries failed in this period.",
+      "paymentFailures": "{{count}} payment failures in this period.",
+      "lowSuccessRate": "Analysis success rate is low ({{rate}}); {{failed}} failed."
+    },
+    "analyses": {
+      "title": "Analysis outcomes",
+      "description": "Period job results and average duration",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "successRate": "Success rate",
+      "avgDuration": "Avg succeeded duration",
+      "viewFailed": "View failed jobs"
+    },
+    "credits": {
+      "title": "Credit pool",
+      "description": "Platform balances and period burn",
+      "available": "Available total",
+      "reserved": "Reserved total",
+      "periodConsumed": "Consumed this period",
+      "spentTotal": "Lifetime spent"
+    },
+    "duration": {
+      "seconds": "{{value}}s",
+      "minutes": "{{value}} min"
     },
     "stripe": {
-      "title": "Stripe summary",
-      "description": "Connection health and period revenue from Stripe",
-      "configured": "Configured",
-      "yes": "Yes",
-      "no": "No",
-      "health": "Connection",
+      "title": "Billing & Stripe",
+      "description": "Connection status plus period revenue, refunds, and failures",
+      "configuredYes": "Configured",
+      "configuredNo": "Not configured",
+      "healthUnknown": "Health unknown",
       "healthy": "Healthy",
       "unhealthy": "Unhealthy",
-      "mode": "Mode",
-      "revenue": "Gross revenue (30d)",
-      "refunds": "Refunds (30d)",
-      "paymentFailures": "Payment failures (30d)",
-      "webhookFailures": "Webhook failures (30d)"
+      "modeLabel": "Mode {{mode}}",
+      "revenue": "Gross revenue",
+      "refunds": "Refunds",
+      "paymentFailures": "Payment failures",
+      "webhookFailures": "Webhook failures",
+      "noPeriod": "No Stripe revenue summary for this window."
     }
   },
   "analyses": {
@@ -792,6 +819,55 @@
       "action": "Action",
       "target": "Target",
       "detail": "Detail"
+    },
+    "viewDetail": "View detail",
+    "detailTitle": "Operation detail",
+    "detailSubtitle": "Full metadata for this admin action.",
+    "detailEmpty": "No metadata recorded for this operation.",
+    "detailClose": "Close",
+    "actions": {
+      "settings": {
+        "update": "Update system settings"
+      },
+      "analysis_exchanges": {
+        "upsert": "Save analysis exchange",
+        "delete": "Delete analysis exchange"
+      },
+      "billing": {
+        "settings": {
+          "update": "Update billing settings"
+        }
+      },
+      "rewards": {
+        "settings": {
+          "update": "Update rewards settings"
+        }
+      },
+      "users": {
+        "set_role": "Set user role",
+        "ban": "Ban user",
+        "unban": "Unban user"
+      },
+      "credits": {
+        "adjust": "Adjust credits"
+      },
+      "analyses": {
+        "retry": "Retry analysis"
+      },
+      "llm_providers": {
+        "upsert": "Save LLM provider",
+        "clear_api_key": "Clear LLM provider API key",
+        "delete": "Delete LLM provider"
+      },
+      "llm_models": {
+        "create": "Create LLM model",
+        "update": "Update LLM model",
+        "delete": "Delete LLM model",
+        "sync": "Sync LLM models"
+      },
+      "llm_defaults": {
+        "update": "Update default LLM models"
+      }
     }
   }
 }
