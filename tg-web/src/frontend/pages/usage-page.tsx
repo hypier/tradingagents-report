@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Coins } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { AppShell } from '@/frontend/components/app-shell';
 import { PageFrame, StatTile } from '@/frontend/components/page-chrome';
@@ -9,6 +10,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/frontend/components/ui/alert';
+import { Badge } from '@/frontend/components/ui/badge';
 import {
   Empty,
   EmptyDescription,
@@ -30,14 +32,126 @@ import {
   formatCreditDelta,
   localizeEntryType,
   localizeLedgerActivity,
-  localizeLedgerPool,
+  resolveLedgerPoolDeltas,
+  type BillingLedgerEntry,
+  type LedgerPoolDeltas,
 } from '@/frontend/lib/billing-ui';
 import {
   formatLocaleDate,
   formatLocaleDateTimeValue,
 } from '@/frontend/lib/format-locale';
+import { cn } from '@/frontend/lib/utils';
+import { formatDisplayTicker } from '@/shared/listing';
 
-/** 计费用量：余额与额度流水。 */
+function entryTypeBadgeVariant(
+  entryType: string,
+): 'info' | 'down' | 'running' | 'destructive' | 'outline' {
+  switch (entryType) {
+    case 'grant':
+      return 'info';
+    case 'consume':
+      return 'down';
+    case 'adjustment':
+      return 'running';
+    case 'expire':
+    case 'clawback':
+      return 'destructive';
+    default:
+      return 'outline';
+  }
+}
+
+function LedgerChangeCell({
+  pools,
+  entry,
+}: {
+  pools: LedgerPoolDeltas;
+  entry: BillingLedgerEntry;
+}) {
+  if (pools.period === null && pools.bonus === null) {
+    return (
+      <span className="font-medium tabular-nums">
+        {formatCreditDelta(entry.availableDelta)}
+      </span>
+    );
+  }
+
+  const values: number[] = [];
+  if (pools.period !== null && pools.period !== 0) values.push(pools.period);
+  if (pools.bonus !== null && pools.bonus !== 0) values.push(pools.bonus);
+  if (values.length === 0) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      {values.map((value, index) => (
+        <span key={`${index}-${value}`} className="font-medium tabular-nums">
+          {formatCreditDelta(value)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function LedgerAccountCell({ pools }: { pools: LedgerPoolDeltas }) {
+  const { t } = useTranslation('billing');
+  const rows: Array<{ label: string; tone: 'period' | 'bonus' }> = [];
+  if (pools.period !== null && pools.period !== 0) {
+    rows.push({ label: t('ledger.poolPeriod'), tone: 'period' });
+  }
+  if (pools.bonus !== null && pools.bonus !== 0) {
+    rows.push({ label: t('ledger.poolBonus'), tone: 'bonus' });
+  }
+  if (rows.length === 0) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {rows.map((row) => (
+        <span
+          key={row.tone}
+          className={cn(
+            'text-sm font-medium',
+            row.tone === 'period'
+              ? 'text-sky-600 dark:text-sky-400'
+              : 'text-yellow-600 dark:text-yellow-400',
+          )}
+        >
+          {row.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function LedgerReportCell({ entry }: { entry: BillingLedgerEntry }) {
+  const report = entry.analysisReport;
+  if (!report) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  const ticker =
+    report.displayTicker?.trim() ||
+    formatDisplayTicker(report.ticker) ||
+    report.ticker;
+  const reportTitle = report.displayName?.trim()
+    ? `${report.displayName.trim()} (${ticker})`
+    : ticker;
+
+  return (
+    <Link
+      to={`/reports/${report.id}`}
+      className="text-sm underline-offset-2 hover:underline"
+    >
+      {reportTitle}
+      {report.tradeDate ? ` · ${report.tradeDate}` : ''}
+    </Link>
+  );
+}
+
+/** 用量：余额与本周期额度流水。 */
 export function UsagePage() {
   const { t } = useTranslation('billing');
   const overview = useQuery({
@@ -75,23 +189,43 @@ export function UsagePage() {
                   <StatTile
                     label={t('usage.available')}
                     value={usage.availableCredits}
-                    hint={
-                      usage.periodEnd
-                        ? `${t('usage.cycleEnds')} ${formatLocaleDate(usage.periodEnd, t('notAvailable'))}`
-                        : undefined
-                    }
+                    hint={t('usage.availableHelp')}
+                    className="border-border/80 bg-muted/40"
                   />
                   <StatTile
                     label={t('usage.period')}
-                    value={usage.periodCredits}
+                    value={
+                      <span className="text-sky-700 dark:text-sky-300">
+                        {usage.periodCredits}
+                      </span>
+                    }
+                    hint={
+                      usage.periodEnd
+                        ? t('usage.periodHelpDated', {
+                            date: formatLocaleDate(
+                              usage.periodEnd,
+                              t('notAvailable'),
+                            ),
+                          })
+                        : t('usage.periodHelp')
+                    }
+                    className="border-sky-500/25 bg-sky-500/8"
                   />
                   <StatTile
                     label={t('usage.bonus')}
-                    value={usage.bonusCredits}
+                    value={
+                      <span className="text-yellow-700 dark:text-yellow-300">
+                        {usage.bonusCredits}
+                      </span>
+                    }
+                    hint={t('usage.bonusHelp')}
+                    className="border-yellow-500/30 bg-yellow-500/8"
                   />
                   <StatTile
                     label={t('usage.consumed')}
                     value={usage.spentCredits}
+                    hint={t('usage.consumedHelp')}
+                    className="border-rose-500/20 bg-rose-500/8"
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -107,65 +241,69 @@ export function UsagePage() {
 
             {usage ? (
               <section className="flex flex-col gap-3">
-                <h3 className="text-base font-semibold">{t('ledger.title')}</h3>
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {usage.periodStart
+                      ? t('ledger.cycleTitle')
+                      : t('ledger.title')}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {usage.periodStart
+                      ? t('ledger.cycleDescription', {
+                          start: formatLocaleDate(
+                            usage.periodStart,
+                            t('notAvailable'),
+                          ),
+                          end: formatLocaleDate(
+                            usage.periodEnd,
+                            t('notAvailable'),
+                          ),
+                        })
+                      : t('ledger.description')}
+                  </p>
+                </div>
                 {usage.ledger.length ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('ledger.date')}</TableHead>
-                        <TableHead>{t('ledger.activity')}</TableHead>
-                        <TableHead>{t('ledger.pool')}</TableHead>
-                        <TableHead className="text-right">
-                          {t('ledger.available')}
+                        <TableHead>{t('ledger.report')}</TableHead>
+                        <TableHead>{t('ledger.type')}</TableHead>
+                        <TableHead className="w-[7.5rem] text-right">
+                          {t('ledger.change')}
                         </TableHead>
-                        <TableHead className="text-right">
-                          {t('ledger.spent')}
+                        <TableHead>{t('ledger.account')}</TableHead>
+                        <TableHead className="pl-6">
+                          {t('ledger.activity')}
                         </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {usage.ledger.map((entry) => {
-                        const pool = localizeLedgerPool(entry, t);
+                        const pools = resolveLedgerPoolDeltas(entry);
                         return (
-                          <TableRow key={entry.id} className="h-11">
-                            <TableCell className="font-mono text-xs tabular-nums">
+                          <TableRow key={entry.id}>
+                            <TableCell className="whitespace-nowrap font-mono text-xs tabular-nums">
                               {formatLocaleDateTimeValue(entry.createdAt)}
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                <span>{localizeLedgerActivity(entry, t)}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {localizeEntryType(entry.entryType, t)}
-                                </span>
-                              </div>
-                              {entry.metadata?.actualCostUsd !== undefined && (
-                                <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                  <span className="inline-flex gap-1">
-                                    <span>{t('ledger.actualCost')}:</span>
-                                    <span>
-                                      ${String(entry.metadata.actualCostUsd)}
-                                    </span>
-                                  </span>
-                                  {entry.metadata.finalPoints !== undefined && (
-                                    <span>
-                                      {t('ledger.finalPoints', {
-                                        count: Number(
-                                          entry.metadata.finalPoints,
-                                        ),
-                                      })}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                              <LedgerReportCell entry={entry} />
                             </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              {pool ?? '-'}
+                            <TableCell>
+                              <Badge
+                                variant={entryTypeBadgeVariant(entry.entryType)}
+                              >
+                                {localizeEntryType(entry.entryType, t)}
+                              </Badge>
                             </TableCell>
                             <TableCell className="text-right tabular-nums">
-                              {formatCreditDelta(entry.availableDelta)}
+                              <LedgerChangeCell pools={pools} entry={entry} />
                             </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {formatCreditDelta(entry.spentDelta)}
+                            <TableCell>
+                              <LedgerAccountCell pools={pools} />
+                            </TableCell>
+                            <TableCell className="pl-6">
+                              {localizeLedgerActivity(entry, t)}
                             </TableCell>
                           </TableRow>
                         );

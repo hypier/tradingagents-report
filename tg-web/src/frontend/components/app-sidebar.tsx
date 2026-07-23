@@ -8,6 +8,7 @@ import {
   CandlestickChart,
   ChevronRight,
   Coins,
+  ReceiptText,
   Shield,
   SlidersHorizontal,
   UserRound,
@@ -57,6 +58,7 @@ type NavLeaf = {
     | 'nav.quotes'
     | 'nav.watchlist'
     | 'nav.subscription'
+    | 'nav.invoices'
     | 'nav.usage'
     | 'nav.billing'
     | 'nav.account'
@@ -112,6 +114,7 @@ const watchlistNavigation: NavLeaf = {
 
 const accountNavigation: NavLeaf[] = [
   { titleKey: 'nav.subscription', icon: CreditCard, href: '/billing/subscription' },
+  { titleKey: 'nav.invoices', icon: ReceiptText, href: '/billing/invoices' },
   { titleKey: 'nav.usage', icon: Coins, href: '/billing/usage' },
   { titleKey: 'nav.account', icon: UserRound, href: '/account' },
 ];

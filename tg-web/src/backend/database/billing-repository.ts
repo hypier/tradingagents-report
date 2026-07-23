@@ -4,7 +4,7 @@
  * 负责 Stripe Customer 关联、订阅镜像、分析余额门槛、账本读取，
  * 以及幂等的 webhook 落地。分析计费配置与奖励配置在 system_settings。
  */
-import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, notInArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import type { StripeWebhookEvent } from '../billing/contract';
@@ -32,16 +32,36 @@ export type StripeWebhookEventsSummary = {
   processing: number;
 };
 
-/** 供 UI 聚合的积分钱包 + 最新订阅 + 近期流水。 */
+/** 消费流水关联的分析报告摘要（用户侧展示用）。 */
+export type LedgerAnalysisReport = {
+  id: string;
+  ticker: string;
+  displayName: string | null;
+  displayTicker: string | null;
+  tradeDate: string;
+};
+
+/** 供 UI 聚合的积分钱包 + 最新订阅 + 流水。 */
 export type CreditUsage = {
   availableCredits: number;
   periodCredits: number;
   bonusCredits: number;
   reservedCredits: number;
   spentCredits: number;
+  /** 当前计费周期起点（有订阅时）。 */
+  periodStart: Date | null;
   periodEnd: Date | null;
   subscription: typeof schema.billingSubscriptions.$inferSelect | null;
-  ledger: Array<typeof schema.creditLedgerEntries.$inferSelect>;
+  ledger: Array<
+    typeof schema.creditLedgerEntries.$inferSelect & {
+      analysisReport: LedgerAnalysisReport | null;
+    }
+  >;
+};
+
+export type GetUsageOptions = {
+  /** 仅返回当前订阅周期内的流水（无订阅则不按周期裁剪）。 */
+  currentPeriodOnly?: boolean;
 };
 
 export type AnalysisCreditEstimate = {
@@ -55,7 +75,10 @@ export type AnalysisCreditEstimate = {
 export interface BillingRepository {
   setStripeCustomerId(clerkUserId: string, customerId: string): Promise<void>;
   getStripeCustomerId(clerkUserId: string): Promise<string | null>;
-  getUsage(clerkUserId: string): Promise<CreditUsage>;
+  getUsage(
+    clerkUserId: string,
+    options?: GetUsageOptions,
+  ): Promise<CreditUsage>;
   getBillingSettings(): Promise<AnalysisBillingSettings>;
   updateBillingSettings(
     input: AnalysisBillingSettings & { actorClerkUserId: string },
@@ -128,8 +151,8 @@ export function createBillingRepository(database: Database): BillingRepository {
       return user?.stripeCustomerId ?? null;
     },
 
-    async getUsage(clerkUserId) {
-      const [account, subscriptions, ledger] = await Promise.all([
+    async getUsage(clerkUserId, options = {}) {
+      const [account, subscriptions] = await Promise.all([
         database
           .select()
           .from(schema.creditAccounts)
@@ -141,21 +164,99 @@ export function createBillingRepository(database: Database): BillingRepository {
           .where(eq(schema.billingSubscriptions.clerkUserId, clerkUserId))
           .orderBy(desc(schema.billingSubscriptions.updatedAt))
           .limit(1),
-        database
-          .select()
-          .from(schema.creditLedgerEntries)
-          .where(eq(schema.creditLedgerEntries.clerkUserId, clerkUserId))
-          .orderBy(desc(schema.creditLedgerEntries.createdAt))
-          .limit(100),
       ]);
+      const subscription = subscriptions[0] ?? null;
+      const periodStart = subscription?.currentPeriodStart ?? null;
+      const periodEnd =
+        account?.periodEnd ?? subscription?.currentPeriodEnd ?? null;
+
+      const ledgerFilters = [
+        eq(schema.creditLedgerEntries.clerkUserId, clerkUserId),
+        // 新路径不再预扣；历史 reserve/release 对用户用量页只是噪音。
+        notInArray(schema.creditLedgerEntries.entryType, [
+          'reserve',
+          'release',
+        ]),
+      ];
+      if (options.currentPeriodOnly && periodStart) {
+        ledgerFilters.push(
+          gte(schema.creditLedgerEntries.createdAt, periodStart),
+        );
+      }
+
+      const ledgerRows = await database
+        .select()
+        .from(schema.creditLedgerEntries)
+        .where(and(...ledgerFilters))
+        .orderBy(desc(schema.creditLedgerEntries.createdAt))
+        .limit(100);
+
+      const analysisJobIds = [
+        ...new Set(
+          ledgerRows
+            .filter((entry) => entry.referenceType === 'analysis_job')
+            .map((entry) => entry.referenceId)
+            .filter(Boolean),
+        ),
+      ];
+      const analysisJobs =
+        analysisJobIds.length === 0
+          ? []
+          : await database
+              .select({
+                id: schema.analysisJobs.id,
+                ticker: schema.analysisJobs.ticker,
+                tradeDate: schema.analysisJobs.tradeDate,
+                display: schema.analysisJobs.display,
+                clerkUserId: schema.analysisJobs.clerkUserId,
+              })
+              .from(schema.analysisJobs)
+              .where(
+                and(
+                  inArray(schema.analysisJobs.id, analysisJobIds),
+                  eq(schema.analysisJobs.clerkUserId, clerkUserId),
+                ),
+              );
+      const reportsById = new Map(
+        analysisJobs.map((job) => {
+          const display = job.display ?? {};
+          const displayName =
+            typeof display.display_name === 'string' && display.display_name.trim()
+              ? display.display_name.trim()
+              : null;
+          const displayTicker =
+            typeof display.display_ticker === 'string' &&
+            display.display_ticker.trim()
+              ? display.display_ticker.trim()
+              : null;
+          const report: LedgerAnalysisReport = {
+            id: job.id,
+            ticker: job.ticker,
+            displayName,
+            displayTicker,
+            tradeDate: String(job.tradeDate),
+          };
+          return [job.id, report] as const;
+        }),
+      );
+
+      const ledger = ledgerRows.map((entry) => ({
+        ...entry,
+        analysisReport:
+          entry.referenceType === 'analysis_job'
+            ? (reportsById.get(entry.referenceId) ?? null)
+            : null,
+      }));
+
       return {
         availableCredits: account?.availableCredits ?? 0,
         periodCredits: account?.periodCredits ?? 0,
         bonusCredits: account?.bonusCredits ?? 0,
         reservedCredits: account?.reservedCredits ?? 0,
         spentCredits: account?.spentCredits ?? 0,
-        periodEnd: account?.periodEnd ?? null,
-        subscription: subscriptions[0] ?? null,
+        periodStart,
+        periodEnd,
+        subscription,
         ledger,
       };
     },
@@ -285,6 +386,8 @@ export function createBillingRepository(database: Database): BillingRepository {
               reason: input.reason ?? null,
               pool: 'bonus',
               grantKind: 'admin_adjustment',
+              periodDelta: 0,
+              bonusDelta: input.delta,
             },
           })
           .onConflictDoNothing()
@@ -618,7 +721,11 @@ async function expirePeriodCredits(
       referenceType: input.referenceType,
       referenceId: input.referenceId,
       description: input.description,
-      metadata: input.metadata,
+      metadata: {
+        ...input.metadata,
+        periodDelta: -periodCredits,
+        bonusDelta: 0,
+      },
     })
     .onConflictDoNothing()
     .returning({ id: schema.creditLedgerEntries.id });
@@ -708,6 +815,8 @@ async function applySubscriptionCreditGrant(
         priceId: grant.priceId,
         periodStart: grant.periodStart,
         periodEnd: grant.periodEnd,
+        periodDelta: grantAmount,
+        bonusDelta: 0,
       },
     })
     .onConflictDoNothing()
@@ -830,6 +939,8 @@ async function applyCreditClawback(
         refundRatio: ratio,
         targetClaw,
         claw,
+        periodDelta: -claw,
+        bonusDelta: 0,
       },
     })
     .onConflictDoNothing()

@@ -59,6 +59,7 @@ export type BillingOverview = {
     bonusCredits: number;
     reservedCredits: number;
     spentCredits: number;
+    periodStart: number | null;
     periodEnd: number | null;
     ledger: Array<{
       id: string;
@@ -71,6 +72,13 @@ export type BillingOverview = {
       referenceId: string;
       metadata: Record<string, unknown>;
       createdAt: Date;
+      analysisReport: {
+        id: string;
+        ticker: string;
+        displayName: string | null;
+        displayTicker: string | null;
+        tradeDate: string;
+      } | null;
     }>;
   };
 };

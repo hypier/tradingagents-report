@@ -71,6 +71,8 @@ export function createReferralRepository(
                 channel: 'signup',
                 pool: 'bonus',
                 grantKind: 'signup',
+                periodDelta: 0,
+                bonusDelta: points,
               },
             })
             .onConflictDoNothing()
@@ -117,6 +119,8 @@ export function createReferralRepository(
                   channel: 'referral',
                   pool: 'bonus',
                   grantKind: 'referral',
+                  periodDelta: 0,
+                  bonusDelta: points,
                 },
               })
               .onConflictDoNothing()

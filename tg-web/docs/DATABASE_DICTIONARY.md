@@ -446,7 +446,7 @@ Clerk 用户对应的本地账户（偏好设置 + Stripe Customer 关联）。
 | `reference_type` | `text` | N | — | 外部引用类别（如 `analysis_job`、`stripe_invoice`、`signup_grant`） |
 | `reference_id` | `text` | N | — | 与 `reference_type` 对应的外部引用 ID |
 | `description` | `text` | N | — | 供 UI/审计阅读的说明 |
-| `metadata` | `jsonb` | N | `{}` | 额外结构化上下文 |
+| `metadata` | `jsonb` | N | `{}` | 额外结构化上下文；新写入含 `periodDelta` / `bonusDelta`（套餐/活动有符号变动），以及可选 `pool` |
 | `created_at` | `timestamptz` | N | `now()` | 入账时间 |
 
 **索引 / 约束**

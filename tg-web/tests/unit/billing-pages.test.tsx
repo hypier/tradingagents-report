@@ -159,28 +159,13 @@ it('shows subscription plans to an authenticated user', async () => {
   expect(
     await screen.findByRole('heading', { name: 'Pro' }),
   ).toBeInTheDocument();
-  expect(
-    screen.getByRole('link', { name: 'Subscription' }),
-  ).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Billable usage' })).toBeInTheDocument();
-  expect(screen.queryByRole('link', { name: 'Invoices' })).toBeNull();
+  expect(screen.getByRole('link', { name: 'Subscription' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Invoices' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Usage' })).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Payment settings' })).toBeNull();
 });
 
-it('shows invoices on the subscription page', async () => {
-  render(
-    <MemoryRouter initialEntries={['/billing/subscription']}>
-      <App />
-    </MemoryRouter>,
-  );
-
-  expect(
-    await screen.findByRole('heading', { name: 'Subscription' }),
-  ).toBeInTheDocument();
-  expect(await screen.findByText('INV-001')).toBeInTheDocument();
-});
-
-it('redirects the legacy invoices route to subscription', async () => {
+it('shows invoices on the invoices page', async () => {
   render(
     <MemoryRouter initialEntries={['/billing/invoices']}>
       <App />
@@ -188,12 +173,12 @@ it('redirects the legacy invoices route to subscription', async () => {
   );
 
   expect(
-    await screen.findByRole('heading', { name: 'Subscription' }),
+    await screen.findByRole('heading', { name: 'Invoices' }),
   ).toBeInTheDocument();
   expect(await screen.findByText('INV-001')).toBeInTheDocument();
 });
 
-it('shows actual USD cost and final points in credit activity', async () => {
+it('shows plan and reward deltas for consumption', async () => {
   billing.getBillingOverview.mockResolvedValue({
     data: {
       configured: true,
@@ -211,17 +196,22 @@ it('shows actual USD cost and final points in credit activity', async () => {
           {
             id: 'entry-1',
             entryType: 'consume',
-            availableDelta: 118,
-            reservedDelta: -132,
+            availableDelta: -14,
+            reservedDelta: 0,
             spentDelta: 14,
             description: 'Analysis credit consumed',
             referenceType: 'analysis_job',
             referenceId: 'job-1',
             metadata: {
-              actualCostUsd: '0.123',
-              estimatedCostUsd: '1.00000000',
-              reservedPoints: 132,
-              finalPoints: 14,
+              periodDelta: -10,
+              bonusDelta: -4,
+            },
+            analysisReport: {
+              id: 'job-1',
+              ticker: 'AAPL',
+              displayName: 'Apple Inc.',
+              displayTicker: 'AAPL',
+              tradeDate: '2026-07-19',
             },
             createdAt: new Date('2026-07-20T00:00:00Z'),
           },
@@ -237,8 +227,16 @@ it('shows actual USD cost and final points in credit activity', async () => {
     </MemoryRouter>,
   );
 
-  expect(await screen.findByText('$0.123')).toBeInTheDocument();
-  expect(screen.getByText('14 points')).toBeInTheDocument();
+  expect(await screen.findByText('Analysis usage')).toBeInTheDocument();
+  expect(screen.queryByText('$0.123')).toBeNull();
+  expect(screen.queryByText('14 points')).toBeNull();
+  expect(screen.getByText('-10')).toBeInTheDocument();
+  expect(screen.getByText('-4')).toBeInTheDocument();
+  expect(screen.getAllByText('Plan').length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText('Reward').length).toBeGreaterThanOrEqual(1);
+  expect(
+    screen.getByRole('link', { name: 'Apple Inc. (AAPL) · 2026-07-19' }),
+  ).toHaveAttribute('href', '/reports/job-1');
 });
 
 it('localizes signup and referral credit activity', async () => {
@@ -267,6 +265,7 @@ it('localizes signup and referral credit activity', async () => {
             reservedDelta: 0,
             spentDelta: 0,
             metadata: {},
+            analysisReport: null,
             createdAt: new Date('2026-07-21T00:00:00Z'),
           },
           {
@@ -279,6 +278,7 @@ it('localizes signup and referral credit activity', async () => {
             reservedDelta: 0,
             spentDelta: 0,
             metadata: {},
+            analysisReport: null,
             createdAt: new Date('2026-07-21T00:00:00Z'),
           },
         ],

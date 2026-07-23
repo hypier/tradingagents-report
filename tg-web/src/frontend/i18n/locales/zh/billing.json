@@ -4,11 +4,11 @@
   "subtitle": "订阅、用量与发票",
   "pages": {
     "subscription": {
-      "heading": "订阅功能",
-      "subtitle": "套餐、续订、Portal 与账单"
+      "heading": "订阅",
+      "subtitle": "套餐、续订与 Stripe 门户"
     },
     "usage": {
-      "heading": "计费用量",
+      "heading": "用量",
       "subtitle": "余额与额度流水"
     },
     "invoices": {
@@ -28,17 +28,20 @@
   "portalError": "无法打开账单门户。",
   "usage": {
     "title": "用量概览",
-    "description": "套餐积分按计费周期清零重发；活动奖励跨周期保留。消费时先扣套餐积分。",
+    "description": "套餐账户按计费周期清零重发；奖励账户跨周期保留。消费时先扣套餐账户。",
     "available": "可用总额",
-    "period": "本周期套餐",
-    "bonus": "活动奖励",
+    "availableHelp": "套餐账户与奖励账户之和",
+    "period": "套餐账户",
+    "bonus": "奖励账户",
     "reserved": "预留",
     "consumed": "已消耗",
+    "consumedHelp": "累计已用于分析的积分",
     "cycleEnds": "周期结束",
     "splitTitle": "两类积分",
-    "splitBody": "分析扣费时优先消耗套餐积分，不足再扣活动奖励。",
-    "periodHelp": "订阅发放的积分。续费或订阅终止时未用部分清零。",
-    "bonusHelp": "注册赠送、邀请奖励、管理员调整等。跨周期保留，退款不回收。",
+    "splitBody": "分析扣费时优先消耗套餐账户，不足再扣奖励账户。",
+    "periodHelp": "订阅发放。周期结束未用部分清零。",
+    "periodHelpDated": "订阅发放。{{date}} 前未用清零。",
+    "bonusHelp": "注册、邀请、管理员发放等。长期有效，跨周期保留。",
     "emptyTitle": "暂无用量数据",
     "emptyBody": "登录并同步账户后即可查看积分余额。"
   },
@@ -112,20 +115,28 @@
   },
   "ledger": {
     "title": "额度明细",
-    "description": "发放、清零、回收与消费记录",
-    "date": "日期",
-    "activity": "活动",
-    "pool": "积分池",
+    "cycleTitle": "本周期明细",
+    "description": "最近的发放、消费与调整",
+    "cycleDescription": "{{start}} - {{end}}",
+    "date": "时间",
+    "type": "类型",
+    "account": "账户",
+    "activity": "说明",
+    "report": "报告",
     "poolPeriod": "套餐",
-    "poolBonus": "活动奖励",
+    "poolBonus": "奖励",
+    "change": "变动",
     "reference": "关联",
     "available": "可用变动",
     "spent": "已消费",
-    "actualCost": "AI 实际成本",
-    "finalPoints": "{{count}} 积分",
     "signupGrant": "新用户注册赠送",
     "referralReward": "邀请注册奖励",
-    "expire": "套餐积分清零",
+    "analysisConsume": "分析用量",
+    "adminAdjustment": "管理员调整",
+    "genericGrant": "积分发放",
+    "periodGrant": "套餐账户发放",
+    "bonusGrant": "奖励账户发放",
+    "expire": "套餐账户清零",
     "clawback": "退款/争议回收",
     "createGrant": "首订发放套餐积分",
     "cycleGrant": "续费发放套餐积分",
@@ -140,8 +151,8 @@
       "release": "释放"
     },
     "reserved": "预留变动",
-    "emptyTitle": "暂无额度活动",
-    "emptyBody": "周期发放与分析用量将显示在这里。"
+    "emptyTitle": "本周期暂无明细",
+    "emptyBody": "当前计费周期内的发放与分析用量会显示在这里。"
   },
   "invoices": {
     "title": "发票",

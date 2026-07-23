@@ -506,15 +506,31 @@ class _SettlementCursor:
 
 
 class _SettlementConnection:
-    def __init__(self, job, *, ledger_inserted=True):
+    def __init__(
+        self,
+        job,
+        *,
+        ledger_inserted=True,
+        period_credits=10_000,
+        bonus_credits=0,
+    ):
         self.job = job
         self.ledger_inserted = ledger_inserted
+        self.period_credits = period_credits
+        self.bonus_credits = bonus_credits
         self.executed = []
 
     def execute(self, sql, params=()):
         self.executed.append((sql, params))
         if "FROM analysis_jobs" in sql and "SELECT" in sql and "FOR UPDATE" in sql:
             return _SettlementCursor(self.job)
+        if "FROM credit_accounts" in sql and "SELECT" in sql:
+            return _SettlementCursor(
+                {
+                    "period_credits": self.period_credits,
+                    "bonus_credits": self.bonus_credits,
+                }
+            )
         if "INSERT INTO credit_ledger_entries" in sql:
             return _SettlementCursor({"id": "entry-1"} if self.ledger_inserted else None)
         if "UPDATE credit_accounts" in sql:
@@ -587,6 +603,33 @@ def test_settle_analysis_credits_uses_actual_cost(actual_cost_usd, settled_units
     assert ledger_params[3] == "analysis:00000000-0000-4000-8000-000000000011:consume"
     assert ledger_params[-1].obj["actualCostUsd"] == str(actual_cost_usd)
     assert ledger_params[-1].obj["finalPoints"] == settled_units
+    assert ledger_params[-1].obj["periodDelta"] == -settled_units
+    assert ledger_params[-1].obj["bonusDelta"] == 0
+
+
+def test_settle_analysis_credits_splits_period_then_bonus():
+    connection = _SettlementConnection(
+        _product_job(),
+        period_credits=5,
+        bonus_credits=100,
+    )
+
+    analysis_jobs._settle_analysis_credits(
+        connection,
+        job_id=UUID("00000000-0000-4000-8000-000000000011"),
+        billable=True,
+        actual_cost_usd=Decimal("0.123"),
+        reason="analysis_succeeded",
+    )
+
+    ledger_params = next(
+        params
+        for sql, params in connection.executed
+        if "INSERT INTO credit_ledger_entries" in sql
+    )
+    assert ledger_params[-1].obj["finalPoints"] == 14
+    assert ledger_params[-1].obj["periodDelta"] == -5
+    assert ledger_params[-1].obj["bonusDelta"] == -9
 
 
 def test_settle_analysis_credits_skips_when_not_billable():

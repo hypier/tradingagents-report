@@ -17,6 +17,7 @@ import { AdminMarketsPage } from '../pages/admin-markets-page';
 import { AdminAuditPage } from '../pages/admin-audit-page';
 import { SubscriptionPage } from '../pages/subscription-page';
 import { UsagePage } from '../pages/usage-page';
+import { InvoicesPage } from '../pages/invoices-page';
 import { AccountPage } from '../pages/account-page';
 import { LegalPage } from '../pages/legal-page';
 import { WatchlistPage } from '../pages/watchlist-page';
@@ -54,13 +55,8 @@ export function AppRouter() {
         element={<Navigate replace to="/billing/subscription" />}
       />
       <Route path="/billing/subscription" element={<SubscriptionPage />} />
+      <Route path="/billing/invoices" element={<InvoicesPage />} />
       <Route path="/billing/usage" element={<UsagePage />} />
-      <Route
-        path="/billing/invoices"
-        element={
-          <Navigate replace to="/billing/subscription?tab=invoices" />
-        }
-      />
       <Route path="/account" element={<AccountPage />} />
       <Route path="/legal/:document" element={<LegalPage />} />
       <Route

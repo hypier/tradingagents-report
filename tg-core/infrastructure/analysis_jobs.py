@@ -409,6 +409,22 @@ def _settle_analysis_credits(
     if settled_units <= 0:
         return
 
+    account = conn.execute(
+        """
+        SELECT period_credits, bonus_credits
+        FROM credit_accounts
+        WHERE clerk_user_id = %s
+        FOR UPDATE
+        """,
+        (clerk_user_id,),
+    ).fetchone()
+    if account is None:
+        raise RuntimeError(f"credit account is missing for analysis job {job_id}")
+
+    period_credits = int(account.get("period_credits") or 0)
+    period_spent = min(period_credits, settled_units)
+    bonus_spent = settled_units - period_spent
+
     idempotency_key = f"analysis:{job_id}:consume"
     entry = conn.execute(
         """
@@ -432,6 +448,8 @@ def _settle_analysis_credits(
                     "reason": reason,
                     "actualCostUsd": str(actual_cost_usd),
                     "finalPoints": settled_units,
+                    "periodDelta": -period_spent,
+                    "bonusDelta": -bonus_spent,
                     "pointsPerUsd": pricing_snapshot.get("points_per_usd"),
                     "markupBasisPoints": pricing_snapshot.get(
                         "markup_basis_points"
@@ -448,7 +466,7 @@ def _settle_analysis_credits(
 
     # Spend period_credits first, then bonus_credits; keep available in sync.
     # RHS expressions use pre-update column values (PostgreSQL UPDATE semantics).
-    account = conn.execute(
+    updated = conn.execute(
         """
         UPDATE credit_accounts
         SET
@@ -475,7 +493,7 @@ def _settle_analysis_credits(
             clerk_user_id,
         ),
     ).fetchone()
-    if account is None:
+    if updated is None:
         raise RuntimeError(f"credit account is missing for analysis job {job_id}")
 
 

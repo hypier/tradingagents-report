@@ -24,6 +24,7 @@ function headerTitleKey(pathname: string) {
   if (pathname === '/admin' || pathname.startsWith('/admin/'))
     return 'header.adminOverview' as const;
   if (pathname.startsWith('/billing/usage')) return 'header.usage' as const;
+  if (pathname.startsWith('/billing/invoices')) return 'header.invoices' as const;
   if (pathname.startsWith('/billing')) return 'header.subscription' as const;
   if (pathname.startsWith('/account')) return 'header.account' as const;
   if (pathname.startsWith('/legal')) return 'header.legal' as const;

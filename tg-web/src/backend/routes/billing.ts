@@ -5,6 +5,7 @@ import { apiSuccess } from '../../shared/contracts';
 import { PRODUCT_MARKET_CODES } from '../../shared/product-markets';
 import type { AppDependencies, AppEnvironment } from '../app';
 import { BillingServiceError } from '../billing/contract';
+import { toPublicLedgerEntry } from '../billing/ledger-public';
 import { AppError } from '../errors/app-error';
 
 const checkoutSchema = z.object({
@@ -89,7 +90,9 @@ export function billingRoutes(dependencies: AppDependencies) {
           localCustomerId ?? identity.stripeCustomerId,
         ),
       ),
-      dependencies.database.billing.getUsage(session.userId),
+      dependencies.database.billing.getUsage(session.userId, {
+        currentPeriodOnly: true,
+      }),
     ]);
     return context.json(
       apiSuccess(
@@ -101,6 +104,9 @@ export function billingRoutes(dependencies: AppDependencies) {
             bonusCredits: usage.bonusCredits,
             reservedCredits: usage.reservedCredits,
             spentCredits: usage.spentCredits,
+            periodStart: usage.periodStart
+              ? Math.floor(usage.periodStart.getTime() / 1000)
+              : null,
             periodEnd:
               usage.periodEnd
                 ? Math.floor(usage.periodEnd.getTime() / 1000)
@@ -109,7 +115,7 @@ export function billingRoutes(dependencies: AppDependencies) {
                       usage.subscription.currentPeriodEnd.getTime() / 1000,
                     )
                   : null,
-            ledger: usage.ledger,
+            ledger: usage.ledger.map(toPublicLedgerEntry),
           },
         },
         context.get('requestId'),
