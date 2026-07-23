@@ -1,7 +1,6 @@
 {
-  "intro": "A team of AI analysts works together — market, fundamentals, sentiment, and risk — so you can see one stock clearly.",
+  "intro": "A team of AI analysts works together to help you see one stock clearly.",
   "runAnalysis": "Run analysis",
   "browseQuotes": "Browse quotes",
-  "hint": "Use the sidebar to open tasks, reports, and more.",
   "disclaimer": "For research reference only. No trades are executed."
 }

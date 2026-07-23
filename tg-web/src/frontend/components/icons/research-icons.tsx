@@ -48,53 +48,115 @@ export function getStageIcon(key: string): LucideIcon {
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 32 32"
+      viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       aria-hidden="true"
     >
-      {/* Sharp pit tile — Signal Floor rectangular chrome */}
-      <rect width="32" height="32" rx="2" fill="currentColor" />
+      {/* Pit tile */}
+      <rect width="48" height="48" rx="3" fill="currentColor" />
+      {/* Double wire rim */}
       <rect
-        x="1"
-        y="1"
-        width="30"
-        height="30"
-        rx="1.5"
+        x="1.5"
+        y="1.5"
+        width="45"
+        height="45"
+        rx="2"
         stroke="#070a0e"
-        strokeOpacity="0.18"
-      />
-      {/* Ascending research bars */}
-      <rect
-        x="7"
-        y="18"
-        width="3.5"
-        height="7"
-        fill="#070a0e"
-        fillOpacity="0.42"
+        strokeOpacity="0.14"
+        strokeWidth="1"
       />
       <rect
-        x="14.25"
-        y="13"
-        width="3.5"
-        height="12"
-        fill="#070a0e"
-        fillOpacity="0.68"
+        x="4"
+        y="4"
+        width="40"
+        height="40"
+        rx="1"
+        stroke="#070a0e"
+        strokeOpacity="0.1"
+        strokeWidth="1"
       />
-      <rect x="21.5" y="8" width="3.5" height="17" fill="#070a0e" />
+
+      {/* Baseline */}
+      <path
+        d="M12 36.5H36"
+        stroke="#070a0e"
+        strokeOpacity="0.22"
+        strokeWidth="1"
+        strokeLinecap="square"
+      />
+      <path
+        d="M12 35.25V36.5M36 35.25V36.5"
+        stroke="#070a0e"
+        strokeOpacity="0.28"
+        strokeWidth="1"
+        strokeLinecap="square"
+      />
+
+      {/* Ascending research bars — optical spacing */}
+      <rect
+        x="13"
+        y="24"
+        width="5"
+        height="12.5"
+        fill="#070a0e"
+        fillOpacity="0.34"
+      />
+      <rect
+        x="21.5"
+        y="17.5"
+        width="5"
+        height="19"
+        fill="#070a0e"
+        fillOpacity="0.58"
+      />
+      <rect
+        x="30"
+        y="11"
+        width="5"
+        height="25.5"
+        fill="#070a0e"
+        fillOpacity="0.88"
+      />
+
+      {/* Thin wick caps (candlestick hint) */}
+      <path
+        d="M15.5 21.5V24M24 14.5V17.5M32.5 8V11"
+        stroke="#070a0e"
+        strokeOpacity="0.4"
+        strokeWidth="1"
+        strokeLinecap="square"
+      />
+
       {/* Live signal through agent nodes */}
       <path
-        d="M8.5 16.5h5.5L16.5 12.5 24 7"
+        d="M15.5 21.5L24 14.5L32.5 8"
         stroke="#070a0e"
         strokeOpacity="0.55"
-        strokeWidth="1.5"
+        strokeWidth="1.25"
         strokeLinecap="square"
         strokeLinejoin="miter"
       />
-      <rect x="7.4" y="15.4" width="2.2" height="2.2" fill="#070a0e" />
-      <rect x="15.4" y="11.4" width="2.2" height="2.2" fill="#070a0e" />
-      <rect x="22.9" y="5.9" width="2.2" height="2.2" fill="#070a0e" />
+      {/* Agent nodes */}
+      <rect
+        x="14.25"
+        y="20.25"
+        width="2.5"
+        height="2.5"
+        fill="#070a0e"
+      />
+      <rect x="22.75" y="13.25" width="2.5" height="2.5" fill="#070a0e" />
+      <rect x="31.25" y="6.75" width="2.5" height="2.5" fill="#070a0e" />
+      {/* Live tip */}
+      <rect
+        x="34.25"
+        y="5.25"
+        width="1.5"
+        height="1.5"
+        fill="#070a0e"
+        fillOpacity="0.7"
+      />
     </svg>
   );
 }
