@@ -20,6 +20,7 @@
     "modeAdmin": "Admin",
     "switchToAdmin": "Switch to admin",
     "switchToUser": "Back to research",
+    "home": "Home",
     "desk": "Desk",
     "tasks": "Tasks",
     "reports": "Reports",
@@ -48,6 +49,7 @@
     "adminLlmModels": "Models"
   },
   "header": {
+    "home": "Home",
     "desk": "Research desk",
     "tasks": "Task center",
     "reports": "Reports",

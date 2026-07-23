@@ -1,0 +1,74 @@
+{
+  "title": "Welcome back",
+  "titleNamed": "Welcome back, {{name}}",
+  "subtitle": "Jump into research, check credits, and pick up recent work.",
+  "runAnalysis": "Run analysis",
+  "viewTasks": "View tasks",
+  "stats": {
+    "credits": "Available credits",
+    "creditsHint": "Plan and reward balance combined",
+    "creditsUnavailable": "—",
+    "plan": "Plan",
+    "planNone": "No active plan",
+    "planHint": "Current subscription",
+    "activeJobs": "Active jobs",
+    "activeJobsHint": "Queued or running",
+    "watchlist": "Watchlist",
+    "watchlistHint": "Saved instruments"
+  },
+  "shortcuts": {
+    "title": "Workspace",
+    "description": "Common research and account destinations",
+    "desk": {
+      "title": "Research desk",
+      "body": "Compose and launch a multi-agent analysis"
+    },
+    "tasks": {
+      "title": "Task center",
+      "body": "Monitor queued and running jobs"
+    },
+    "reports": {
+      "title": "Reports",
+      "body": "Browse completed research reports"
+    },
+    "quotes": {
+      "title": "Market quotes",
+      "body": "Scan live prices across markets"
+    },
+    "watchlist": {
+      "title": "Watchlist",
+      "body": "Track your saved instruments"
+    },
+    "subscription": {
+      "title": "Subscription",
+      "body": "Review plan and billing status"
+    },
+    "usage": {
+      "title": "Usage",
+      "body": "Credits, period balance, and ledger"
+    },
+    "account": {
+      "title": "Account",
+      "body": "Profile, language, and research defaults"
+    }
+  },
+  "recent": {
+    "title": "Recent jobs",
+    "description": "Latest analysis runs",
+    "empty": "No analyses yet. Start one from the research desk.",
+    "viewAll": "All tasks",
+    "tradeDate": "Trade date {{date}}"
+  },
+  "prefs": {
+    "title": "Your defaults",
+    "description": "Applied when you start a new analysis",
+    "market": "Default market",
+    "timezone": "Timezone",
+    "reportLanguage": "Report language",
+    "edit": "Edit account"
+  },
+  "loadError": {
+    "title": "Unable to load welcome data",
+    "body": "Retry after checking the service connection."
+  }
+}

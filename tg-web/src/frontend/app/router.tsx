@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '../components/app-shell';
 import { HomePage } from '../pages/home-page';
 import { NotFoundPage } from '../pages/not-found-page';
+import { WelcomePage } from '../pages/welcome-page';
 import { ReportPage } from '../pages/report-page';
 import { ReportsPage } from '../pages/reports-page';
 import { AdminUsersPage } from '../pages/admin-users-page';
@@ -32,7 +33,8 @@ import { TasksPage } from '../pages/tasks-page';
 export function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<WelcomePage />} />
+      <Route path="/desk" element={<HomePage />} />
       <Route path="/tasks" element={<TasksPage />} />
       <Route path="/quotes" element={<QuotesPage />} />
       <Route path="/watchlist" element={<WatchlistPage />} />

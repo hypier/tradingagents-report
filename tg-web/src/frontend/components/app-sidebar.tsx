@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   CreditCard,
   FileText,
+  House,
   LayoutDashboard,
   ListChecks,
   ListTodo,
@@ -52,6 +53,7 @@ import { cn } from '@/frontend/lib/utils';
 
 type NavLeaf = {
   titleKey:
+    | 'nav.home'
     | 'nav.desk'
     | 'nav.tasks'
     | 'nav.reports'
@@ -97,7 +99,8 @@ type AdminNavSection = {
 };
 
 const researchNavigation: NavLeaf[] = [
-  { titleKey: 'nav.desk', icon: LayoutDashboard, href: '/' },
+  { titleKey: 'nav.home', icon: House, href: '/' },
+  { titleKey: 'nav.desk', icon: LayoutDashboard, href: '/desk' },
   { titleKey: 'nav.tasks', icon: ListTodo, href: '/tasks' },
   { titleKey: 'nav.reports', icon: FileText, href: '/reports' },
 ];
@@ -290,18 +293,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <Link to={isAdminMenu ? '/admin' : '/'}>
                 <BrandMark className="size-8 shrink-0 text-sidebar-primary transition-transform duration-200 group-hover/brand:scale-[1.03]" />
                 <span className="flex min-w-0 flex-col gap-1">
-                  <span className="truncate text-[15px] leading-none font-normal tracking-[-0.02em] text-sidebar-foreground">
-                    {t('brand.name')}
+                  <span className="truncate text-[15px] leading-none font-semibold tracking-[-0.02em]">
+                    <span className="text-sidebar-foreground">
+                      {t('brand.name')}
+                    </span>{' '}
+                    <span className="text-sidebar-primary">
+                      {t('brand.floorTag')}
+                    </span>
                   </span>
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] leading-none tracking-[0.2em] text-sidebar-primary uppercase">
-                    <span
-                      className="size-1 shrink-0 bg-sidebar-primary"
-                      aria-hidden="true"
-                    />
-                    {isAdminMenu
-                      ? t('brand.adminFloorTag')
-                      : t('brand.floorTag')}
-                  </span>
+                  {isAdminMenu ? (
+                    <span className="font-mono text-[10px] leading-none tracking-[0.18em] text-sidebar-primary/80 uppercase">
+                      {t('brand.adminFloorTag')}
+                    </span>
+                  ) : null}
                 </span>
               </Link>
             </SidebarMenuButton>

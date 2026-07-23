@@ -567,7 +567,9 @@ function WatchlistRow({
           </Link>
         </Button>
         <Button asChild size="sm">
-          <Link to={`/?symbol=${encodeURIComponent(item.providerSymbol)}`}>
+          <Link
+            to={`/desk?symbol=${encodeURIComponent(item.providerSymbol)}`}
+          >
             <Play data-icon="inline-start" />
             {t('actions.analyze')}
           </Link>

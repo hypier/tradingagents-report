@@ -41,12 +41,15 @@ function headerTitleKey(pathname: string) {
   if (pathname.startsWith('/quotes')) return 'header.quotes' as const;
   if (pathname.startsWith('/stocks/')) return 'header.stock' as const;
   if (pathname.startsWith('/tasks')) return 'header.tasks' as const;
-  return 'header.desk' as const;
+  if (pathname === '/') return 'header.home' as const;
+  if (pathname.startsWith('/desk')) return 'header.desk' as const;
+  return 'header.home' as const;
 }
 
 /** Pages that render their own PageHeader / ruled H1 — skip chrome title. */
 function pageOwnsTitle(pathname: string) {
   if (pathname === '/') return true;
+  if (pathname === '/desk') return true;
   if (pathname === '/tasks') return true;
   if (pathname === '/reports' || pathname.startsWith('/reports/')) return true;
   if (pathname === '/watchlist') return true;

@@ -314,7 +314,9 @@ export function StockPage() {
             <div className="flex flex-wrap gap-2">
               {analyzable ? (
                 <Button asChild size="sm">
-                  <Link to={`/?symbol=${encodeURIComponent(providerSymbol)}`}>
+                  <Link
+                    to={`/desk?symbol=${encodeURIComponent(providerSymbol)}`}
+                  >
                     <Play data-icon="inline-start" />
                     {t('actions.analyze')}
                   </Link>
