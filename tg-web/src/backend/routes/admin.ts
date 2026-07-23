@@ -231,7 +231,7 @@ export function adminRoutes(dependencies: AppDependencies) {
     } catch {
       throw new AppError('NOT_FOUND', 404, 'User not found');
     }
-    const [usage, jobs, profile] = await Promise.all([
+    const [usage, jobs, profile, referral] = await Promise.all([
       dependencies.database.billing.getUsage(userId),
       dependencies.database.analysisJobs.listForUser({
         clerkUserId: userId,
@@ -239,12 +239,14 @@ export function adminRoutes(dependencies: AppDependencies) {
         offset: 0,
       }),
       dependencies.database.account.getProfile(userId).catch(() => null),
+      dependencies.database.referrals.getSummary(userId).catch(() => null),
     ]);
     return context.json(
       apiSuccess(
         {
           user,
           profile,
+          referral,
           usage: {
             availableCredits: usage.availableCredits,
             periodCredits: usage.periodCredits,

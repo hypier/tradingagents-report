@@ -1,22 +1,22 @@
 {
   "users": {
     "title": "用户管理",
-    "heading": "用户与角色",
-    "description": "查看注册账号并授予管理员权限。",
+    "heading": "用户",
+    "subtitle": "查看注册账号、角色与积分余额。",
     "count": "{{count}} 位用户",
     "accessRequired": {
       "title": "需要管理员权限",
       "body": "当前账号没有管理用户的权限。"
     },
-    "searchLabel": "搜索用户",
     "searchPlaceholder": "姓名、邮箱或用户 ID",
-    "search": "搜索",
+    "filter": "筛选",
+    "roleAll": "全部角色",
+    "viewDetail": "详情",
     "loadError": {
       "title": "无法加载用户",
       "body": "请检查 Clerk 连接后重试。"
     },
-    "emptyTitle": "未找到用户",
-    "emptyBody": "请调整搜索条件后重试。",
+    "empty": "没有匹配的用户。",
     "columns": {
       "user": "用户",
       "email": "邮箱",
@@ -31,20 +31,6 @@
     "roleAria": "{{name}} 的角色",
     "roleUser": "用户",
     "roleAdmin": "管理员",
-    "credits": {
-      "title": "调整积分",
-      "description": "调整 {{name}} 的可用积分余额。",
-      "adjustAria": "调整 {{name}} 的积分",
-      "direction": "调整方向",
-      "increase": "增加",
-      "decrease": "扣减",
-      "points": "积分点数",
-      "note": "备注",
-      "balancePreview": "调整后余额：{{count}}",
-      "apply": "确认调整",
-      "updated": "积分余额已更新。",
-      "updateError": "无法更新积分余额。"
-    },
     "roleUpdated": "用户角色已更新。",
     "roleUpdateError": "无法更新用户角色。"
   },
@@ -455,6 +441,7 @@
   },
   "userDetail": {
     "title": "用户详情",
+    "heading": "用户详情",
     "back": "返回用户列表",
     "accessRequired": {
       "title": "需要管理员权限",
@@ -470,30 +457,44 @@
     "unban": "恢复账号",
     "banUpdated": "账号状态已更新。",
     "banError": "无法更新账号状态。",
-    "creditAdjusted": "额度已调整。",
-    "creditError": "无法调整额度。",
-    "credits": {
-      "title": "额度与订阅",
-      "description": "余额与管理员调整",
-      "available": "可用",
-      "reserved": "预留",
-      "spent": "已消费",
-      "subscription": "订阅",
-      "delta": "调整量（+/-）",
-      "reason": "原因（必填）",
-      "adjust": "调整额度"
+    "creditAdjusted": "积分已调整。",
+    "creditError": "无法调整积分。",
+    "creditInsufficient": "奖励积分不足，无法继续扣减。",
+    "sections": {
+      "profile": "基本信息",
+      "settings": "用户设置"
     },
-    "ledger": {
-      "title": "近期账本",
-      "type": "类型",
-      "delta": "变动",
-      "when": "时间"
-    },
-    "jobs": {
-      "title": "近期分析",
-      "ticker": "代码",
+    "fields": {
+      "userId": "用户 ID",
+      "email": "邮箱",
+      "registered": "注册时间",
       "status": "状态",
-      "created": "创建时间"
+      "role": "角色"
+    },
+    "credits": {
+      "title": "积分概览",
+      "subscription": "订阅",
+      "adjust": "积分调整",
+      "adjustDescription": "为 {{name}} 增加或减少奖励账户积分。",
+      "direction": "调整方向",
+      "increase": "增加",
+      "decrease": "扣减",
+      "points": "积分点数",
+      "reason": "备注（必填）",
+      "reasonPlaceholder": "例如：活动奖励、补偿、纠错",
+      "bonusPreview": "奖励额度：{{current}} → {{next}}",
+      "cancel": "取消",
+      "apply": "确认调整"
+    },
+    "related": {
+      "openCredits": "积分明细",
+      "openAnalyses": "分析任务"
+    },
+    "preferences": {
+      "empty": "该用户尚未同步研究偏好。"
+    },
+    "referral": {
+      "empty": "暂无邀请数据。"
     }
   },
   "llmProviders": {

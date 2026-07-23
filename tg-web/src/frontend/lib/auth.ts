@@ -1,4 +1,8 @@
 import type {
+  AccountProfile,
+  ReferralSummary,
+} from '@/backend/account/contract';
+import type {
   AuthUser,
   ManagedUser,
   ManagedUserPage,
@@ -32,10 +36,17 @@ export type AdminOverview = AdminOverviewMetrics & {
 
 export type AdminUserDetail = {
   user: ManagedUser;
-  profile: unknown;
+  profile: AccountProfile | null;
+  referral: ReferralSummary | null;
   usage: Pick<
     CreditUsage,
-    'availableCredits' | 'reservedCredits' | 'spentCredits' | 'subscription'
+    | 'availableCredits'
+    | 'periodCredits'
+    | 'bonusCredits'
+    | 'reservedCredits'
+    | 'spentCredits'
+    | 'periodEnd'
+    | 'subscription'
   > & {
     ledger: CreditUsage['ledger'];
   };

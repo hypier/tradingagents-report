@@ -93,7 +93,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it('shows user management navigation and role controls to administrators', async () => {
+it('shows user management navigation and detail actions to administrators', async () => {
   render(
     <MemoryRouter initialEntries={['/admin/users']}>
       <App />
@@ -104,15 +104,10 @@ it('shows user management navigation and role controls to administrators', async
     screen.getByRole('link', { name: 'User management' }),
   ).toBeInTheDocument();
   expect(
-    await screen.findByRole('heading', { name: 'Users and roles' }),
+    await screen.findByRole('heading', { name: 'Users' }),
   ).toBeInTheDocument();
   expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
-  expect(
-    screen.getByRole('combobox', { name: 'Role for Ada Lovelace' }),
-  ).toBeEnabled();
-  expect(
-    screen.getByRole('combobox', { name: 'Role for Admin User' }),
-  ).toBeDisabled();
+  expect(screen.getAllByRole('link', { name: 'Detail' })).toHaveLength(2);
 });
 
 it('shows available credits for each user', async () => {

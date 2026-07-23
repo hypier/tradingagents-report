@@ -1,22 +1,22 @@
 {
   "users": {
     "title": "User management",
-    "heading": "Users and roles",
-    "description": "Review registered accounts and grant administrator access.",
+    "heading": "Users",
+    "subtitle": "Review registered accounts, roles, and credit balances.",
     "count": "{{count}} users",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage users."
     },
-    "searchLabel": "Search users",
     "searchPlaceholder": "Name, email, or user ID",
-    "search": "Search",
+    "filter": "Filter",
+    "roleAll": "All roles",
+    "viewDetail": "Detail",
     "loadError": {
       "title": "Unable to load users",
       "body": "Check the Clerk connection and retry."
     },
-    "emptyTitle": "No users found",
-    "emptyBody": "Adjust the search and try again.",
+    "empty": "No users match the current filters.",
     "columns": {
       "user": "User",
       "email": "Email",
@@ -31,20 +31,6 @@
     "roleAria": "Role for {{name}}",
     "roleUser": "User",
     "roleAdmin": "Admin",
-    "credits": {
-      "title": "Adjust credits",
-      "description": "Change the available credit balance for {{name}}.",
-      "adjustAria": "Adjust credits for {{name}}",
-      "direction": "Direction",
-      "increase": "Increase",
-      "decrease": "Decrease",
-      "points": "Points",
-      "note": "Note",
-      "balancePreview": "Balance after adjustment: {{count}}",
-      "apply": "Apply adjustment",
-      "updated": "Credit balance updated.",
-      "updateError": "Unable to update the credit balance."
-    },
     "roleUpdated": "User role updated.",
     "roleUpdateError": "Unable to update the user role."
   },
@@ -455,6 +441,7 @@
   },
   "userDetail": {
     "title": "User detail",
+    "heading": "User detail",
     "back": "Back to users",
     "accessRequired": {
       "title": "Administrator access required",
@@ -472,28 +459,42 @@
     "banError": "Unable to update account status.",
     "creditAdjusted": "Credits adjusted.",
     "creditError": "Unable to adjust credits.",
-    "credits": {
-      "title": "Credits and subscription",
-      "description": "Balances and admin adjustment",
-      "available": "Available",
-      "reserved": "Reserved",
-      "spent": "Spent",
-      "subscription": "Subscription",
-      "delta": "Delta (+/-)",
-      "reason": "Reason (required)",
-      "adjust": "Adjust credits"
+    "creditInsufficient": "Not enough bonus credits to decrease further.",
+    "sections": {
+      "profile": "Profile",
+      "settings": "Settings"
     },
-    "ledger": {
-      "title": "Recent ledger",
-      "type": "Type",
-      "delta": "Delta",
-      "when": "When"
-    },
-    "jobs": {
-      "title": "Recent analyses",
-      "ticker": "Ticker",
+    "fields": {
+      "userId": "User ID",
+      "email": "Email",
+      "registered": "Registered",
       "status": "Status",
-      "created": "Created"
+      "role": "Role"
+    },
+    "credits": {
+      "title": "Credits overview",
+      "subscription": "Subscription",
+      "adjust": "Adjust credits",
+      "adjustDescription": "Increase or decrease bonus credits for {{name}}.",
+      "direction": "Direction",
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "points": "Points",
+      "reason": "Note (required)",
+      "reasonPlaceholder": "e.g. campaign reward, compensation, correction",
+      "bonusPreview": "Bonus credits: {{current}} → {{next}}",
+      "cancel": "Cancel",
+      "apply": "Apply"
+    },
+    "related": {
+      "openCredits": "Credit ledger",
+      "openAnalyses": "Analyses"
+    },
+    "preferences": {
+      "empty": "This user has no synced research preferences yet."
+    },
+    "referral": {
+      "empty": "No referral data available."
     }
   },
   "llmProviders": {
