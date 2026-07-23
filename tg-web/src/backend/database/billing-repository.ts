@@ -118,6 +118,26 @@ export interface BillingRepository {
     from?: Date;
     to?: Date;
   }): Promise<StripeWebhookEventsSummary>;
+  listLedgerForAdmin(input: {
+    clerkUserId?: string;
+    entryType?: CreditUsage['ledger'][number]['entryType'];
+    referenceType?: string;
+    referenceId?: string;
+    limit: number;
+    offset: number;
+  }): Promise<
+    Array<
+      typeof schema.creditLedgerEntries.$inferSelect & {
+        analysisReport: LedgerAnalysisReport | null;
+      }
+    >
+  >;
+  getLedgerEntryForAdmin(entryId: string): Promise<
+    | (typeof schema.creditLedgerEntries.$inferSelect & {
+        analysisReport: LedgerAnalysisReport | null;
+      })
+    | null
+  >;
 }
 
 export class BillingRepositoryError extends Error {
@@ -651,9 +671,111 @@ export function createBillingRepository(database: Database): BillingRepository {
       }
       return summary;
     },
+
+    async listLedgerForAdmin(input) {
+      const conditions = [];
+      if (input.clerkUserId) {
+        conditions.push(
+          eq(schema.creditLedgerEntries.clerkUserId, input.clerkUserId),
+        );
+      }
+      if (input.entryType) {
+        conditions.push(
+          eq(schema.creditLedgerEntries.entryType, input.entryType),
+        );
+      }
+      if (input.referenceType) {
+        conditions.push(
+          eq(schema.creditLedgerEntries.referenceType, input.referenceType),
+        );
+      }
+      if (input.referenceId) {
+        conditions.push(
+          eq(schema.creditLedgerEntries.referenceId, input.referenceId),
+        );
+      }
+
+      const ledgerRows = await database
+        .select()
+        .from(schema.creditLedgerEntries)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(schema.creditLedgerEntries.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      return attachAnalysisReportsToLedger(database, ledgerRows);
+    },
+
+    async getLedgerEntryForAdmin(entryId) {
+      const [entry] = await database
+        .select()
+        .from(schema.creditLedgerEntries)
+        .where(eq(schema.creditLedgerEntries.id, entryId))
+        .limit(1);
+      if (!entry) return null;
+      const [enriched] = await attachAnalysisReportsToLedger(database, [entry]);
+      return enriched ?? null;
+    },
   };
 }
 
+async function attachAnalysisReportsToLedger(
+  database: QueryDatabase,
+  ledgerRows: Array<typeof schema.creditLedgerEntries.$inferSelect>,
+) {
+  const analysisJobIds = [
+    ...new Set(
+      ledgerRows
+        .filter((entry) => entry.referenceType === 'analysis_job')
+        .map((entry) => entry.referenceId)
+        .filter(Boolean),
+    ),
+  ];
+  const analysisJobs =
+    analysisJobIds.length === 0
+      ? []
+      : await database
+          .select({
+            id: schema.analysisJobs.id,
+            ticker: schema.analysisJobs.ticker,
+            tradeDate: schema.analysisJobs.tradeDate,
+            display: schema.analysisJobs.display,
+            clerkUserId: schema.analysisJobs.clerkUserId,
+          })
+          .from(schema.analysisJobs)
+          .where(inArray(schema.analysisJobs.id, analysisJobIds));
+
+  const reportsById = new Map(
+    analysisJobs.map((job) => {
+      const display = job.display ?? {};
+      const displayName =
+        typeof display.display_name === 'string' && display.display_name.trim()
+          ? display.display_name.trim()
+          : null;
+      const displayTicker =
+        typeof display.display_ticker === 'string' &&
+        display.display_ticker.trim()
+          ? display.display_ticker.trim()
+          : null;
+      const report: LedgerAnalysisReport = {
+        id: job.id,
+        ticker: job.ticker,
+        displayName,
+        displayTicker,
+        tradeDate: String(job.tradeDate),
+      };
+      return [job.id, report] as const;
+    }),
+  );
+
+  return ledgerRows.map((entry) => ({
+    ...entry,
+    analysisReport:
+      entry.referenceType === 'analysis_job'
+        ? (reportsById.get(entry.referenceId) ?? null)
+        : null,
+  }));
+}
 
 /** 将 Stripe 的 unix 秒转为 Date；null 保持 null。 */
 function fromUnix(value: number | null): Date | null {

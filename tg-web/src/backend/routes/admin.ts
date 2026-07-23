@@ -49,6 +49,25 @@ const listAnalysesSchema = z.object({
   clerkUserId: z.string().trim().min(1).optional(),
 });
 
+const listLedgerSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  clerkUserId: z.string().trim().min(1).optional(),
+  entryType: z
+    .enum([
+      'grant',
+      'reserve',
+      'consume',
+      'release',
+      'adjustment',
+      'expire',
+      'clawback',
+    ])
+    .optional(),
+  referenceType: z.string().trim().min(1).max(64).optional(),
+  referenceId: z.string().trim().min(1).max(128).optional(),
+});
+
 const overviewSchema = z.object({
   days: z.coerce.number().int().min(1).max(90).default(30),
 });
@@ -240,6 +259,7 @@ export function adminRoutes(dependencies: AppDependencies) {
             toPublicJob(row.job, {
               clerkUserId: userId,
               creditUnits: row.creditUnits,
+              creditLedgerEntryId: row.creditLedgerEntryId,
             }),
           ),
         },
@@ -406,9 +426,47 @@ export function adminRoutes(dependencies: AppDependencies) {
           toPublicJob(row.job, {
             clerkUserId: row.clerkUserId,
             creditUnits: row.creditUnits,
+            creditLedgerEntryId: row.creditLedgerEntryId,
             user: profiles.get(row.clerkUserId) ?? null,
           }),
         ),
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.get('/admin/credits/ledger', async (context) => {
+    const input = listLedgerSchema.safeParse(context.req.query());
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid credit ledger query');
+    }
+    const rows = await dependencies.database.billing.listLedgerForAdmin(
+      input.data,
+    );
+    const profiles = await dependencies.database.account.listProfilesByIds(
+      rows.map((row) => row.clerkUserId),
+    );
+    return context.json(
+      apiSuccess(
+        rows.map((row) => toAdminLedgerEntry(row, profiles.get(row.clerkUserId))),
+        context.get('requestId'),
+      ),
+    );
+  });
+
+  app.get('/admin/credits/ledger/:id', async (context) => {
+    const entryId = context.req.param('id');
+    const entry =
+      await dependencies.database.billing.getLedgerEntryForAdmin(entryId);
+    if (!entry) {
+      throw new AppError('NOT_FOUND', 404, 'Credit ledger entry not found');
+    }
+    const profiles = await dependencies.database.account.listProfilesByIds([
+      entry.clerkUserId,
+    ]);
+    return context.json(
+      apiSuccess(
+        toAdminLedgerEntry(entry, profiles.get(entry.clerkUserId)),
         context.get('requestId'),
       ),
     );
@@ -428,11 +486,13 @@ export function adminRoutes(dependencies: AppDependencies) {
       : new Map();
     const creditByJobId =
       await dependencies.database.analysisJobs.getCreditUnitsByJobIds([jobId]);
+    const credit = creditByJobId.get(jobId);
     return context.json(
       apiSuccess(
         toAdminJobDetail(job, {
           clerkUserId: ownerId ?? undefined,
-          creditUnits: creditByJobId.get(jobId) ?? null,
+          creditUnits: credit?.units ?? null,
+          creditLedgerEntryId: credit?.entryId ?? null,
           user: ownerId ? (profiles.get(ownerId) ?? null) : null,
         }),
         context.get('requestId'),
@@ -582,6 +642,7 @@ function toPublicJob(
   extras: {
     clerkUserId?: string;
     creditUnits: number | null;
+    creditLedgerEntryId?: string | null;
     user?: { displayName: string; avatarUrl: string; email: string | null } | null;
   },
 ) {
@@ -615,6 +676,9 @@ function toPublicJob(
     started_at: job.startedAt,
     finished_at: job.finishedAt,
     credit_units: extras.creditUnits,
+    ...(extras.creditLedgerEntryId
+      ? { credit_ledger_entry_id: extras.creditLedgerEntryId }
+      : {}),
     ...(extras.clerkUserId ? { clerk_user_id: extras.clerkUserId } : {}),
     ...(extras.user
       ? {
@@ -634,6 +698,7 @@ function toAdminJobDetail(
   extras: {
     clerkUserId?: string;
     creditUnits: number | null;
+    creditLedgerEntryId?: string | null;
     user?: { displayName: string; avatarUrl: string; email: string | null } | null;
   },
 ) {
@@ -649,6 +714,64 @@ function toAdminJobDetail(
     request,
     config,
     events: Array.isArray(job.events) ? job.events : [],
+  };
+}
+
+function toAdminLedgerEntry(
+  entry: {
+    id: string;
+    clerkUserId: string;
+    entryType: string;
+    availableDelta: number;
+    reservedDelta: number;
+    spentDelta: number;
+    idempotencyKey: string;
+    referenceType: string;
+    referenceId: string;
+    description: string;
+    metadata: Record<string, unknown>;
+    createdAt: Date;
+    analysisReport?: {
+      id: string;
+      ticker: string;
+      displayName: string | null;
+      displayTicker: string | null;
+      tradeDate: string;
+    } | null;
+  },
+  user?: { displayName: string; avatarUrl: string; email: string | null } | null,
+) {
+  return {
+    id: entry.id,
+    clerk_user_id: entry.clerkUserId,
+    entry_type: entry.entryType,
+    available_delta: entry.availableDelta,
+    reserved_delta: entry.reservedDelta,
+    spent_delta: entry.spentDelta,
+    idempotency_key: entry.idempotencyKey,
+    reference_type: entry.referenceType,
+    reference_id: entry.referenceId,
+    description: entry.description,
+    metadata: entry.metadata ?? {},
+    created_at: entry.createdAt,
+    analysis_report: entry.analysisReport
+      ? {
+          id: entry.analysisReport.id,
+          ticker: entry.analysisReport.ticker,
+          display_name: entry.analysisReport.displayName,
+          display_ticker: entry.analysisReport.displayTicker,
+          trade_date: entry.analysisReport.tradeDate,
+        }
+      : null,
+    ...(user
+      ? {
+          user: {
+            display_name: user.displayName,
+            image_url: user.avatarUrl,
+            email: user.email,
+          },
+        }
+      : {}),
   };
 }
 

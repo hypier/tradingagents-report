@@ -134,6 +134,8 @@ function fakeDependencies(
           ignored: 0,
           processing: 0,
         }),
+        listLedgerForAdmin: vi.fn().mockResolvedValue([]),
+        getLedgerEntryForAdmin: vi.fn().mockResolvedValue(null),
       },
       referrals: {
         isValidCode: vi.fn().mockResolvedValue(true),
@@ -2020,6 +2022,15 @@ describe('createApp', () => {
           assertCanStartAnalysis: vi.fn(),
           processStripeEvent: vi.fn(),
           recordStripeFailure: vi.fn(),
+          listStripeWebhookEvents: vi.fn().mockResolvedValue([]),
+          summarizeStripeWebhookEvents: vi.fn().mockResolvedValue({
+            processed: 0,
+            failed: 0,
+            ignored: 0,
+            processing: 0,
+          }),
+          listLedgerForAdmin: vi.fn().mockResolvedValue([]),
+          getLedgerEntryForAdmin: vi.fn().mockResolvedValue(null),
         },
         referrals: {
           isValidCode: vi.fn(),

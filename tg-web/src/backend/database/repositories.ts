@@ -56,12 +56,15 @@ export type UserAnalysisListItem = {
   job: AnalysisJob;
   /** Consumed credit points from ledger; null when not charged yet. */
   creditUnits: number | null;
+  /** Ledger consume entry id when charged. */
+  creditLedgerEntryId: string | null;
 };
 
 export type AdminAnalysisListItem = {
   job: AnalysisJob;
   clerkUserId: string;
   creditUnits: number | null;
+  creditLedgerEntryId: string | null;
 };
 
 export type AdminOverviewMetrics = {
@@ -125,7 +128,9 @@ export type AnalysisJobsRepository = {
   getOwner(analysisJobId: string): Promise<string | null>;
   ownsJob(clerkUserId: string, analysisJobId: string): Promise<boolean>;
   /** Consumed credit points for analysis jobs (ledger consume entries). */
-  getCreditUnitsByJobIds(jobIds: string[]): Promise<Map<string, number>>;
+  getCreditUnitsByJobIds(
+    jobIds: string[],
+  ): Promise<Map<string, { units: number; entryId: string }>>;
   getAdminOverview(input: { from: Date; to: Date }): Promise<AdminOverviewMetrics>;
 };
 
@@ -135,13 +140,14 @@ type Database = NodePgDatabase<typeof schema>;
 async function loadAnalysisCreditUnitsByJobIds(
   database: Database,
   jobIds: string[],
-): Promise<Map<string, number>> {
+): Promise<Map<string, { units: number; entryId: string }>> {
   const unique = [...new Set(jobIds.filter(Boolean))];
-  const result = new Map<string, number>();
+  const result = new Map<string, { units: number; entryId: string }>();
   if (unique.length === 0) return result;
 
   const rows = await database
     .select({
+      id: schema.creditLedgerEntries.id,
       referenceId: schema.creditLedgerEntries.referenceId,
       spentDelta: schema.creditLedgerEntries.spentDelta,
       availableDelta: schema.creditLedgerEntries.availableDelta,
@@ -175,7 +181,7 @@ async function loadAnalysisCreditUnitsByJobIds(
         : null;
     const units = fromMeta ?? fromSpent ?? fromAvailable;
     if (units != null && units > 0) {
-      result.set(row.referenceId, units);
+      result.set(row.referenceId, { units, entryId: row.id });
     }
   }
   return result;
@@ -286,10 +292,14 @@ export function createRepositories(database: Database): {
           rows.map((job) => job.id),
         );
 
-        return rows.map((job) => ({
-          job,
-          creditUnits: creditByJobId.get(job.id) ?? null,
-        }));
+        return rows.map((job) => {
+          const credit = creditByJobId.get(job.id);
+          return {
+            job,
+            creditUnits: credit?.units ?? null,
+            creditLedgerEntryId: credit?.entryId ?? null,
+          };
+        });
       },
       async ownsJob(clerkUserId, analysisJobId) {
         const [row] = await database
@@ -330,17 +340,18 @@ export function createRepositories(database: Database): {
           rows.map((job) => job.id),
         );
 
-        return rows.flatMap((job) =>
-          job.clerkUserId
-            ? [
-                {
-                  job,
-                  clerkUserId: job.clerkUserId,
-                  creditUnits: creditByJobId.get(job.id) ?? null,
-                },
-              ]
-            : [],
-        );
+        return rows.flatMap((job) => {
+          if (!job.clerkUserId) return [];
+          const credit = creditByJobId.get(job.id);
+          return [
+            {
+              job,
+              clerkUserId: job.clerkUserId,
+              creditUnits: credit?.units ?? null,
+              creditLedgerEntryId: credit?.entryId ?? null,
+            },
+          ];
+        });
       },
       async getOwner(analysisJobId) {
         const [row] = await database

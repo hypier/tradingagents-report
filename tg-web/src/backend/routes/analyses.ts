@@ -176,6 +176,7 @@ export function analysisRoutes(dependencies: AppDependencies) {
         rows.map((row) =>
           toPublicJob(row.job, {
             creditUnits: row.creditUnits,
+            creditLedgerEntryId: row.creditLedgerEntryId,
           }),
         ),
         context.get('requestId'),
@@ -605,6 +606,7 @@ function toPublicJob(
   job: AnalysisJob,
   extras: {
     creditUnits: number | null;
+    creditLedgerEntryId?: string | null;
   },
 ) {
   const request = isRecord(job.request) ? job.request : {};
@@ -637,6 +639,9 @@ function toPublicJob(
     started_at: job.startedAt,
     finished_at: job.finishedAt,
     credit_units: extras.creditUnits,
+    ...(extras.creditLedgerEntryId
+      ? { credit_ledger_entry_id: extras.creditLedgerEntryId }
+      : {}),
   };
 }
 

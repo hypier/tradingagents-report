@@ -176,6 +176,68 @@ export async function getAdminAnalysis(
   );
 }
 
+export type AdminLedgerEntry = {
+  id: string;
+  clerk_user_id: string;
+  entry_type: string;
+  available_delta: number;
+  reserved_delta: number;
+  spent_delta: number;
+  idempotency_key: string;
+  reference_type: string;
+  reference_id: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  analysis_report?: {
+    id: string;
+    ticker: string;
+    display_name?: string | null;
+    display_ticker?: string | null;
+    trade_date?: string | null;
+  } | null;
+  user?: {
+    display_name?: string | null;
+    image_url?: string | null;
+    email?: string | null;
+  } | null;
+};
+
+export const listAdminCreditLedger = (
+  input: {
+    clerkUserId?: string;
+    entryType?: string;
+    referenceType?: string;
+    referenceId?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+  fetchImplementation?: FetchImplementation,
+) => {
+  const search = new URLSearchParams({
+    limit: String(input.limit ?? 50),
+    offset: String(input.offset ?? 0),
+  });
+  if (input.clerkUserId) search.set('clerkUserId', input.clerkUserId);
+  if (input.entryType) search.set('entryType', input.entryType);
+  if (input.referenceType) search.set('referenceType', input.referenceType);
+  if (input.referenceId) search.set('referenceId', input.referenceId);
+  return read<AdminLedgerEntry[]>(
+    `/api/admin/credits/ledger?${search.toString()}`,
+    fetchImplementation,
+  );
+};
+
+export async function getAdminCreditLedgerEntry(
+  entryId: string,
+  fetchImplementation?: FetchImplementation,
+) {
+  return read<AdminLedgerEntry>(
+    `/api/admin/credits/ledger/${encodeURIComponent(entryId)}`,
+    fetchImplementation,
+  );
+}
+
 export async function retryAdminAnalysis(
   jobId: string,
   fetchImplementation: FetchImplementation = fetch,

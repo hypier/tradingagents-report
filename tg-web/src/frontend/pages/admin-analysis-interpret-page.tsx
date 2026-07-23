@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
 import { InstrumentIdentity } from '@/frontend/components/instrument-identity';
@@ -129,6 +129,7 @@ function InterpretRowList({
 export function AdminAnalysisInterpretPage() {
   const { t } = useTranslation(['admin', 'common']);
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const session = useAuthSession();
   const detail = useQuery({
     queryKey: ['admin-analysis-detail', id],
@@ -156,6 +157,14 @@ export function AdminAnalysisInterpretPage() {
       )
     : null;
 
+  function goBack() {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/admin/analyses');
+  }
+
   return (
     <AdminGate
       accessTitle={t('admin:analyses.accessRequired.title')}
@@ -168,14 +177,12 @@ export function AdminAnalysisInterpretPage() {
           description={
             <div className="space-y-2">
               <Button
-                asChild
                 variant="outline"
                 size="icon-sm"
                 aria-label={t('admin:analyses.interpret.back')}
+                onClick={goBack}
               >
-                <Link to="/admin/analyses">
-                  <ArrowLeft />
-                </Link>
+                <ArrowLeft />
               </Button>
               <p>{t('admin:analyses.interpret.loadError.body')}</p>
             </div>
@@ -201,14 +208,12 @@ export function AdminAnalysisInterpretPage() {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Button
-                  asChild
                   variant="outline"
                   size="icon-sm"
                   aria-label={t('admin:analyses.interpret.back')}
+                  onClick={goBack}
                 >
-                  <Link to="/admin/analyses">
-                    <ArrowLeft />
-                  </Link>
+                  <ArrowLeft />
                 </Button>
                 <InstrumentLogo
                   symbol={tickerLabel}

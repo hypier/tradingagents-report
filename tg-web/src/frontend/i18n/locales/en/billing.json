@@ -150,6 +150,15 @@
       "reserve": "Reserve",
       "release": "Release"
     },
+    "referenceTypes": {
+      "analysis_job": "Analysis job",
+      "signup_grant": "Signup grant",
+      "referral_reward": "Referral reward",
+      "admin_adjustment": "Admin adjustment",
+      "stripe_subscription": "Stripe subscription",
+      "stripe_invoice": "Stripe invoice",
+      "stripe_charge": "Stripe charge"
+    },
     "reserved": "Reserved",
     "emptyTitle": "No activity this cycle",
     "emptyBody": "Grants and analysis usage in the current billing cycle appear here."

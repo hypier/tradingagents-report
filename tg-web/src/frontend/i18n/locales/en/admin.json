@@ -393,6 +393,65 @@
     "retrySuccess": "Replacement analysis submitted.",
     "retryError": "Unable to retry this analysis."
   },
+  "credits": {
+    "heading": "Credit ledger",
+    "subtitle": "All-user credit movements across grants, analysis consumes, and adjustments.",
+    "accessRequired": {
+      "title": "Administrator access required",
+      "body": "Your account does not have permission to view the credit ledger."
+    },
+    "loadError": {
+      "title": "Unable to load credit ledger",
+      "body": "Check the database connection and retry."
+    },
+    "detailLoadError": {
+      "title": "Unable to load credit entry",
+      "body": "The entry may not exist or the database is unavailable."
+    },
+    "detailHeading": "Credit entry",
+    "back": "Back to credit ledger",
+    "empty": "No matching ledger entries.",
+    "filter": "Filter",
+    "userPlaceholder": "Clerk user ID",
+    "referencePlaceholder": "Reference ID (e.g. analysis job id)",
+    "entryTypeAll": "All types",
+    "openAnalysis": "Open analysis",
+    "viewDetail": "Detail",
+    "columns": {
+      "when": "When",
+      "user": "User",
+      "type": "Type",
+      "delta": "Delta",
+      "activity": "Activity",
+      "reference": "Reference",
+      "detail": "Detail"
+    },
+    "sections": {
+      "summary": "Summary",
+      "user": "User",
+      "reference": "Reference",
+      "metadata": "Metadata"
+    },
+    "fields": {
+      "entryId": "Entry ID",
+      "type": "Type",
+      "activity": "Activity",
+      "availableDelta": "Available delta",
+      "spentDelta": "Spent delta",
+      "reservedDelta": "Reserved delta",
+      "pools": "Pool split",
+      "when": "When",
+      "user": "User",
+      "userId": "User ID",
+      "email": "Email",
+      "referenceType": "Reference type",
+      "referenceId": "Reference ID",
+      "ticker": "Ticker",
+      "tradeDate": "Trade date",
+      "idempotencyKey": "Idempotency key",
+      "description": "Description"
+    }
+  },
   "userDetail": {
     "title": "User detail",
     "back": "Back to users",

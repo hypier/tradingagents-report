@@ -29,6 +29,7 @@ import {
 } from '@/frontend/components/ui/table';
 import { getBillingOverview } from '@/frontend/lib/billing';
 import {
+  entryTypeBadgeVariant,
   formatCreditDelta,
   localizeEntryType,
   localizeLedgerActivity,
@@ -42,24 +43,6 @@ import {
 } from '@/frontend/lib/format-locale';
 import { cn } from '@/frontend/lib/utils';
 import { formatDisplayTicker } from '@/shared/listing';
-
-function entryTypeBadgeVariant(
-  entryType: string,
-): 'info' | 'down' | 'running' | 'destructive' | 'outline' {
-  switch (entryType) {
-    case 'grant':
-      return 'info';
-    case 'consume':
-      return 'down';
-    case 'adjustment':
-      return 'running';
-    case 'expire':
-    case 'clawback':
-      return 'destructive';
-    default:
-      return 'outline';
-  }
-}
 
 function LedgerChangeCell({
   pools,

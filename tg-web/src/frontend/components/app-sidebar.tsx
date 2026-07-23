@@ -65,6 +65,7 @@ type NavLeaf = {
     | 'nav.adminOverview'
     | 'nav.adminUsers'
     | 'nav.adminAnalyses'
+    | 'nav.adminCredits'
     | 'nav.adminBilling'
     | 'nav.adminSettings'
     | 'nav.adminMarkets'
@@ -154,6 +155,14 @@ const adminSections: AdminNavSection[] = [
           titleKey: 'nav.adminAnalyses',
           icon: ListTodo,
           href: '/admin/analyses',
+        },
+      },
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminCredits',
+          icon: Coins,
+          href: '/admin/credits',
         },
       },
     ],

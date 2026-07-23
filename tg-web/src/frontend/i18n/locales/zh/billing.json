@@ -150,6 +150,15 @@
       "reserve": "预留",
       "release": "释放"
     },
+    "referenceTypes": {
+      "analysis_job": "分析任务",
+      "signup_grant": "注册赠送",
+      "referral_reward": "邀请奖励",
+      "admin_adjustment": "管理员调整",
+      "stripe_subscription": "Stripe 订阅",
+      "stripe_invoice": "Stripe 发票",
+      "stripe_charge": "Stripe 扣款"
+    },
     "reserved": "预留变动",
     "emptyTitle": "本周期暂无明细",
     "emptyBody": "当前计费周期内的发放与分析用量会显示在这里。"

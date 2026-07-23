@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpenText, FileText, Info, RotateCcw } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { AdminGate } from '@/frontend/components/admin-gate';
@@ -83,6 +83,7 @@ type AdminJob = AnalysisJob & {
   request_id?: string | null;
   asset_type?: string | null;
   clerk_user_id?: string;
+  credit_ledger_entry_id?: string | null;
   user?: {
     display_name?: string | null;
     image_url?: string | null;
@@ -266,7 +267,20 @@ export function AdminAnalysesPage() {
   const [status, setStatus] = useState<string>('all');
   const [ticker, setTicker] = useState('');
   const [userId, setUserId] = useState('');
-  const [detailJobId, setDetailJobId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const detailJobId = searchParams.get('detail');
+
+  function openDetail(jobId: string) {
+    const next = new URLSearchParams(searchParams);
+    next.set('detail', jobId);
+    setSearchParams(next);
+  }
+
+  function closeDetail() {
+    const next = new URLSearchParams(searchParams);
+    next.delete('detail');
+    setSearchParams(next, { replace: true });
+  }
 
   const analyses = useQuery({
     queryKey: ['admin-analyses', status, ticker, userId],
@@ -416,15 +430,26 @@ export function AdminAnalysesPage() {
                       <TableCell className="max-w-[10.5rem]">
                         <AdminUserCell job={job} compact />
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      <TableCell className="text-right font-mono text-sm tabular-nums text-foreground">
                         {job.cost_usd != null && Number(job.cost_usd) > 0
                           ? `$${Number(job.cost_usd).toFixed(4)}`
                           : '—'}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                        {job.credit_units != null && job.credit_units > 0
-                          ? String(job.credit_units)
-                          : '—'}
+                      <TableCell className="text-right font-mono text-sm tabular-nums text-foreground">
+                        {job.credit_units != null &&
+                        job.credit_units > 0 &&
+                        job.credit_ledger_entry_id ? (
+                          <Link
+                            className="underline underline-offset-2 hover:text-primary"
+                            to={`/admin/credits/${job.credit_ledger_entry_id}`}
+                          >
+                            {String(job.credit_units)}
+                          </Link>
+                        ) : job.credit_units != null && job.credit_units > 0 ? (
+                          String(job.credit_units)
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {job.created_at
@@ -449,7 +474,7 @@ export function AdminAnalysesPage() {
                                 size="icon-sm"
                                 variant="outline"
                                 aria-label={detailLabel}
-                                onClick={() => setDetailJobId(job.id)}
+                                onClick={() => openDetail(job.id)}
                               >
                                 <Info />
                               </Button>
@@ -522,18 +547,36 @@ export function AdminAnalysesPage() {
       <Sheet
         open={Boolean(detailJobId)}
         onOpenChange={(open) => {
-          if (!open) setDetailJobId(null);
+          if (!open) closeDetail();
         }}
       >
         <SheetContent
           side="right"
           className="w-full gap-0 overflow-y-auto sm:max-w-lg"
         >
-          <SheetHeader className="border-b border-border">
-            <SheetTitle>{t('admin:analyses.detailTitle')}</SheetTitle>
-            <SheetDescription>
-              {t('admin:analyses.detailSubtitle')}
-            </SheetDescription>
+          <SheetHeader className="border-b border-border pr-12">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle>{t('admin:analyses.detailTitle')}</SheetTitle>
+                <SheetDescription>
+                  {t('admin:analyses.detailSubtitle')}
+                </SheetDescription>
+              </div>
+              {detailJobId ? (
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  <Button asChild size="sm" variant="secondary">
+                    <Link to={`/admin/analyses/${detailJobId}`}>
+                      {t('admin:analyses.interpret.action')}
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/reports/${detailJobId}`}>
+                      {t('admin:analyses.open')}
+                    </Link>
+                  </Button>
+                </div>
+              ) : null}
+            </div>
           </SheetHeader>
 
           <div className="px-4 pb-6">
@@ -681,7 +724,20 @@ function AdminAnalysisDetailBody({
           {job.tokens_used != null ? String(job.tokens_used) : '—'}
         </DetailField>
         <DetailField label={t('admin:analyses.fields.creditUnits')}>
-          {job.credit_units != null ? String(job.credit_units) : '—'}
+          {job.credit_units != null &&
+          job.credit_units > 0 &&
+          job.credit_ledger_entry_id ? (
+            <Link
+              className="font-mono tabular-nums underline"
+              to={`/admin/credits/${job.credit_ledger_entry_id}`}
+            >
+              {String(job.credit_units)}
+            </Link>
+          ) : job.credit_units != null ? (
+            String(job.credit_units)
+          ) : (
+            '—'
+          )}
         </DetailField>
         <DetailField label={t('admin:analyses.fields.created')}>
           {job.created_at ? formatLocaleDateTimeValue(job.created_at) : '—'}
@@ -754,17 +810,6 @@ function AdminAnalysisDetailBody({
           </section>
         </>
       )}
-
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link to={`/admin/analyses/${job.id}`}>
-            {t('admin:analyses.interpret.action')}
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link to={`/reports/${job.id}`}>{t('admin:analyses.open')}</Link>
-        </Button>
-      </div>
     </div>
   );
 }

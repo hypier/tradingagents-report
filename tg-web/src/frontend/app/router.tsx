@@ -11,6 +11,8 @@ import { AdminBillingPage } from '../pages/admin-billing-page';
 import { AdminOverviewPage } from '../pages/admin-overview-page';
 import { AdminAnalysesPage } from '../pages/admin-analyses-page';
 import { AdminAnalysisInterpretPage } from '../pages/admin-analysis-interpret-page';
+import { AdminCreditsLedgerPage } from '../pages/admin-credits-ledger-page';
+import { AdminCreditsLedgerDetailPage } from '../pages/admin-credits-ledger-detail-page';
 import { AdminLlmProvidersPage } from '../pages/admin-llm-providers-page';
 import { AdminLlmModelsPage } from '../pages/admin-llm-models-page';
 import { AdminSettingsPage } from '../pages/admin-settings-page';
@@ -41,6 +43,11 @@ export function AppRouter() {
       <Route
         path="/admin/analyses/:id"
         element={<AdminAnalysisInterpretPage />}
+      />
+      <Route path="/admin/credits" element={<AdminCreditsLedgerPage />} />
+      <Route
+        path="/admin/credits/:id"
+        element={<AdminCreditsLedgerDetailPage />}
       />
       <Route path="/admin/billing" element={<AdminBillingPage />} />
       <Route

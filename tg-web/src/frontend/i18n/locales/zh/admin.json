@@ -393,6 +393,65 @@
     "retrySuccess": "已提交替换分析任务。",
     "retryError": "无法重试该分析。"
   },
+  "credits": {
+    "heading": "积分明细",
+    "subtitle": "全站用户的积分流水：发放、分析扣分与管理员调整。",
+    "accessRequired": {
+      "title": "需要管理员权限",
+      "body": "当前账号没有查看积分明细的权限。"
+    },
+    "loadError": {
+      "title": "无法加载积分明细",
+      "body": "请检查数据库连接后重试。"
+    },
+    "detailLoadError": {
+      "title": "无法加载积分详情",
+      "body": "记录可能不存在，或数据库暂时不可用。"
+    },
+    "detailHeading": "积分详情",
+    "back": "返回积分明细",
+    "empty": "没有匹配的积分流水。",
+    "filter": "筛选",
+    "userPlaceholder": "Clerk 用户 ID",
+    "referencePlaceholder": "引用 ID（如分析任务 ID）",
+    "entryTypeAll": "全部类型",
+    "openAnalysis": "打开分析",
+    "viewDetail": "详情",
+    "columns": {
+      "when": "时间",
+      "user": "用户",
+      "type": "类型",
+      "delta": "变动",
+      "activity": "说明",
+      "reference": "关联",
+      "detail": "详情"
+    },
+    "sections": {
+      "summary": "摘要",
+      "user": "用户",
+      "reference": "关联",
+      "metadata": "元数据"
+    },
+    "fields": {
+      "entryId": "流水 ID",
+      "type": "类型",
+      "activity": "说明",
+      "availableDelta": "可用积分变动",
+      "spentDelta": "已消费变动",
+      "reservedDelta": "预留变动",
+      "pools": "账户拆分",
+      "when": "时间",
+      "user": "用户",
+      "userId": "用户 ID",
+      "email": "邮箱",
+      "referenceType": "引用类型",
+      "referenceId": "引用 ID",
+      "ticker": "代码",
+      "tradeDate": "交易日",
+      "idempotencyKey": "幂等键",
+      "description": "描述"
+    }
+  },
   "userDetail": {
     "title": "用户详情",
     "back": "返回用户列表",

@@ -127,6 +127,8 @@ describe('Cloudflare Worker runtime', () => {
         recordStripeFailure: vi.fn(),
         listStripeWebhookEvents: vi.fn(),
         summarizeStripeWebhookEvents: vi.fn(),
+        listLedgerForAdmin: vi.fn().mockResolvedValue([]),
+        getLedgerEntryForAdmin: vi.fn().mockResolvedValue(null),
       },
       referrals: {
         isValidCode: vi.fn(),
