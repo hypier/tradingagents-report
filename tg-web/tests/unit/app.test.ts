@@ -150,6 +150,7 @@ function fakeDependencies(
         listForUser: vi.fn().mockResolvedValue([]),
         listAllForAdmin: vi.fn().mockResolvedValue([]),
         getOwner: vi.fn().mockResolvedValue(null),
+        getCreditUnitsByJobIds: vi.fn().mockResolvedValue(new Map()),
         ownsJob: vi.fn().mockResolvedValue(true),
         getAdminOverview: vi.fn().mockResolvedValue({
           userCount: 0,
@@ -2035,6 +2036,7 @@ describe('createApp', () => {
           listForUser: vi.fn(),
           listAllForAdmin: vi.fn(),
           getOwner: vi.fn(),
+          getCreditUnitsByJobIds: vi.fn().mockResolvedValue(new Map()),
           ownsJob: vi.fn(),
           getAdminOverview: vi.fn(),
         },

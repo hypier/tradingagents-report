@@ -426,11 +426,13 @@ export function adminRoutes(dependencies: AppDependencies) {
     const profiles = ownerId
       ? await dependencies.database.account.listProfilesByIds([ownerId])
       : new Map();
+    const creditByJobId =
+      await dependencies.database.analysisJobs.getCreditUnitsByJobIds([jobId]);
     return context.json(
       apiSuccess(
         toAdminJobDetail(job, {
           clerkUserId: ownerId ?? undefined,
-          creditUnits: null,
+          creditUnits: creditByJobId.get(jobId) ?? null,
           user: ownerId ? (profiles.get(ownerId) ?? null) : null,
         }),
         context.get('requestId'),

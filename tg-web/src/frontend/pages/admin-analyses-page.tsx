@@ -369,6 +369,9 @@ export function AdminAnalysesPage() {
                   <TableHead className="text-right">
                     {t('admin:analyses.columns.cost')}
                   </TableHead>
+                  <TableHead className="text-right">
+                    {t('admin:analyses.columns.credits')}
+                  </TableHead>
                   <TableHead>{t('admin:analyses.columns.created')}</TableHead>
                   <TableHead>{t('admin:analyses.columns.status')}</TableHead>
                   <TableHead>{t('admin:analyses.columns.actions')}</TableHead>
@@ -416,6 +419,11 @@ export function AdminAnalysesPage() {
                       <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {job.cost_usd != null && Number(job.cost_usd) > 0
                           ? `$${Number(job.cost_usd).toFixed(4)}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {job.credit_units != null && job.credit_units > 0
+                          ? String(job.credit_units)
                           : '—'}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">

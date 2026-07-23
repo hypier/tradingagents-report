@@ -54,7 +54,7 @@ export type { LlmCatalogRepository } from './llm-catalog-repository';
 
 export type UserAnalysisListItem = {
   job: AnalysisJob;
-  /** Reserved units are obsolete under balance-threshold billing; kept null for API compat. */
+  /** Consumed credit points from ledger; null when not charged yet. */
   creditUnits: number | null;
 };
 
@@ -124,10 +124,62 @@ export type AnalysisJobsRepository = {
   }): Promise<AdminAnalysisListItem[]>;
   getOwner(analysisJobId: string): Promise<string | null>;
   ownsJob(clerkUserId: string, analysisJobId: string): Promise<boolean>;
+  /** Consumed credit points for analysis jobs (ledger consume entries). */
+  getCreditUnitsByJobIds(jobIds: string[]): Promise<Map<string, number>>;
   getAdminOverview(input: { from: Date; to: Date }): Promise<AdminOverviewMetrics>;
 };
 
 type Database = NodePgDatabase<typeof schema>;
+
+/** Map analysis job id → consumed credit points from ledger (consume entries). */
+async function loadAnalysisCreditUnitsByJobIds(
+  database: Database,
+  jobIds: string[],
+): Promise<Map<string, number>> {
+  const unique = [...new Set(jobIds.filter(Boolean))];
+  const result = new Map<string, number>();
+  if (unique.length === 0) return result;
+
+  const rows = await database
+    .select({
+      referenceId: schema.creditLedgerEntries.referenceId,
+      spentDelta: schema.creditLedgerEntries.spentDelta,
+      availableDelta: schema.creditLedgerEntries.availableDelta,
+      metadata: schema.creditLedgerEntries.metadata,
+    })
+    .from(schema.creditLedgerEntries)
+    .where(
+      and(
+        eq(schema.creditLedgerEntries.referenceType, 'analysis_job'),
+        eq(schema.creditLedgerEntries.entryType, 'consume'),
+        inArray(schema.creditLedgerEntries.referenceId, unique),
+      ),
+    );
+
+  for (const row of rows) {
+    const meta = row.metadata;
+    const fromMeta =
+      meta &&
+      typeof meta === 'object' &&
+      typeof (meta as { finalPoints?: unknown }).finalPoints === 'number' &&
+      Number.isFinite((meta as { finalPoints: number }).finalPoints)
+        ? (meta as { finalPoints: number }).finalPoints
+        : null;
+    const fromSpent =
+      typeof row.spentDelta === 'number' && row.spentDelta > 0
+        ? row.spentDelta
+        : null;
+    const fromAvailable =
+      typeof row.availableDelta === 'number' && row.availableDelta < 0
+        ? Math.abs(row.availableDelta)
+        : null;
+    const units = fromMeta ?? fromSpent ?? fromAvailable;
+    if (units != null && units > 0) {
+      result.set(row.referenceId, units);
+    }
+  }
+  return result;
+}
 
 /** 将全部仓库绑定到同一个 Drizzle 数据库实例。 */
 export function createRepositories(database: Database): {
@@ -229,9 +281,14 @@ export function createRepositories(database: Database): {
           .limit(input.limit)
           .offset(input.offset);
 
+        const creditByJobId = await loadAnalysisCreditUnitsByJobIds(
+          database,
+          rows.map((job) => job.id),
+        );
+
         return rows.map((job) => ({
           job,
-          creditUnits: null,
+          creditUnits: creditByJobId.get(job.id) ?? null,
         }));
       },
       async ownsJob(clerkUserId, analysisJobId) {
@@ -267,13 +324,19 @@ export function createRepositories(database: Database): {
           .orderBy(desc(analysisJobs.createdAt))
           .limit(input.limit)
           .offset(input.offset);
+
+        const creditByJobId = await loadAnalysisCreditUnitsByJobIds(
+          database,
+          rows.map((job) => job.id),
+        );
+
         return rows.flatMap((job) =>
           job.clerkUserId
             ? [
                 {
                   job,
                   clerkUserId: job.clerkUserId,
-                  creditUnits: null,
+                  creditUnits: creditByJobId.get(job.id) ?? null,
                 },
               ]
             : [],
@@ -286,6 +349,9 @@ export function createRepositories(database: Database): {
           .where(eq(analysisJobs.id, analysisJobId))
           .limit(1);
         return row?.clerkUserId ?? null;
+      },
+      getCreditUnitsByJobIds(jobIds) {
+        return loadAnalysisCreditUnitsByJobIds(database, jobIds);
       },
       async getAdminOverview(input) {
         const [

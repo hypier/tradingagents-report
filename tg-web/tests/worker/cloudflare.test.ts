@@ -139,6 +139,7 @@ describe('Cloudflare Worker runtime', () => {
         listForUser: vi.fn(),
         listAllForAdmin: vi.fn(),
         getOwner: vi.fn(),
+        getCreditUnitsByJobIds: vi.fn().mockResolvedValue(new Map()),
         ownsJob: vi.fn(),
         getAdminOverview: vi.fn(),
       },

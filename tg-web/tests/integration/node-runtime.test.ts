@@ -150,6 +150,7 @@ function fakeAnalysisJobsRepository() {
     listForUser: vi.fn().mockResolvedValue([]),
     listAllForAdmin: vi.fn().mockResolvedValue([]),
     getOwner: vi.fn().mockResolvedValue(null),
+    getCreditUnitsByJobIds: vi.fn().mockResolvedValue(new Map()),
     ownsJob: vi.fn().mockResolvedValue(true),
     getAdminOverview: vi.fn(),
   };

@@ -302,6 +302,7 @@
       "status": "Status",
       "tradeDate": "Analysis date",
       "cost": "Cost",
+      "credits": "Credits",
       "created": "Created",
       "actions": "Actions"
     },

@@ -302,6 +302,7 @@
       "status": "状态",
       "tradeDate": "分析时间",
       "cost": "总成本",
+      "credits": "扣除积分",
       "created": "创建时间",
       "actions": "操作"
     },
