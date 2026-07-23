@@ -15,6 +15,43 @@ export function formatBillingStatus(status: string) {
   return status.replaceAll('_', ' ');
 }
 
+const INVOICE_STATUSES = [
+  'draft',
+  'open',
+  'paid',
+  'uncollectible',
+  'void',
+] as const;
+
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export function localizeInvoiceStatus(status: string | null, t: TFunction) {
+  if (!status) return billingT(t, 'invoices.unknown');
+  if ((INVOICE_STATUSES as readonly string[]).includes(status)) {
+    return billingT(t, `invoices.statuses.${status}`);
+  }
+  return formatBillingStatus(status);
+}
+
+export function invoiceStatusBadgeVariant(
+  status: string | null,
+): 'up' | 'running' | 'secondary' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'paid':
+      return 'up';
+    case 'open':
+      return 'running';
+    case 'draft':
+      return 'secondary';
+    case 'uncollectible':
+      return 'destructive';
+    case 'void':
+      return 'outline';
+    default:
+      return 'outline';
+  }
+}
+
 export type PlanCardAction = 'subscribe' | 'upgrade' | 'downgrade' | 'current';
 
 /** Compare catalog prices to decide subscribe / upgrade / downgrade / current. */

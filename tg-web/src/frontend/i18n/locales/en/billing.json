@@ -181,6 +181,13 @@
     "status": "Status",
     "paid": "Paid",
     "open": "Open",
+    "statuses": {
+      "draft": "Draft",
+      "open": "Open",
+      "paid": "Paid",
+      "uncollectible": "Uncollectible",
+      "void": "Void"
+    },
     "emptyTitle": "No invoices",
     "emptyBody": "Stripe invoices will appear here.",
     "unknown": "unknown"

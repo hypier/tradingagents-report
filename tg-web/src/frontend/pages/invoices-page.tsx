@@ -28,7 +28,10 @@ import {
   TableRow,
 } from '@/frontend/components/ui/table';
 import { getBillingOverview } from '@/frontend/lib/billing';
-import { formatBillingStatus } from '@/frontend/lib/billing-ui';
+import {
+  invoiceStatusBadgeVariant,
+  localizeInvoiceStatus,
+} from '@/frontend/lib/billing-ui';
 import {
   formatLocaleCurrency,
   formatLocaleDate,
@@ -71,10 +74,10 @@ export function InvoicesPage() {
                   <TableRow>
                     <TableHead>{t('invoices.invoice')}</TableHead>
                     <TableHead>{t('invoices.date')}</TableHead>
-                    <TableHead>{t('invoices.status')}</TableHead>
                     <TableHead className="text-right">
                       {t('invoices.paid')}
                     </TableHead>
+                    <TableHead>{t('invoices.status')}</TableHead>
                     <TableHead className="w-24" />
                   </TableRow>
                 </TableHeader>
@@ -90,18 +93,18 @@ export function InvoicesPage() {
                           t('notAvailable'),
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {formatBillingStatus(
-                            invoice.status ?? t('invoices.unknown'),
-                          )}
-                        </Badge>
-                      </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatLocaleCurrency(
                           invoice.amountPaid,
                           invoice.currency,
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={invoiceStatusBadgeVariant(invoice.status)}
+                        >
+                          {localizeInvoiceStatus(invoice.status, t)}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         {invoice.hostedInvoiceUrl && (

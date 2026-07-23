@@ -181,6 +181,13 @@
     "status": "状态",
     "paid": "已付",
     "open": "打开",
+    "statuses": {
+      "draft": "草稿",
+      "open": "待支付",
+      "paid": "已支付",
+      "uncollectible": "无法收款",
+      "void": "已作废"
+    },
     "emptyTitle": "暂无发票",
     "emptyBody": "Stripe 发票将显示在这里。",
     "unknown": "未知"
