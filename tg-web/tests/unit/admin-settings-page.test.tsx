@@ -107,18 +107,6 @@ beforeEach(async () => {
     data: { models: [] },
     requestId: 'request-1',
   });
-  billing.getAnalysisBillingSettings.mockResolvedValue({
-    data: {
-      analysisBalanceThreshold: 100,
-      pointsPerUsd: '100',
-      markupBasisPoints: 1000,
-    },
-    requestId: 'request-1',
-  });
-  billing.updateAnalysisBillingSettings.mockImplementation(async (input) => ({
-    data: input,
-    requestId: 'request-2',
-  }));
   billing.getRewardsSettings.mockResolvedValue({
     data: {
       signup: { enabled: true, points: 500 },
@@ -127,6 +115,10 @@ beforeEach(async () => {
     },
     requestId: 'request-1',
   });
+  billing.updateRewardsSettings.mockImplementation(async (input) => ({
+    data: input,
+    requestId: 'request-2',
+  }));
 });
 
 afterEach(() => {
@@ -134,43 +126,29 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it('lets an administrator preview and save analysis FX rate and markup on system settings', async () => {
+it('keeps analysis billing off system settings and saves rewards there', async () => {
   render(
     <MemoryRouter initialEntries={['/admin/settings']}>
       <App />
     </MemoryRouter>,
   );
 
+  expect(await screen.findByText('Credit rewards')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Points per USD')).not.toBeInTheDocument();
   expect(
-    await screen.findByLabelText('Points per USD (FX rate)'),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      'Sample $1 AI cost: ceil(1 × 100 × (1 + 10%)) = 110 points',
-    ),
-  ).toBeInTheDocument();
+    screen.queryByLabelText('Points per USD (FX rate)'),
+  ).not.toBeInTheDocument();
+  expect(billing.getAnalysisBillingSettings).not.toHaveBeenCalled();
 
-  fireEvent.change(screen.getByLabelText('Points per USD (FX rate)'), {
-    target: { value: '200' },
-  });
-  fireEvent.change(screen.getByLabelText('Charge markup (%)'), {
-    target: { value: '15' },
-  });
-  fireEvent.change(screen.getByLabelText('Start balance threshold'), {
-    target: { value: '250' },
-  });
-  fireEvent.change(screen.getByLabelText('Sample cost (USD)'), {
-    target: { value: '2.5' },
-  });
   fireEvent.click(
-    screen.getByRole('button', { name: 'Save analysis charging settings' }),
+    screen.getByRole('button', { name: 'Save rewards settings' }),
   );
 
   await waitFor(() =>
-    expect(billing.updateAnalysisBillingSettings).toHaveBeenCalledWith({
-      analysisBalanceThreshold: 250,
-      pointsPerUsd: '200',
-      markupBasisPoints: 1500,
+    expect(billing.updateRewardsSettings).toHaveBeenCalledWith({
+      signup: { enabled: true, points: 500 },
+      referral: { enabled: true, points: 200 },
+      campaign: { enabled: false, points: 0, label: '', code: null },
     }),
   );
 });

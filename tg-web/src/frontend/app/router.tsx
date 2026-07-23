@@ -7,6 +7,7 @@ import { ReportPage } from '../pages/report-page';
 import { ReportsPage } from '../pages/reports-page';
 import { AdminUsersPage } from '../pages/admin-users-page';
 import { AdminUserDetailPage } from '../pages/admin-user-detail-page';
+import { AdminAnalysisBillingPage } from '../pages/admin-analysis-billing-page';
 import { AdminBillingPage } from '../pages/admin-billing-page';
 import { AdminOverviewPage } from '../pages/admin-overview-page';
 import { AdminAnalysesPage } from '../pages/admin-analyses-page';
@@ -50,6 +51,10 @@ export function AppRouter() {
         element={<AdminCreditsLedgerDetailPage />}
       />
       <Route path="/admin/billing" element={<AdminBillingPage />} />
+      <Route
+        path="/admin/billing/analysis"
+        element={<AdminAnalysisBillingPage />}
+      />
       <Route
         path="/admin/models"
         element={<Navigate to="/admin/llm/providers" replace />}

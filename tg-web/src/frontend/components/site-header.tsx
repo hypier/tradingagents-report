@@ -8,6 +8,8 @@ import { Separator } from '@/frontend/components/ui/separator';
 import { SidebarTrigger } from '@/frontend/components/ui/sidebar';
 
 function headerTitleKey(pathname: string) {
+  if (pathname.startsWith('/admin/billing/analysis'))
+    return 'header.adminAnalysisBilling' as const;
   if (pathname.startsWith('/admin/billing')) return 'header.adminBilling' as const;
   if (/^\/admin\/credits\/[^/]+/.test(pathname))
     return 'header.adminCreditDetail' as const;

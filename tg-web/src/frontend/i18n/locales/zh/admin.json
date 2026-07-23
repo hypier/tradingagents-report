@@ -49,7 +49,6 @@
     "tabs": {
       "connection": "连接",
       "plans": "套餐",
-      "credits": "分析计费",
       "events": "Stripe 事件"
     },
     "events": {
@@ -167,6 +166,8 @@
       "archive": "归档 {{name}}"
     },
     "credits": {
+      "heading": "分析计费",
+      "subtitle": "余额门槛、每美元积分汇率与成本加价",
       "title": "分析积分计费",
       "description": "以余额门槛控制能否开跑；完成后按实际 AI 成本扣积分。",
       "balanceThreshold": "开跑余额门槛",
@@ -679,7 +680,7 @@
   "settings": {
     "title": "系统设置",
     "heading": "系统设置",
-    "subtitle": "默认 LLM 模型、分析扣分汇率与注册/推荐积分奖励。",
+    "subtitle": "默认 LLM 模型与注册/推荐积分奖励。",
     "accessRequired": {
       "title": "需要管理员权限",
       "body": "当前账号没有管理系统设置的权限。"
@@ -698,23 +699,6 @@
     "save": "保存设置",
     "saved": "设置已保存。",
     "saveError": "无法保存设置。",
-    "billing": {
-      "title": "分析积分扣分",
-      "description": "写入 system_settings.billing。余额门槛控制能否开跑；完成后按美元成本、积分汇率与加价倍率扣分。",
-      "balanceThreshold": "开跑余额门槛",
-      "balanceThresholdHint": "可用积分须严格大于该值才能开始分析。积分在任务完成后按实际成本扣减。",
-      "pointsPerUsd": "每美元积分（汇率）",
-      "pointsPerUsdHint": "每 1 美元 AI 成本换算多少积分（未加价前）。",
-      "markup": "扣除倍率加价（%）",
-      "markupHint": "在汇率换算后再加价的百分比；10 表示再加价 10%。",
-      "sampleCost": "示例成本（美元）",
-      "sampleCostHint": "仅用于本地预览，不会保存；填 1 即查看「每 1 美元」扣多少积分。",
-      "formula": "示例 {{cost}} 美元 AI 成本：ceil({{cost}} × {{pointsPerUsd}} × (1 + {{markup}}%)) = {{count}} 积分",
-      "formulaInvalid": "请输入有效的示例成本、每美元积分与加价后查看公式",
-      "save": "保存分析扣分设置",
-      "saved": "分析扣分设置已保存。",
-      "saveError": "无法保存分析扣分设置。"
-    },
     "rewards": {
       "title": "积分奖励",
       "description": "配置写入 system_settings.rewards；注册与推荐彼此独立，不影响分析扣分。",

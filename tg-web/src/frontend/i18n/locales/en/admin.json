@@ -49,7 +49,6 @@
     "tabs": {
       "connection": "Connection",
       "plans": "Plans",
-      "credits": "Analysis billing",
       "events": "Stripe events"
     },
     "events": {
@@ -167,6 +166,8 @@
       "archive": "Archive {{name}}"
     },
     "credits": {
+      "heading": "Analysis billing",
+      "subtitle": "Balance threshold, points-per-USD rate, and cost markup",
       "title": "Analysis credit billing",
       "description": "Gate starts by balance threshold; charge points from actual AI cost after completion.",
       "balanceThreshold": "Start balance threshold",
@@ -679,7 +680,7 @@
   "settings": {
     "title": "System settings",
     "heading": "System settings",
-    "subtitle": "Default LLM models, analysis credit FX rate, and signup/referral rewards.",
+    "subtitle": "Default LLM models and signup/referral rewards.",
     "accessRequired": {
       "title": "Administrator access required",
       "body": "Your account does not have permission to manage system settings."
@@ -698,23 +699,6 @@
     "save": "Save settings",
     "saved": "Settings saved.",
     "saveError": "Unable to save settings.",
-    "billing": {
-      "title": "Analysis credit charging",
-      "description": "Stored in system_settings.billing. Balance threshold gates new runs; finished jobs charge from USD cost, points-per-USD rate, and markup.",
-      "balanceThreshold": "Start balance threshold",
-      "balanceThresholdHint": "Available credits must be strictly greater than this value to start analysis. Credits are deducted after completion from actual cost.",
-      "pointsPerUsd": "Points per USD (FX rate)",
-      "pointsPerUsdHint": "How many credits equal $1 of AI cost before markup.",
-      "markup": "Charge markup (%)",
-      "markupHint": "Extra percentage applied after FX conversion; 10 means +10%.",
-      "sampleCost": "Sample cost (USD)",
-      "sampleCostHint": "Local preview only; not saved. Use 1 to see points charged per $1.",
-      "formula": "Sample ${{cost}} AI cost: ceil({{cost}} × {{pointsPerUsd}} × (1 + {{markup}}%)) = {{count}} points",
-      "formulaInvalid": "Enter a valid sample cost, points-per-USD rate, and markup to preview the formula",
-      "save": "Save analysis charging settings",
-      "saved": "Analysis charging settings saved.",
-      "saveError": "Unable to save analysis charging settings."
-    },
     "rewards": {
       "title": "Credit rewards",
       "description": "Stored in system_settings.rewards. Signup and referral are independent and do not affect analysis charging.",

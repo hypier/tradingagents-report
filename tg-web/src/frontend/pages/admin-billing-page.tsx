@@ -1,11 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   CheckCircle2,
   CircleDollarSign,
   Clipboard,
-  Coins,
   CreditCard,
   PackagePlus,
   Save,
@@ -14,13 +13,10 @@ import {
   Webhook,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { PRODUCT_MARKET_CODES } from '@/shared/product-markets';
-import {
-  DEFAULT_BILLING_SETTINGS,
-} from '@/shared/product-credits';
 import type {
   BillingInterval,
   BillingPlan,
@@ -85,20 +81,13 @@ import {
 import {
   archiveBillingPlan,
   createBillingPlan,
-  getAnalysisBillingSettings,
   getBillingSettings,
   listAdminStripeEvents,
   provisionDefaultBillingPlans,
-  updateAnalysisBillingSettings,
   type AdminStripeWebhookEvent,
 } from '@/frontend/lib/billing';
 
-const BILLING_TABS = [
-  'connection',
-  'plans',
-  'credits',
-  'events',
-] as const;
+const BILLING_TABS = ['connection', 'plans', 'events'] as const;
 type BillingTab = (typeof BILLING_TABS)[number];
 
 function resolveBillingTab(value: string | null): BillingTab {
@@ -118,13 +107,6 @@ type PlanForm = {
   features: string;
 };
 
-type AnalysisSettingsForm = {
-  analysisBalanceThreshold: string;
-  pointsPerUsd: string;
-  markupPercent: string;
-  sampleCostUsd: string;
-};
-
 function createInitialPlan(features: string): PlanForm {
   return {
     name: '',
@@ -141,18 +123,11 @@ function createInitialPlan(features: string): PlanForm {
 export function AdminBillingPage() {
   const { t } = useTranslation('admin');
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = resolveBillingTab(searchParams.get('tab'));
+  const requestedTab = searchParams.get('tab');
+  const activeTab = resolveBillingTab(requestedTab);
   const [plan, setPlan] = useState(() =>
     createInitialPlan(t('billing.defaults.features')),
   );
-  const [analysisForm, setAnalysisForm] = useState<AnalysisSettingsForm>({
-    analysisBalanceThreshold: String(
-      DEFAULT_BILLING_SETTINGS.analysisBalanceThreshold,
-    ),
-    pointsPerUsd: DEFAULT_BILLING_SETTINGS.pointsPerUsd,
-    markupPercent: String(DEFAULT_BILLING_SETTINGS.markupBasisPoints / 100),
-    sampleCostUsd: '1',
-  });
   const session = useAuthSession();
   const queryClient = useQueryClient();
   const isAdmin = session.data?.data.user.role === 'admin';
@@ -161,29 +136,10 @@ export function AdminBillingPage() {
     queryFn: () => getBillingSettings(),
     enabled: isAdmin,
   });
-  const analysisSettings = useQuery({
-    queryKey: ['admin-analysis-billing-settings'],
-    queryFn: () => getAnalysisBillingSettings(),
-    enabled: isAdmin,
-  });
-
-  useEffect(() => {
-    const value = analysisSettings.data?.data;
-    if (!value) return;
-    setAnalysisForm((current) => ({
-      ...current,
-      analysisBalanceThreshold: String(value.analysisBalanceThreshold),
-      pointsPerUsd: value.pointsPerUsd,
-      markupPercent: String(value.markupBasisPoints / 100),
-    }));
-  }, [analysisSettings.data]);
 
   const refresh = () => {
     void queryClient.invalidateQueries({
       queryKey: ['admin-billing-settings'],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ['admin-analysis-billing-settings'],
     });
     void queryClient.invalidateQueries({ queryKey: ['billing-overview'] });
   };
@@ -212,22 +168,10 @@ export function AdminBillingPage() {
     },
     onError: () => toast.error(t('billing.toasts.planArchiveError')),
   });
-  const saveAnalysisSettings = useMutation({
-    mutationFn: () =>
-      updateAnalysisBillingSettings({
-        analysisBalanceThreshold: Math.max(
-          0,
-          Math.floor(Number(analysisForm.analysisBalanceThreshold) || 0),
-        ),
-        pointsPerUsd: analysisForm.pointsPerUsd,
-        markupBasisPoints: Math.round(Number(analysisForm.markupPercent) * 100),
-      }),
-    onSuccess: () => {
-      refresh();
-      toast.success(t('billing.credits.saved'));
-    },
-    onError: () => toast.error(t('billing.credits.saveError')),
-  });
+
+  if (requestedTab === 'credits') {
+    return <Navigate replace to="/admin/billing/analysis" />;
+  }
 
   const data = settings.data?.data;
   const submitPlan = (event: FormEvent<HTMLFormElement>) => {
@@ -300,12 +244,6 @@ export function AdminBillingPage() {
               >
                 <CircleDollarSign data-icon="inline-start" />{' '}
                 {t('billing.tabs.plans')}
-              </TabsTrigger>
-              <TabsTrigger
-                value="credits"
-                className="rounded-none border-b-2 border-transparent px-3 pb-2.5 data-active:border-primary data-active:bg-transparent data-active:shadow-none"
-              >
-                <Coins data-icon="inline-start" /> {t('billing.tabs.credits')}
               </TabsTrigger>
               <TabsTrigger
                 value="events"
@@ -441,17 +379,6 @@ export function AdminBillingPage() {
                   archivePlan.isPending ? archivePlan.variables : undefined
                 }
                 onArchive={(priceId) => archivePlan.mutate(priceId)}
-              />
-            </TabsContent>
-            <TabsContent value="credits" className="pt-3">
-              <AnalysisSettingsEditor
-                value={analysisForm}
-                loading={analysisSettings.isLoading}
-                pending={saveAnalysisSettings.isPending}
-                onChange={(values) =>
-                  setAnalysisForm((current) => ({ ...current, ...values }))
-                }
-                onSubmit={() => saveAnalysisSettings.mutate()}
               />
             </TabsContent>
             <TabsContent value="events" className="pt-3">
@@ -629,145 +556,6 @@ function StripeEventsPanel({ enabled }: { enabled: boolean }) {
           </TableBody>
         </Table>
       )}
-    </SectionPanel>
-  );
-}
-
-function AnalysisSettingsEditor({
-  value,
-  loading,
-  pending,
-  onChange,
-  onSubmit,
-}: {
-  value: AnalysisSettingsForm;
-  loading: boolean;
-  pending: boolean;
-  onChange(values: Partial<AnalysisSettingsForm>): void;
-  onSubmit(): void;
-}) {
-  const { t } = useTranslation('admin');
-  const cost = Number(value.sampleCostUsd);
-  const pointsPerUsd = Number(value.pointsPerUsd);
-  const markupPercent = Number(value.markupPercent);
-  const markupBasisPoints = Math.round(markupPercent * 100);
-  const previewValid =
-    [cost, pointsPerUsd, markupBasisPoints].every(Number.isFinite) &&
-    cost >= 0 &&
-    pointsPerUsd > 0 &&
-    markupBasisPoints >= 0;
-  const preview = previewValid
-    ? Math.ceil((cost * pointsPerUsd * (10_000 + markupBasisPoints)) / 10_000)
-    : null;
-  const formula = previewValid
-    ? t('billing.credits.formula', {
-        cost: value.sampleCostUsd,
-        pointsPerUsd: value.pointsPerUsd,
-        markup: value.markupPercent,
-        count: preview,
-      })
-    : t('billing.credits.formulaInvalid');
-
-  if (loading) return <Skeleton className="h-72 w-full" />;
-  return (
-    <SectionPanel
-      title={t('billing.credits.title')}
-      description={t('billing.credits.description')}
-    >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit();
-        }}
-      >
-        <FieldGroup className="grid gap-4 md:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="analysis-balance-threshold">
-              {t('billing.credits.balanceThreshold')}
-            </FieldLabel>
-            <Input
-              id="analysis-balance-threshold"
-              type="number"
-              min="0"
-              step="1"
-              required
-              value={value.analysisBalanceThreshold}
-              onChange={(event) =>
-                onChange({ analysisBalanceThreshold: event.target.value })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              {t('billing.credits.balanceThresholdHint')}
-            </p>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="points-per-usd">
-              {t('billing.credits.pointsPerUsd')}
-            </FieldLabel>
-            <Input
-              id="points-per-usd"
-              type="number"
-              min="0.000001"
-              step="0.000001"
-              required
-              value={value.pointsPerUsd}
-              onChange={(event) =>
-                onChange({ pointsPerUsd: event.target.value })
-              }
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="markup-percent">
-              {t('billing.credits.markup')}
-            </FieldLabel>
-            <Input
-              id="markup-percent"
-              type="number"
-              min="0"
-              max="1000"
-              step="0.01"
-              required
-              value={value.markupPercent}
-              onChange={(event) =>
-                onChange({ markupPercent: event.target.value })
-              }
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="sample-cost-usd">
-              {t('billing.credits.sampleCost')}
-            </FieldLabel>
-            <Input
-              id="sample-cost-usd"
-              type="number"
-              min="0"
-              step="0.01"
-              value={value.sampleCostUsd}
-              onChange={(event) =>
-                onChange({ sampleCostUsd: event.target.value })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              {t('billing.credits.sampleCostHint')}
-            </p>
-          </Field>
-          <Field className="md:col-span-2">
-            <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-sm">
-              {formula}
-            </p>
-          </Field>
-          <Field className="justify-end md:col-span-2 md:items-end">
-            <Button type="submit" disabled={pending}>
-              {pending ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <Save data-icon="inline-start" />
-              )}
-              {t('billing.credits.save')}
-            </Button>
-          </Field>
-        </FieldGroup>
-      </form>
     </SectionPanel>
   );
 }

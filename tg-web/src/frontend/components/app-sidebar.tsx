@@ -67,6 +67,7 @@ type NavLeaf = {
     | 'nav.adminAnalyses'
     | 'nav.adminCredits'
     | 'nav.adminBilling'
+    | 'nav.adminAnalysisBilling'
     | 'nav.adminSettings'
     | 'nav.adminMarkets'
     | 'nav.adminAudit'
@@ -178,6 +179,14 @@ const adminSections: AdminNavSection[] = [
           href: '/admin/billing',
         },
       },
+      {
+        kind: 'leaf',
+        item: {
+          titleKey: 'nav.adminAnalysisBilling',
+          icon: Coins,
+          href: '/admin/billing/analysis',
+        },
+      },
     ],
   },
   {
@@ -235,6 +244,8 @@ const floorNavButtonClass = cn(
 function isNavActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
   if (href === '/admin') return pathname === '/admin';
+  // Sibling page lives at /admin/billing/analysis; do not treat as a child.
+  if (href === '/admin/billing') return pathname === '/admin/billing';
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

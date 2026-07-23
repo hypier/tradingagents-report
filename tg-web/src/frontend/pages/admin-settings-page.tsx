@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import {
-  DEFAULT_BILLING_SETTINGS,
   DEFAULT_REWARDS_SETTINGS,
   type RewardsSettings,
 } from '@/shared/product-credits';
@@ -36,12 +35,7 @@ import {
   getAdminSettings,
   updateAdminSettings,
 } from '@/frontend/lib/admin-ops';
-import {
-  getAnalysisBillingSettings,
-  getRewardsSettings,
-  updateAnalysisBillingSettings,
-  updateRewardsSettings,
-} from '@/frontend/lib/billing';
+import { getRewardsSettings, updateRewardsSettings } from '@/frontend/lib/billing';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -54,13 +48,6 @@ type SettingsForm = {
   defaultDeepModelId: string;
 };
 
-type AnalysisSettingsForm = {
-  analysisBalanceThreshold: string;
-  pointsPerUsd: string;
-  markupPercent: string;
-  sampleCostUsd: string;
-};
-
 export function AdminSettingsPage() {
   const { t } = useTranslation('admin');
   const session = useAuthSession();
@@ -69,11 +56,6 @@ export function AdminSettingsPage() {
   const settings = useQuery({
     queryKey: ['admin-settings'],
     queryFn: () => getAdminSettings(),
-    enabled: isAdmin,
-  });
-  const analysisSettings = useQuery({
-    queryKey: ['admin-analysis-billing-settings'],
-    queryFn: () => getAnalysisBillingSettings(),
     enabled: isAdmin,
   });
   const rewardsSettings = useQuery({
@@ -89,14 +71,6 @@ export function AdminSettingsPage() {
   const [form, setForm] = useState<SettingsForm>({
     defaultQuickModelId: '',
     defaultDeepModelId: '',
-  });
-  const [analysisForm, setAnalysisForm] = useState<AnalysisSettingsForm>({
-    analysisBalanceThreshold: String(
-      DEFAULT_BILLING_SETTINGS.analysisBalanceThreshold,
-    ),
-    pointsPerUsd: DEFAULT_BILLING_SETTINGS.pointsPerUsd,
-    markupPercent: String(DEFAULT_BILLING_SETTINGS.markupBasisPoints / 100),
-    sampleCostUsd: '1',
   });
   const [rewardsForm, setRewardsForm] = useState<RewardsSettings>(
     DEFAULT_REWARDS_SETTINGS,
@@ -120,17 +94,6 @@ export function AdminSettingsPage() {
           : '',
     });
   }, [settings.data?.data]);
-
-  useEffect(() => {
-    const value = analysisSettings.data?.data;
-    if (!value) return;
-    setAnalysisForm((current) => ({
-      ...current,
-      analysisBalanceThreshold: String(value.analysisBalanceThreshold),
-      pointsPerUsd: value.pointsPerUsd,
-      markupPercent: String(value.markupBasisPoints / 100),
-    }));
-  }, [analysisSettings.data]);
 
   useEffect(() => {
     const value = rewardsSettings.data?.data;
@@ -158,25 +121,6 @@ export function AdminSettingsPage() {
     },
     onError: (error: Error) =>
       toast.error(error.message || t('settings.saveError')),
-  });
-
-  const saveAnalysisBilling = useMutation({
-    mutationFn: () =>
-      updateAnalysisBillingSettings({
-        analysisBalanceThreshold: Math.max(
-          0,
-          Math.floor(Number(analysisForm.analysisBalanceThreshold) || 0),
-        ),
-        pointsPerUsd: analysisForm.pointsPerUsd,
-        markupBasisPoints: Math.round(Number(analysisForm.markupPercent) * 100),
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['admin-analysis-billing-settings'],
-      });
-      toast.success(t('settings.billing.saved'));
-    },
-    onError: () => toast.error(t('settings.billing.saveError')),
   });
 
   const saveRewards = useMutation({
@@ -225,24 +169,25 @@ export function AdminSettingsPage() {
             <AlertDescription>{t('settings.loadError.body')}</AlertDescription>
           </Alert>
         ) : (
-          <div className="flex flex-col gap-5">
-            <form onSubmit={onSave} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-8">
+            <form onSubmit={onSave} className="flex flex-col gap-4">
               <SectionPanel
                 title={t('settings.llmDefaultsTitle')}
                 description={t('settings.llmDefaultsDescription')}
               >
-                {enabledModels.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.llmDefaultsEmpty')}{' '}
-                    <Link
-                      to="/admin/llm/models"
-                      className="underline underline-offset-2"
-                    >
-                      {t('settings.llmDefaultsEmptyCta')}
-                    </Link>
-                  </p>
+                {modelsQuery.isLoading ? (
+                  <Skeleton className="h-24 w-full" />
+                ) : enabledModels.length === 0 ? (
+                  <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+                    <p>{t('settings.llmDefaultsEmpty')}</p>
+                    <Button asChild variant="outline" className="w-fit">
+                      <Link to="/admin/llm/models">
+                        {t('settings.llmDefaultsEmptyCta')}
+                      </Link>
+                    </Button>
+                  </div>
                 ) : (
-                  <FieldGroup className="sm:grid-cols-2">
+                  <FieldGroup className="grid gap-4 md:grid-cols-2">
                     <Field>
                       <FieldLabel>{t('settings.defaultQuickModel')}</FieldLabel>
                       <Select
@@ -309,16 +254,6 @@ export function AdminSettingsPage() {
               </div>
             </form>
 
-            <AnalysisBillingSettingsEditor
-              value={analysisForm}
-              loading={analysisSettings.isLoading}
-              pending={saveAnalysisBilling.isPending}
-              onChange={(values) =>
-                setAnalysisForm((current) => ({ ...current, ...values }))
-              }
-              onSubmit={() => saveAnalysisBilling.mutate()}
-            />
-
             <div className="flex flex-col gap-3">
               <div>
                 <h2 className="text-base font-medium tracking-tight">
@@ -340,152 +275,6 @@ export function AdminSettingsPage() {
         )}
       </PageFrame>
     </AdminGate>
-  );
-}
-
-function AnalysisBillingSettingsEditor({
-  value,
-  loading,
-  pending,
-  onChange,
-  onSubmit,
-}: {
-  value: AnalysisSettingsForm;
-  loading: boolean;
-  pending: boolean;
-  onChange(values: Partial<AnalysisSettingsForm>): void;
-  onSubmit(): void;
-}) {
-  const { t } = useTranslation('admin');
-  const cost = Number(value.sampleCostUsd);
-  const pointsPerUsd = Number(value.pointsPerUsd);
-  const markupPercent = Number(value.markupPercent);
-  const markupBasisPoints = Math.round(markupPercent * 100);
-  const previewValid =
-    [cost, pointsPerUsd, markupBasisPoints].every(Number.isFinite) &&
-    cost >= 0 &&
-    pointsPerUsd > 0 &&
-    markupBasisPoints >= 0;
-  const preview = previewValid
-    ? Math.ceil((cost * pointsPerUsd * (10_000 + markupBasisPoints)) / 10_000)
-    : null;
-  const formula = previewValid
-    ? t('settings.billing.formula', {
-        cost: value.sampleCostUsd,
-        pointsPerUsd: value.pointsPerUsd,
-        markup: value.markupPercent,
-        count: preview,
-      })
-    : t('settings.billing.formulaInvalid');
-
-  if (loading) return <Skeleton className="h-72 w-full" />;
-
-  return (
-    <SectionPanel
-      title={t('settings.billing.title')}
-      description={t('settings.billing.description')}
-    >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit();
-        }}
-      >
-        <FieldGroup className="grid gap-4 md:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="settings-analysis-balance-threshold">
-              {t('settings.billing.balanceThreshold')}
-            </FieldLabel>
-            <Input
-              id="settings-analysis-balance-threshold"
-              type="number"
-              min="0"
-              step="1"
-              required
-              value={value.analysisBalanceThreshold}
-              onChange={(event) =>
-                onChange({ analysisBalanceThreshold: event.target.value })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              {t('settings.billing.balanceThresholdHint')}
-            </p>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="settings-points-per-usd">
-              {t('settings.billing.pointsPerUsd')}
-            </FieldLabel>
-            <Input
-              id="settings-points-per-usd"
-              type="number"
-              min="0.000001"
-              step="0.000001"
-              required
-              value={value.pointsPerUsd}
-              onChange={(event) =>
-                onChange({ pointsPerUsd: event.target.value })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              {t('settings.billing.pointsPerUsdHint')}
-            </p>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="settings-markup-percent">
-              {t('settings.billing.markup')}
-            </FieldLabel>
-            <Input
-              id="settings-markup-percent"
-              type="number"
-              min="0"
-              max="1000"
-              step="0.01"
-              required
-              value={value.markupPercent}
-              onChange={(event) =>
-                onChange({ markupPercent: event.target.value })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              {t('settings.billing.markupHint')}
-            </p>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="settings-sample-cost-usd">
-              {t('settings.billing.sampleCost')}
-            </FieldLabel>
-            <Input
-              id="settings-sample-cost-usd"
-              type="number"
-              min="0"
-              step="0.01"
-              value={value.sampleCostUsd}
-              onChange={(event) =>
-                onChange({ sampleCostUsd: event.target.value })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              {t('settings.billing.sampleCostHint')}
-            </p>
-          </Field>
-          <Field className="md:col-span-2">
-            <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-sm">
-              {formula}
-            </p>
-          </Field>
-          <Field className="justify-end md:col-span-2 md:items-end">
-            <Button type="submit" disabled={pending}>
-              {pending ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <Save data-icon="inline-start" />
-              )}
-              {t('settings.billing.save')}
-            </Button>
-          </Field>
-        </FieldGroup>
-      </form>
-    </SectionPanel>
   );
 }
 

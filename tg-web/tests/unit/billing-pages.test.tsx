@@ -396,7 +396,7 @@ it('localizes default plans in the Chinese Stripe settings table', async () => {
 it('lets an administrator preview and save analysis billing settings', async () => {
   state.role = 'admin';
   render(
-    <MemoryRouter initialEntries={['/admin/billing?tab=credits']}>
+    <MemoryRouter initialEntries={['/admin/billing/analysis']}>
       <App />
     </MemoryRouter>,
   );
