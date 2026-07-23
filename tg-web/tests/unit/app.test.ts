@@ -62,6 +62,7 @@ function fakeDependencies(
         webhookUrl: 'https://app.example.test/api/stripe/webhook',
         mode: 'test',
         plans: [],
+        archivedPlans: [],
         configurationSource: 'environment',
         secretKeyHint: 'sk_test_...test',
         webhookSecretHint: 'whsec_...test',
@@ -82,6 +83,7 @@ function fakeDependencies(
       createPlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
+      restorePlan: vi.fn(),
       handleWebhook: vi
         .fn()
         .mockResolvedValue({ id: 'evt_test', type: 'invoice.paid' }),
@@ -1089,6 +1091,45 @@ describe('createApp', () => {
     expect(dependencies.billing.archivePlan).toHaveBeenCalledWith(
       'price_test123',
     );
+  });
+
+  it('lets an administrator restore a managed Stripe plan', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.auth.getUser).mockResolvedValue({
+      id: 'user-1',
+      displayName: 'Admin User',
+      email: 'admin@example.test',
+      imageUrl: '',
+      role: 'admin',
+    });
+    const restored = {
+      id: 'price_test123',
+      catalogKey: null,
+      name: 'Pro',
+      description: null,
+      unitAmount: 1900,
+      currency: 'usd',
+      interval: 'month' as const,
+      intervalCount: 1,
+      analysisCredits: 50,
+      supportedMarkets: ['US'],
+      features: [],
+    };
+    vi.mocked(dependencies.billing.restorePlan).mockResolvedValue(restored);
+    const app = createApp(dependencies);
+
+    const response = await app.request(
+      '/api/admin/billing/plans/price_test123/restore',
+      { method: 'POST' },
+    );
+
+    expect(response.status).toBe(200);
+    expect(dependencies.billing.restorePlan).toHaveBeenCalledWith(
+      'price_test123',
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      data: restored,
+    });
   });
 
   it('requires a Stripe signature and preserves the raw webhook body', async () => {

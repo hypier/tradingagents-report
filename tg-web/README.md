@@ -81,7 +81,7 @@ social accounts, and sessions. Product preferences are stored locally.
 Passwords and Clerk session credentials are never stored by TG-web.
 
 Administrators use `/admin/billing` to inspect connection and webhook status,
-create recurring Stripe Products and Prices, and archive active Prices.
+create recurring Stripe Products and Prices, archive and restore active Prices.
 Stripe API keys and webhook secrets come from deployment environment variables.
 The plans tab can idempotently provision the standard USD 20, 50, and 100
 monthly plans, which grant 20, 50, and 100 analysis credits per paid billing

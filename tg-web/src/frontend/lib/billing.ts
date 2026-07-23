@@ -4,6 +4,7 @@ import type {
   BillingSettings,
   CreateBillingPlanInput,
   RewardsBillingSettings,
+  UpdateBillingPlanInput,
   UpdateCreditBillingSettingsInput,
   UpdateRewardsSettingsInput,
 } from '@/backend/billing/contract';
@@ -113,6 +114,18 @@ export const createBillingPlan = (
   fetchImplementation?: FetchImplementation,
 ) => write<BillingPlan>('/api/admin/billing/plans', input, fetchImplementation);
 
+export const updateBillingPlan = (
+  priceId: string,
+  input: UpdateBillingPlanInput,
+  fetchImplementation?: FetchImplementation,
+) =>
+  write<BillingPlan>(
+    `/api/admin/billing/plans/${encodeURIComponent(priceId)}`,
+    input,
+    fetchImplementation,
+    'PUT',
+  );
+
 export const provisionDefaultBillingPlans = (
   fetchImplementation?: FetchImplementation,
 ) =>
@@ -128,6 +141,16 @@ export const archiveBillingPlan = (
 ) =>
   write<{ archived: true }>(
     `/api/admin/billing/plans/${encodeURIComponent(priceId)}/archive`,
+    undefined,
+    fetchImplementation,
+  );
+
+export const restoreBillingPlan = (
+  priceId: string,
+  fetchImplementation?: FetchImplementation,
+) =>
+  write<BillingPlan>(
+    `/api/admin/billing/plans/${encodeURIComponent(priceId)}/restore`,
     undefined,
     fetchImplementation,
   );

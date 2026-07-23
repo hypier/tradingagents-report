@@ -47,6 +47,7 @@ function fakeDependencies(): AppDependencies {
       createPlan: vi.fn(),
       provisionDefaultPlans: vi.fn(),
       archivePlan: vi.fn(),
+      restorePlan: vi.fn(),
       handleWebhook: vi.fn(),
     },
     database: {

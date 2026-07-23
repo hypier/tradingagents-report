@@ -163,7 +163,10 @@
         "credits": "{{count}} usage points per month",
         "markets": "All supported markets"
       },
-      "archive": "Archive {{name}}"
+      "archive": "Archive {{name}}",
+      "restore": "Restore {{name}}",
+      "archivedTitle": "Archived plans",
+      "archivedDescription": "Archived prices stay hidden from checkout until restored."
     },
     "credits": {
       "heading": "Analysis billing",
@@ -211,6 +214,8 @@
       "defaultsProvisionError": "Unable to provision the default monthly plans.",
       "planArchived": "Subscription plan archived.",
       "planArchiveError": "Unable to archive the subscription plan.",
+      "planRestored": "Subscription plan restored.",
+      "planRestoreError": "Unable to restore the subscription plan.",
       "invalidPrice": "Enter a valid price of at least 0.50.",
       "invalidCredits": "Enter at least one analysis credit."
     },

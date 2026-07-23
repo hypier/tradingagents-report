@@ -52,6 +52,12 @@ const createPlanSchema = z.object({
     ),
 });
 
+const updatePlanSchema = createPlanSchema.omit({
+  unitAmount: true,
+  currency: true,
+  interval: true,
+});
+
 const positiveDecimal = (maximumFractionDigits: number) =>
   z
     .string()
@@ -244,6 +250,22 @@ export function billingRoutes(dependencies: AppDependencies) {
     return context.json(apiSuccess(plan, context.get('requestId')), 201);
   });
 
+  app.put('/admin/billing/plans/:priceId', async (context) => {
+    const priceId = priceIdSchema.safeParse(context.req.param('priceId'));
+    if (!priceId.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid Stripe price ID');
+    }
+    const body = await context.req.json().catch(() => null);
+    const input = updatePlanSchema.safeParse(body);
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid billing plan');
+    }
+    const plan = await callBilling(() =>
+      dependencies.billing.updatePlan(priceId.data, input.data),
+    );
+    return context.json(apiSuccess(plan, context.get('requestId')));
+  });
+
   app.post('/admin/billing/plans/defaults', async (context) => {
     const plans = await callBilling(() =>
       dependencies.billing.provisionDefaultPlans(),
@@ -260,6 +282,17 @@ export function billingRoutes(dependencies: AppDependencies) {
     return context.json(
       apiSuccess({ archived: true as const }, context.get('requestId')),
     );
+  });
+
+  app.post('/admin/billing/plans/:priceId/restore', async (context) => {
+    const input = priceIdSchema.safeParse(context.req.param('priceId'));
+    if (!input.success) {
+      throw new AppError('INVALID_REQUEST', 400, 'Invalid Stripe price ID');
+    }
+    const plan = await callBilling(() =>
+      dependencies.billing.restorePlan(input.data),
+    );
+    return context.json(apiSuccess(plan, context.get('requestId')));
   });
 
   return app;

@@ -132,6 +132,8 @@ export type BillingSettings = {
   webhookUrl: string;
   mode: 'test' | 'live' | 'unconfigured';
   plans: BillingPlan[];
+  /** TradingAgents-managed recurring prices with `active: false`. */
+  archivedPlans: BillingPlan[];
   /** Stripe 密钥仅来自部署环境变量。 */
   configurationSource: 'environment' | 'none';
   secretKeyHint: string | null;
@@ -155,6 +157,15 @@ export type CreateBillingPlanInput = {
   unitAmount: number;
   currency: 'usd' | 'cny' | 'hkd' | 'eur';
   interval: BillingInterval;
+  analysisCredits: number;
+  supportedMarkets: string[];
+  features: string[];
+};
+
+/** Editable plan fields — Stripe Price amount/currency/interval stay immutable. */
+export type UpdateBillingPlanInput = {
+  name: string;
+  description?: string;
   analysisCredits: number;
   supportedMarkets: string[];
   features: string[];
@@ -212,8 +223,13 @@ export interface BillingService {
     priceId?: string,
   ): Promise<string>;
   createPlan(input: CreateBillingPlanInput): Promise<BillingPlan>;
+  updatePlan(
+    priceId: string,
+    input: UpdateBillingPlanInput,
+  ): Promise<BillingPlan>;
   provisionDefaultPlans(): Promise<BillingPlan[]>;
   archivePlan(priceId: string): Promise<void>;
+  restorePlan(priceId: string): Promise<BillingPlan>;
   handleWebhook(
     payload: string,
     signature: string,

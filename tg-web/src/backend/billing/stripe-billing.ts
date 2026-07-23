@@ -14,6 +14,7 @@ import {
   type CreateBillingPlanInput,
   type StripeSubscriptionSnapshot,
   type StripeWebhookEvent,
+  type UpdateBillingPlanInput,
 } from './contract';
 import {
   DEFAULT_MONTHLY_BILLING_PLANS,
@@ -111,6 +112,10 @@ class StripeBillingService implements BillingService {
   }
 
   async getSettings(): Promise<BillingSettings> {
+    const [plans, archivedPlans] = await Promise.all([
+      this.listPlans(),
+      this.listArchivedPlans(),
+    ]);
     return {
       configured: true,
       connectionHealthy: true,
@@ -120,7 +125,8 @@ class StripeBillingService implements BillingService {
         this.options.appBaseUrl,
       ).toString(),
       mode: this.options.secretKey!.startsWith('sk_live_') ? 'live' : 'test',
-      plans: await this.listPlans(),
+      plans,
+      archivedPlans,
       configurationSource: 'environment',
       secretKeyHint: secretHint(this.options.secretKey),
       webhookSecretHint: secretHint(this.options.webhookSecret),
@@ -379,6 +385,40 @@ class StripeBillingService implements BillingService {
     return this.createManagedPlan(input);
   }
 
+  async updatePlan(
+    priceId: string,
+    input: UpdateBillingPlanInput,
+  ): Promise<BillingPlan> {
+    const price = await this.requireManagedPrice(priceId, {
+      expand: ['product'],
+    });
+    const product = expandedProduct(price);
+    const metadata = {
+      managed_by: 'tradingagents-web',
+      analysis_credits: String(input.analysisCredits),
+      ...(price.metadata.catalog_key
+        ? { catalog_key: price.metadata.catalog_key }
+        : {}),
+    };
+    await this.stripe.products.update(product.id, {
+      name: input.name,
+      description: input.description || undefined,
+      metadata: {
+        ...product.metadata,
+        ...metadata,
+        supported_markets: JSON.stringify(input.supportedMarkets),
+        features: JSON.stringify(input.features),
+      },
+    });
+    await this.stripe.prices.update(price.id, {
+      metadata: { ...price.metadata, ...metadata },
+    });
+    const updated = await this.stripe.prices.retrieve(price.id, {
+      expand: ['product'],
+    });
+    return mapPlan(updated, expandedProduct(updated));
+  }
+
   async provisionDefaultPlans(): Promise<BillingPlan[]> {
     const prices = await this.stripe.prices.list({
       type: 'recurring',
@@ -531,15 +571,25 @@ class StripeBillingService implements BillingService {
   }
 
   async archivePlan(priceId: string): Promise<void> {
-    const price = await this.stripe.prices.retrieve(priceId);
-    if (price.metadata.managed_by !== 'tradingagents-web') {
-      throw new BillingServiceError(
-        'UNMANAGED_BILLING_PLAN',
-        400,
-        'Only TradingAgents-managed plans can be archived',
-      );
+    const price = await this.requireManagedPrice(priceId);
+    await this.stripe.prices.update(price.id, { active: false });
+  }
+
+  async restorePlan(priceId: string): Promise<BillingPlan> {
+    const price = await this.requireManagedPrice(priceId, {
+      expand: ['product'],
+    });
+    const product = expandedProduct(price);
+    if (!product.active) {
+      await this.stripe.products.update(product.id, { active: true });
     }
-    await this.stripe.prices.update(priceId, { active: false });
+    if (!price.active) {
+      await this.stripe.prices.update(price.id, { active: true });
+    }
+    const restored = await this.stripe.prices.retrieve(price.id, {
+      expand: ['product'],
+    });
+    return mapPlan(restored, expandedProduct(restored));
   }
 
   async handleWebhook(payload: string, signature: string) {
@@ -589,6 +639,40 @@ class StripeBillingService implements BillingService {
       .map((price) => mapPlan(price, price.product as Stripe.Product))
       .filter((plan) => plan.analysisCredits > 0);
   }
+
+  private async listArchivedPlans(): Promise<BillingPlan[]> {
+    const prices = await this.stripe.prices.list({
+      active: false,
+      type: 'recurring',
+      limit: 100,
+      expand: ['data.product'],
+    });
+    return prices.data
+      .filter(
+        (price) =>
+          price.metadata.managed_by === 'tradingagents-web' &&
+          price.recurring !== null &&
+          typeof price.product !== 'string' &&
+          !price.product.deleted,
+      )
+      .map((price) => mapPlan(price, price.product as Stripe.Product))
+      .filter((plan) => plan.analysisCredits > 0);
+  }
+
+  private async requireManagedPrice(
+    priceId: string,
+    params?: Stripe.PriceRetrieveParams,
+  ): Promise<Stripe.Price> {
+    const price = await this.stripe.prices.retrieve(priceId, params);
+    if (price.metadata.managed_by !== 'tradingagents-web') {
+      throw new BillingServiceError(
+        'UNMANAGED_BILLING_PLAN',
+        400,
+        'Only TradingAgents-managed plans can be changed',
+      );
+    }
+    return price;
+  }
 }
 
 class UnavailableBillingService implements BillingService {
@@ -614,6 +698,7 @@ class UnavailableBillingService implements BillingService {
       ).toString(),
       mode: 'unconfigured',
       plans: [],
+      archivedPlans: [],
       configurationSource: 'none',
       secretKeyHint: null,
       webhookSecretHint: null,
@@ -640,11 +725,19 @@ class UnavailableBillingService implements BillingService {
     return this.unavailable();
   }
 
+  async updatePlan(): Promise<BillingPlan> {
+    return this.unavailable();
+  }
+
   async provisionDefaultPlans(): Promise<BillingPlan[]> {
     return this.unavailable();
   }
 
   async archivePlan(): Promise<void> {
+    return this.unavailable();
+  }
+
+  async restorePlan(): Promise<BillingPlan> {
     return this.unavailable();
   }
 

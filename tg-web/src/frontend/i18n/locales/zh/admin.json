@@ -163,7 +163,10 @@
         "credits": "每月 {{count}} 积分",
         "markets": "支持全部市场"
       },
-      "archive": "归档 {{name}}"
+      "archive": "归档 {{name}}",
+      "restore": "恢复 {{name}}",
+      "archivedTitle": "已归档套餐",
+      "archivedDescription": "归档后前台不可见；恢复后重新出现在生效套餐与订阅页。"
     },
     "credits": {
       "heading": "分析计费",
@@ -211,6 +214,8 @@
       "defaultsProvisionError": "无法初始化默认月付套餐。",
       "planArchived": "订阅套餐已归档。",
       "planArchiveError": "无法归档订阅套餐。",
+      "planRestored": "订阅套餐已恢复。",
+      "planRestoreError": "无法恢复订阅套餐。",
       "invalidPrice": "请输入至少 0.50 的有效价格。",
       "invalidCredits": "请输入至少一个分析额度。"
     },

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
+  ArchiveRestore,
   CheckCircle2,
   CircleDollarSign,
   Clipboard,
@@ -84,6 +85,7 @@ import {
   getBillingSettings,
   listAdminStripeEvents,
   provisionDefaultBillingPlans,
+  restoreBillingPlan,
   type AdminStripeWebhookEvent,
 } from '@/frontend/lib/billing';
 
@@ -167,6 +169,14 @@ export function AdminBillingPage() {
       toast.success(t('billing.toasts.planArchived'));
     },
     onError: () => toast.error(t('billing.toasts.planArchiveError')),
+  });
+  const restorePlan = useMutation({
+    mutationFn: (priceId: string) => restoreBillingPlan(priceId),
+    onSuccess: () => {
+      refresh();
+      toast.success(t('billing.toasts.planRestored'));
+    },
+    onError: () => toast.error(t('billing.toasts.planRestoreError')),
   });
 
   if (requestedTab === 'credits') {
@@ -379,6 +389,13 @@ export function AdminBillingPage() {
                   archivePlan.isPending ? archivePlan.variables : undefined
                 }
                 onArchive={(priceId) => archivePlan.mutate(priceId)}
+              />
+              <ArchivedPlansTable
+                plans={data.archivedPlans}
+                pendingId={
+                  restorePlan.isPending ? restorePlan.variables : undefined
+                }
+                onRestore={(priceId) => restorePlan.mutate(priceId)}
               />
             </TabsContent>
             <TabsContent value="events" className="pt-3">
@@ -835,6 +852,95 @@ function PlansTable({
             })}
           </TableBody>
         </Table>
+    </SectionPanel>
+  );
+}
+
+function ArchivedPlansTable({
+  plans,
+  pendingId,
+  onRestore,
+}: {
+  plans: BillingPlan[];
+  pendingId?: string;
+  onRestore(priceId: string): void;
+}) {
+  const { t } = useTranslation('admin');
+  if (!plans.length) {
+    return null;
+  }
+  return (
+    <SectionPanel
+      title={t('billing.plans.archivedTitle')}
+      description={t('billing.plans.archivedDescription')}
+      actions={<Badge variant="secondary">{plans.length}</Badge>}
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t('billing.plans.columns.plan')}</TableHead>
+            <TableHead>{t('billing.plans.columns.price')}</TableHead>
+            <TableHead>{t('billing.plans.columns.interval')}</TableHead>
+            <TableHead>{t('billing.plans.columns.credits')}</TableHead>
+            <TableHead className="w-16" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {plans.map((plan) => {
+            const displayPlan = localizeBillingPlan(
+              plan,
+              t,
+              'billing.plans.defaultPlans',
+            );
+            const interval = localizeBillingInterval(
+              plan.interval,
+              t,
+              'billing.plans.intervals',
+            );
+            return (
+              <TableRow key={plan.id} className="h-11">
+                <TableCell>
+                  <div className="font-normal">{displayPlan.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {displayPlan.description ?? plan.id}
+                  </div>
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatLocaleCurrency(plan.unitAmount, plan.currency)}
+                </TableCell>
+                <TableCell>
+                  {plan.intervalCount > 1
+                    ? t('billing.plans.everyCount', {
+                        count: plan.intervalCount,
+                        interval,
+                      })
+                    : t('billing.plans.every', { interval })}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {plan.analysisCredits}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    title={t('billing.plans.restore', {
+                      name: displayPlan.name,
+                    })}
+                    aria-label={t('billing.plans.restore', {
+                      name: displayPlan.name,
+                    })}
+                    disabled={pendingId === plan.id}
+                    onClick={() => onRestore(plan.id)}
+                  >
+                    <ArchiveRestore />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </SectionPanel>
   );
 }

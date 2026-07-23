@@ -47,9 +47,10 @@
   },
   "subscription": {
     "title": "Current subscription",
+    "plan": "Current plan",
     "statusCanceled": "Canceled",
-    "ends": "Ends (current cycle stays active; no renewal)",
-    "renews": "Renews",
+    "ends": "Ends on",
+    "renews": "Renews on",
     "manage": "Manage subscription",
     "cancelNote": "After cancel-at-period-end, plan points remain usable until the cycle ends. Then billing stops, unused plan points clear, and reward points stay.",
     "canceledNote": "Subscription canceled. Plan points remain usable until the cycle ends. Then billing stops, unused plan points clear, and reward points stay.",

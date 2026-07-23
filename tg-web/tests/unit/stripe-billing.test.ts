@@ -41,6 +41,7 @@ describe('createStripeBillingService', () => {
       webhookUrl: 'https://app.example.test/api/stripe/webhook',
       mode: 'unconfigured',
       plans: [],
+      archivedPlans: [],
       configurationSource: 'none',
       secretKeyHint: null,
       webhookSecretHint: null,

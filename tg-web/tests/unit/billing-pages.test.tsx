@@ -28,6 +28,7 @@ const billing = vi.hoisted(() => ({
   createBillingPlan: vi.fn(),
   provisionDefaultBillingPlans: vi.fn(),
   archiveBillingPlan: vi.fn(),
+  restoreBillingPlan: vi.fn(),
 }));
 
 vi.mock('../../src/frontend/hooks/use-auth-session', () => ({
@@ -129,6 +130,7 @@ beforeEach(() => {
       webhookUrl: 'https://app.example.test/api/stripe/webhook',
       mode: 'test',
       plans: [plan],
+      archivedPlans: [],
       configurationSource: 'environment',
       secretKeyHint: 'sk_test_...1234',
       webhookSecretHint: 'whsec_...1234',
@@ -368,6 +370,7 @@ it('localizes default plans in the Chinese Stripe settings table', async () => {
       webhookUrl: 'https://app.example.test/api/stripe/webhook',
       mode: 'test',
       plans: [defaultScalePlan()],
+      archivedPlans: [],
       configurationSource: 'environment',
       secretKeyHint: 'sk_test_...1234',
       webhookSecretHint: 'whsec_...1234',

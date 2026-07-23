@@ -5,7 +5,11 @@ import { toast } from 'sonner';
 
 import type { BillingPlan } from '@/backend/billing/contract';
 import { AppShell } from '@/frontend/components/app-shell';
-import { PageFrame, SectionPanel } from '@/frontend/components/page-chrome';
+import {
+  PageFrame,
+  SectionPanel,
+  StatTile,
+} from '@/frontend/components/page-chrome';
 import {
   Alert,
   AlertDescription,
@@ -96,11 +100,6 @@ export function SubscriptionPage() {
             {data.subscription ? (
               <SectionPanel
                 title={t('subscription.title')}
-                description={localizeBillingPlanName(
-                  data.subscription.planName,
-                  t,
-                  'plans.defaultPlans',
-                )}
                 actions={
                   <Badge
                     variant={
@@ -116,18 +115,49 @@ export function SubscriptionPage() {
                   </Badge>
                 }
               >
-                <div className="flex flex-col gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    {data.subscription.cancelAtPeriodEnd
-                      ? t('subscription.ends')
-                      : t('subscription.renews')}{' '}
-                    <span className="font-mono tabular-nums">
-                      {formatLocaleDate(
-                        data.subscription.currentPeriodEnd,
-                        t('notAvailable'),
-                      )}
-                    </span>
-                  </p>
+                <div className="flex flex-col gap-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <StatTile
+                      label={t('subscription.plan')}
+                      value={
+                        <span className="text-amber-700 dark:text-amber-400">
+                          {localizeBillingPlanName(
+                            data.subscription.planName,
+                            t,
+                            'plans.defaultPlans',
+                          )}
+                        </span>
+                      }
+                      valueClassName="font-sans"
+                      className="border-amber-500/30 bg-amber-500/8"
+                    />
+                    <StatTile
+                      label={
+                        data.subscription.cancelAtPeriodEnd
+                          ? t('subscription.ends')
+                          : t('subscription.renews')
+                      }
+                      value={
+                        <span
+                          className={
+                            data.subscription.cancelAtPeriodEnd
+                              ? 'text-rose-700 dark:text-rose-300'
+                              : 'text-sky-700 dark:text-sky-300'
+                          }
+                        >
+                          {formatLocaleDate(
+                            data.subscription.currentPeriodEnd,
+                            t('notAvailable'),
+                          )}
+                        </span>
+                      }
+                      className={
+                        data.subscription.cancelAtPeriodEnd
+                          ? 'border-rose-500/25 bg-rose-500/8'
+                          : 'border-sky-500/25 bg-sky-500/8'
+                      }
+                    />
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {data.subscription.cancelAtPeriodEnd
                       ? t('subscription.canceledNote')
