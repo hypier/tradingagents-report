@@ -1,74 +1,7 @@
 {
-  "title": "欢迎回来",
-  "titleNamed": "欢迎回来，{{name}}",
-  "subtitle": "快速进入投研、查看额度，并继续最近的工作。",
+  "intro": "多位 AI 分析师协同工作，从行情、基本面到舆情与风险，帮你把一只股票看明白、讲清楚。",
   "runAnalysis": "开始分析",
-  "viewTasks": "查看任务",
-  "stats": {
-    "credits": "可用额度",
-    "creditsHint": "套餐额度与奖励额度合计",
-    "creditsUnavailable": "—",
-    "plan": "当前套餐",
-    "planNone": "暂无有效套餐",
-    "planHint": "订阅状态",
-    "activeJobs": "进行中任务",
-    "activeJobsHint": "排队或运行中",
-    "watchlist": "自选股",
-    "watchlistHint": "已保存标的"
-  },
-  "shortcuts": {
-    "title": "工作区",
-    "description": "常用投研与账户入口",
-    "desk": {
-      "title": "研究台",
-      "body": "配置并启动多智能体分析"
-    },
-    "tasks": {
-      "title": "任务中心",
-      "body": "跟踪排队与运行中的任务"
-    },
-    "reports": {
-      "title": "报告库",
-      "body": "浏览已完成的研究报告"
-    },
-    "quotes": {
-      "title": "市场行情",
-      "body": "查看多市场实时报价"
-    },
-    "watchlist": {
-      "title": "自选股",
-      "body": "管理已关注的标的"
-    },
-    "subscription": {
-      "title": "订阅",
-      "body": "查看套餐与账单状态"
-    },
-    "usage": {
-      "title": "用量",
-      "body": "额度、周期余额与流水"
-    },
-    "account": {
-      "title": "账户",
-      "body": "资料、语言与研究默认项"
-    }
-  },
-  "recent": {
-    "title": "最近任务",
-    "description": "近期分析记录",
-    "empty": "还没有分析任务。可从研究台开始第一次分析。",
-    "viewAll": "全部任务",
-    "tradeDate": "交易日 {{date}}"
-  },
-  "prefs": {
-    "title": "你的默认项",
-    "description": "启动新分析时会自动应用",
-    "market": "默认市场",
-    "timezone": "时区",
-    "reportLanguage": "报告语言",
-    "edit": "编辑账户"
-  },
-  "loadError": {
-    "title": "无法加载欢迎页数据",
-    "body": "请检查服务连接后重试。"
-  }
+  "browseQuotes": "浏览行情",
+  "hint": "任务、报告等入口请使用左侧菜单。",
+  "disclaimer": "仅供研究参考，不执行任何交易。"
 }

@@ -62,7 +62,7 @@ export function BrandMark({ className }: { className?: string }) {
         width="30"
         height="30"
         rx="1.5"
-        stroke="var(--sidebar-primary-foreground)"
+        stroke="#070a0e"
         strokeOpacity="0.18"
       />
       {/* Ascending research bars */}
@@ -71,7 +71,7 @@ export function BrandMark({ className }: { className?: string }) {
         y="18"
         width="3.5"
         height="7"
-        fill="var(--sidebar-primary-foreground)"
+        fill="#070a0e"
         fillOpacity="0.42"
       />
       <rect
@@ -79,46 +79,22 @@ export function BrandMark({ className }: { className?: string }) {
         y="13"
         width="3.5"
         height="12"
-        fill="var(--sidebar-primary-foreground)"
+        fill="#070a0e"
         fillOpacity="0.68"
       />
-      <rect
-        x="21.5"
-        y="8"
-        width="3.5"
-        height="17"
-        fill="var(--sidebar-primary-foreground)"
-      />
+      <rect x="21.5" y="8" width="3.5" height="17" fill="#070a0e" />
       {/* Live signal through agent nodes */}
       <path
         d="M8.5 16.5h5.5L16.5 12.5 24 7"
-        stroke="var(--sidebar-primary-foreground)"
+        stroke="#070a0e"
         strokeOpacity="0.55"
         strokeWidth="1.5"
         strokeLinecap="square"
         strokeLinejoin="miter"
       />
-      <rect
-        x="7.4"
-        y="15.4"
-        width="2.2"
-        height="2.2"
-        fill="var(--sidebar-primary-foreground)"
-      />
-      <rect
-        x="15.4"
-        y="11.4"
-        width="2.2"
-        height="2.2"
-        fill="var(--sidebar-primary-foreground)"
-      />
-      <rect
-        x="22.9"
-        y="5.9"
-        width="2.2"
-        height="2.2"
-        fill="var(--sidebar-primary-foreground)"
-      />
+      <rect x="7.4" y="15.4" width="2.2" height="2.2" fill="#070a0e" />
+      <rect x="15.4" y="11.4" width="2.2" height="2.2" fill="#070a0e" />
+      <rect x="22.9" y="5.9" width="2.2" height="2.2" fill="#070a0e" />
     </svg>
   );
 }
