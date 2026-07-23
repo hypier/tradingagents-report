@@ -45,6 +45,9 @@ that are reachable from the development machine:
 - `APP_BASE_URL`: public application origin used for Checkout success/cancel,
   Customer Portal return, and webhook URLs.
 
+Full Stripe Test/Live setup (Portal, webhooks, credits, checklists):
+[`docs/STRIPE_INTEGRATION.md`](./docs/STRIPE_INTEGRATION.md).
+
 The sample values are placeholders only. Do not commit a populated `.env`.
 
 The signed-out homepage shows `Sign in` and `Sign up` actions. The browser
@@ -159,7 +162,9 @@ pnpm exec wrangler dev --local
 The Worker requires a KV namespace, a Hyperdrive binding for the external Core
 PostgreSQL database, `CORE_API_URL` plus `CORE_API_KEY`, and the three
 Clerk settings described above as deployment configuration. Stripe billing
-also requires Stripe credentials and `APP_BASE_URL`. Store
+also requires Stripe credentials and `APP_BASE_URL`. See
+[`docs/STRIPE_INTEGRATION.md`](./docs/STRIPE_INTEGRATION.md) for Test/Live
+setup, Customer Portal, webhooks, and credit rules. Store
 `BILLING_CONFIG_ENCRYPTION_KEY` (for LLM API keys) and Stripe credentials
 with Wrangler secret bindings. Configure binding
 IDs in the named Wrangler environment and provide secrets through Wrangler or
