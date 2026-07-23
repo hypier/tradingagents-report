@@ -9,6 +9,7 @@ import {
   CreditCard,
   PackagePlus,
   Pencil,
+  Plus,
   Save,
   ScrollText,
   Search,
@@ -166,6 +167,7 @@ export function AdminBillingPage() {
   const [plan, setPlan] = useState(() =>
     createInitialPlan(t('billing.defaults.features')),
   );
+  const [createOpen, setCreateOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<BillingPlan | null>(null);
   const [editTarget, setEditTarget] = useState<BillingPlan | null>(null);
   const [editForm, setEditForm] = useState<EditPlanForm | null>(null);
@@ -188,6 +190,7 @@ export function AdminBillingPage() {
     mutationFn: (input: CreateBillingPlanInput) => createBillingPlan(input),
     onSuccess: () => {
       setPlan(createInitialPlan(t('billing.defaults.features')));
+      setCreateOpen(false);
       refresh();
       toast.success(t('billing.toasts.planCreated'));
     },
@@ -457,17 +460,9 @@ export function AdminBillingPage() {
               </SectionPanel>
             </TabsContent>
             <TabsContent value="plans" className="flex flex-col gap-4 pt-3">
-              <PlanEditor
-                plan={plan}
-                setPlan={setPlan}
-                disabled={!data.configured}
-                pending={createPlan.isPending}
-                provisioning={provisionPlans.isPending}
-                onProvisionDefaults={() => provisionPlans.mutate()}
-                onSubmit={submitPlan}
-              />
               <PlansTable
                 plans={data.plans}
+                configured={data.configured}
                 pendingId={
                   archivePlan.isPending
                     ? archivePlan.variables
@@ -475,6 +470,12 @@ export function AdminBillingPage() {
                       ? updatePlan.variables?.priceId
                       : undefined
                 }
+                provisioning={provisionPlans.isPending}
+                onProvisionDefaults={() => provisionPlans.mutate()}
+                onCreate={() => {
+                  setPlan(createInitialPlan(t('billing.defaults.features')));
+                  setCreateOpen(true);
+                }}
                 onEdit={openEdit}
                 onArchive={(target) => setArchiveTarget(target)}
               />
@@ -492,6 +493,47 @@ export function AdminBillingPage() {
           </Tabs>
         ) : null}
       </PageFrame>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!open && !createPlan.isPending) {
+            setCreateOpen(false);
+            setPlan(createInitialPlan(t('billing.defaults.features')));
+          } else {
+            setCreateOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{t('billing.plans.createTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('billing.plans.createDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitPlan}>
+            <CreatePlanFields plan={plan} setPlan={setPlan} />
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createPlan.isPending}
+                onClick={() => {
+                  setCreateOpen(false);
+                  setPlan(createInitialPlan(t('billing.defaults.features')));
+                }}
+              >
+                {t('billing.plans.cancel')}
+              </Button>
+              <Button type="submit" disabled={createPlan.isPending}>
+                {createPlan.isPending && <Spinner data-icon="inline-start" />}
+                {t('billing.plans.create')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(archiveTarget)}
@@ -865,217 +907,208 @@ function StripeEventsPanel({ enabled }: { enabled: boolean }) {
   );
 }
 
-function PlanEditor({
+function CreatePlanFields({
   plan,
   setPlan,
-  disabled,
-  pending,
-  provisioning,
-  onProvisionDefaults,
-  onSubmit,
 }: {
   plan: PlanForm;
   setPlan: React.Dispatch<React.SetStateAction<PlanForm>>;
-  disabled: boolean;
-  pending: boolean;
-  provisioning: boolean;
-  onProvisionDefaults(): void;
-  onSubmit(event: FormEvent<HTMLFormElement>): void;
 }) {
   const { t } = useTranslation('admin');
   const change = (values: Partial<PlanForm>) =>
     setPlan((current) => ({ ...current, ...values }));
   return (
-    <SectionPanel
-      title={t('billing.plans.createTitle')}
-      description={t('billing.plans.createDescription')}
-      actions={
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled || provisioning}
-          onClick={onProvisionDefaults}
+    <FieldGroup className="grid gap-4 md:grid-cols-2">
+      <Field>
+        <FieldLabel htmlFor="plan-name">{t('billing.plans.name')}</FieldLabel>
+        <Input
+          id="plan-name"
+          value={plan.name}
+          required
+          maxLength={100}
+          onChange={(event) => change({ name: event.target.value })}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="plan-description">
+          {t('billing.plans.description')}
+        </FieldLabel>
+        <Input
+          id="plan-description"
+          value={plan.description}
+          maxLength={500}
+          onChange={(event) => change({ description: event.target.value })}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="plan-price">{t('billing.plans.price')}</FieldLabel>
+        <Input
+          id="plan-price"
+          type="number"
+          inputMode="decimal"
+          min="0.50"
+          step="0.01"
+          value={plan.price}
+          required
+          onChange={(event) => change({ price: event.target.value })}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="plan-currency">
+          {t('billing.plans.currency')}
+        </FieldLabel>
+        <Select
+          value={plan.currency}
+          onValueChange={(value) =>
+            change({ currency: value as PlanForm['currency'] })
+          }
         >
-          {provisioning ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <PackagePlus data-icon="inline-start" />
-          )}
-          {t('billing.plans.provisionDefaults')}
-        </Button>
-      }
-    >
-        <form onSubmit={onSubmit}>
-          <FieldGroup className="grid gap-4 md:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="plan-name">
-                {t('billing.plans.name')}
-              </FieldLabel>
-              <Input
-                id="plan-name"
-                value={plan.name}
-                required
-                maxLength={100}
-                onChange={(event) => change({ name: event.target.value })}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="plan-description">
-                {t('billing.plans.description')}
-              </FieldLabel>
-              <Input
-                id="plan-description"
-                value={plan.description}
-                maxLength={500}
-                onChange={(event) =>
-                  change({ description: event.target.value })
-                }
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="plan-price">
-                {t('billing.plans.price')}
-              </FieldLabel>
-              <Input
-                id="plan-price"
-                type="number"
-                inputMode="decimal"
-                min="0.50"
-                step="0.01"
-                value={plan.price}
-                required
-                onChange={(event) => change({ price: event.target.value })}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="plan-currency">
-                {t('billing.plans.currency')}
-              </FieldLabel>
-              <Select
-                value={plan.currency}
-                onValueChange={(value) =>
-                  change({ currency: value as PlanForm['currency'] })
-                }
-              >
-                <SelectTrigger id="plan-currency" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {['usd', 'cny', 'hkd', 'eur'].map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency.toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel>{t('billing.plans.interval')}</FieldLabel>
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                value={plan.interval}
-                onValueChange={(value) =>
-                  value && change({ interval: value as BillingInterval })
-                }
-              >
-                <ToggleGroupItem value="month">
-                  {t('billing.plans.monthly')}
-                </ToggleGroupItem>
-                <ToggleGroupItem value="year">
-                  {t('billing.plans.yearly')}
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="plan-credits">
-                {t('billing.plans.credits')}
-              </FieldLabel>
-              <Input
-                id="plan-credits"
-                type="number"
-                min="1"
-                step="1"
-                value={plan.analysisCredits}
-                required
-                onChange={(event) =>
-                  change({ analysisCredits: event.target.value })
-                }
-              />
-            </Field>
-            <Field>
-              <FieldLabel>{t('billing.plans.markets')}</FieldLabel>
-              <ToggleGroup
-                type="multiple"
-                variant="outline"
-                value={plan.supportedMarkets}
-                onValueChange={(supportedMarkets) =>
-                  supportedMarkets.length && change({ supportedMarkets })
-                }
-              >
-                {PRODUCT_MARKET_CODES.map((market) => (
-                  <ToggleGroupItem key={market} value={market}>
-                    {market}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="plan-features">
-                {t('billing.plans.features')}
-              </FieldLabel>
-              <Input
-                id="plan-features"
-                value={plan.features}
-                required
-                placeholder={t('billing.plans.featuresPlaceholder')}
-                onChange={(event) => change({ features: event.target.value })}
-              />
-            </Field>
-            <Field className="justify-end md:items-end">
-              <Button type="submit" disabled={disabled || pending}>
-                {pending && <Spinner data-icon="inline-start" />}{' '}
-                {t('billing.plans.create')}
-              </Button>
-            </Field>
-          </FieldGroup>
-        </form>
-    </SectionPanel>
+          <SelectTrigger id="plan-currency" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {['usd', 'cny', 'hkd', 'eur'].map((currency) => (
+                <SelectItem key={currency} value={currency}>
+                  {currency.toUpperCase()}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field>
+        <FieldLabel>{t('billing.plans.interval')}</FieldLabel>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          value={plan.interval}
+          onValueChange={(value) =>
+            value && change({ interval: value as BillingInterval })
+          }
+        >
+          <ToggleGroupItem value="month">
+            {t('billing.plans.monthly')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="year">
+            {t('billing.plans.yearly')}
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="plan-credits">
+          {t('billing.plans.credits')}
+        </FieldLabel>
+        <Input
+          id="plan-credits"
+          type="number"
+          min="1"
+          step="1"
+          value={plan.analysisCredits}
+          required
+          onChange={(event) =>
+            change({ analysisCredits: event.target.value })
+          }
+        />
+      </Field>
+      <Field>
+        <FieldLabel>{t('billing.plans.markets')}</FieldLabel>
+        <ToggleGroup
+          type="multiple"
+          variant="outline"
+          value={plan.supportedMarkets}
+          onValueChange={(supportedMarkets) =>
+            supportedMarkets.length && change({ supportedMarkets })
+          }
+        >
+          {PRODUCT_MARKET_CODES.map((market) => (
+            <ToggleGroupItem key={market} value={market}>
+              {market}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="plan-features">
+          {t('billing.plans.features')}
+        </FieldLabel>
+        <Input
+          id="plan-features"
+          value={plan.features}
+          required
+          placeholder={t('billing.plans.featuresPlaceholder')}
+          onChange={(event) => change({ features: event.target.value })}
+        />
+      </Field>
+    </FieldGroup>
   );
 }
 
 function PlansTable({
   plans,
+  configured,
   pendingId,
+  provisioning,
+  onProvisionDefaults,
+  onCreate,
   onEdit,
   onArchive,
 }: {
   plans: BillingPlan[];
+  configured: boolean;
   pendingId?: string;
+  provisioning: boolean;
+  onProvisionDefaults(): void;
+  onCreate(): void;
   onEdit(plan: BillingPlan): void;
   onArchive(plan: BillingPlan): void;
 }) {
   const { t } = useTranslation('admin');
-  if (!plans.length) {
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <CircleDollarSign />
-          </EmptyMedia>
-          <EmptyTitle>{t('billing.plans.emptyTitle')}</EmptyTitle>
-          <EmptyDescription>{t('billing.plans.emptyBody')}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
   return (
     <SectionPanel
       title={t('billing.plans.activeTitle')}
-      actions={<Badge variant="secondary">{plans.length}</Badge>}
+      description={t('billing.plans.activeDescription')}
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{plans.length}</Badge>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!configured || provisioning}
+            title={t('billing.plans.provisionDefaultsHint')}
+            onClick={onProvisionDefaults}
+          >
+            {provisioning ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <PackagePlus data-icon="inline-start" />
+            )}
+            {t('billing.plans.provisionDefaults')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!configured}
+            onClick={onCreate}
+          >
+            <Plus data-icon="inline-start" />
+            {t('billing.plans.add')}
+          </Button>
+        </div>
+      }
     >
+      {!plans.length ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CircleDollarSign />
+            </EmptyMedia>
+            <EmptyTitle>{t('billing.plans.emptyTitle')}</EmptyTitle>
+            <EmptyDescription>{t('billing.plans.emptyBody')}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -1159,6 +1192,7 @@ function PlansTable({
             })}
           </TableBody>
         </Table>
+      )}
     </SectionPanel>
   );
 }

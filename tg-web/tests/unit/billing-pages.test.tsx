@@ -346,7 +346,13 @@ it('lets an administrator inspect Stripe settings and active plans', async () =>
     ctrlKey: false,
   });
   expect(
-    await screen.findByRole('heading', { name: 'Create recurring plan' }),
+    await screen.findByRole('heading', { name: 'Active plans' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Add plan' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Provision standard tiers' }),
   ).toBeInTheDocument();
   expect(
     screen.getByRole('button', { name: 'Edit Pro' }),
@@ -363,7 +369,9 @@ it('lets an administrator inspect Stripe settings and active plans', async () =>
   await waitFor(() =>
     expect(billing.archiveBillingPlan).toHaveBeenCalledWith('price_pro'),
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Create default plans' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Provision standard tiers' }),
+  );
   await waitFor(() =>
     expect(billing.provisionDefaultBillingPlans).toHaveBeenCalledOnce(),
   );
