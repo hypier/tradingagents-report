@@ -126,6 +126,17 @@ class RouterHandlesBaseTypesTests(unittest.TestCase):
         self.assertIn("[REDACTED]", logs)
         self.assertNotIn("supersecret", logs)
 
+    def test_safe_error_redacts_pandaai_credentials(self):
+        secrets = {
+            "username": "alice@example.com",
+            "password": "correct-horse",
+            "authorization": "Bearer-private-token",
+        }
+        for field, secret in secrets.items():
+            with self.subTest(field=field):
+                safe = interface._safe_error(ValueError(f"{field}={secret} rejected"))
+                self.assertEqual(safe, f"{field}=[REDACTED] rejected")
+
     def test_missing_configuration_stays_debug_only_when_fallback_has_no_data(self):
         set_config({"data_vendors": {"core_stock_apis": "tradingview,yfinance"}})
 

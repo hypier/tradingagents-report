@@ -22,6 +22,8 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_REDDIT_ENABLED":        "reddit_enabled",
     "TRADINGAGENTS_REDDIT_RETRY_ON_429":   "reddit_retry_on_429",
     "TRADINGAGENTS_REDDIT_429_COOLDOWN_SECONDS": "reddit_429_cooldown_seconds",
+    "TRADINGAGENTS_CN_DATA_VENDORS":       "cn_data_vendors",
+    "TRADINGAGENTS_US_DATA_VENDORS":       "us_data_vendors",
     # Provider-specific reasoning/thinking knobs (None = each provider's own
     # default). Settable here for non-interactive runs; the CLI also offers an
     # interactive choice, which is skipped when the matching var is set.
@@ -65,7 +67,12 @@ def _apply_env_overrides(config: dict) -> dict:
         if raw is None or raw == "":
             continue
         try:
-            config[key] = _coerce(raw, config.get(key))
+            if key in {"cn_data_vendors", "us_data_vendors"}:
+                from .dataflows.market_routing import parse_market_vendor_chain
+
+                config[key] = parse_market_vendor_chain(raw, key[:2])
+            else:
+                config[key] = _coerce(raw, config.get(key))
         except ValueError as exc:
             raise ValueError(f"Invalid value for {env_var}: {exc}") from exc
     return config
@@ -122,6 +129,10 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "reddit_enabled": True,
     "reddit_retry_on_429": False,
     "reddit_429_cooldown_seconds": 900.0,
+    # Optional market-aware vendor priority. None keeps the existing global
+    # category/tool routing behavior unchanged.
+    "cn_data_vendors": None,
+    "us_data_vendors": None,
     # Search queries used by get_global_news for macro headlines. Extend or
     # replace to broaden geographic / sector coverage.
     "global_news_queries": [
@@ -138,17 +149,17 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # e.g. "yfinance,alpha_vantage". "default" uses the immutable method-specific
     # capability policy declared by the routing layer.
     "data_vendors": {
-        "instrument_data": "tradingview,yfinance",
-        "core_stock_apis": "tradingview,yfinance,alpha_vantage",
-        "technical_indicators": "tradingview,yfinance,alpha_vantage",
-        "fundamental_data": "tradingview,yfinance,alpha_vantage",
-        "news_data": "tradingview,yfinance,alpha_vantage",
+        "instrument_data": "default",
+        "core_stock_apis": "default",
+        "technical_indicators": "default",
+        "fundamental_data": "default",
+        "news_data": "default",
         "macro_data": "fred",                # Options: fred (needs FRED_API_KEY)
         "prediction_markets": "polymarket",  # Options: polymarket (keyless)
     },
     # Tool-level configuration (takes precedence over category-level)
     "tool_vendors": {
-        "get_insider_transactions": "yfinance,alpha_vantage",
+        # No default tool override; immutable method chains preserve behavior.
         # Example: "get_stock_data": "alpha_vantage",  # Override category default
     },
     # Benchmark for alpha calculation in the reflection layer.

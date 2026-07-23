@@ -150,6 +150,27 @@ application
 | Token 与定价逻辑 | LLM callback、纯成本计算、远端价格获取和刷新判断 | `tradingagents/llm_clients/token_usage.py`、`tradingagents/llm_clients/pricing.py` |
 | 报告输出 | 统一生成分阶段 Markdown 报告树 | `tradingagents/reporting.py` |
 
+### 5.1 Market-aware data routing
+
+Market routing remains inside `dataflows/interface.py`; agents, CLI, and API
+continue to call the stable tool methods. The selection sequence is:
+
+```text
+tool_vendors override
+  -> data_vendors override
+  -> CN/US environment chain selected from ListingRef
+  -> immutable method default
+  -> capability-filtered vendor adapter
+  -> ProviderResult or the existing text contract
+```
+
+`market_routing.py` only parses configuration and classifies normalized
+listings. Provider packages own authentication, provider-symbol conversion,
+request/response mapping, and historical cutoffs. `china/common.py` owns the
+shared A-share OHLCV contract and delegates indicators to `stockstats_utils.py`.
+No database, synchronization worker, or web configuration layer was added.
+See [DATA_SOURCE_CONFIGURATION.md](DATA_SOURCE_CONFIGURATION.md) for provider capabilities and licensing boundaries.
+
 ## 6. 运行入口
 
 ### 6.1 CLI 入口

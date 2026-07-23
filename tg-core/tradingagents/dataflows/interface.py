@@ -12,6 +12,19 @@ from typing import Any
 
 import pandas as pd
 
+from .akshare.fundamentals import (
+    get_akshare_fundamentals,
+    get_akshare_identity,
+    get_balance_sheet as get_akshare_balance_sheet,
+    get_cashflow as get_akshare_cashflow,
+    get_income_statement as get_akshare_income_statement,
+)
+from .akshare.market import (
+    fetch_akshare_ohlcv,
+    get_akshare_indicators,
+    get_akshare_stock,
+)
+from .akshare.news import get_akshare_news
 from .alpha_vantage import (
     get_balance_sheet as get_alpha_vantage_balance_sheet,
     get_cashflow as get_alpha_vantage_cashflow,
@@ -24,13 +37,31 @@ from .alpha_vantage import (
     get_stock as get_alpha_vantage_stock,
 )
 from .alpha_vantage.stock import fetch_alpha_vantage_ohlcv
+from .baostock.fundamentals import (
+    get_baostock_fundamentals,
+    get_baostock_identity,
+)
+from .baostock.market import (
+    fetch_baostock_ohlcv,
+    get_baostock_indicators,
+    get_baostock_stock,
+)
 from .config import get_config
 from .errors import (
     NoMarketDataError,
     VendorNotConfiguredError,
     VendorRateLimitError,
 )
+from .finnhub import (
+    get_finnhub_fundamentals,
+    get_finnhub_global_news,
+    get_finnhub_identity,
+    get_finnhub_insider_transactions,
+    get_finnhub_news,
+)
 from .fred import get_macro_data as get_fred_macro_data
+from .market_routing import configured_market_chain
+from .pandaai.market import fetch_pandaai_ohlcv, get_pandaai_stock
 from .polymarket import get_prediction_markets as get_polymarket_prediction_markets
 from .provider_models import ProviderResult
 from .tradingview.fundamentals import (
@@ -46,6 +77,19 @@ from .tradingview.stock import (
     get_tradingview_indicators,
     get_tradingview_stock,
 )
+from .tushare.fundamentals import (
+    get_balance_sheet as get_tushare_balance_sheet,
+    get_cashflow as get_tushare_cashflow,
+    get_income_statement as get_tushare_income_statement,
+    get_tushare_fundamentals,
+    get_tushare_identity,
+)
+from .tushare.market import (
+    fetch_tushare_ohlcv,
+    get_tushare_indicators,
+    get_tushare_stock,
+)
+from .tushare.news import get_tushare_global_news, get_tushare_news
 from .yfinance.market import (
     fetch_yfinance_ohlcv,
     get_balance_sheet as get_yfinance_balance_sheet,
@@ -117,6 +161,11 @@ VENDOR_LIST = [
     "fred",
     "polymarket",
     "alpha_vantage",
+    "pandaai",
+    "akshare",
+    "tushare",
+    "baostock",
+    "finnhub",
 ]
 
 # 可选增强类只为新闻分析提供宏观或事件背景，不是决策的核心输入。
@@ -132,6 +181,10 @@ VENDOR_METHODS = {
     "get_instrument_identity": {
         "tradingview": get_tradingview_identity,
         "yfinance": get_yfinance_identity,
+        "akshare": get_akshare_identity,
+        "tushare": get_tushare_identity,
+        "baostock": get_baostock_identity,
+        "finnhub": get_finnhub_identity,
     },
     # 核心行情：get_stock_data 返回面向文本报告的历史价格数据；get_ohlcv 返回
     # 带 ProviderResult 溯源信息的结构化开高低收量数据，供指标和校验工具使用。
@@ -139,11 +192,19 @@ VENDOR_METHODS = {
         "tradingview": get_tradingview_stock,
         "yfinance": get_YFin_data_online,
         "alpha_vantage": get_alpha_vantage_stock,
+        "pandaai": get_pandaai_stock,
+        "akshare": get_akshare_stock,
+        "tushare": get_tushare_stock,
+        "baostock": get_baostock_stock,
     },
     "get_ohlcv": {
         "tradingview": fetch_tradingview_ohlcv,
         "yfinance": fetch_yfinance_ohlcv,
         "alpha_vantage": fetch_alpha_vantage_ohlcv,
+        "pandaai": fetch_pandaai_ohlcv,
+        "akshare": fetch_akshare_ohlcv,
+        "tushare": fetch_tushare_ohlcv,
+        "baostock": fetch_baostock_ohlcv,
     },
     # 技术指标：根据标的、截止日期和回看窗口计算 SMA、RSI、MACD 等指标，
     # 用于市场分析师生成技术面判断。
@@ -151,6 +212,9 @@ VENDOR_METHODS = {
         "tradingview": get_tradingview_indicators,
         "yfinance": get_stock_stats_indicators_window,
         "alpha_vantage": get_alpha_vantage_indicator,
+        "akshare": get_akshare_indicators,
+        "tushare": get_tushare_indicators,
+        "baostock": get_baostock_indicators,
     },
     # 基本面：get_fundamentals 提供公司概览和关键财务比率；其余三个能力分别返回
     # 资产负债表、现金流量表和利润表，以支持基本面分析师按报表维度取数。
@@ -158,21 +222,31 @@ VENDOR_METHODS = {
         "tradingview": get_tradingview_fundamentals,
         "yfinance": get_yfinance_fundamentals,
         "alpha_vantage": get_alpha_vantage_fundamentals,
+        "akshare": get_akshare_fundamentals,
+        "tushare": get_tushare_fundamentals,
+        "baostock": get_baostock_fundamentals,
+        "finnhub": get_finnhub_fundamentals,
     },
     "get_balance_sheet": {
         "tradingview": get_tradingview_balance_sheet,
         "yfinance": get_yfinance_balance_sheet,
         "alpha_vantage": get_alpha_vantage_balance_sheet,
+        "akshare": get_akshare_balance_sheet,
+        "tushare": get_tushare_balance_sheet,
     },
     "get_cashflow": {
         "tradingview": get_tradingview_cashflow,
         "yfinance": get_yfinance_cashflow,
         "alpha_vantage": get_alpha_vantage_cashflow,
+        "akshare": get_akshare_cashflow,
+        "tushare": get_tushare_cashflow,
     },
     "get_income_statement": {
         "tradingview": get_tradingview_income_statement,
         "yfinance": get_yfinance_income_statement,
         "alpha_vantage": get_alpha_vantage_income_statement,
+        "akshare": get_akshare_income_statement,
+        "tushare": get_tushare_income_statement,
     },
     # 新闻与内部人数据：get_news 获取指定标的在日期窗口内的新闻；
     # get_global_news 获取市场级新闻；get_insider_transactions 获取内部人买卖记录。
@@ -181,15 +255,21 @@ VENDOR_METHODS = {
         "tradingview": get_tradingview_news,
         "yfinance": get_news_yfinance,
         "alpha_vantage": get_alpha_vantage_news,
+        "akshare": get_akshare_news,
+        "tushare": get_tushare_news,
+        "finnhub": get_finnhub_news,
     },
     "get_global_news": {
         "tradingview": get_tradingview_global_news,
         "yfinance": get_global_news_yfinance,
         "alpha_vantage": get_alpha_vantage_global_news,
+        "tushare": get_tushare_global_news,
+        "finnhub": get_finnhub_global_news,
     },
     "get_insider_transactions": {
         "alpha_vantage": get_alpha_vantage_insider_transactions,
         "yfinance": get_yfinance_insider_transactions,
+        "finnhub": get_finnhub_insider_transactions,
     },
     # 宏观数据：从 FRED 获取利率、通胀、就业和增长等指标，作为宏观背景补充。
     "get_macro_indicators": {
@@ -239,13 +319,18 @@ def get_vendor(category: str, method: str = None) -> str:
     # 未设置工具级覆盖时，回退到类别级 ``data_vendors`` 配置。
     return config.get("data_vendors", {}).get(category, "default")
 
-def _vendor_chain(method: str, category: str) -> list[str]:
+def _vendor_chain(method: str, category: str, args: tuple[Any, ...] = ()) -> list[str]:
     """构造一次调用的供应商链，只接受已注册的显式配置。"""
     if method not in VENDOR_METHODS:
         raise ValueError(f"Method '{method}' not supported")
     available = list(VENDOR_METHODS[method])
+    config = get_config()
+    tool_value = config.get("tool_vendors", {}).get(method, "default")
+    category_value = config.get("data_vendors", {}).get(category, "default")
+    configured_value = category_value if tool_value == "default" else tool_value
+
     configured = [
-        vendor.strip() for vendor in get_vendor(category, method).split(",")
+        vendor.strip() for vendor in str(configured_value).split(",")
     ]
     # 逗号分隔的显式配置定义完整链，不额外拼接默认供应商，避免意外访问。
     explicit = [vendor for vendor in configured if vendor and vendor != "default"]
@@ -255,6 +340,17 @@ def _vendor_chain(method: str, category: str) -> list[str]:
             raise ValueError(
                 f"Configured vendor(s) {explicit} not available for '{method}'. "
                 f"Available: {available}."
+            )
+        return chain
+
+    market_chain = (
+        configured_market_chain(config, str(args[0])) if args else None
+    )
+    if market_chain is not None:
+        chain = [vendor for vendor in market_chain if vendor in VENDOR_METHODS[method]]
+        if not chain:
+            raise ValueError(
+                f"No configured market vendor is registered for '{method}'"
             )
         return chain
 
@@ -271,7 +367,7 @@ def _vendor_chain(method: str, category: str) -> list[str]:
 
 
 _SECRET_PATTERN = re.compile(
-    r"(?i)(api[_ -]?key|token|secret)(\s*[=:]\s*|\s+)([^\s,;]+)"
+    r"(?i)(api[_ -]?key|authorization|username|password|token|secret)(\s*[=:]\s*|\s+)([^\s,;]+)"
 )
 
 
@@ -328,7 +424,7 @@ def _execute_route(
     first_error: Exception | None = None
     last_no_news: str | None = None
 
-    for vendor in _vendor_chain(method, category):
+    for vendor in _vendor_chain(method, category, args):
         vendor_impl = VENDOR_METHODS[method][vendor]
         impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
         try:

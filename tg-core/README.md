@@ -123,6 +123,24 @@ python -m pip install --upgrade pip
 python -m pip install .
 ```
 
+### Optional market-data SDKs
+
+```bash
+pip install ".[china-data]"  # AKShare, Tushare, BaoStock
+pip install ".[pandaai]"     # PandaAI
+pip install ".[finnhub]"     # Finnhub
+pip install ".[market-data]" # all optional market-data SDKs
+```
+
+```env
+TRADINGAGENTS_CN_DATA_VENDORS=pandaai,akshare,tushare,baostock
+TRADINGAGENTS_US_DATA_VENDORS=yfinance,alpha_vantage,finnhub
+```
+
+PandaAI reads `PANDAAI_USERNAME`, `PANDAAI_PASSWORD`, and the optional
+`PANDAAI_BASE_URL`. Tushare and Finnhub read `TUSHARE_TOKEN` and
+`FINNHUB_API_KEY`. See [data-source configuration, authentication, and licensing](docs/DATA_SOURCE_CONFIGURATION.md).
+
 ### Docker
 
 也可以通过 Docker 运行：

@@ -7,6 +7,21 @@
 
 图和 Agent 应通过 [`interface.py`](./interface.py) 暴露的稳定工具接口取数，而不是直接依赖某个供应商目录。路由层根据 `default_config.py` 中的 `data_vendors` 与 `tool_vendors` 选择供应商：工具级配置优先于类别级配置；逗号分隔的显式值定义完整 fallback 链；未配置时使用 `DEFAULT_VENDOR_CHAINS`。
 
+### Market-aware vendor chains
+
+`TRADINGAGENTS_CN_DATA_VENDORS` and `TRADINGAGENTS_US_DATA_VENDORS` enable
+ordered CN/US chains. Unset, empty, or `disabled` preserves the immutable
+method defaults. Routing precedence is tool override, category override,
+market chain, then method default. A selected market chain is intersected with
+`VENDOR_METHODS[method]` and never falls through to an unlisted provider.
+
+The CN adapters are PandaAI, AKShare, Tushare, and BaoStock. The US chain may
+use PandaAI, TradingView, yfinance, Alpha Vantage, and Finnhub. SDK imports are
+lazy, and no adapter fabricates missing data. Provider credentials remain in
+environment variables and are not part of API request overrides.
+
+See [data-source configuration, capability matrix, authentication, and licensing](../../docs/DATA_SOURCE_CONFIGURATION.md).
+
 目前由路由层管理的能力包括：
 
 | 数据类别 | 工具能力 | 默认供应商顺序 |
