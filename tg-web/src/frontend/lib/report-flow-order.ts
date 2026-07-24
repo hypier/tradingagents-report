@@ -3,6 +3,10 @@
  *
  * Core `build_reports()` insertion order puts debate & risk chapters after the
  * final decision. The UI reorders to the path readers should follow.
+ *
+ * Portfolio Manager writes one decision into both
+ * `risk_management_decision` (legacy alias of risk judge) and
+ * `final_trade_decision`. The UI keeps a single "Final decision" chapter.
  */
 
 export type ReportFlowStageId =
@@ -11,7 +15,6 @@ export type ReportFlowStageId =
   | 'research'
   | 'trade'
   | 'risk'
-  | 'risk_judge'
   | 'final'
   | 'other';
 
@@ -54,12 +57,10 @@ export const REPORT_FLOW_STAGES: readonly ReportFlowStage[] = [
     keys: ['risky_analyst', 'safe_analyst', 'neutral_analyst'],
   },
   {
-    id: 'risk_judge',
-    keys: ['risk_management_decision'],
-  },
-  {
     id: 'final',
-    keys: ['final_trade_decision'],
+    // Prefer final_trade_decision; risk_management_decision is a legacy alias
+    // kept only when the canonical final chapter is absent.
+    keys: ['final_trade_decision', 'risk_management_decision'],
   },
 ] as const;
 
@@ -71,11 +72,19 @@ const ORDER_INDEX = new Map(
   READING_ORDER.map((key, index) => [key, index] as const),
 );
 
+/** Drop the legacy risk-judge key when the final decision chapter is present. */
+function collapseDuplicateFinalKeys(keys: readonly string[]): string[] {
+  const hasFinal = keys.includes('final_trade_decision');
+  if (!hasFinal) return [...keys];
+  return keys.filter((key) => key !== 'risk_management_decision');
+}
+
 /** Sort available report keys into the guided reading sequence. */
 export function orderReportKeys(keys: readonly string[]): string[] {
+  const collapsed = collapseDuplicateFinalKeys(keys);
   const known: string[] = [];
   const unknown: string[] = [];
-  for (const key of keys) {
+  for (const key of collapsed) {
     if (ORDER_INDEX.has(key)) known.push(key);
     else unknown.push(key);
   }
@@ -89,7 +98,7 @@ export function orderReportKeys(keys: readonly string[]): string[] {
 export function buildReportFlowStages(
   availableKeys: readonly string[],
 ): ReportFlowStage[] {
-  const available = new Set(availableKeys);
+  const available = new Set(collapseDuplicateFinalKeys(availableKeys));
   const stages: ReportFlowStage[] = [];
 
   for (const stage of REPORT_FLOW_STAGES) {
@@ -103,7 +112,7 @@ export function buildReportFlowStages(
   }
 
   const known = new Set(READING_ORDER);
-  const extras = availableKeys.filter((key) => !known.has(key));
+  const extras = [...available].filter((key) => !known.has(key));
   if (extras.length) {
     stages.push({ id: 'other', keys: extras, parallel: true });
   }

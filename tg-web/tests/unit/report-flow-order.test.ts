@@ -35,9 +35,24 @@ describe('orderReportKeys', () => {
       'risky_analyst',
       'safe_analyst',
       'neutral_analyst',
-      'risk_management_decision',
       'final_trade_decision',
     ]);
+  });
+
+  it('drops legacy risk_management_decision when final is present', () => {
+    expect(
+      orderReportKeys([
+        'risk_management_decision',
+        'final_trade_decision',
+        'market_report',
+      ]),
+    ).toEqual(['market_report', 'final_trade_decision']);
+  });
+
+  it('keeps risk_management_decision when it is the only final chapter', () => {
+    expect(
+      orderReportKeys(['risk_management_decision', 'market_report']),
+    ).toEqual(['market_report', 'risk_management_decision']);
   });
 
   it('keeps unknown keys after the known path', () => {
@@ -65,5 +80,18 @@ describe('buildReportFlowStages', () => {
     ]);
     expect(stages[0]?.keys).toEqual(['market_report']);
     expect(stages[1]?.parallel).toBe(true);
+  });
+
+  it('does not emit a separate risk_judge stage', () => {
+    const stages = buildReportFlowStages([
+      'risky_analyst',
+      'safe_analyst',
+      'neutral_analyst',
+      'risk_management_decision',
+      'final_trade_decision',
+    ]);
+
+    expect(stages.map((stage) => stage.id)).toEqual(['risk', 'final']);
+    expect(stages[1]?.keys).toEqual(['final_trade_decision']);
   });
 });

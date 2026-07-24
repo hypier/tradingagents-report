@@ -103,7 +103,6 @@
       "research": "研究裁决",
       "trade": "交易计划",
       "risk": "风险视角",
-      "risk_judge": "风控裁决",
       "final": "最终决策",
       "other": "其他"
     }
@@ -118,7 +117,7 @@
     "final_trade_decision": "最终决策",
     "bull_researcher": "多头",
     "bear_researcher": "空头",
-    "risk_management_decision": "风控裁决",
+    "risk_management_decision": "最终决策",
     "risky_analyst": "激进",
     "safe_analyst": "保守",
     "neutral_analyst": "中性"

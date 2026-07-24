@@ -76,15 +76,6 @@ const stageTone: Record<
     itemActive: 'bg-rose-600 text-white',
     itemDone: 'text-rose-900 dark:text-rose-100 hover:bg-rose-500/10',
   },
-  risk_judge: {
-    rail: 'border-fuchsia-500/45',
-    badge: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300',
-    badgeActive: 'bg-fuchsia-600 text-white',
-    label: 'text-fuchsia-700/80 dark:text-fuchsia-300/80',
-    labelActive: 'text-fuchsia-700 dark:text-fuchsia-300',
-    itemActive: 'bg-fuchsia-600 text-white',
-    itemDone: 'text-fuchsia-900 dark:text-fuchsia-100 hover:bg-fuchsia-500/10',
-  },
   final: {
     rail: 'border-orange-500/50',
     badge: 'bg-orange-500/15 text-orange-800 dark:text-orange-300',

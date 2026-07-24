@@ -103,7 +103,6 @@
       "research": "Research decision",
       "trade": "Trading plan",
       "risk": "Risk views",
-      "risk_judge": "Risk judgment",
       "final": "Final decision",
       "other": "Other"
     }
@@ -118,7 +117,7 @@
     "final_trade_decision": "Final Decision",
     "bull_researcher": "Bull",
     "bear_researcher": "Bear",
-    "risk_management_decision": "Risk Judge",
+    "risk_management_decision": "Final Decision",
     "risky_analyst": "Risky",
     "safe_analyst": "Safe",
     "neutral_analyst": "Neutral"

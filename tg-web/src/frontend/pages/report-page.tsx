@@ -114,6 +114,9 @@ function reportTabIcon(key: string) {
     return getStageIcon('research_debate');
   }
   if (key.includes('trader')) return getStageIcon('trader');
+  if (key === 'risk_management_decision' || key.includes('final')) {
+    return getStageIcon('final_synthesis');
+  }
   if (
     key.includes('risk') ||
     key.includes('risky') ||
@@ -123,7 +126,6 @@ function reportTabIcon(key: string) {
   ) {
     return getStageIcon('risk_review');
   }
-  if (key.includes('final')) return getStageIcon('final_synthesis');
   return getStageIcon(key);
 }
 
