@@ -27,6 +27,9 @@ describe('formatDecisionLabel', () => {
 
   it('extracts action from object decisions', () => {
     expect(extractDecisionAction({ action: 'Sell' })).toBe('Sell');
+    expect(
+      extractDecisionAction({ rating: 'Underweight', action: 'Sell' }),
+    ).toBe('Underweight');
     expect(extractDecisionAction('Hold')).toBe('Hold');
   });
 

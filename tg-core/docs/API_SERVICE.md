@@ -111,8 +111,8 @@ TRADINGAGENTS_DATABASE_URL=postgresql://user:password@host:5432/db
 | `request` | JSONB | 原始请求和规范化请求 |
 | `config` | JSONB | 本次任务的公开运行配置 |
 | `display` | JSONB | 仅用于展示的标的元数据快照（如 `display_name`、`logo_url`、`country`） |
-| `final_state` | JSONB | 成功后的完整图状态，已转成 JSON 可序列化对象 |
-| `decision` | TEXT | 最终评级或交易信号 |
+| `final_state` | JSONB | 成功后的完整图状态，已转成 JSON 可序列化对象；结构化决策卡保存在 `decision_brief` |
+| `decision` | TEXT | Portfolio Manager 的五档最终评级，供列表与旧客户端兼容使用 |
 | `error` | TEXT | 失败原因 |
 | `report_path` | TEXT | 保留字段；API 任务不写入本地 Markdown，值始终为 `NULL` |
 | `created_at` | TIMESTAMPTZ | 创建时间 |
@@ -292,7 +292,33 @@ GET /api/v1/analyses/{job_id}
   "id": "8ac1c3aa-65b2-4b66-b688-ece60c451fd3",
   "status": "succeeded",
   "progress": {"percent": 100, "current_step": "Completed"},
-  "decision": {"action": "Hold"},
+  "decision": {
+    "action": "Underweight",
+    "rating": "Underweight",
+    "headline": "Reduce exposure until cash returns improve.",
+    "conviction": "medium",
+    "as_of_price": 341.91,
+    "as_of_date": "2026-07-22",
+    "currency": "USD",
+    "time_horizon": "3-6 months",
+    "position_guidance": "Keep a smaller core position.",
+    "entry_zone": {"low": 335.0, "high": 342.0},
+    "add_levels": [{"low": 351.0, "high": 353.0}],
+    "stop_or_reduce": 322.0,
+    "target_price": 430.0,
+    "bull_case": "Operating growth remains resilient.",
+    "bear_case": "Free cash flow remains compressed.",
+    "key_risk": "Capital spending stays elevated.",
+    "what_to_watch": ["Free cash flow recovery"],
+    "invalidation": "Reassess after durable cash-flow recovery.",
+    "section_stances": {
+      "market": {"stance": "bearish", "note": "Daily trend is weak."},
+      "sentiment": {"stance": "bearish", "note": "Positioning is cautious."},
+      "news": {"stance": "neutral", "note": "Catalysts are balanced."},
+      "fundamentals": {"stance": "bullish", "note": "Growth remains strong."}
+    },
+    "conflict_note": "Strong operations conflict with weak cash returns."
+  },
   "reports": {},
   "usage": {"tokens": 1234, "token_usage": {}},
   "cost": {"usd": 0.01, "breakdown": {}}
@@ -444,7 +470,9 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 
 - `_id`、`analysis_date`、`analysis_id`、`task_id`
 - `analysts`、`stock_symbol`、`stock_name`、`market_type`
-- `decision.action`、`decision.confidence`、`decision.risk_score`、`decision.target_price`、`decision.reasoning`
+- `decision.rating` 是 Portfolio Manager 的五档评级；`decision.action` 暂时返回同值作为兼容别名，不表示 Trader 的操作建议
+- `decision.headline`、`decision.conviction`、参考价格与日期、价格计划、关键论据、观察项和四类分析师 `section_stances`
+- `decision.confidence`、`decision.risk_score`、`decision.target_price`、`decision.reasoning` 保留旧接口兼容
 - `recommendation`、`summary`、`reports`
 - `performance_metrics`、`tokens_used`、`token_usage`、`actual_amount_usd`、`cost_breakdown`
 - `status`、`status_label`、`progress_percent`、`current_step`、`events`、`error`
@@ -452,6 +480,8 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 提交任务时可以通过顶层 `output_language` 或 `config_overrides.output_language` 设定分析语言。顶层 `output_language` 优先级更高，并会写入 job 的持久化配置。机器可读的 `status` 始终保持固定英文枚举；本地化状态放在 `status_label`，阶段文案和分析内容按请求语言返回。
 
 结构化报告标题、辩论角色前缀与评级展示词由 `tradingagents.agents.utils.report_i18n` 的语言包渲染，覆盖与前端文章语言下拉一致的 11 种语言（English / Chinese / Japanese / Korean / Hindi / Spanish / Portuguese / French / German / Arabic / Russian）。未识别或 Custom 语言的模板文案回落英文；正文仍通过 `get_language_instruction()` 按请求语言生成。
+
+Portfolio Manager 成功返回结构化输出时，完整决策卡写入 `final_state.decision_brief`，不新增数据库列或迁移。`as_of_price`、`as_of_date` 和 `currency` 由 Core 使用经过历史日期边界校验的行情数据补充，不采用 LLM 自报值。未选择或没有可用内容的分析师分区使用 `unavailable`；旧任务或结构化输出降级时这些字段为空，Markdown 报告和旧决策字段保持可读。
 
 示例：
 

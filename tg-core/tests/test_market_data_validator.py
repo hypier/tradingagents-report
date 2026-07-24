@@ -36,6 +36,19 @@ class TestVerifiedSnapshot:
 
         assert "Quote currency: HKD" in snap
 
+    def test_reference_returns_system_price_date_and_currency(self, monkeypatch):
+        data = _sample_ohlcv()
+        data.attrs["quote_currency"] = "HKD"
+        monkeypatch.setattr(validator, "get_ohlcv", lambda *args: data)
+
+        reference = validator.get_verified_market_reference("0700.HK", "2026-05-16")
+
+        assert reference == {
+            "as_of_price": 132.0,
+            "as_of_date": "2026-05-15",
+            "currency": "HKD",
+        }
+
     def test_excludes_future_rows(self, monkeypatch):
         data = pd.concat([
             _sample_ohlcv(),

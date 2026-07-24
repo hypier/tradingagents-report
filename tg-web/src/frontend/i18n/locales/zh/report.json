@@ -29,6 +29,42 @@
     "removeError": "无法移出自选"
   },
   "exportMarkdown": "导出 Markdown",
+  "decisionBrief": {
+    "conviction": "确信度",
+    "asOf": "价格日期",
+    "referencePrice": "参考价",
+    "timeHorizon": "持有周期",
+    "positionGuidance": "仓位建议",
+    "entryZone": "入场区间",
+    "addLevels": "确认加仓区间",
+    "stopOrReduce": "止损 / 减仓触发",
+    "targetPrice": "目标价",
+    "pricePlan": "价格计划",
+    "bullCase": "多头依据",
+    "bearCase": "空头依据",
+    "keyRisk": "主要风险",
+    "invalidation": "失效条件",
+    "whatToWatch": "后续观察",
+    "conflict": "信号冲突",
+    "signalSummary": "分析师信号",
+    "levels": {
+      "low": "低",
+      "medium": "中",
+      "high": "高"
+    },
+    "stances": {
+      "bullish": "看涨",
+      "neutral": "中性",
+      "bearish": "看跌",
+      "unavailable": "不可用"
+    },
+    "sections": {
+      "market": "市场",
+      "sentiment": "情绪",
+      "news": "新闻",
+      "fundamentals": "基本面"
+    }
+  },
   "flow": {
     "title": "报告目录",
     "subtitle": "按阶段阅读：证据 → 辩论 → 计划 → 风控 → 最终决策",

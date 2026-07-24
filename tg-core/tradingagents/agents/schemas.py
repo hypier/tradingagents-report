@@ -21,7 +21,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from tradingagents.agents.utils.report_i18n import (
     localize_report_value,
@@ -68,6 +68,113 @@ class TraderAction(str, Enum):
     BUY = "Buy"
     HOLD = "Hold"
     SELL = "Sell"
+
+
+class DecisionConviction(str, Enum):
+    """Qualitative confidence for the final decision brief."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class DecisionStance(str, Enum):
+    """Directional stance shown for each analyst section."""
+
+    BULLISH = "bullish"
+    NEUTRAL = "neutral"
+    BEARISH = "bearish"
+    UNAVAILABLE = "unavailable"
+
+
+class PriceRange(BaseModel):
+    """Inclusive price zone in the instrument's quote currency."""
+
+    low: float = Field(gt=0, description="Lower bound of the price zone.")
+    high: float = Field(gt=0, description="Upper bound of the price zone.")
+
+    @model_validator(mode="after")
+    def _validate_bounds(self):
+        if self.low > self.high:
+            raise ValueError("low must be less than or equal to high")
+        return self
+
+
+class SectionSignal(BaseModel):
+    """Compact directional result for one analyst report."""
+
+    stance: DecisionStance = Field(
+        description=(
+            "Bullish, neutral, bearish, or unavailable when that analyst report "
+            "was not selected or produced no usable evidence."
+        )
+    )
+    note: str = Field(description="One concise sentence supporting the stance.")
+
+
+class SectionStances(BaseModel):
+    """The four evidence lanes displayed in the final result card."""
+
+    market: SectionSignal
+    sentiment: SectionSignal
+    news: SectionSignal
+    fundamentals: SectionSignal
+
+
+class DecisionBriefDraft(BaseModel):
+    """LLM-authored portion of the final result card."""
+
+    headline: str = Field(description="One concise sentence stating the final action plan.")
+    conviction: DecisionConviction = Field(
+        description="Qualitative conviction: low, medium, or high."
+    )
+    position_guidance: str | None = Field(
+        default=None,
+        description="Optional target exposure or position-sizing guidance.",
+    )
+    entry_zone: PriceRange | None = Field(
+        default=None,
+        description="Optional initial entry or probe zone. Use a range, not a prose value.",
+    )
+    add_levels: list[PriceRange] = Field(
+        default_factory=list,
+        description="Zero or more confirmation zones for adding exposure.",
+    )
+    stop_or_reduce: float | None = Field(
+        default=None,
+        gt=0,
+        description="Optional single price that triggers a stop or exposure reduction.",
+    )
+    bull_case: str = Field(description="The strongest bullish argument in one sentence.")
+    bear_case: str = Field(description="The strongest bearish argument in one sentence.")
+    key_risk: str = Field(description="The most important current risk in one sentence.")
+    what_to_watch: list[str] = Field(
+        min_length=1,
+        max_length=3,
+        description="One to three observable confirmation points.",
+    )
+    invalidation: str = Field(description="One sentence stating when the thesis is invalid.")
+    section_stances: SectionStances
+    conflict_note: str | None = Field(
+        default=None,
+        description="Optional sentence explaining how conflicting section signals were resolved.",
+    )
+
+    @field_validator("stop_or_reduce", mode="before")
+    @classmethod
+    def _nullish_stop_to_none(cls, v):
+        return _coerce_optional_float(v)
+
+
+class DecisionBrief(DecisionBriefDraft):
+    """Persisted and API-facing final result card."""
+
+    rating: PortfolioRating
+    as_of_price: float | None = Field(default=None, gt=0)
+    as_of_date: str | None = None
+    currency: str | None = None
+    time_horizon: str | None = None
+    target_price: float | None = Field(default=None, gt=0)
 
 
 # ---------------------------------------------------------------------------
@@ -238,11 +345,27 @@ class PortfolioDecision(BaseModel):
         default=None,
         description="Optional recommended holding period, e.g. '3-6 months'.",
     )
+    brief: DecisionBriefDraft = Field(
+        description=(
+            "Required compact result-card data. Derive the four section stances from "
+            "the source reports; use unavailable when a report is absent."
+        )
+    )
 
     @field_validator("price_target", mode="before")
     @classmethod
     def _nullish_float_to_none(cls, v):
         return _coerce_optional_float(v)
+
+
+def decision_brief_from_portfolio(decision: PortfolioDecision) -> DecisionBrief:
+    """Combine the Portfolio Manager's brief with its canonical rating fields."""
+    return DecisionBrief(
+        rating=decision.rating,
+        time_horizon=decision.time_horizon,
+        target_price=decision.price_target,
+        **decision.brief.model_dump(),
+    )
 
 
 def render_pm_decision(decision: PortfolioDecision) -> str:

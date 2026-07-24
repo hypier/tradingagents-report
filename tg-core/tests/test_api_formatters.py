@@ -36,6 +36,54 @@ def test_analysis_result_exposes_exchange_display_and_language():
     assert document["output_language"] == "Chinese"
 
 
+def test_analysis_result_prefers_structured_decision_brief():
+    document = analysis_result_from_row(
+        {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "ticker": "GOOG",
+            "trade_date": "2026-07-23",
+            "asset_type": "stock",
+            "status": "succeeded",
+            "analysts": ["market", "social", "news", "fundamentals"],
+            "decision": "Underweight",
+            "final_state": {
+                "final_trade_decision": "**Rating**: Underweight",
+                "decision_brief": {
+                    "rating": "Underweight",
+                    "headline": "Reduce exposure while cash returns remain unproven.",
+                    "conviction": "medium",
+                    "as_of_price": 341.91,
+                    "as_of_date": "2026-07-22",
+                    "currency": "USD",
+                    "time_horizon": "3-6 months",
+                    "position_guidance": "Reduce to 2.5%-3.5%.",
+                    "entry_zone": None,
+                    "add_levels": [],
+                    "stop_or_reduce": 322.0,
+                    "target_price": None,
+                    "bull_case": "Operating growth remains resilient.",
+                    "bear_case": "Free cash flow is sharply compressed.",
+                    "key_risk": "AI capital spending stays elevated.",
+                    "what_to_watch": ["Free cash flow recovery"],
+                    "invalidation": "Reconsider after durable cash-flow recovery.",
+                    "section_stances": {
+                        "market": {"stance": "bearish", "note": "Daily trend is weak."},
+                        "sentiment": {"stance": "bearish", "note": "Positioning is cautious."},
+                        "news": {"stance": "neutral", "note": "Catalysts are balanced."},
+                        "fundamentals": {"stance": "bullish", "note": "Growth remains strong."},
+                    },
+                    "conflict_note": "Strong operations conflict with weak cash returns.",
+                },
+            },
+        }
+    )
+
+    assert document["decision"]["rating"] == "Underweight"
+    assert document["decision"]["headline"].startswith("Reduce exposure")
+    assert document["decision"]["as_of_date"] == "2026-07-22"
+    assert document["decision"]["section_stances"]["fundamentals"]["stance"] == "bullish"
+
+
 def test_formatter_source_contains_no_chinese_characters():
     source = Path(formatters.__file__).read_text(encoding="utf-8")
 

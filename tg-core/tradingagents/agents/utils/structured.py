@@ -20,13 +20,22 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any, TypeVar
+from dataclasses import dataclass
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@dataclass(frozen=True)
+class StructuredInvocationResult(Generic[T]):
+    """Rendered agent output plus the typed value when structured output succeeded."""
+
+    text: str
+    value: T | None
 
 
 def bind_structured(llm: Any, schema: type[T], agent_name: str) -> Any | None:
@@ -60,6 +69,23 @@ def invoke_structured_or_freetext(
     shape). The same value is forwarded to the free-text path so the
     fallback sees the same input the structured call did.
     """
+    return invoke_structured_with_fallback(
+        structured_llm,
+        plain_llm,
+        prompt,
+        render,
+        agent_name,
+    ).text
+
+
+def invoke_structured_with_fallback(
+    structured_llm: Any | None,
+    plain_llm: Any,
+    prompt: Any,
+    render: Callable[[T], str],
+    agent_name: str,
+) -> StructuredInvocationResult[T]:
+    """Return both rendered text and the typed result, with the existing fallback."""
     if structured_llm is not None:
         try:
             result = structured_llm.invoke(prompt)
@@ -68,7 +94,7 @@ def invoke_structured_or_freetext(
                 # the tool, leaving the parser with nothing to return. Treat it
                 # as a structured miss and fall back, with a clear reason.
                 raise ValueError("structured output returned no parsed result")
-            return render(result)
+            return StructuredInvocationResult(text=render(result), value=result)
         except Exception as exc:
             logger.warning(
                 "%s: structured-output invocation failed (%s); retrying once as free text",
@@ -76,4 +102,4 @@ def invoke_structured_or_freetext(
             )
 
     response = plain_llm.invoke(prompt)
-    return response.content
+    return StructuredInvocationResult(text=response.content, value=None)

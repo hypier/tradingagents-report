@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from langgraph.graph import MessagesState
 from typing_extensions import TypedDict
@@ -73,4 +73,8 @@ class AgentState(MessagesState):
         RiskDebateState, "Current state of the debate on evaluating risk"
     ]
     final_trade_decision: Annotated[str, "Final decision made by the Risk Analysts"]
+    decision_brief: Annotated[
+        dict[str, Any] | None,
+        "Structured final result card produced by the Portfolio Manager",
+    ]
     past_context: Annotated[str, "Memory log context injected at run start (same-ticker decisions + cross-ticker lessons)"]

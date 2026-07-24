@@ -17,6 +17,10 @@ import { toast } from 'sonner';
 
 import { MarkdownReport } from '../components/report/markdown-report';
 import {
+  DecisionBriefCard,
+  hasDecisionBrief,
+} from '../components/report/decision-brief-card';
+import {
   ReportReadingToolbar,
   reportDeskThemes,
   reportPaperThemes,
@@ -88,7 +92,6 @@ function formatFontSize(step: number) {
   );
   return `${(1.05 * reportFontSteps[clamped]!).toFixed(2)}rem`;
 }
-
 function reportTabIcon(key: string) {
   const normalized = key.replace(/_report$/u, '').replace(/_history$/u, '');
   if (
@@ -608,6 +611,14 @@ export function ReportPage() {
             </div>
           ) : null}
         </div>
+
+        {hasDecisionBrief(job?.decision) ? (
+          <div className="px-5 pt-5 lg:px-6">
+            <div className="mx-auto w-full max-w-[72rem] xl:max-w-[80rem]">
+              <DecisionBriefCard decision={job.decision} />
+            </div>
+          </div>
+        ) : null}
 
         <div
           className={cn(

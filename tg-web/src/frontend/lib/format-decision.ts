@@ -28,7 +28,7 @@ export function normalizeDecisionId(
   return DECISION_ALIASES[trimmed.toLowerCase()] ?? null;
 }
 
-/** Extract raw rating text from job.decision (string or { action }). */
+/** Extract raw rating text from job.decision, preferring the canonical rating field. */
 export function extractDecisionAction(decision: unknown): string | null {
   if (decision == null) return null;
   if (typeof decision === 'string') {
@@ -36,6 +36,8 @@ export function extractDecisionAction(decision: unknown): string | null {
     return trimmed || null;
   }
   if (typeof decision === 'object') {
+    const rating = (decision as { rating?: unknown }).rating;
+    if (typeof rating === 'string' && rating.trim()) return rating.trim();
     const action = (decision as { action?: unknown }).action;
     if (typeof action === 'string' && action.trim()) return action.trim();
   }

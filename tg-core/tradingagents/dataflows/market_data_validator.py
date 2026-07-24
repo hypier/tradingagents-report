@@ -65,6 +65,25 @@ def _fmt(value) -> str:
     return str(value)
 
 
+def get_verified_market_reference(symbol: str, curr_date: str) -> dict[str, str | float | None]:
+    """Return the deterministic reference price metadata used by the result card."""
+    df = _verified_rows(symbol, curr_date)
+    latest = df.iloc[-1]
+    close = pd.to_numeric(latest.get("Close"), errors="coerce")
+    if pd.isna(close):
+        raise ValueError(f"Latest OHLCV row has no usable close for {symbol}.")
+    quote_currency = df.attrs.get("quote_currency")
+    return {
+        "as_of_price": float(close),
+        "as_of_date": _fmt(latest["Date"]),
+        "currency": (
+            quote_currency.strip()
+            if isinstance(quote_currency, str) and quote_currency.strip()
+            else None
+        ),
+    }
+
+
 def build_verified_market_snapshot(
     symbol: str,
     curr_date: str,

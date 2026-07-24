@@ -8,7 +8,15 @@ import pytest
 
 import tradingagents.graph.trading_graph as trading_graph_module
 from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
-from tradingagents.agents.schemas import PortfolioDecision, PortfolioRating
+from tradingagents.agents.schemas import (
+    DecisionBriefDraft,
+    DecisionConviction,
+    DecisionStance,
+    PortfolioDecision,
+    PortfolioRating,
+    SectionSignal,
+    SectionStances,
+)
 from tradingagents.agents.utils.memory import TradingMemoryLog
 from tradingagents.graph.propagation import Propagator
 from tradingagents.graph.reflection import Reflector
@@ -87,6 +95,27 @@ def _make_pm_state(past_context=""):
     }
 
 
+def _decision_brief() -> DecisionBriefDraft:
+    return DecisionBriefDraft(
+        headline="Hold while the setup improves.",
+        conviction=DecisionConviction.MEDIUM,
+        bull_case="The franchise remains durable.",
+        bear_case="Near-term cash returns are weak.",
+        key_risk="Capital spending remains elevated.",
+        what_to_watch=["Free cash flow recovery"],
+        invalidation="Exit if the earnings outlook weakens.",
+        section_stances=SectionStances(
+            market=SectionSignal(stance=DecisionStance.BEARISH, note="Trend is weak."),
+            sentiment=SectionSignal(stance=DecisionStance.NEUTRAL, note="Mixed evidence."),
+            news=SectionSignal(stance=DecisionStance.NEUTRAL, note="No clear catalyst."),
+            fundamentals=SectionSignal(
+                stance=DecisionStance.BULLISH,
+                note="Growth remains resilient.",
+            ),
+        ),
+    )
+
+
 def _structured_pm_llm(captured: dict, decision: PortfolioDecision | None = None):
     """Build a MagicMock LLM whose with_structured_output binding captures the
     prompt and returns a real PortfolioDecision (so render_pm_decision works).
@@ -96,6 +125,7 @@ def _structured_pm_llm(captured: dict, decision: PortfolioDecision | None = None
             rating=PortfolioRating.HOLD,
             executive_summary="Hold the position; await catalyst.",
             investment_thesis="Balanced view; neither side carried the debate.",
+            brief=_decision_brief(),
         )
     structured = MagicMock()
     structured.invoke.side_effect = lambda prompt: (
@@ -776,6 +806,7 @@ class TestPortfolioManagerInjection:
             investment_thesis="AI capex cycle remains intact; institutional flows constructive.",
             price_target=215.0,
             time_horizon="3-6 months",
+            brief=_decision_brief(),
         )
         llm = _structured_pm_llm(captured, decision)
         pm_node = create_portfolio_manager(llm)
@@ -786,6 +817,20 @@ class TestPortfolioManagerInjection:
         assert "**Investment Thesis**: AI capex cycle" in md
         assert "**Price Target**: 215.0" in md
         assert "**Time Horizon**: 3-6 months" in md
+        assert result["decision_brief"]["rating"] == "Overweight"
+        assert result["decision_brief"]["headline"] == "Hold while the setup improves."
+        assert result["decision_brief"]["section_stances"]["market"]["stance"] == "bearish"
+
+    def test_pm_prompt_includes_source_reports_for_section_stances(self):
+        captured = {}
+        pm_node = create_portfolio_manager(_structured_pm_llm(captured))
+
+        pm_node(_make_pm_state())
+
+        assert "Market report." in captured["prompt"]
+        assert "Sentiment report." in captured["prompt"]
+        assert "News report." in captured["prompt"]
+        assert "Fundamentals report." in captured["prompt"]
 
     def test_pm_falls_back_to_freetext_when_structured_unavailable(self):
         """If a provider does not support with_structured_output, the agent
@@ -798,6 +843,7 @@ class TestPortfolioManagerInjection:
         pm_node = create_portfolio_manager(llm)
         result = pm_node(_make_pm_state())
         assert result["final_trade_decision"] == plain_response
+        assert result["decision_brief"] is None
 
     # get_past_context ordering and limits
 

@@ -15,9 +15,15 @@ from pydantic import ValidationError
 from tradingagents.agents.analysts.sentiment_analyst import create_sentiment_analyst
 from tradingagents.agents.managers.research_manager import create_research_manager
 from tradingagents.agents.schemas import (
+    DecisionBriefDraft,
+    DecisionConviction,
+    DecisionStance,
     PortfolioDecision,
     PortfolioRating,
+    PriceRange,
     ResearchPlan,
+    SectionSignal,
+    SectionStances,
     SentimentBand,
     SentimentReport,
     TraderAction,
@@ -31,6 +37,32 @@ from tradingagents.agents.trader.trader import create_trader
 # ---------------------------------------------------------------------------
 # Render functions
 # ---------------------------------------------------------------------------
+
+
+def _decision_brief() -> DecisionBriefDraft:
+    return DecisionBriefDraft(
+        headline="Wait for trend confirmation.",
+        conviction=DecisionConviction.MEDIUM,
+        position_guidance="Keep exposure below 4%.",
+        entry_zone=PriceRange(low=180, high=185),
+        add_levels=[PriceRange(low=190, high=192)],
+        stop_or_reduce=175,
+        bull_case="Earnings growth remains durable.",
+        bear_case="Cash returns remain unproven.",
+        key_risk="Capital spending stays elevated.",
+        what_to_watch=["Free cash flow recovery", "A close above the 50-day average"],
+        invalidation="Reduce exposure if earnings estimates fall.",
+        section_stances=SectionStances(
+            market=SectionSignal(stance=DecisionStance.BEARISH, note="Daily trend is weak."),
+            sentiment=SectionSignal(stance=DecisionStance.NEUTRAL, note="Signals are mixed."),
+            news=SectionSignal(stance=DecisionStance.NEUTRAL, note="No decisive catalyst."),
+            fundamentals=SectionSignal(
+                stance=DecisionStance.BULLISH,
+                note="Operating growth is resilient.",
+            ),
+        ),
+        conflict_note="Fundamentals are resilient while the daily trend remains weak.",
+    )
 
 
 @pytest.mark.unit
@@ -93,8 +125,20 @@ class TestNullishFloatCoercion:
             executive_summary="s",
             investment_thesis="t",
             price_target="N/A",
+            brief=_decision_brief(),
         )
         assert d.price_target is None
+
+    def test_price_range_rejects_reversed_bounds(self):
+        with pytest.raises(ValidationError, match="low must be less than or equal to high"):
+            PriceRange(low=200, high=190)
+
+    def test_section_stance_supports_unavailable(self):
+        signal = SectionSignal(
+            stance=DecisionStance.UNAVAILABLE,
+            note="Fundamentals were not selected for this run.",
+        )
+        assert signal.stance is DecisionStance.UNAVAILABLE
 
 
 @pytest.mark.unit

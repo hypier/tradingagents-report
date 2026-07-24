@@ -34,6 +34,7 @@ from tradingagents.agents.utils.agent_utils import (
 )
 from tradingagents.agents.utils.memory import TradingMemoryLog
 from tradingagents.dataflows.config import set_config
+from tradingagents.dataflows.market_data_validator import get_verified_market_reference
 from tradingagents.dataflows.structured_data import get_ohlcv
 from tradingagents.dataflows.utils import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
@@ -495,6 +496,8 @@ class TradingAgentsGraph:
                     message.pretty_print()
                     last_printed = signature
 
+        self._enrich_decision_brief(final_state, company_name, str(trade_date))
+
         # Store current state for reflection.
         self.curr_state = final_state
 
@@ -516,6 +519,24 @@ class TradingAgentsGraph:
             )
 
         return final_state, self.process_signal(final_state["final_trade_decision"])
+
+    @staticmethod
+    def _enrich_decision_brief(final_state: dict, ticker: str, trade_date: str) -> None:
+        """Attach deterministic reference-price metadata without trusting LLM output."""
+        brief = final_state.get("decision_brief")
+        if not isinstance(brief, dict):
+            return
+        try:
+            reference = get_verified_market_reference(ticker, trade_date)
+        except Exception as exc:  # noqa: BLE001 - a missing quote must not fail the analysis
+            logger.warning(
+                "Could not enrich decision brief for %s on %s: %s",
+                ticker,
+                trade_date,
+                exc,
+            )
+            reference = {"as_of_price": None, "as_of_date": None, "currency": None}
+        brief.update(reference)
 
     def _log_state(self, trade_date, final_state):
         """Log the final state to a JSON file."""
@@ -547,6 +568,7 @@ class TradingAgentsGraph:
             },
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
+            "decision_brief": final_state.get("decision_brief"),
         }
 
         # Save to file. Reject ticker values that would escape the

@@ -60,6 +60,12 @@ def analysis_result_from_row(row: dict[str, Any]) -> dict[str, Any]:
     trade_date = ensure_date(row.get("trade_date"))
     rating = parse_rating(str(row.get("decision") or final_state.get("final_trade_decision") or ""))
     decision_fields = parse_decision_fields(str(final_state.get("final_trade_decision") or ""))
+    decision_brief = (
+        final_state.get("decision_brief")
+        if isinstance(final_state.get("decision_brief"), dict)
+        else {}
+    )
+    brief_rating = str(decision_brief.get("rating") or rating)
     reports = build_reports(final_state)
     token_usage = dict(row.get("token_usage") or {})
     tokens_used = int(row.get("tokens_used") or token_usage.get("total_tokens") or 0)
@@ -94,10 +100,28 @@ def analysis_result_from_row(row: dict[str, Any]) -> dict[str, Any]:
             "current_step": row.get("current_step"),
         },
         "decision": {
-            "action": rating,
+            "action": brief_rating,
+            "rating": brief_rating,
+            "headline": decision_brief.get("headline"),
+            "conviction": decision_brief.get("conviction"),
+            "as_of_price": decision_brief.get("as_of_price"),
+            "as_of_date": decision_brief.get("as_of_date"),
+            "currency": decision_brief.get("currency"),
+            "time_horizon": decision_brief.get("time_horizon"),
+            "position_guidance": decision_brief.get("position_guidance"),
+            "entry_zone": decision_brief.get("entry_zone"),
+            "add_levels": list(decision_brief.get("add_levels") or []),
+            "stop_or_reduce": decision_brief.get("stop_or_reduce"),
+            "bull_case": decision_brief.get("bull_case"),
+            "bear_case": decision_brief.get("bear_case"),
+            "key_risk": decision_brief.get("key_risk"),
+            "what_to_watch": list(decision_brief.get("what_to_watch") or []),
+            "invalidation": decision_brief.get("invalidation"),
+            "section_stances": decision_brief.get("section_stances"),
+            "conflict_note": decision_brief.get("conflict_note"),
             "confidence": decision_fields.get("confidence", 0),
             "risk_score": decision_fields.get("risk_score", risk_score_for_rating(rating)),
-            "target_price": decision_fields.get("target_price"),
+            "target_price": decision_brief.get("target_price", decision_fields.get("target_price")),
             "reasoning": decision_fields.get("reasoning")
             or str(final_state.get("final_trade_decision") or ""),
         },

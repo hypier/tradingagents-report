@@ -5,9 +5,14 @@ from __future__ import annotations
 import pytest
 
 from tradingagents.agents.schemas import (
+    DecisionBriefDraft,
+    DecisionConviction,
+    DecisionStance,
     PortfolioDecision,
     PortfolioRating,
     ResearchPlan,
+    SectionSignal,
+    SectionStances,
     SentimentBand,
     SentimentReport,
     TraderAction,
@@ -152,6 +157,33 @@ class TestChineseRenderHelpers:
                 executive_summary="逢低布局。",
                 investment_thesis="基本面支撑。",
                 price_target=100.0,
+                brief=DecisionBriefDraft(
+                    headline="等待确认后加仓。",
+                    conviction=DecisionConviction.MEDIUM,
+                    bull_case="盈利增长稳健。",
+                    bear_case="现金流仍待验证。",
+                    key_risk="资本开支维持高位。",
+                    what_to_watch=["自由现金流改善"],
+                    invalidation="盈利预期下调则失效。",
+                    section_stances=SectionStances(
+                        market=SectionSignal(
+                            stance=DecisionStance.NEUTRAL,
+                            note="趋势尚未确认。",
+                        ),
+                        sentiment=SectionSignal(
+                            stance=DecisionStance.NEUTRAL,
+                            note="情绪分化。",
+                        ),
+                        news=SectionSignal(
+                            stance=DecisionStance.NEUTRAL,
+                            note="暂无催化。",
+                        ),
+                        fundamentals=SectionSignal(
+                            stance=DecisionStance.BULLISH,
+                            note="基本面稳健。",
+                        ),
+                    ),
+                ),
             )
         )
         assert "**评级**: 买入" in md

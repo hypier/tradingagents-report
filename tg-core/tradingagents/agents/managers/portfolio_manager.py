@@ -10,14 +10,18 @@ back gracefully to free-text generation.
 
 from __future__ import annotations
 
-from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
+from tradingagents.agents.schemas import (
+    PortfolioDecision,
+    decision_brief_from_portfolio,
+    render_pm_decision,
+)
 from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_language_instruction,
 )
 from tradingagents.agents.utils.structured import (
     bind_structured,
-    invoke_structured_or_freetext,
+    invoke_structured_with_fallback,
 )
 
 
@@ -31,6 +35,16 @@ def create_portfolio_manager(llm):
         risk_debate_state = state["risk_debate_state"]
         research_plan = state["investment_plan"]
         trader_plan = state["trader_investment_plan"]
+        source_reports = {
+            "Market": state.get("market_report") or "REPORT_UNAVAILABLE",
+            "Sentiment": state.get("sentiment_report") or "REPORT_UNAVAILABLE",
+            "News": state.get("news_report") or "REPORT_UNAVAILABLE",
+            "Fundamentals": state.get("fundamentals_report") or "REPORT_UNAVAILABLE",
+        }
+        source_report_context = "\n\n".join(
+            f"**{name} Analyst Report:**\n{report}"
+            for name, report in source_reports.items()
+        )
 
         past_context = state.get("past_context", "")
         lessons_line = (
@@ -62,6 +76,9 @@ def create_portfolio_manager(llm):
 - Research Manager's investment plan: **{research_plan}**
 - Trader's transaction proposal: **{trader_plan}**
 {lessons_line}
+**Source Analyst Reports for the four section stances:**
+{source_report_context}
+
 **Risk Analysts Debate History:**
 {history}
 
@@ -69,12 +86,18 @@ def create_portfolio_manager(llm):
 
 Be decisive and ground every conclusion in specific evidence from the analysts.{get_language_instruction()}"""
 
-        final_trade_decision = invoke_structured_or_freetext(
+        invocation = invoke_structured_with_fallback(
             structured_llm,
             llm,
             prompt,
             render_pm_decision,
             "Portfolio Manager",
+        )
+        final_trade_decision = invocation.text
+        decision_brief = (
+            decision_brief_from_portfolio(invocation.value).model_dump(mode="json")
+            if invocation.value is not None
+            else None
         )
 
         new_risk_debate_state = {
@@ -93,6 +116,7 @@ Be decisive and ground every conclusion in specific evidence from the analysts.{
         return {
             "risk_debate_state": new_risk_debate_state,
             "final_trade_decision": final_trade_decision,
+            "decision_brief": decision_brief,
         }
 
     return portfolio_manager_node

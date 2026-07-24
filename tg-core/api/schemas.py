@@ -131,8 +131,45 @@ class AnalysisProgress(BaseModel):
     current_step: str | None = None
 
 
+class AnalysisPriceRange(BaseModel):
+    low: float
+    high: float
+
+
+class AnalysisSectionSignal(BaseModel):
+    stance: Literal["bullish", "neutral", "bearish", "unavailable"]
+    note: str
+
+
+class AnalysisSectionStances(BaseModel):
+    market: AnalysisSectionSignal
+    sentiment: AnalysisSectionSignal
+    news: AnalysisSectionSignal
+    fundamentals: AnalysisSectionSignal
+
+
 class AnalysisDecision(BaseModel):
+    # Compatibility alias for clients that historically treated the 5-tier
+    # portfolio rating as an "action".
     action: str
+    rating: str
+    headline: str | None = None
+    conviction: Literal["low", "medium", "high"] | None = None
+    as_of_price: float | None = None
+    as_of_date: str | None = None
+    currency: str | None = None
+    time_horizon: str | None = None
+    position_guidance: str | None = None
+    entry_zone: AnalysisPriceRange | None = None
+    add_levels: list[AnalysisPriceRange] = Field(default_factory=list)
+    stop_or_reduce: float | None = None
+    bull_case: str | None = None
+    bear_case: str | None = None
+    key_risk: str | None = None
+    what_to_watch: list[str] = Field(default_factory=list)
+    invalidation: str | None = None
+    section_stances: AnalysisSectionStances | None = None
+    conflict_note: str | None = None
     confidence: float = 0
     risk_score: float = 0
     target_price: float | None = None

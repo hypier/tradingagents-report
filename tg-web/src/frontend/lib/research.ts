@@ -68,6 +68,56 @@ export type InstrumentDisplay = {
   symbol?: string;
 };
 
+export type DecisionStance =
+  | 'bullish'
+  | 'neutral'
+  | 'bearish'
+  | 'unavailable';
+
+export type DecisionPriceRange = {
+  low: number;
+  high: number;
+};
+
+export type DecisionSectionSignal = {
+  stance: DecisionStance;
+  note: string;
+};
+
+export type DecisionSectionStances = {
+  market: DecisionSectionSignal;
+  sentiment: DecisionSectionSignal;
+  news: DecisionSectionSignal;
+  fundamentals: DecisionSectionSignal;
+};
+
+export type AnalysisDecision = {
+  /** Compatibility field used by older Core responses. */
+  action?: string;
+  rating?: string;
+  headline?: string | null;
+  conviction?: 'low' | 'medium' | 'high' | null;
+  as_of_price?: number | null;
+  as_of_date?: string | null;
+  currency?: string | null;
+  time_horizon?: string | null;
+  position_guidance?: string | null;
+  entry_zone?: DecisionPriceRange | null;
+  add_levels?: DecisionPriceRange[];
+  stop_or_reduce?: number | null;
+  target_price?: number | null;
+  bull_case?: string | null;
+  bear_case?: string | null;
+  key_risk?: string | null;
+  what_to_watch?: string[];
+  invalidation?: string | null;
+  section_stances?: DecisionSectionStances | null;
+  conflict_note?: string | null;
+  confidence?: number;
+  risk_score?: number;
+  reasoning?: string;
+};
+
 export type AnalysisJob = {
   id: string;
   ticker: string;
@@ -76,7 +126,7 @@ export type AnalysisJob = {
   status: AnalysisStatus;
   current_step?: string | null;
   progress_percent?: number | null;
-  decision?: string | null;
+  decision?: string | AnalysisDecision | null;
   error?: string | null;
   cost_usd?: number | null;
   created_at?: string | null;

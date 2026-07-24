@@ -29,6 +29,42 @@
     "removeError": "Unable to remove from watchlist"
   },
   "exportMarkdown": "Export Markdown",
+  "decisionBrief": {
+    "conviction": "Conviction",
+    "asOf": "Price date",
+    "referencePrice": "Reference price",
+    "timeHorizon": "Time horizon",
+    "positionGuidance": "Position guidance",
+    "entryZone": "Entry zone",
+    "addLevels": "Add on confirmation",
+    "stopOrReduce": "Stop / reduce trigger",
+    "targetPrice": "Target price",
+    "pricePlan": "Price plan",
+    "bullCase": "Bull case",
+    "bearCase": "Bear case",
+    "keyRisk": "Key risk",
+    "invalidation": "Invalidation",
+    "whatToWatch": "What to watch",
+    "conflict": "Signal conflict",
+    "signalSummary": "Analyst signals",
+    "levels": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "stances": {
+      "bullish": "Bullish",
+      "neutral": "Neutral",
+      "bearish": "Bearish",
+      "unavailable": "Unavailable"
+    },
+    "sections": {
+      "market": "Market",
+      "sentiment": "Sentiment",
+      "news": "News",
+      "fundamentals": "Fundamentals"
+    }
+  },
   "flow": {
     "title": "Report outline",
     "subtitle": "Read in order: evidence → debate → plan → risk → final decision",
