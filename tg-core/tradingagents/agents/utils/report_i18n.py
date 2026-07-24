@@ -54,6 +54,12 @@ _LABELS_EN: dict[str, str] = {
     "overall_sentiment": "Overall Sentiment",
     "score": "Score",
     "confidence": "Confidence",
+    # Debate speaker prefixes prepended in Python (not LLM-generated).
+    "bull_analyst": "Bull Analyst",
+    "bear_analyst": "Bear Analyst",
+    "aggressive_analyst": "Aggressive Analyst",
+    "conservative_analyst": "Conservative Analyst",
+    "neutral_analyst": "Neutral Analyst",
 }
 
 _LABELS_ZH: dict[str, str] = {
@@ -79,7 +85,21 @@ _LABELS_ZH: dict[str, str] = {
     "overall_sentiment": "整体情绪",
     "score": "得分",
     "confidence": "置信度",
+    # 辩论发言前缀（由 Python 拼接，不是模型输出）。
+    "bull_analyst": "多头分析师",
+    "bear_analyst": "空头分析师",
+    "aggressive_analyst": "激进分析师",
+    "conservative_analyst": "保守分析师",
+    "neutral_analyst": "中性分析师",
 }
+
+_DEBATE_ROLE_KEYS: frozenset[str] = frozenset({
+    "bull_analyst",
+    "bear_analyst",
+    "aggressive_analyst",
+    "conservative_analyst",
+    "neutral_analyst",
+})
 
 # Analyst section → report chrome key for a scoped directional view.
 _ANALYST_RECOMMENDATION_KEYS: dict[str, str] = {
@@ -163,6 +183,25 @@ def get_analyst_recommendation_phrase(
             f"{sorted(_ANALYST_RECOMMENDATION_KEYS)}"
         )
     return report_labels(language)[key]
+
+
+def get_debate_role_label(role: str, language: str | None = None) -> str:
+    """Return the localized speaker prefix for a debate / risk analyst turn."""
+    if role not in _DEBATE_ROLE_KEYS:
+        raise ValueError(
+            f"Unknown debate role {role!r}; expected one of "
+            f"{sorted(_DEBATE_ROLE_KEYS)}"
+        )
+    return report_labels(language)[role]
+
+
+def format_debate_argument(
+    role: str,
+    content: str,
+    language: str | None = None,
+) -> str:
+    """Prefix a debate turn with the localized speaker label."""
+    return f"{get_debate_role_label(role, language)}: {content}"
 
 
 # Extra label spellings accepted by API decision-field parsers. Kept here so

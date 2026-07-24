@@ -24,7 +24,9 @@ from tradingagents.agents.utils.agent_utils import (
 )
 from tradingagents.agents.utils.rating import parse_rating
 from tradingagents.agents.utils.report_i18n import (
+    format_debate_argument,
     get_analyst_recommendation_phrase,
+    get_debate_role_label,
     normalize_report_language,
 )
 from tradingagents.dataflows.config import set_config
@@ -165,3 +167,23 @@ class TestLanguagePromptHelpers:
         out = get_section_recommendation_instruction("market")
         assert "Market Analysis Recommendation" in out
         assert "final portfolio decision" in out
+
+
+@pytest.mark.unit
+class TestDebateRoleLabels:
+    def test_chinese_speaker_prefixes(self):
+        set_config({"output_language": "Chinese"})
+        assert get_debate_role_label("bull_analyst") == "多头分析师"
+        assert get_debate_role_label("bear_analyst") == "空头分析师"
+        assert get_debate_role_label("aggressive_analyst") == "激进分析师"
+        assert get_debate_role_label("conservative_analyst") == "保守分析师"
+        assert get_debate_role_label("neutral_analyst") == "中性分析师"
+        assert format_debate_argument("bull_analyst", "增长确定。") == (
+            "多头分析师: 增长确定。"
+        )
+
+    def test_english_speaker_prefixes(self):
+        assert get_debate_role_label("bull_analyst") == "Bull Analyst"
+        assert format_debate_argument("bear_analyst", "Risks remain.") == (
+            "Bear Analyst: Risks remain."
+        )

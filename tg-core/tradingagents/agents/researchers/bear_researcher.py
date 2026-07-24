@@ -2,6 +2,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_language_instruction,
 )
+from tradingagents.agents.utils.report_i18n import format_debate_argument
 
 
 def create_bear_researcher(llm):
@@ -48,7 +49,7 @@ Use this information to deliver a compelling bear argument, refute the bull's cl
 
         response = llm.invoke(prompt)
 
-        argument = f"Bear Analyst: {response.content}"
+        argument = format_debate_argument("bear_analyst", response.content)
 
         new_investment_debate_state = {
             "history": history + "\n" + argument,

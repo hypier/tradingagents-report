@@ -2,6 +2,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_language_instruction,
 )
+from tradingagents.agents.utils.report_i18n import format_debate_argument
 
 
 def create_conservative_debator(llm):
@@ -38,7 +39,7 @@ Engage by questioning their optimism and emphasizing the potential downsides the
 
         response = llm.invoke(prompt)
 
-        argument = f"Conservative Analyst: {response.content}"
+        argument = format_debate_argument("conservative_analyst", response.content)
 
         new_risk_debate_state = {
             "history": history + "\n" + argument,

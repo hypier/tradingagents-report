@@ -2,6 +2,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_language_instruction,
 )
+from tradingagents.agents.utils.report_i18n import format_debate_argument
 
 
 def create_aggressive_debator(llm):
@@ -38,7 +39,7 @@ Engage actively by addressing any specific concerns raised, refuting the weaknes
 
         response = llm.invoke(prompt)
 
-        argument = f"Aggressive Analyst: {response.content}"
+        argument = format_debate_argument("aggressive_analyst", response.content)
 
         new_risk_debate_state = {
             "history": history + "\n" + argument,
