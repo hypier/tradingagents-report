@@ -512,7 +512,7 @@ render_* 转成稳定 Markdown
 | `openai_reasoning_effort` | `None` | OpenAI 推理强度 |
 | `anthropic_effort` | `None` | Claude effort |
 | `checkpoint_enabled` | `False` | 是否启用节点级检查点 |
-| `output_language` | `English` | 全部用户可见报告语言 |
+| `output_language` | `English` | 用户可见报告语言；正文按该语言生成，结构化模板覆盖前端 11 语（见 `report_i18n`），其余回落英文 chrome |
 | `max_debate_rounds` | `1` | 多空辩论轮数 |
 | `max_risk_discuss_rounds` | `1` | 风险辩论轮数 |
 | `max_recur_limit` | `100` | LangGraph 最大递归步数 |

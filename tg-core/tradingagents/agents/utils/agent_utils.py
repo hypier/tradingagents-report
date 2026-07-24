@@ -92,15 +92,17 @@ def get_transaction_proposal_instruction() -> str:
     who treat the first ``…建议`` they see as the portfolio decision.
     """
     from tradingagents.agents.utils.report_i18n import (
-        get_report_language,
         get_transaction_proposal_phrase,
+        localize_report_value,
     )
 
     phrase = get_transaction_proposal_phrase()
-    actions = "**买入/持有/卖出**" if get_report_language() == "chinese" else "**BUY/HOLD/SELL**"
+    actions = "/".join(
+        localize_report_value(token) for token in ("Buy", "Hold", "Sell")
+    )
     return (
         f" Do not conclude or prefix your report with {phrase}. "
-        f"That label is reserved for the Trader's later {actions} deliverable. "
+        f"That label is reserved for the Trader's later **{actions}** deliverable. "
         f"Your section only supplies analyst evidence for later debate — "
         f"it is not the team's final portfolio decision."
     )

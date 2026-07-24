@@ -451,6 +451,8 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 
 提交任务时可以通过顶层 `output_language` 或 `config_overrides.output_language` 设定分析语言。顶层 `output_language` 优先级更高，并会写入 job 的持久化配置。机器可读的 `status` 始终保持固定英文枚举；本地化状态放在 `status_label`，阶段文案和分析内容按请求语言返回。
 
+结构化报告标题、辩论角色前缀与评级展示词由 `tradingagents.agents.utils.report_i18n` 的语言包渲染，覆盖与前端文章语言下拉一致的 11 种语言（English / Chinese / Japanese / Korean / Hindi / Spanish / Portuguese / French / German / Arabic / Russian）。未识别或 Custom 语言的模板文案回落英文；正文仍通过 `get_language_instruction()` 按请求语言生成。
+
 示例：
 
 ```json

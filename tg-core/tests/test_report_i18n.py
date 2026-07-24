@@ -1,4 +1,4 @@
-"""Structured-report chrome follows output_language (#Chinese headings)."""
+"""Structured-report chrome follows output_language locale packs."""
 
 from __future__ import annotations
 
@@ -24,10 +24,13 @@ from tradingagents.agents.utils.agent_utils import (
 )
 from tradingagents.agents.utils.rating import parse_rating
 from tradingagents.agents.utils.report_i18n import (
+    REPORT_LOCALES,
     format_debate_argument,
     get_analyst_recommendation_phrase,
     get_debate_role_label,
+    localize_report_value,
     normalize_report_language,
+    report_labels,
 )
 from tradingagents.dataflows.config import set_config
 
@@ -45,10 +48,73 @@ class TestNormalizeReportLanguage:
         for value in ("Chinese", "chinese", "中文", "zh-CN", "zh_hans"):
             assert normalize_report_language(value) == "chinese"
 
-    def test_english_default(self):
-        assert normalize_report_language(None) == "english"
+    def test_frontend_language_ids(self):
         assert normalize_report_language("English") == "english"
-        assert normalize_report_language("Japanese") == "english"
+        assert normalize_report_language("Japanese") == "japanese"
+        assert normalize_report_language("한국어") == "korean"
+        assert normalize_report_language("Español") == "spanish"
+        assert normalize_report_language("Português") == "portuguese"
+        assert normalize_report_language("Français") == "french"
+        assert normalize_report_language("Deutsch") == "german"
+        assert normalize_report_language("العربية") == "arabic"
+        assert normalize_report_language("Русский") == "russian"
+        assert normalize_report_language("हिन्दी") == "hindi"
+
+    def test_unknown_falls_back_to_english(self):
+        assert normalize_report_language(None) == "english"
+        assert normalize_report_language("Turkish") == "english"
+        assert normalize_report_language("custom-lang") == "english"
+
+
+@pytest.mark.unit
+class TestLocalePackCoverage:
+    def test_all_frontend_locales_have_complete_labels(self):
+        required = {
+            "recommendation",
+            "rating",
+            "final_transaction_proposal",
+            "bull_analyst",
+            "price_target",
+            "confidence",
+        }
+        assert REPORT_LOCALES == (
+            "english",
+            "chinese",
+            "japanese",
+            "korean",
+            "hindi",
+            "spanish",
+            "portuguese",
+            "french",
+            "german",
+            "arabic",
+            "russian",
+        )
+        for locale in REPORT_LOCALES:
+            labels = report_labels(locale)
+            for key in required:
+                assert labels[key].strip(), f"{locale}.{key} empty"
+
+    @pytest.mark.parametrize(
+        ("language", "buy", "bull"),
+        [
+            ("Chinese", "买入", "多头分析师"),
+            ("Japanese", "買い", "強気アナリスト"),
+            ("Korean", "매수", "강세 분석가"),
+            ("Spanish", "Comprar", "Analista alcista"),
+            ("French", "Acheter", "Analyste haussier"),
+            ("German", "Kaufen", "Bullischer Analyst"),
+            ("Russian", "Покупать", "Бычий аналитик"),
+            ("Arabic", "شراء", "المحلل الصاعد"),
+            ("Hindi", "खरीदें", "बुल विश्लेषक"),
+            ("Portuguese", "Comprar", "Analista de alta"),
+        ],
+    )
+    def test_locale_buy_and_bull_prefix(self, language, buy, bull):
+        set_config({"output_language": language})
+        assert localize_report_value("Buy") == buy
+        assert get_debate_role_label("bull_analyst") == bull
+        assert format_debate_argument("bull_analyst", "x").startswith(f"{bull}:")
 
 
 @pytest.mark.unit
@@ -118,6 +184,18 @@ class TestChineseRenderHelpers:
         )
         assert "**Recommendation**: Hold" in md
 
+    def test_korean_research_plan_chrome(self):
+        set_config({"output_language": "Korean"})
+        md = render_research_plan(
+            ResearchPlan(
+                recommendation=PortfolioRating.BUY,
+                rationale="성장 가시성.",
+                strategic_actions="분할 매수.",
+            )
+        )
+        assert "**권고**: 매수" in md
+        assert "Recommendation" not in md
+
 
 @pytest.mark.unit
 class TestParseLocalizedRatings:
@@ -129,6 +207,23 @@ class TestParseLocalizedRatings:
 
     def test_english_still_works(self):
         assert parse_rating("**Rating**: Sell\nExit.") == "Sell"
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "**レーティング**: 買い",
+            "**등급**: 매수",
+            "**Calificación**: Comprar",
+            "**Notation**: Acheter",
+            "**Bewertung**: Kaufen",
+            "**Рейтинг**: Покупать",
+            "**التصنيف**: شراء",
+            "**रेटिंग**: खरीदें",
+            "**Classificação**: Comprar",
+        ],
+    )
+    def test_locale_rating_labels(self, text):
+        assert parse_rating(text) == "Buy"
 
 
 @pytest.mark.unit
@@ -153,7 +248,13 @@ class TestLanguagePromptHelpers:
         out = get_transaction_proposal_instruction()
         assert "TRANSACTION PROPOSAL" in out
         assert "Do not conclude or prefix" in out
-        assert "BUY/HOLD/SELL" in out
+        assert "Buy/Hold/Sell" in out
+
+    def test_korean_transaction_phrase_uses_localized_actions(self):
+        set_config({"output_language": "Korean"})
+        out = get_transaction_proposal_instruction()
+        assert "거래 제안" in out
+        assert "매수/보유/매도" in out
 
     def test_market_section_recommendation_chinese(self):
         set_config({"output_language": "Chinese"})

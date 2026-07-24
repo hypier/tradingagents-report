@@ -13,29 +13,32 @@ from __future__ import annotations
 
 import re
 
+from tradingagents.agents.utils.report_i18n import (
+    rating_label_spellings,
+    rating_value_aliases,
+)
+
 # Canonical, ordered 5-tier scale (most bullish to most bearish).
 RATINGS_5_TIER: tuple[str, ...] = (
     "Buy", "Overweight", "Hold", "Underweight", "Sell",
 )
 
-# English + Chinese display forms produced by localized render helpers.
-_RATING_ALIASES: dict[str, str] = {
-    "buy": "Buy",
-    "买入": "Buy",
-    "overweight": "Overweight",
-    "增持": "Overweight",
-    "hold": "Hold",
-    "持有": "Hold",
-    "underweight": "Underweight",
-    "减持": "Underweight",
-    "sell": "Sell",
-    "卖出": "Sell",
-}
+# English + all locale-pack display forms produced by localized render helpers.
+_RATING_ALIASES: dict[str, str] = rating_value_aliases()
 
-# Matches "Rating: X" / "评级：增持" / "Recommendation: Buy" — tolerates markdown
-# bold wrappers and either a colon, fullwidth colon, or hyphen separator.
+# Escape for regex alternation; longer labels first so multi-word forms win.
+_RATING_LABEL_PATTERN = "|".join(
+    sorted(
+        (re.escape(label) for label in rating_label_spellings()),
+        key=len,
+        reverse=True,
+    )
+)
+
+# Matches "Rating: X" / "评级：增持" / "권고: 매수" — tolerates markdown bold
+# wrappers and either a colon, fullwidth colon, or hyphen separator.
 _RATING_LABEL_RE = re.compile(
-    r"(?:rating|recommendation|评级|建议).*?[:：\-][\s*]*([^\s*]+)",
+    rf"(?:{_RATING_LABEL_PATTERN}).*?[:：\-][\s*]*([^\s*]+)",
     re.IGNORECASE,
 )
 
@@ -51,7 +54,7 @@ def parse_rating(text: str, default: str = "Hold") -> str:
     """Heuristically extract a 5-tier rating from prose text.
 
     Two-pass strategy:
-    1. Look for an explicit rating/recommendation label (EN or ZH).
+    1. Look for an explicit rating/recommendation label (any known locale).
     2. Fall back to the first known rating token found anywhere in the text.
 
     Returns a canonical English rating string, or ``default`` if none appear.
@@ -68,7 +71,7 @@ def parse_rating(text: str, default: str = "Hold") -> str:
             rating = _canonical_rating(word)
             if rating:
                 return rating
-        # Chinese reports may glue the token without ASCII whitespace.
+        # CJK / non-spaced scripts may glue the token without ASCII whitespace.
         # Only scan non-ASCII aliases here so English substrings like
         # "hold" inside "shareholder" cannot false-match.
         for alias, canonical in _RATING_ALIASES.items():
