@@ -170,8 +170,18 @@ def build_reports(final_state: dict[str, Any]) -> dict[str, Any]:
     risk_state = final_state.get("risk_debate_state") or {}
     for source_key, target_key in RISK_REPORT_KEYS.items():
         value = risk_state.get(source_key)
-        if value:
-            reports[target_key] = value
+        if not value:
+            continue
+        # Portfolio Manager writes the same markdown to both
+        # risk_debate_state.judge_decision and final_trade_decision. Emitting
+        # both as separate chapters makes "Risk Judge" and "Final Decision"
+        # look identical in the UI.
+        if (
+            target_key == "risk_management_decision"
+            and reports.get("final_trade_decision") == value
+        ):
+            continue
+        reports[target_key] = value
 
     return reports
 

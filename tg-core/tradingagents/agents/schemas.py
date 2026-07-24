@@ -109,7 +109,13 @@ class SectionSignal(BaseModel):
             "was not selected or produced no usable evidence."
         )
     )
-    note: str = Field(description="One concise sentence supporting the stance.")
+    note: str = Field(
+        description=(
+            "One concise sentence supporting the stance, written in the "
+            "configured report output language (not English unless that is "
+            "the output language)."
+        )
+    )
 
 
 class SectionStances(BaseModel):

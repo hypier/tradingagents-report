@@ -96,6 +96,41 @@ def test_formatter_source_contains_no_chinese_characters():
     assert re.search(r"[\u4e00-\u9fff]", source) is None
 
 
+def test_build_reports_dedupes_identical_risk_judge_and_final_decision():
+    pm_text = "**Rating**: Underweight\n\n**Executive Summary**: Reduce exposure."
+    reports = formatters.build_reports(
+        {
+            "final_trade_decision": pm_text,
+            "risk_debate_state": {
+                "judge_decision": pm_text,
+                "aggressive_history": "Aggressive view.",
+                "conservative_history": "Conservative view.",
+                "neutral_history": "Neutral view.",
+            },
+        }
+    )
+
+    assert reports["final_trade_decision"] == pm_text
+    assert "risk_management_decision" not in reports
+    assert reports["risky_analyst"] == "Aggressive view."
+    assert reports["safe_analyst"] == "Conservative view."
+    assert reports["neutral_analyst"] == "Neutral view."
+
+
+def test_build_reports_keeps_distinct_risk_judge_when_different_from_final():
+    reports = formatters.build_reports(
+        {
+            "final_trade_decision": "Final portfolio decision.",
+            "risk_debate_state": {
+                "judge_decision": "Separate risk-judge note.",
+            },
+        }
+    )
+
+    assert reports["final_trade_decision"] == "Final portfolio decision."
+    assert reports["risk_management_decision"] == "Separate risk-judge note."
+
+
 @pytest.mark.parametrize(
     "language",
     ["English", "Chinese"],

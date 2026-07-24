@@ -79,13 +79,20 @@ def get_language_instruction() -> str:
         return ""
     return (
         f" Write your entire response in {lang}, including all headings, "
-        f"section titles, and labels. Do not leave English template phrases "
-        f"such as 'TRANSACTION PROPOSAL', 'FINAL TRANSACTION PROPOSAL', "
-        f"'Overall Sentiment', 'Recommendation', or 'Rationale'. "
-        f"Keep company names, tickers, and other proper nouns exactly as given "
-        f"in the Resolved identity or tool outputs — if a company name is "
-        f"English, keep that English spelling; never invent a Chinese "
-        f"transliteration (e.g. do not turn JOVE into 杰夫 or 杰美特)."
+        f"section titles, labels, analysis, and conclusions. Tool outputs "
+        f"(news headlines, filings, calendars, fundamentals tables) may be "
+        f"English — paraphrase that evidence into {lang}; do not paste English "
+        f"body paragraphs into the report. Do not leave English template "
+        f"phrases such as 'TRANSACTION PROPOSAL', 'FINAL TRANSACTION "
+        f"PROPOSAL', 'Overall Sentiment', 'Recommendation', or 'Rationale'. "
+        f"Company-name rule (separate from body language): prefer the "
+        f"Resolved identity Company name; if tool data already provides a "
+        f"Chinese name, use that exact Chinese name; if the name is "
+        f"Latin-script English, keep that English spelling by default and "
+        f"never invent a phonetic Chinese transliteration (e.g. do not turn "
+        f"JOVE into 杰夫 or 杰美特). Well-known companies may use their "
+        f"commonly accepted {lang} name (e.g. Apple → 苹果, Tencent → 腾讯). "
+        f"Keep tickers and exchange codes unchanged."
     )
 
 
@@ -263,11 +270,12 @@ def build_instrument_context(
             f" Resolved identity: {'; '.join(details)}. "
             "Do not substitute a different company or ticker unless a tool "
             "result explicitly disproves this resolved identity. "
-            "Use only this resolved company name in reports. "
+            "Use this resolved company name in reports. "
             "If Company is Chinese, use that exact Chinese name; if Company "
             "(or English name) is Latin-script English, keep that English "
-            "spelling verbatim even in non-English reports — never invent a "
-            "phonetic Chinese name for the same ticker."
+            "spelling by default even in non-English reports — never invent a "
+            "phonetic Chinese name for the same ticker. Well-known companies "
+            "may use a commonly accepted local-language name."
         )
 
     if is_crypto:

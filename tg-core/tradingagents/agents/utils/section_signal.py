@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from tradingagents.agents.schemas import DecisionStance, SectionSignal
+from tradingagents.agents.utils.agent_utils import get_language_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,17 @@ def extract_section_signal(
     if not report.strip() or structured_llm is None:
         return unavailable_section_signal(agent_name)
 
+    from tradingagents.dataflows.config import get_config
+
+    language = get_config().get("output_language", "English")
+    language_line = (
+        f"Write the note entirely in {language}."
+        if str(language).strip().lower() != "english"
+        else "Write the note in English."
+    )
     prompt = f"""You are the {agent_name}. Convert your completed report below into one machine-readable section signal.
 
-Choose exactly one stance: bullish, neutral, bearish, or unavailable. Use unavailable only when the report contains no usable directional evidence. The note must be one concise evidence-based sentence written in the same language as the report. Do not infer facts that are absent from the report.
+Choose exactly one stance: bullish, neutral, bearish, or unavailable. Use unavailable only when the report contains no usable directional evidence. The note must be one concise evidence-based sentence. {language_line} Do not leave the note in a different language than the configured report language, even if the report mixes languages. Do not infer facts that are absent from the report.{get_language_instruction()}
 
 Completed report:
 {report}"""
