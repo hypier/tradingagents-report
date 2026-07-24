@@ -14,6 +14,7 @@ class AnalysisCommand:
     asset_type: str
     analysts: tuple[str, ...]
     config: dict[str, Any]
+    display_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -63,5 +64,6 @@ def run_analysis(
         command.trade_date,
         asset_type=command.asset_type,
         on_chunk=handle_chunk,
+        display_name=command.display_name,
     )
     return AnalysisResult(final_state=final_state, decision=str(decision))

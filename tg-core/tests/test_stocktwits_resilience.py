@@ -75,3 +75,17 @@ class TestStockTwitsCryptoSymbols:
         with patch.object(stocktwits, "urlopen", side_effect=fake_urlopen):
             stocktwits.fetch_stocktwits_messages("BTC-USD")
         assert "/symbol/BTC.X.json" in seen["url"]
+
+
+@pytest.mark.unit
+class TestStockTwitsChinaAShares:
+    @pytest.mark.parametrize(
+        "ticker",
+        ["300814.SZ", "600519.SS", "SZSE:300814", "SSE:600519", "300814"],
+    )
+    def test_skips_http_for_china_a_shares(self, ticker):
+        with patch.object(stocktwits, "urlopen") as urlopen:
+            out = stocktwits.fetch_stocktwits_messages(ticker)
+        urlopen.assert_not_called()
+        assert "China A-share" in out
+        assert "unavailable" in out.lower()

@@ -15,6 +15,7 @@ from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
     create_msg_delete,
     get_instrument_context_from_state,
+    merge_display_name_into_identity,
     resolve_instrument_identity,
 )
 from tradingagents.dataflows.provider_models import ProviderResult, parse_instrument
@@ -219,6 +220,19 @@ class BuildInstrumentContextTests(unittest.TestCase):
         self.assertIn("Quote currency: HKD", context)
         self.assertIn("Fundamental reporting currency: CNY", context)
         self.assertIn("Do not substitute a different company", context)
+        self.assertIn("do not invent alternate Chinese or English names", context)
+
+    def test_includes_english_name_when_distinct(self):
+        context = build_instrument_context(
+            "300814.SZ",
+            "stock",
+            {
+                "company_name": "中富电路",
+                "english_name": "Shenzhen JOVE Enterprise Ltd. Class A",
+            },
+        )
+        self.assertIn("Company: 中富电路", context)
+        self.assertIn("English name: Shenzhen JOVE Enterprise Ltd. Class A", context)
 
     def test_crypto_uses_name_label_and_keeps_hint(self):
         context = build_instrument_context(
@@ -226,6 +240,30 @@ class BuildInstrumentContextTests(unittest.TestCase):
         )
         self.assertIn("Name: Bitcoin USD", context)
         self.assertIn("crypto asset rather than a company", context)
+
+
+@pytest.mark.unit
+class MergeDisplayNameIntoIdentityTests(unittest.TestCase):
+    def test_prefers_display_name_and_keeps_english_alternate(self):
+        merged = merge_display_name_into_identity(
+            {"company_name": "Shenzhen JOVE Enterprise Ltd. Class A", "sector": "Tech"},
+            "中富电路",
+        )
+        self.assertEqual(merged["company_name"], "中富电路")
+        self.assertEqual(
+            merged["english_name"], "Shenzhen JOVE Enterprise Ltd. Class A"
+        )
+        self.assertEqual(merged["sector"], "Tech")
+
+    def test_fills_empty_identity_from_display_name(self):
+        merged = merge_display_name_into_identity({}, "中富电路")
+        self.assertEqual(merged, {"company_name": "中富电路"})
+
+    def test_ignores_blank_display_name(self):
+        merged = merge_display_name_into_identity(
+            {"company_name": "中富电路"}, "  "
+        )
+        self.assertEqual(merged, {"company_name": "中富电路"})
 
 
 @pytest.mark.unit

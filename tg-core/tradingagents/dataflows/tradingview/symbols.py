@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
+from urllib.parse import quote
 
 from ..errors import NoMarketDataError
 from ..listings import resolve_listing
@@ -19,6 +21,14 @@ _DETERMINISTIC_SYMBOLS = {
 }
 
 _EXCHANGE_PREFERENCE = {"NASDAQ": 0, "NYSE": 1, "AMEX": 2}
+# Bare 6-digit China codes should prefer mainland exchanges over US/bond hits.
+_CHINA_EXCHANGE_PREFERENCE = {"SZSE": 0, "SHE": 0, "SSE": 1, "SHA": 1}
+_CHINA_NUMERIC_RE = re.compile(r"^\d{6}$")
+
+
+def encode_path_symbol(symbol: str) -> str:
+    """Percent-encode a TradingView symbol for URL path segments (``:`` → ``%3A``)."""
+    return quote(symbol, safe="")
 
 
 def _provider_symbol(symbol: str, resolution_source: str = "deterministic") -> ProviderSymbol:
@@ -42,6 +52,15 @@ def _exchange(market: Mapping[str, Any]) -> str:
         return source.upper()
     symbol = _market_symbol(market)
     return symbol.split(":", 1)[0].upper() if symbol and ":" in symbol else ""
+
+
+def _exchange_rank(market: Mapping[str, Any], canonical_symbol: str) -> int:
+    exchange = _exchange(market)
+    if _CHINA_NUMERIC_RE.fullmatch(canonical_symbol):
+        return _CHINA_EXCHANGE_PREFERENCE.get(
+            exchange, len(_CHINA_EXCHANGE_PREFERENCE) + 10
+        )
+    return _EXCHANGE_PREFERENCE.get(exchange, len(_EXCHANGE_PREFERENCE))
 
 
 def resolve_tradingview_symbol(
@@ -74,7 +93,7 @@ def resolve_tradingview_symbol(
     exact_matches.sort(
         key=lambda market: (
             not bool(market.get("is_primary_listing")),
-            _EXCHANGE_PREFERENCE.get(_exchange(market), len(_EXCHANGE_PREFERENCE)),
+            _exchange_rank(market, ref.canonical_symbol),
         )
     )
     if exact_matches:

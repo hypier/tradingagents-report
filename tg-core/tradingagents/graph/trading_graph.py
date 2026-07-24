@@ -30,6 +30,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_ta_indicators,
     get_ta_summary,
     get_verified_market_snapshot,
+    merge_display_name_into_identity,
     resolve_instrument_identity,
 )
 from tradingagents.agents.utils.memory import TradingMemoryLog
@@ -368,7 +369,12 @@ class TradingAgentsGraph:
         if updates:
             self.memory_log.batch_update_with_outcomes(updates)
 
-    def resolve_instrument_context(self, ticker: str, asset_type: str = "stock") -> str:
+    def resolve_instrument_context(
+        self,
+        ticker: str,
+        asset_type: str = "stock",
+        display_name: str | None = None,
+    ) -> str:
         """Resolve ticker identity once and return the full instrument context.
 
         Deterministic provider-routed lookup (cached, fail-open) injected into a
@@ -376,8 +382,15 @@ class TradingAgentsGraph:
         hallucinating one from the price chart (#814). Both the propagate()
         path and the CLI call this so the resolved identity reaches the whole
         graph regardless of entry point.
+
+        When ``display_name`` is provided (job submit-time UI name), it becomes
+        the primary company label so localized names like ``中富电路`` win over
+        English-only TradingView descriptions.
         """
-        identity = resolve_instrument_identity(ticker)
+        identity = merge_display_name_into_identity(
+            resolve_instrument_identity(ticker),
+            display_name,
+        )
         return build_instrument_context(ticker, asset_type, identity)
 
     def _run_signature(self, asset_type: str) -> str:
@@ -400,6 +413,7 @@ class TradingAgentsGraph:
         trade_date,
         asset_type: str = "stock",
         on_chunk=None,
+        display_name: str | None = None,
     ):
         """Run the trading agents graph for a company on a specific date.
 
@@ -440,6 +454,7 @@ class TradingAgentsGraph:
                 trade_date,
                 asset_type=asset_type,
                 on_chunk=on_chunk,
+                display_name=display_name,
             )
         finally:
             if self._checkpointer_ctx is not None:
@@ -462,12 +477,23 @@ class TradingAgentsGraph:
             )
         return write_report_tree(final_state, ticker, save_path)
 
-    def _run_graph(self, company_name, trade_date, asset_type: str = "stock", on_chunk=None):
+    def _run_graph(
+        self,
+        company_name,
+        trade_date,
+        asset_type: str = "stock",
+        on_chunk=None,
+        display_name: str | None = None,
+    ):
         """Execute the graph and write the resulting state to disk and memory log."""
         # Initialize state — inject memory log context for PM and the
         # deterministically resolved instrument identity for all agents.
         past_context = self.memory_log.get_past_context(company_name)
-        instrument_context = self.resolve_instrument_context(company_name, asset_type)
+        instrument_context = self.resolve_instrument_context(
+            company_name,
+            asset_type,
+            display_name=display_name,
+        )
         init_agent_state = self.propagator.create_initial_state(
             company_name,
             trade_date,

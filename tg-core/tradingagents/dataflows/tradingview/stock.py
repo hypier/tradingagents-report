@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, time, timedelta, timezone
 from math import isfinite
 from typing import Any
@@ -17,7 +18,7 @@ from ..stockstats_utils import (
     validate_indicator,
 )
 from .client import TradingViewClient
-from .symbols import resolve_tradingview_symbol
+from .symbols import encode_path_symbol, resolve_tradingview_symbol
 
 
 def _search_markets(client: TradingViewClient, query: str, asset_class: str):
@@ -56,8 +57,9 @@ def fetch_tradingview_ohlcv(
     api = client or TradingViewClient()
     ref, resolved = _resolve(symbol, api)
     end_of_day = datetime.combine(end.date(), time(23, 59, 59), tzinfo=timezone.utc)
+    path_symbol = encode_path_symbol(resolved.symbol)
     payload = api.get(
-        f"/api/price/{resolved.symbol}",
+        f"/api/price/{path_symbol}",
         params={
             "range": max(2, (end - start).days + 10),
             "to": int(end_of_day.timestamp()),
@@ -129,7 +131,7 @@ def fetch_tradingview_ohlcv(
         as_of=frame["Date"].max().to_pydatetime().replace(tzinfo=timezone.utc),
         adjustment_mode="Japanese",
         quote_currency=_currency_field(payload.get("info"), "currency_code"),
-        provenance={"endpoint": f"/api/price/{resolved.symbol}"},
+        provenance={"endpoint": f"/api/price/{path_symbol}"},
     )
 
 
@@ -176,13 +178,18 @@ def get_tradingview_identity(
     """Return normalized company identity fields from TradingView."""
     api = client or TradingViewClient()
     _, resolved = _resolve(ticker, api)
-    payload = api.get(f"/api/market-data/{resolved.symbol}/company")
+    path_symbol = encode_path_symbol(resolved.symbol)
+    payload = api.get(f"/api/market-data/{path_symbol}/company")
     company: Any = payload.get("company")
     if not isinstance(company, dict):
         raise NoMarketDataError(ticker, resolved.symbol, "TradingView returned no company identity")
 
+    local_name = _company_display_name(company, payload)
+    english_name = _identity_field(company.get("description")) or _identity_field(
+        payload.get("description")
+    )
     identity = {
-        "company_name": _identity_field(company.get("description")),
+        "company_name": local_name or english_name,
         "sector": _identity_field(company.get("sector")),
         "industry": _identity_field(company.get("industry")),
         "exchange": _identity_field(company.get("listed_exchange")),
@@ -193,9 +200,39 @@ def get_tradingview_identity(
             "currency_fund",
         ),
     }
+    if (
+        local_name
+        and english_name
+        and local_name != english_name
+        and identity.get("company_name") == local_name
+    ):
+        identity["english_name"] = english_name
     if not any(identity.values()):
         raise NoMarketDataError(ticker, resolved.symbol, "TradingView returned no company identity")
     return {**{key: value for key, value in identity.items() if value}, "quote_type": "stock"}
+
+
+def _company_display_name(company: dict[str, Any], payload: Mapping[str, Any] | None = None) -> str:
+    """Prefer TradingView localized name (tg-web parity), then English description."""
+    sources: list[Any] = [
+        company.get("local_description"),
+        company.get("local-description"),
+    ]
+    if payload is not None:
+        sources.extend(
+            [
+                payload.get("local_description"),
+                payload.get("local-description"),
+            ]
+        )
+    sources.append(company.get("description"))
+    if payload is not None:
+        sources.append(payload.get("description"))
+    for value in sources:
+        text = _identity_field(value)
+        if text:
+            return text
+    return ""
 
 
 def _identity_field(value: Any) -> str:

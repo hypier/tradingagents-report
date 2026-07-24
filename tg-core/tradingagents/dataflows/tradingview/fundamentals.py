@@ -14,14 +14,14 @@ import pandas as pd
 from ..errors import NoMarketDataError
 from ..provider_models import parse_instrument
 from .client import TradingViewClient
-from .symbols import resolve_tradingview_symbol
+from .symbols import encode_path_symbol, resolve_tradingview_symbol
 
 _MARKET_DATA_CACHE_TTL_SECONDS = 300
 _MARKET_DATA_CACHE: dict[str, tuple[float, str, dict[str, Any]]] = {}
 _MARKET_DATA_CACHE_LOCK = Lock()
 
 _FUNDAMENTAL_FIELDS = (
-    ("company", "description", "Name"),
+    # Name is resolved via _company_name() so localized names win over English.
     ("company", "sector", "Sector"),
     ("company", "industry", "Industry"),
     ("company", "founded", "Founded"),
@@ -259,7 +259,7 @@ def _get_market_data(
 ) -> tuple[str, dict[str, Any]]:
     if client is not None:
         symbol = _resolve(ticker, client)
-        return symbol, client.get(f"/api/market-data/{symbol}")
+        return symbol, client.get(f"/api/market-data/{encode_path_symbol(symbol)}")
 
     cache_key = ticker.strip().upper()
     with _MARKET_DATA_CACHE_LOCK:
@@ -270,9 +270,22 @@ def _get_market_data(
 
         api = TradingViewClient()
         symbol = _resolve(ticker, api)
-        payload = api.get(f"/api/market-data/{symbol}")
+        payload = api.get(f"/api/market-data/{encode_path_symbol(symbol)}")
         _MARKET_DATA_CACHE[cache_key] = (time.monotonic(), symbol, payload)
         return symbol, payload
+
+
+def _company_name(company: Any) -> str | None:
+    """Prefer localized company name when TradingView provides one."""
+    if not isinstance(company, Mapping):
+        return None
+    for key in ("local_description", "local-description", "description"):
+        value = company.get(key)
+        if isinstance(value, str) and value.strip():
+            text = value.strip()
+            if text.lower() not in {"-", "n/a", "na", "none", "null", "unknown"}:
+                return text
+    return None
 
 
 def _header(
@@ -349,6 +362,9 @@ def get_tradingview_fundamentals(
     quote_currency, fundamental_currency = _currencies(payload)
 
     lines = []
+    name = _company_name(payload.get("company"))
+    if name:
+        lines.append(f"Name: {name}")
     for section_name, field, label in _FUNDAMENTAL_FIELDS:
         section = payload.get(section_name)
         value = section.get(field) if isinstance(section, Mapping) else None

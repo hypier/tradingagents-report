@@ -10,7 +10,7 @@ from urllib.parse import quote
 from ..errors import NoMarketDataError
 from ..provider_models import parse_instrument
 from .client import TradingViewClient
-from .symbols import resolve_tradingview_symbol
+from .symbols import encode_path_symbol, resolve_tradingview_symbol
 
 _TIMEFRAME_ORDER = ("1", "5", "15", "60", "240", "1D", "1W", "1M")
 _TIMEFRAME_LABELS = {
@@ -160,7 +160,8 @@ def get_tradingview_ta_summary(
     del curr_date
     api = client or TradingViewClient()
     resolved = _resolve(symbol, api)
-    payload = api.get(f"/api/ta/{resolved}")
+    path_symbol = encode_path_symbol(resolved)
+    payload = api.get(f"/api/ta/{path_symbol}")
     if not isinstance(payload, Mapping) or not payload:
         raise NoMarketDataError(symbol, resolved, "TradingView returned no TA summary")
 
@@ -211,7 +212,8 @@ def get_tradingview_ta_indicators(
     del curr_date
     api = client or TradingViewClient()
     resolved = _resolve(symbol, api)
-    payload = api.get(f"/api/ta/{resolved}/indicators")
+    path_symbol = encode_path_symbol(resolved)
+    payload = api.get(f"/api/ta/{path_symbol}/indicators")
     if not isinstance(payload, Mapping) or not payload:
         raise NoMarketDataError(symbol, resolved, "TradingView returned no TA indicators")
 

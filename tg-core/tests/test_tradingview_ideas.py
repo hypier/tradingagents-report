@@ -58,7 +58,7 @@ def test_ideas_formats_direction_mix_and_filters_future():
     assert "[Neutral] Neutral range" in output
     assert "Future short thesis" not in output
     client.get.assert_called_once_with(
-        "/api/ideas/list/NASDAQ:AAPL",
+        "/api/ideas/list/NASDAQ%3AAAPL",
         params={"page": 1, "per_page": 10, "lang": "en"},
     )
 

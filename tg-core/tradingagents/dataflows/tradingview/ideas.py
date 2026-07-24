@@ -17,7 +17,7 @@ from ..errors import (
 )
 from ..provider_models import parse_instrument
 from .client import TradingViewClient
-from .symbols import resolve_tradingview_symbol
+from .symbols import encode_path_symbol, resolve_tradingview_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +96,9 @@ def get_tradingview_ideas(
     """
     api = client or TradingViewClient()
     resolved = _resolve(ticker, api)
+    path_symbol = encode_path_symbol(resolved)
     payload = api.get(
-        f"/api/ideas/list/{resolved}",
+        f"/api/ideas/list/{path_symbol}",
         params={"page": 1, "per_page": max(1, min(int(limit), 20)), "lang": "en"},
     )
     if not isinstance(payload, list) or not payload:

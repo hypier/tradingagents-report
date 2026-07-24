@@ -10,7 +10,7 @@ from ..errors import NoMarketDataError
 from ..exchange_catalog import tv_market_for_exchange, tv_market_for_symbol
 from ..provider_models import parse_instrument
 from .client import TradingViewClient
-from .symbols import resolve_tradingview_symbol
+from .symbols import encode_path_symbol, resolve_tradingview_symbol
 
 
 def _search_markets(client: TradingViewClient, query: str, asset_class: str):
@@ -102,7 +102,8 @@ def get_tradingview_peer_comparison(
     del curr_date
     api = client or TradingViewClient()
     resolved = _resolve(ticker, api)
-    company = api.get(f"/api/market-data/{resolved}/company")
+    path_symbol = encode_path_symbol(resolved)
+    company = api.get(f"/api/market-data/{path_symbol}/company")
     if not isinstance(company, Mapping):
         raise NoMarketDataError(ticker, resolved, "TradingView returned no company profile")
 

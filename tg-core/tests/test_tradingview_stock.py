@@ -57,7 +57,7 @@ def test_ohlcv_explicitly_requests_japanese_candles():
     client.get.assert_called_once()
     path = client.get.call_args.args[0]
     params = client.get.call_args.kwargs["params"]
-    assert path == "/api/price/NASDAQ:AAPL"
+    assert path == "/api/price/NASDAQ%3AAAPL"
     assert "symbol" not in params
     assert params["type"] == "Japanese"
     assert params["timeframe"] == "D"
@@ -91,7 +91,7 @@ def test_qualified_symbol_does_not_invoke_market_search():
     fetch_tradingview_ohlcv("NASDAQ:AAPL", "2026-07-10", "2026-07-10", client=client)
 
     assert client.get.call_count == 1
-    assert client.get.call_args.args[0] == "/api/price/NASDAQ:AAPL"
+    assert client.get.call_args.args[0] == "/api/price/NASDAQ%3AAAPL"
 
 
 def test_bare_equity_is_resolved_with_documented_market_search():
@@ -126,7 +126,7 @@ def test_bare_equity_is_resolved_with_documented_market_search():
     assert result.resolved_symbol == "NASDAQ:AAPL"
     assert client.get.call_args_list[0].args[0] == "/api/search/market/AAPL"
     assert client.get.call_args_list[0].kwargs["params"] == {"filter": "stock"}
-    assert client.get.call_args_list[1].args[0] == "/api/price/NASDAQ:AAPL"
+    assert client.get.call_args_list[1].args[0] == "/api/price/NASDAQ%3AAAPL"
 
 
 def test_ohlcv_sorts_and_filters_to_inclusive_requested_dates():
@@ -352,7 +352,35 @@ def test_identity_maps_company_fields():
         "quote_currency": "USD",
         "fundamental_currency": "USD",
     }
-    client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL/company")
+    client.get.assert_called_once_with("/api/market-data/NASDAQ%3AAAPL/company")
+
+
+def test_identity_prefers_local_description_over_english():
+    client = Mock()
+    client.get.return_value = {
+        "symbol": "SZSE:300814",
+        "company": {
+            "local_description": "中富电路",
+            "description": "Shenzhen JOVE Enterprise Ltd. Class A",
+            "sector": "Electronic Technology",
+            "industry": "Electronic Components",
+            "listed_exchange": "SZSE",
+            "currency_code": "CNY",
+            "fundamental_currency_code": "CNY",
+        },
+    }
+
+    assert get_tradingview_identity("300814.SZ", client=client) == {
+        "company_name": "中富电路",
+        "english_name": "Shenzhen JOVE Enterprise Ltd. Class A",
+        "sector": "Electronic Technology",
+        "industry": "Electronic Components",
+        "exchange": "SZSE",
+        "quote_type": "stock",
+        "quote_currency": "CNY",
+        "fundamental_currency": "CNY",
+    }
+    client.get.assert_called_once_with("/api/market-data/SZSE%3A300814/company")
 
 
 def test_identity_rejects_company_without_meaningful_fields():

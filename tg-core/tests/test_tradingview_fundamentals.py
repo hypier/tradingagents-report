@@ -103,7 +103,28 @@ def test_fundamentals_uses_existing_labels_and_exact_endpoint():
     assert "## Dividends" in output
     assert "Continuous Payout Years: 14" in output
     assert "Ex-Dividend Date: 2026-05-10" in output
-    client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL")
+    client.get.assert_called_once_with("/api/market-data/NASDAQ%3AAAPL")
+
+
+def test_fundamentals_prefers_local_description_for_name():
+    client = Mock()
+    client.get.return_value = {
+        "symbol": "SZSE:300814",
+        "company": {
+            "local_description": "中富电路",
+            "description": "Shenzhen JOVE Enterprise Ltd. Class A",
+            "sector": "Electronic Technology",
+            "currency_code": "CNY",
+            "fundamental_currency_code": "CNY",
+        },
+        "indicators": {"market_cap_basic": 25_900_000_000},
+    }
+
+    output = get_tradingview_fundamentals("300814.SZ", client=client)
+
+    assert "Name: 中富电路" in output
+    assert "Shenzhen JOVE" not in output
+    client.get.assert_called_once_with("/api/market-data/SZSE%3A300814")
 
 
 def test_fundamentals_omits_missing_values_and_rejects_unmapped_payload():
@@ -143,7 +164,7 @@ def test_default_clients_share_one_market_data_request(monkeypatch):
     client = Mock()
 
     def response(path, params=None):
-        assert path == "/api/market-data/NASDAQ:CACHE"
+        assert path == "/api/market-data/NASDAQ%3ACACHE"
         request_started.set()
         assert release_request.wait(timeout=2)
         return {
@@ -185,7 +206,7 @@ def test_default_clients_share_one_market_data_request(monkeypatch):
         outputs = [future.result(timeout=2) for future in futures]
 
     assert all(outputs)
-    client.get.assert_called_once_with("/api/market-data/NASDAQ:CACHE")
+    client.get.assert_called_once_with("/api/market-data/NASDAQ%3ACACHE")
 
 
 def test_default_market_data_cache_expires(monkeypatch):
@@ -227,7 +248,7 @@ def test_statement_filters_fields_and_future_periods(function, title, required_f
     assert "2025-Q4" in output
     assert "2026-Q2" not in output
     assert required_field in output
-    client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL")
+    client.get.assert_called_once_with("/api/market-data/NASDAQ%3AAAPL")
 
 
 def test_annual_statement_reconstructs_history_and_deduplicates_current_period():
@@ -252,7 +273,7 @@ def test_annual_statement_reconstructs_history_and_deduplicates_current_period()
 
     assert output.count("FY-2025") == 1
     assert "total_revenue,300,200" in output
-    client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL")
+    client.get.assert_called_once_with("/api/market-data/NASDAQ%3AAAPL")
 
 
 @pytest.mark.parametrize(

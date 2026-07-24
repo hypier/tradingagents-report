@@ -15,6 +15,8 @@ from tradingagents.dataflows.tradingview.symbols import resolve_tradingview_symb
         ("0700.HK", "HKEX:700"),
         ("HKEX:5", "HKEX:5"),
         ("600519.SS", "SSE:600519"),
+        ("300814.SZ", "SZSE:300814"),
+        ("000001.SZ", "SZSE:000001"),
         ("BTC-USDT", "BINANCE:BTCUSDT"),
         ("EURUSD", "OANDA:EURUSD"),
         ("SPX500", "SP:SPX"),
@@ -41,6 +43,30 @@ def test_search_prefers_primary_exact_listing():
 
     assert resolved.symbol == "NASDAQ:AAPL"
     assert resolved.exchange == "NASDAQ"
+    assert resolved.resolution_source == "search"
+
+
+def test_search_prefers_china_exchanges_for_bare_six_digit_codes():
+    markets = [
+        {
+            "symbol": "300814",
+            "source_id": "LUXSE",
+            "full_name": "LUXSE:300814",
+            "is_primary_listing": True,
+        },
+        {
+            "symbol": "300814",
+            "source_id": "SZSE",
+            "full_name": "SZSE:300814",
+            "is_primary_listing": True,
+        },
+    ]
+
+    resolved = resolve_tradingview_symbol(
+        parse_instrument("300814"), search=lambda _: markets
+    )
+
+    assert resolved.symbol == "SZSE:300814"
     assert resolved.resolution_source == "search"
 
 

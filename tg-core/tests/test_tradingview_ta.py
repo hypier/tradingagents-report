@@ -23,7 +23,7 @@ def test_ta_summary_formats_timeframes_and_endpoint():
     assert "# TradingView TA Summary for NASDAQ:AAPL" in output
     assert "| 1D | 0.800 (Strong Buy)" in output
     assert "| 1W | -0.200 (Sell)" in output
-    client.get.assert_called_once_with("/api/ta/NASDAQ:AAPL")
+    client.get.assert_called_once_with("/api/ta/NASDAQ%3AAAPL")
 
 
 def test_ta_summary_rejects_empty_payload():
@@ -79,4 +79,4 @@ def test_ta_indicators_groups_curated_fields():
     assert "Recommend.All: 0.3" in output
     assert "Recommend.MA: -0.8" in output
     assert "Pivot.M.Fibonacci.R1" not in output
-    client.get.assert_called_once_with("/api/ta/NASDAQ:AAPL/indicators")
+    client.get.assert_called_once_with("/api/ta/NASDAQ%3AAAPL/indicators")

@@ -214,12 +214,15 @@ def _run_claimed_job(row: dict[str, Any]) -> None:
             config["backend_url"] = provider_runtime["backend_url"]
         # Catalog id → Core factory type
         config["llm_provider"] = provider_runtime["driver"]
+        display = row.get("display") if isinstance(row.get("display"), dict) else {}
+        display_name = display.get("display_name")
         command = AnalysisCommand(
             ticker=row["ticker"],
             trade_date=row["trade_date"].isoformat(),
             asset_type=row["asset_type"],
             analysts=tuple(row["analysts"]),
             config=config,
+            display_name=display_name if isinstance(display_name, str) else None,
         )
         result = run_analysis(
             command,

@@ -17,6 +17,7 @@ from __future__ import annotations
 import http.client
 import json
 import logging
+import re
 from urllib.request import Request, urlopen
 
 from ..symbol_utils import crypto_base
@@ -25,6 +26,10 @@ logger = logging.getLogger(__name__)
 
 _API = "https://api.stocktwits.com/api/2/streams/symbol/{ticker}.json"
 _UA = "tradingagents/0.2 (+https://github.com/TauricResearch/TradingAgents)"
+_CHINA_A_SHARE_RE = re.compile(
+    r"^(?:\d{6}\.(?:SZ|SS)|(?:SZSE|SSE|SHE|SHA):\d{6}|\d{6})$",
+    re.IGNORECASE,
+)
 
 
 def _stocktwits_symbol(ticker: str) -> str:
@@ -38,6 +43,11 @@ def _stocktwits_symbol(ticker: str) -> str:
     return f"{base}.X" if base else ticker.strip().upper()
 
 
+def _is_china_a_share(ticker: str) -> bool:
+    """Return True for China A-share tickers StockTwits does not support."""
+    return bool(_CHINA_A_SHARE_RE.fullmatch(ticker.strip()))
+
+
 def fetch_stocktwits_messages(ticker: str, limit: int = 30, timeout: float = 10.0) -> str:
     """Fetch recent StockTwits messages for ``ticker`` and return them as a
     formatted plaintext block ready for prompt injection.
@@ -46,6 +56,12 @@ def fetch_stocktwits_messages(ticker: str, limit: int = 30, timeout: float = 10.
     symbol has no messages, or the response shape is unexpected — the
     caller never has to special-case None or exceptions.
     """
+    if _is_china_a_share(ticker):
+        return (
+            f"<stocktwits unavailable: China A-share symbols are not supported "
+            f"({ticker.strip().upper()})>"
+        )
+
     url = _API.format(ticker=_stocktwits_symbol(ticker))
     req = Request(url, headers={"User-Agent": _UA, "Accept": "application/json"})
     try:

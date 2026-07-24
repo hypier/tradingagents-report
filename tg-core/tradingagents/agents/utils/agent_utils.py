@@ -52,6 +52,7 @@ __all__ = [
     "get_prediction_markets",
     "get_verified_market_snapshot",
     "build_instrument_context",
+    "merge_display_name_into_identity",
     "resolve_instrument_identity",
     "get_instrument_context_from_state",
     "get_language_instruction",
@@ -168,6 +169,9 @@ def resolve_instrument_identity(ticker: str) -> dict:
     company_name = _clean_identity_value(info.get("company_name"))
     if company_name:
         identity["company_name"] = company_name
+    english_name = _clean_identity_value(info.get("english_name"))
+    if english_name and english_name != company_name:
+        identity["english_name"] = english_name
     for source_key, target_key in (
         ("sector", "sector"),
         ("industry", "industry"),
@@ -180,6 +184,30 @@ def resolve_instrument_identity(ticker: str) -> dict:
         if value:
             identity[target_key] = value
     return identity
+
+
+def merge_display_name_into_identity(
+    identity: Mapping[str, str] | None,
+    display_name: str | None,
+) -> dict[str, str]:
+    """Prefer submit-time UI display name as the primary company label.
+
+    TradingView English ``description`` alone is a common source of Chinese-report
+    name hallucinations (e.g. JOVE → 杰美特). The UI already prefers
+    ``local_description``; when that name was captured at job submit, inject it
+    as ground truth while retaining any alternate English name.
+    """
+    merged = dict(identity or {})
+    preferred = _clean_identity_value(display_name)
+    if not preferred:
+        return merged
+    existing = merged.get("company_name")
+    if existing and existing != preferred:
+        merged.setdefault("english_name", existing)
+    merged["company_name"] = preferred
+    if merged.get("english_name") == preferred:
+        merged.pop("english_name", None)
+    return merged
 
 
 def build_instrument_context(
@@ -207,6 +235,9 @@ def build_instrument_context(
         name = identity.get("company_name") or identity.get("name")
         if name:
             details.append(f"{'Name' if is_crypto else 'Company'}: {name}")
+        english = identity.get("english_name")
+        if english and english != name:
+            details.append(f"English name: {english}")
         sector, industry = identity.get("sector"), identity.get("industry")
         if sector and industry:
             details.append(f"Business classification: {sector} / {industry}")
@@ -227,7 +258,9 @@ def build_instrument_context(
         context += (
             f" Resolved identity: {'; '.join(details)}. "
             "Do not substitute a different company or ticker unless a tool "
-            "result explicitly disproves this resolved identity."
+            "result explicitly disproves this resolved identity. "
+            "Use only this resolved company name in reports; do not invent "
+            "alternate Chinese or English names for the same ticker."
         )
 
     if is_crypto:

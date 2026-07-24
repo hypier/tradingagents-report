@@ -54,7 +54,7 @@ def test_peer_comparison_uses_sector_screener_and_marks_subject():
     assert "Market: america" in output
     assert "NASDAQ:AAPL ←" in output
     assert "NASDAQ:NVDA" in output
-    client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL/company")
+    client.get.assert_called_once_with("/api/market-data/NASDAQ%3AAAPL/company")
     client.post.assert_called_once()
     path, kwargs = client.post.call_args
     assert path[0] == "/api/screener/scan"
