@@ -12,16 +12,23 @@ from tradingagents.agents.utils.fundamental_data_tools import (
     get_cashflow,
     get_fundamentals,
     get_income_statement,
+    get_peer_comparison,
 )
 from tradingagents.agents.utils.macro_data_tools import get_macro_indicators
 from tradingagents.agents.utils.market_data_validation_tools import get_verified_market_snapshot
 from tradingagents.agents.utils.news_data_tools import (
+    get_earnings_calendar,
+    get_economic_calendar,
     get_global_news,
     get_insider_transactions,
     get_news,
 )
 from tradingagents.agents.utils.prediction_markets_tools import get_prediction_markets
-from tradingagents.agents.utils.technical_indicators_tools import get_indicators
+from tradingagents.agents.utils.technical_indicators_tools import (
+    get_indicators,
+    get_ta_indicators,
+    get_ta_summary,
+)
 from tradingagents.dataflows.structured_data import get_instrument_identity
 
 # Public surface: the data tools are imported here so agents and the graph
@@ -29,13 +36,18 @@ from tradingagents.dataflows.structured_data import get_instrument_identity
 __all__ = [
     "get_stock_data",
     "get_indicators",
+    "get_ta_summary",
+    "get_ta_indicators",
     "get_fundamentals",
     "get_balance_sheet",
     "get_cashflow",
     "get_income_statement",
+    "get_peer_comparison",
     "get_news",
     "get_global_news",
     "get_insider_transactions",
+    "get_earnings_calendar",
+    "get_economic_calendar",
     "get_macro_indicators",
     "get_prediction_markets",
     "get_verified_market_snapshot",

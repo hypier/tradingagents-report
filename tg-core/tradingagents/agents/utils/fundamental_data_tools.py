@@ -77,3 +77,20 @@ def get_income_statement(
         str: A formatted report containing income statement data
     """
     return route_to_vendor("get_income_statement", ticker, freq, curr_date)
+
+
+@tool
+def get_peer_comparison(
+    ticker: Annotated[str, "ticker symbol"],
+    curr_date: Annotated[str, "current analysis date, yyyy-mm-dd"],
+    market: Annotated[
+        str | None,
+        "Optional TradingView market code (america/china/hongkong/...). Omit to infer from exchange.",
+    ] = None,
+    limit: Annotated[int, "Max peers to return (5-25)"] = 10,
+) -> str:
+    """
+    Compare a ticker with same-sector peers (market cap, PE, dividend yield,
+    RSI, TA recommendation, 1W/1M performance) via TradingView screener.
+    """
+    return route_to_vendor("get_peer_comparison", ticker, curr_date, market, limit)

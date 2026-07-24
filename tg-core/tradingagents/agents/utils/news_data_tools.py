@@ -58,3 +58,49 @@ def get_insider_transactions(
         str: A report of insider transaction data
     """
     return route_to_vendor("get_insider_transactions", ticker)
+
+
+@tool
+def get_earnings_calendar(
+    curr_date: Annotated[str, "Current analysis date in yyyy-mm-dd format"],
+    look_forward_days: Annotated[int, "Days ahead to include"] = 14,
+    market: Annotated[str, "TradingView market code, e.g. america, china, hongkong"] = "america",
+    ticker: Annotated[
+        str | None,
+        "Optional ticker to filter to one symbol; omit for market-wide list",
+    ] = None,
+) -> str:
+    """
+    Retrieve earnings calendar events around the analysis date.
+    Future events omit realized surprise/actuals to reduce look-ahead bias.
+    """
+    return route_to_vendor(
+        "get_earnings_calendar",
+        curr_date,
+        look_forward_days,
+        market,
+        ticker,
+    )
+
+
+@tool
+def get_economic_calendar(
+    curr_date: Annotated[str, "Current analysis date in yyyy-mm-dd format"],
+    look_back_days: Annotated[int, "Days to look back"] = 7,
+    look_forward_days: Annotated[int, "Days ahead to include"] = 14,
+    market: Annotated[
+        str | None,
+        "Optional TradingView market code filter; omit for all markets",
+    ] = None,
+) -> str:
+    """
+    Retrieve macroeconomic calendar events (CPI, NFP, rates, etc.).
+    Events after curr_date keep forecast/previous but redact actual prints.
+    """
+    return route_to_vendor(
+        "get_economic_calendar",
+        curr_date,
+        look_back_days,
+        look_forward_days,
+        market,
+    )

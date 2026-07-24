@@ -32,13 +32,18 @@ def test_fundamentals_uses_existing_labels_and_exact_endpoint():
             "industry": "Hardware",
             "currency_code": "HKD",
             "fundamental_currency_code": "CNY",
+            "founded": 1976,
+            "number_of_employees": 166000,
         },
         "indicators": {
             "market_cap_basic": 1000,
             "price_earnings": 20,
             "price_book_ratio": 8,
+            "price_sales_ratio": 9.5,
             "price_52_week_high": 210,
             "price_52_week_low": 120,
+            "beta_1_year": 1.1,
+            "earnings_release_next_date": epoch("2026-08-01"),
         },
         "ttm": {
             "earnings_per_share_diluted_ttm": 5,
@@ -56,6 +61,20 @@ def test_fundamentals_uses_existing_labels_and_exact_endpoint():
         "current": {
             "current_ratio_current": 1.2,
             "book_value_per_share_current": 4.5,
+            "dividends_yield_current": 0.4,
+        },
+        "analyst_recommendations": {
+            "recommendation_buy": 26,
+            "recommendation_hold": 14,
+            "recommendation_sell": 2,
+            "recommendation_total": 53,
+            "price_target_average": 301.6,
+            "price_target_median": 310,
+        },
+        "dividend": {
+            "dividend_yield_recent": 0.38,
+            "continuous_dividend_payout": 14,
+            "dividend_ex_date_recent": epoch("2026-05-10"),
         },
     }
 
@@ -66,13 +85,24 @@ def test_fundamentals_uses_existing_labels_and_exact_endpoint():
     assert "# Fundamental reporting currency: CNY" in output
     assert "Name: Apple Inc." in output
     assert "Sector: Technology" in output
+    assert "Founded: 1976" in output
     assert "Market Cap: 1000" in output
     assert "PE Ratio (TTM): 20" in output
     assert "Price to Book: 8" in output
+    assert "Price to Sales: 9.5" in output
+    assert "Beta (1Y): 1.1" in output
+    assert "Next Earnings Date: 2026-08-01" in output
     assert "EPS (TTM): 5" in output
     assert "Revenue (TTM): 900" in output
     assert "Free Cash Flow: 80" in output
     assert "Book Value: 4.5" in output
+    assert "Dividend Yield: 0.4" in output
+    assert "## Analyst Recommendations" in output
+    assert "Buy: 26" in output
+    assert "Price Target (Avg): 301.6" in output
+    assert "## Dividends" in output
+    assert "Continuous Payout Years: 14" in output
+    assert "Ex-Dividend Date: 2026-05-10" in output
     client.get.assert_called_once_with("/api/market-data/NASDAQ:AAPL")
 
 

@@ -33,3 +33,27 @@ def get_indicators(
         except ValueError as e:
             results.append(str(e))
     return "\n\n".join(results)
+
+
+@tool
+def get_ta_summary(
+    symbol: Annotated[str, "ticker symbol of the company"],
+    curr_date: Annotated[str, "The current trading date you are trading on, YYYY-mm-dd"],
+) -> str:
+    """
+    Retrieve multi-timeframe TradingView Buy/Sell/Neutral gauges (1m through 1M).
+    Complements get_indicators with an overall technical bias snapshot.
+    """
+    return route_to_vendor("get_ta_summary", symbol, curr_date)
+
+
+@tool
+def get_ta_indicators(
+    symbol: Annotated[str, "ticker symbol of the company"],
+    curr_date: Annotated[str, "The current trading date you are trading on, YYYY-mm-dd"],
+) -> str:
+    """
+    Retrieve a curated TradingView indicator snapshot (RSI, MACD, ADX, Stoch,
+    Ichimoku baseline, classic pivots, and recommendation scores).
+    """
+    return route_to_vendor("get_ta_indicators", symbol, curr_date)

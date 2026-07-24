@@ -47,20 +47,44 @@ class TradingViewClient:
         path: str,
         *,
         params: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | list[Any]:
         """GET one API path and return the validated response envelope's data."""
+        return self._request("GET", path, params=params)
+
+    def post(
+        self,
+        path: str,
+        *,
+        body: Mapping[str, Any] | None = None,
+        params: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any] | list[Any]:
+        """POST JSON to one API path and return the validated envelope's data."""
+        return self._request("POST", path, params=params, body=body)
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        body: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any] | list[Any]:
         headers = {
             "x-rapidapi-host": _API_HOST,
             "x-rapidapi-key": self._api_key,
         }
+        if body is not None:
+            headers["Content-Type"] = "application/json"
         url = f"{_BASE_URL}/{path.lstrip('/')}"
 
         for attempt in range(_MAX_REQUEST_ATTEMPTS):
             try:
-                response = self._session.get(
+                response = self._session.request(
+                    method,
                     url,
                     headers=headers,
                     params=params,
+                    json=dict(body) if body is not None else None,
                     timeout=_TIMEOUT_SECONDS,
                 )
                 break
@@ -92,7 +116,8 @@ class TradingViewClient:
                 "TradingView Data API returned an unsuccessful response"
             )
         data = payload.get("data")
-        if not isinstance(data, dict):
+        # Ideas list/hot/minds return arrays; most other endpoints return objects.
+        if not isinstance(data, (dict, list)):
             raise VendorUnavailableError(
                 "TradingView Data API returned invalid response data"
             )

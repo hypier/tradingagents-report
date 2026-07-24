@@ -141,8 +141,11 @@ DEFAULT_CONFIG = _apply_env_overrides({
         "instrument_data": "tradingview,yfinance",
         "core_stock_apis": "tradingview,yfinance,alpha_vantage",
         "technical_indicators": "tradingview,yfinance,alpha_vantage",
+        "technical_gauges": "tradingview",   # Multi-TF TA gauges (needs TRADINGVIEW_RAPIDAPI_KEY)
         "fundamental_data": "tradingview,yfinance,alpha_vantage",
         "news_data": "tradingview,yfinance,alpha_vantage",
+        "event_calendar": "tradingview",     # Earnings/economic calendars
+        "peer_comparison": "tradingview",    # Same-sector screener peers
         "macro_data": "fred",                # Options: fred (needs FRED_API_KEY)
         "prediction_markets": "polymarket",  # Options: polymarket (keyless)
     },

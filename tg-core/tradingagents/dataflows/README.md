@@ -14,12 +14,15 @@
 | 标的身份 | `get_instrument_identity` | TradingView, yfinance |
 | 行情 | `get_stock_data`, `get_ohlcv` | TradingView, yfinance, Alpha Vantage |
 | 技术指标 | `get_indicators` | TradingView, yfinance, Alpha Vantage |
+| 技术面仪表盘 | `get_ta_summary`, `get_ta_indicators` | TradingView（可选；不可用时降级） |
 | 基本面与财务报表 | `get_fundamentals`, `get_balance_sheet`, `get_cashflow`, `get_income_statement` | TradingView, yfinance, Alpha Vantage |
 | 新闻与内部人交易 | `get_news`, `get_global_news`, `get_insider_transactions` | TradingView/yfinance/Alpha Vantage（按能力不同） |
+| 事件日历 | `get_earnings_calendar`, `get_economic_calendar` | TradingView（可选；未来事件会隐藏 actual） |
+| 同业对比 | `get_peer_comparison` | TradingView screener（可选） |
 | 宏观数据 | `get_macro_indicators` | FRED |
 | 预测市场 | `get_prediction_markets` | Polymarket |
 
-宏观和预测市场属于可选增强信息：供应商不可用时会返回可读的降级结果。行情、基本面及新闻是核心数据，路由失败会显式报错，避免在关键数据缺失时静默继续分析。
+宏观、预测市场、技术面仪表盘、事件日历和同业对比属于可选增强信息：供应商不可用时会返回可读的降级结果。行情、基本面及新闻是核心数据，路由失败会显式报错，避免在关键数据缺失时静默继续分析。
 
 ## 子目录数据源
 
@@ -29,7 +32,7 @@ Alpha Vantage 适配器，使用 `ALPHA_VANTAGE_API_KEY`。提供股票历史日
 
 ### `tradingview/`
 
-TradingView Data API 适配器，使用 `TRADINGVIEW_API_KEY`。覆盖标的身份解析、股票及多资产 OHLCV、技术指标、公司概览与三大财务报表，以及个股和市场级新闻。`symbols.py` 负责将通用标的转换为供应商符号，`client.py` 集中封装 API 客户端；其余模块按行情、基本面和新闻划分实现。
+TradingView Data API 适配器，使用 `TRADINGVIEW_API_KEY` / `TRADINGVIEW_RAPIDAPI_KEY`。覆盖标的身份解析、股票及多资产 OHLCV、基于日线的技术指标、多周期 TA 仪表盘与指标快照、公司概览（含分析师共识/分红/财报日等扩展字段）与三大财务报表、个股和市场级新闻、财报/宏观事件日历、同业 screener 对比，以及社区 Ideas（供情绪分析 prefetch）。`symbols.py` 负责将通用标的转换为供应商符号，`client.py` 集中封装 API 客户端（支持 GET/POST，以及 list/object 两种 `data` 载荷）；其余模块按行情、技术面、基本面、新闻、日历、ideas 和 peers 划分实现。
 
 ### `yfinance/`
 

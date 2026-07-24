@@ -33,6 +33,10 @@ from .errors import (
 from .fred import get_macro_data as get_fred_macro_data
 from .polymarket import get_prediction_markets as get_polymarket_prediction_markets
 from .provider_models import ProviderResult
+from .tradingview.calendar import (
+    get_tradingview_earnings_calendar,
+    get_tradingview_economic_calendar,
+)
 from .tradingview.fundamentals import (
     get_tradingview_balance_sheet,
     get_tradingview_cashflow,
@@ -40,11 +44,16 @@ from .tradingview.fundamentals import (
     get_tradingview_income_statement,
 )
 from .tradingview.news import get_tradingview_global_news, get_tradingview_news
+from .tradingview.peers import get_tradingview_peer_comparison
 from .tradingview.stock import (
     fetch_tradingview_ohlcv,
     get_tradingview_identity,
     get_tradingview_indicators,
     get_tradingview_stock,
+)
+from .tradingview.ta import (
+    get_tradingview_ta_indicators,
+    get_tradingview_ta_summary,
 )
 from .yfinance.market import (
     fetch_yfinance_ohlcv,
@@ -80,6 +89,13 @@ TOOLS_CATEGORIES = {
             "get_indicators"
         ]
     },
+    "technical_gauges": {
+        "description": "Multi-timeframe TA gauges and indicator snapshots",
+        "tools": [
+            "get_ta_summary",
+            "get_ta_indicators",
+        ]
+    },
     "fundamental_data": {
         "description": "Company fundamentals",
         "tools": [
@@ -95,6 +111,19 @@ TOOLS_CATEGORIES = {
             "get_news",
             "get_global_news",
             "get_insider_transactions",
+        ]
+    },
+    "event_calendar": {
+        "description": "Earnings and economic event calendars",
+        "tools": [
+            "get_earnings_calendar",
+            "get_economic_calendar",
+        ]
+    },
+    "peer_comparison": {
+        "description": "Same-sector peer valuation and relative strength",
+        "tools": [
+            "get_peer_comparison",
         ]
     },
     "macro_data": {
@@ -122,7 +151,13 @@ VENDOR_LIST = [
 # 可选增强类只为新闻分析提供宏观或事件背景，不是决策的核心输入。
 # 因此其供应商故障会降级为可读的 sentinel，而价格、基本面和新闻等核心
 # 类别仍必须显式失败，避免在缺失关键数据时静默继续分析。
-OPTIONAL_CATEGORIES = {"macro_data", "prediction_markets"}
+OPTIONAL_CATEGORIES = {
+    "macro_data",
+    "prediction_markets",
+    "technical_gauges",
+    "event_calendar",
+    "peer_comparison",
+}
 
 # 能力到供应商实现的唯一注册表。新增供应商能力时应同时更新此映射和默认链，
 # 防止路由层隐式调用未配置或未声明的 Provider。
@@ -151,6 +186,14 @@ VENDOR_METHODS = {
         "tradingview": get_tradingview_indicators,
         "yfinance": get_stock_stats_indicators_window,
         "alpha_vantage": get_alpha_vantage_indicator,
+    },
+    # 多周期技术面仪表盘：TradingView 原生 Buy/Sell/Neutral 与指标快照，
+    # 作为日线 stockstats 指标的补充；不可用时按可选类别降级。
+    "get_ta_summary": {
+        "tradingview": get_tradingview_ta_summary,
+    },
+    "get_ta_indicators": {
+        "tradingview": get_tradingview_ta_indicators,
     },
     # 基本面：get_fundamentals 提供公司概览和关键财务比率；其余三个能力分别返回
     # 资产负债表、现金流量表和利润表，以支持基本面分析师按报表维度取数。
@@ -191,6 +234,17 @@ VENDOR_METHODS = {
         "alpha_vantage": get_alpha_vantage_insider_transactions,
         "yfinance": get_yfinance_insider_transactions,
     },
+    # 事件日历：财报与宏观发布日程；未来事件会隐藏 actual，降低 look-ahead。
+    "get_earnings_calendar": {
+        "tradingview": get_tradingview_earnings_calendar,
+    },
+    "get_economic_calendar": {
+        "tradingview": get_tradingview_economic_calendar,
+    },
+    # 同业对比：按公司 sector 筛同市场成分，补充相对估值与技术面位置。
+    "get_peer_comparison": {
+        "tradingview": get_tradingview_peer_comparison,
+    },
     # 宏观数据：从 FRED 获取利率、通胀、就业和增长等指标，作为宏观背景补充。
     "get_macro_indicators": {
         "fred": get_fred_macro_data,
@@ -208,6 +262,8 @@ DEFAULT_VENDOR_CHAINS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "get_stock_data": ("tradingview", "yfinance", "alpha_vantage"),
     "get_ohlcv": ("tradingview", "yfinance", "alpha_vantage"),
     "get_indicators": ("tradingview", "yfinance", "alpha_vantage"),
+    "get_ta_summary": ("tradingview",),
+    "get_ta_indicators": ("tradingview",),
     "get_fundamentals": ("tradingview", "yfinance", "alpha_vantage"),
     "get_balance_sheet": ("tradingview", "yfinance", "alpha_vantage"),
     "get_cashflow": ("tradingview", "yfinance", "alpha_vantage"),
@@ -215,6 +271,9 @@ DEFAULT_VENDOR_CHAINS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "get_news": ("tradingview", "yfinance", "alpha_vantage"),
     "get_global_news": ("tradingview", "yfinance", "alpha_vantage"),
     "get_insider_transactions": ("yfinance", "alpha_vantage"),
+    "get_earnings_calendar": ("tradingview",),
+    "get_economic_calendar": ("tradingview",),
+    "get_peer_comparison": ("tradingview",),
     "get_macro_indicators": ("fred",),
     "get_prediction_markets": ("polymarket",),
 })

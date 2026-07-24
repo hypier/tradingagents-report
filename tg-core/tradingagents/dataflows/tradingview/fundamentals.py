@@ -24,11 +24,21 @@ _FUNDAMENTAL_FIELDS = (
     ("company", "description", "Name"),
     ("company", "sector", "Sector"),
     ("company", "industry", "Industry"),
+    ("company", "founded", "Founded"),
+    ("company", "number_of_employees", "Employees"),
+    ("company", "business_description", "Business Description"),
     ("indicators", "market_cap_basic", "Market Cap"),
     ("indicators", "price_earnings", "PE Ratio (TTM)"),
     ("indicators", "price_book_ratio", "Price to Book"),
+    ("indicators", "price_sales_ratio", "Price to Sales"),
     ("indicators", "price_52_week_high", "52 Week High"),
     ("indicators", "price_52_week_low", "52 Week Low"),
+    ("indicators", "price_percent_change_52_week", "52 Week Change %"),
+    ("indicators", "beta_1_year", "Beta (1Y)"),
+    ("indicators", "quick_ratio", "Quick Ratio"),
+    ("indicators", "earnings_release_date", "Last Earnings Date"),
+    ("indicators", "earnings_release_next_date", "Next Earnings Date"),
+    ("indicators", "earnings_per_share_forecast_next_fh", "EPS Forecast (Next)"),
     ("ttm", "earnings_per_share_diluted_ttm", "EPS (TTM)"),
     ("ttm", "total_revenue_ttm", "Revenue (TTM)"),
     ("ttm", "gross_profit_ttm", "Gross Profit"),
@@ -39,10 +49,52 @@ _FUNDAMENTAL_FIELDS = (
     ("ttm", "return_on_equity_ttm", "Return on Equity"),
     ("ttm", "return_on_assets_ttm", "Return on Assets"),
     ("ttm", "debt_to_equity_ttm", "Debt to Equity"),
+    ("ttm", "dividend_payout_ratio_ttm", "Dividend Payout Ratio (TTM)"),
+    ("ttm", "free_cash_flow_ttm", "Free Cash Flow"),
     ("current", "current_ratio_current", "Current Ratio"),
     ("current", "book_value_per_share_current", "Book Value"),
-    ("ttm", "free_cash_flow_ttm", "Free Cash Flow"),
+    ("current", "dividends_yield_current", "Dividend Yield"),
 )
+
+_EPOCH_FIELDS = frozenset(
+    {
+        "earnings_release_date",
+        "earnings_release_next_date",
+        "earnings_release_calendar_date",
+        "earnings_release_next_calendar_date",
+        "ipo_offer_date",
+        "dividend_ex_date_recent",
+        "dividend_payment_date_recent",
+    }
+)
+
+_ANALYST_FIELDS = (
+    ("recommendation_buy", "Buy"),
+    ("recommendation_over", "Outperform"),
+    ("recommendation_hold", "Hold"),
+    ("recommendation_under", "Underperform"),
+    ("recommendation_sell", "Sell"),
+    ("recommendation_total", "Total Analysts"),
+    ("recommendation_mark", "Consensus Mark"),
+    ("price_target_average", "Price Target (Avg)"),
+    ("price_target_median", "Price Target (Median)"),
+    ("price_target_high", "Price Target (High)"),
+    ("price_target_low", "Price Target (Low)"),
+    ("price_target_estimates_num", "Price Target Estimates"),
+    ("recommendation_date", "Recommendation Date"),
+    ("price_target_date", "Price Target Date"),
+)
+
+_DIVIDEND_FIELDS = (
+    ("dividend_yield_recent", "Dividend Yield"),
+    ("dividend_amount_recent", "Recent Dividend Amount"),
+    ("continuous_dividend_payout", "Continuous Payout Years"),
+    ("continuous_dividend_growth", "Continuous Growth Years"),
+    ("dividend_ex_date_recent", "Ex-Dividend Date"),
+    ("dividend_payment_date_recent", "Payment Date"),
+)
+
+_BUSINESS_DESCRIPTION_MAX_CHARS = 500
 
 # TradingView exposes all statement fields in the same response shape. These
 # provider-native families keep the compatibility adapters semantically distinct.
@@ -258,6 +310,33 @@ def _currency(value: Any) -> str | None:
     return currency or None
 
 
+def _format_scalar(field: str, value: Any) -> str | None:
+    if isinstance(value, (dict, list)) or value is None:
+        return None
+    if field in _EPOCH_FIELDS and isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            return datetime.fromtimestamp(value, tz=timezone.utc).strftime("%Y-%m-%d")
+        except (OverflowError, OSError, ValueError):
+            return None
+    if field == "business_description" and isinstance(value, str):
+        text = value.strip()
+        if len(text) > _BUSINESS_DESCRIPTION_MAX_CHARS:
+            return text[:_BUSINESS_DESCRIPTION_MAX_CHARS].rstrip() + "…"
+        return text
+    return str(value)
+
+
+def _section_lines(section: Any, fields: tuple[tuple[str, str], ...]) -> list[str]:
+    if not isinstance(section, Mapping):
+        return []
+    lines = []
+    for field, label in fields:
+        formatted = _format_scalar(field, section.get(field))
+        if formatted is not None:
+            lines.append(f"{label}: {formatted}")
+    return lines
+
+
 def get_tradingview_fundamentals(
     ticker: str,
     curr_date: str | None = None,
@@ -273,8 +352,21 @@ def get_tradingview_fundamentals(
     for section_name, field, label in _FUNDAMENTAL_FIELDS:
         section = payload.get(section_name)
         value = section.get(field) if isinstance(section, Mapping) else None
-        if value is not None and not isinstance(value, (dict, list)):
-            lines.append(f"{label}: {value}")
+        formatted = _format_scalar(field, value)
+        if formatted is not None:
+            lines.append(f"{label}: {formatted}")
+
+    analyst_lines = _section_lines(payload.get("analyst_recommendations"), _ANALYST_FIELDS)
+    if analyst_lines:
+        lines.append("")
+        lines.append("## Analyst Recommendations")
+        lines.extend(analyst_lines)
+
+    dividend_lines = _section_lines(payload.get("dividend"), _DIVIDEND_FIELDS)
+    if dividend_lines:
+        lines.append("")
+        lines.append("## Dividends")
+        lines.extend(dividend_lines)
 
     if not lines:
         raise NoMarketDataError(ticker, symbol, "no fundamental fields returned")
