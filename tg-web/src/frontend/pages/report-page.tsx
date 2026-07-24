@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BookmarkPlus,
   CandlestickChart,
+  ClipboardList,
   Download,
   FileText,
   ListTree,
@@ -263,6 +264,8 @@ export function ReportPage() {
     (key) => [key, reportMap[key]] as const,
   );
   const tabKeysKey = tabKeys.join('\0');
+  const showBrief = hasDecisionBrief(job?.decision);
+  const [reportView, setReportView] = useState<'brief' | 'detail'>('brief');
   const [activeTab, setActiveTab] = useState(tabKeys[0] ?? '');
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -410,8 +413,12 @@ export function ReportPage() {
   }, [tabKeysKey]);
 
   useEffect(() => {
+    setReportView(showBrief ? 'brief' : 'detail');
+  }, [id, showBrief]);
+
+  useEffect(() => {
     const keys = tabKeysKey ? tabKeysKey.split('\0') : [];
-    if (!keys.length) return;
+    if (!keys.length || reportView !== 'detail') return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
@@ -436,9 +443,14 @@ export function ReportPage() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeTab, tabKeysKey]);
+  }, [activeTab, reportView, tabKeysKey]);
 
   useEffect(() => {
+    if (reportView !== 'detail') {
+      setShowBackToTop(false);
+      return;
+    }
+
     const scroller = findReportScrollParent(getActiveReportPaper());
 
     function onScroll() {
@@ -450,7 +462,7 @@ export function ReportPage() {
     onScroll();
     scroller.addEventListener('scroll', onScroll, { passive: true });
     return () => scroller.removeEventListener('scroll', onScroll);
-  }, [activeTab, id]);
+  }, [activeTab, id, reportView]);
 
   function scrollToTop() {
     scrollReportToTop(findReportScrollParent(getActiveReportPaper()));
@@ -466,8 +478,22 @@ export function ReportPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col py-3.5">
-        <div className="flex items-center gap-3 border-b border-border px-5 pb-3.5 lg:px-6">
+      <div
+        className="@container/main flex flex-1 flex-col pb-3.5"
+        style={
+          {
+            // Keep outline / chapter chrome below the stuck report identity bar.
+            // Identity bar ≈ logo 2.75rem + py-3.5×2 + border; leave a clear gap.
+            '--report-header-height': '5rem',
+          } as CSSProperties
+        }
+      >
+        <div
+          className={cn(
+            'sticky top-(--header-height) z-[12]',
+            'flex items-center gap-3 border-b border-border bg-background/95 px-5 py-3.5 backdrop-blur-md lg:px-6',
+          )}
+        >
           <Button
             variant="ghost"
             size="icon"
@@ -612,18 +638,10 @@ export function ReportPage() {
           ) : null}
         </div>
 
-        {hasDecisionBrief(job?.decision) ? (
-          <div className="px-5 pt-5 lg:px-6">
-            <div className="mx-auto w-full max-w-[72rem] xl:max-w-[80rem]">
-              <DecisionBriefCard decision={job.decision} />
-            </div>
-          </div>
-        ) : null}
-
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col gap-5 pt-5',
-            entries.length ? deskClassName : null,
+            reportView === 'detail' && entries.length ? deskClassName : null,
           )}
         >
         {!id ? (
@@ -641,14 +659,87 @@ export function ReportPage() {
             <AlertTitle>{t('loadErrorTitle')}</AlertTitle>
             <AlertDescription>{t('common:errors.generic')}</AlertDescription>
           </Alert>
-        ) : entries.length ? (
+        ) : showBrief || entries.length ? (
+          <div
+            className={cn(
+              'flex min-h-0 flex-1 flex-col px-5 lg:px-6',
+              showBrief ? 'gap-6' : 'gap-0',
+            )}
+          >
+            {showBrief ? (
+              <div className="mx-auto w-full max-w-[72rem] xl:max-w-[80rem]">
+                <div
+                  role="tablist"
+                  aria-label={t('views.ariaLabel')}
+                  className="flex h-10 items-stretch border-b border-border"
+                >
+                  {(
+                    [
+                      {
+                        id: 'brief' as const,
+                        label: t('views.brief'),
+                        icon: ClipboardList,
+                        disabled: false,
+                      },
+                      {
+                        id: 'detail' as const,
+                        label: t('views.detail'),
+                        icon: FileText,
+                        disabled: !entries.length,
+                      },
+                    ] as const
+                  ).map((item) => {
+                    const selected = reportView === item.id;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={selected}
+                        disabled={item.disabled}
+                        tabIndex={selected ? 0 : -1}
+                        className={cn(
+                          '-mb-px inline-flex h-10 items-center gap-1.5 border-0 border-b-2 border-solid bg-transparent px-3 text-sm transition-colors',
+                          'disabled:pointer-events-none disabled:opacity-50',
+                          selected
+                            ? 'border-b-primary font-semibold text-primary'
+                            : 'border-b-transparent text-muted-foreground hover:text-foreground',
+                        )}
+                        onClick={() => {
+                          setReportView(item.id);
+                          scrollToTop();
+                        }}
+                      >
+                        <Icon className="size-4 shrink-0" />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {showBrief &&
+            reportView === 'brief' &&
+            hasDecisionBrief(job?.decision) ? (
+              <div
+                role="tabpanel"
+                aria-label={t('views.brief')}
+                className="mx-auto w-full max-w-[72rem] xl:max-w-[80rem]"
+              >
+                <DecisionBriefCard decision={job.decision} />
+              </div>
+            ) : null}
+
+            {(reportView === 'detail' || !showBrief) && entries.length ? (
           <Tabs
             value={activeTab || entries[0][0]}
             onValueChange={(value) => {
               setActiveTab(value);
               scrollToTop();
             }}
-            className="min-h-0 flex-1 gap-0 px-5 lg:px-6"
+            className="min-h-0 flex-1 gap-0"
           >
             {/* Outline + paper as one centered unit on the desk background. */}
             <div
@@ -663,8 +754,8 @@ export function ReportPage() {
               <aside
                 className={cn(
                   'hidden w-[17.5rem] shrink-0 self-start lg:block xl:w-[18.5rem]',
-                  'sticky top-(--header-height) z-[5]',
-                  'max-h-[calc(100dvh-var(--header-height))] overflow-y-auto',
+                  'sticky top-[calc(var(--header-height)+var(--report-header-height))] z-[5]',
+                  'max-h-[calc(100dvh-var(--header-height)-var(--report-header-height))] overflow-y-auto',
                   'border-r border-border/70 bg-background/90 px-3 py-3',
                 )}
               >
@@ -687,7 +778,7 @@ export function ReportPage() {
                 <div
                   className={cn(
                     'sticky z-10 mb-0 border-b border-border/70 bg-background/95 px-4 py-2 lg:hidden',
-                    'top-(--header-height)',
+                    'top-[calc(var(--header-height)+var(--report-header-height))]',
                   )}
                 >
                   <Button
@@ -831,6 +922,18 @@ export function ReportPage() {
               </div>
             </div>
           </Tabs>
+            ) : reportView === 'detail' || !showBrief ? (
+          <Empty className="min-h-64 flex-1 rounded-none border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FileText />
+              </EmptyMedia>
+              <EmptyTitle>{t('emptyTitle')}</EmptyTitle>
+              <EmptyDescription>{t('emptyBody')}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+            ) : null}
+          </div>
         ) : (
           <Empty className="mx-5 min-h-64 flex-1 rounded-none border lg:mx-6">
             <EmptyHeader>
@@ -844,14 +947,14 @@ export function ReportPage() {
         )}
 
         {job ? (
-          <p className="max-w-2xl px-5 pb-1 text-xs leading-relaxed text-muted-foreground lg:px-6">
+          <p className="mx-auto max-w-2xl px-5 pb-1 text-center text-xs leading-relaxed text-muted-foreground lg:px-6">
             {t('dataAsOf')} {t('riskNotice')}
           </p>
         ) : null}
         </div>
       </div>
 
-      {entries.length ? (
+      {entries.length && reportView === 'detail' ? (
         <ReportReadingToolbar
           fontStep={fontStep}
           fontSteps={reportFontSteps}

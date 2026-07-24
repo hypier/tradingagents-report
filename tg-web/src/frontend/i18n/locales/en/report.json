@@ -29,6 +29,11 @@
     "removeError": "Unable to remove from watchlist"
   },
   "exportMarkdown": "Export Markdown",
+  "views": {
+    "ariaLabel": "Report view",
+    "brief": "Decision brief",
+    "detail": "Full report"
+  },
   "decisionBrief": {
     "conviction": "Conviction",
     "asOf": "Price date",

@@ -190,7 +190,7 @@ export function DecisionBriefCard({
   return (
     <section
       aria-labelledby="decision-brief-title"
-      className="flex flex-col gap-6 border-y border-border/80 bg-background py-6"
+      className="flex flex-col gap-6 bg-background pt-1 pb-2"
     >
       <div
         className={cn(

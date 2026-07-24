@@ -29,6 +29,11 @@
     "removeError": "无法移出自选"
   },
   "exportMarkdown": "导出 Markdown",
+  "views": {
+    "ariaLabel": "报告视图",
+    "brief": "决策简报",
+    "detail": "详细报告"
+  },
   "decisionBrief": {
     "conviction": "确信度",
     "asOf": "价格日期",
