@@ -37,6 +37,27 @@ export type LlmSettingsValue = {
   defaultDeepModelId: string | null;
 };
 
+/**
+ * `settings.get(LLM_SETTINGS_KEY)` already returns the JSON value object
+ * (or null), not a DB row. Callers must not read `.value` again.
+ */
+export function parseLlmSettingsValue(
+  value: Record<string, unknown> | null | undefined,
+): LlmSettingsValue {
+  const record =
+    typeof value === 'object' && value !== null ? value : {};
+  return {
+    defaultQuickModelId:
+      typeof record.defaultQuickModelId === 'string'
+        ? record.defaultQuickModelId
+        : null,
+    defaultDeepModelId:
+      typeof record.defaultDeepModelId === 'string'
+        ? record.defaultDeepModelId
+        : null,
+  };
+}
+
 export function isLlmProviderId(value: string): value is LlmProviderId {
   return (LLM_PROVIDER_IDS as readonly string[]).includes(value);
 }

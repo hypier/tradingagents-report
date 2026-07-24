@@ -8,6 +8,7 @@ import {
   LLM_MODEL_ROLES,
   LLM_PROVIDER_IDS,
   LLM_SETTINGS_KEY,
+  parseLlmSettingsValue,
   providerRequiresBaseUrl,
   type LlmSettingsValue,
 } from '../../shared/llm-providers';
@@ -141,18 +142,8 @@ function publicModel(row: {
 async function readLlmSettings(
   dependencies: AppDependencies,
 ): Promise<LlmSettingsValue> {
-  const row = await dependencies.database.settings.get(LLM_SETTINGS_KEY);
-  const value = (row?.value ?? {}) as Partial<LlmSettingsValue>;
-  return {
-    defaultQuickModelId:
-      typeof value.defaultQuickModelId === 'string'
-        ? value.defaultQuickModelId
-        : null,
-    defaultDeepModelId:
-      typeof value.defaultDeepModelId === 'string'
-        ? value.defaultDeepModelId
-        : null,
-  };
+  const value = await dependencies.database.settings.get(LLM_SETTINGS_KEY);
+  return parseLlmSettingsValue(value);
 }
 
 export function adminLlmRoutes(dependencies: AppDependencies) {

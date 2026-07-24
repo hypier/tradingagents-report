@@ -68,16 +68,23 @@ export function AdminSettingsPage() {
     queryFn: () => listAdminLlmModels(),
     enabled: isAdmin,
   });
-  const [form, setForm] = useState<SettingsForm>({
-    defaultQuickModelId: '',
-    defaultDeepModelId: '',
-  });
+  const [form, setForm] = useState<SettingsForm | null>(null);
   const [rewardsForm, setRewardsForm] = useState<RewardsSettings>(
     DEFAULT_REWARDS_SETTINGS,
   );
   const enabledModels = (modelsQuery.data?.data.models ?? []).filter(
     (model) => model.enabled,
   );
+  const selectQuickModelId =
+    form &&
+    enabledModels.some((model) => model.id === form.defaultQuickModelId)
+      ? form.defaultQuickModelId
+      : undefined;
+  const selectDeepModelId =
+    form &&
+    enabledModels.some((model) => model.id === form.defaultDeepModelId)
+      ? form.defaultDeepModelId
+      : undefined;
 
   useEffect(() => {
     const data = settings.data?.data;
@@ -104,7 +111,7 @@ export function AdminSettingsPage() {
   const saveSettings = useMutation({
     mutationFn: () => {
       const patch: Record<string, unknown> = {};
-      if (form.defaultQuickModelId && form.defaultDeepModelId) {
+      if (form?.defaultQuickModelId && form.defaultDeepModelId) {
         patch.llm = {
           defaultQuickModelId: form.defaultQuickModelId,
           defaultDeepModelId: form.defaultDeepModelId,
@@ -143,6 +150,7 @@ export function AdminSettingsPage() {
 
   function onSave(event: FormEvent) {
     event.preventDefault();
+    if (!form) return;
     if (
       (form.defaultQuickModelId && !form.defaultDeepModelId) ||
       (!form.defaultQuickModelId && form.defaultDeepModelId)
@@ -175,7 +183,7 @@ export function AdminSettingsPage() {
                 title={t('settings.llmDefaultsTitle')}
                 description={t('settings.llmDefaultsDescription')}
               >
-                {modelsQuery.isLoading ? (
+                {modelsQuery.isLoading || !form ? (
                   <Skeleton className="h-24 w-full" />
                 ) : enabledModels.length === 0 ? (
                   <div className="flex flex-col gap-3 text-sm text-muted-foreground">
@@ -191,15 +199,16 @@ export function AdminSettingsPage() {
                     <Field>
                       <FieldLabel>{t('settings.defaultQuickModel')}</FieldLabel>
                       <Select
-                        value={form.defaultQuickModelId || undefined}
+                        value={selectQuickModelId}
                         onValueChange={(value) =>
-                          setForm((current) => ({
-                            ...current,
-                            defaultQuickModelId: value,
-                          }))
+                          setForm((current) =>
+                            current
+                              ? { ...current, defaultQuickModelId: value }
+                              : current,
+                          )
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue
                             placeholder={t('settings.defaultQuickModel')}
                           />
@@ -216,15 +225,16 @@ export function AdminSettingsPage() {
                     <Field>
                       <FieldLabel>{t('settings.defaultDeepModel')}</FieldLabel>
                       <Select
-                        value={form.defaultDeepModelId || undefined}
+                        value={selectDeepModelId}
                         onValueChange={(value) =>
-                          setForm((current) => ({
-                            ...current,
-                            defaultDeepModelId: value,
-                          }))
+                          setForm((current) =>
+                            current
+                              ? { ...current, defaultDeepModelId: value }
+                              : current,
+                          )
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue
                             placeholder={t('settings.defaultDeepModel')}
                           />
@@ -243,7 +253,10 @@ export function AdminSettingsPage() {
               </SectionPanel>
 
               <div className="flex justify-end">
-                <Button type="submit" disabled={saveSettings.isPending}>
+                <Button
+                  type="submit"
+                  disabled={!form || saveSettings.isPending}
+                >
                   {saveSettings.isPending ? (
                     <Spinner data-icon="inline-start" />
                   ) : (

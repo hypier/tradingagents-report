@@ -159,3 +159,24 @@ it('marks every stage complete when Core reports success', () => {
     expect(stage).toHaveAttribute('data-stage-status', 'Complete'),
   );
 });
+
+it('shows elapsed duration under the progress percent', () => {
+  const { container } = render(
+    <PipelinePanel
+      job={{
+        id: 'job-1',
+        ticker: 'AAPL',
+        status: 'succeeded',
+        analysts,
+        progress_percent: 100,
+        current_step: 'Completed',
+        started_at: '2026-01-15T10:00:00+00:00',
+        finished_at: '2026-01-15T10:03:12+00:00',
+      }}
+    />,
+  );
+
+  expect(
+    within(container).getByLabelText('Elapsed 3:12'),
+  ).toHaveTextContent('3:12');
+});

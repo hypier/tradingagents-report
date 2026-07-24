@@ -81,6 +81,7 @@
     "runningLabel": "Analysis in progress",
     "idleTitle": "No active job",
     "currentStage": "Current stage",
+    "elapsed": "Elapsed {{time}}",
     "eventLog": "Event log",
     "latest": "Latest",
     "stageUpdate": "Stage update received.",

@@ -149,8 +149,48 @@ function listingForJob(job: AnalysisDetail | undefined): ResolvedListing | null 
   return null;
 }
 
-function getReportScrollParent() {
-  return document.querySelector<HTMLElement>('[data-slot="sidebar-inset"]');
+function getActiveReportPaper() {
+  return (
+    document.querySelector<HTMLElement>(
+      '[data-slot="tabs-content"][data-state="active"] [data-report-paper]',
+    ) ?? document.querySelector<HTMLElement>('[data-report-paper]')
+  );
+}
+
+/** Nearest overflow scrollport, or the window when the document scrolls. */
+function findReportScrollParent(start: HTMLElement | null): HTMLElement | Window {
+  let node: HTMLElement | null = start;
+  while (node && node !== document.documentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (
+      (overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowY === 'overlay') &&
+      node.scrollHeight > node.clientHeight + 1
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return window;
+}
+
+function getReportScrollTop(scroller: HTMLElement | Window) {
+  return scroller === window
+    ? window.scrollY || document.documentElement.scrollTop
+    : scroller.scrollTop;
+}
+
+function getReportClientHeight(scroller: HTMLElement | Window) {
+  return scroller === window ? window.innerHeight : scroller.clientHeight;
+}
+
+function scrollReportToTop(scroller: HTMLElement | Window) {
+  if (scroller === window) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  scroller.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -374,7 +414,7 @@ export function ReportPage() {
 
       event.preventDefault();
       setActiveTab(keys[nextIndex]!);
-      getReportScrollParent()?.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollReportToTop(findReportScrollParent(getActiveReportPaper()));
     }
 
     window.addEventListener('keydown', onKeyDown);
@@ -382,14 +422,12 @@ export function ReportPage() {
   }, [activeTab, tabKeysKey]);
 
   useEffect(() => {
-    const scroller = getReportScrollParent();
-    if (!scroller) return;
+    const scroller = findReportScrollParent(getActiveReportPaper());
 
     function onScroll() {
-      const node = getReportScrollParent();
-      if (!node) return;
-      const threshold = Math.max(320, node.clientHeight * 0.45);
-      setShowBackToTop(node.scrollTop > threshold);
+      const node = findReportScrollParent(getActiveReportPaper());
+      const threshold = Math.max(320, getReportClientHeight(node) * 0.45);
+      setShowBackToTop(getReportScrollTop(node) > threshold);
     }
 
     onScroll();
@@ -398,7 +436,7 @@ export function ReportPage() {
   }, [activeTab, id]);
 
   function scrollToTop() {
-    getReportScrollParent()?.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollReportToTop(findReportScrollParent(getActiveReportPaper()));
   }
 
   function goBack() {
@@ -610,6 +648,7 @@ export function ReportPage() {
                 )}
               >
                 <article
+                  data-report-paper=""
                   className={cn(
                     'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-none text-foreground',
                     paperClassName,
@@ -669,6 +708,7 @@ export function ReportPage() {
           onDeskThemeChange={setDeskTheme}
           showBackToTop={showBackToTop}
           onBackToTop={scrollToTop}
+          layoutKey={activeTab || entries[0]?.[0] || id}
         />
       ) : null}
     </div>

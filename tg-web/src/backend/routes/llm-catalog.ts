@@ -3,8 +3,8 @@ import { Hono } from 'hono';
 import { apiSuccess } from '../../shared/contracts';
 import {
   LLM_SETTINGS_KEY,
+  parseLlmSettingsValue,
   roleAllows,
-  type LlmSettingsValue,
 } from '../../shared/llm-providers';
 import type { AppDependencies, AppEnvironment } from '../app';
 
@@ -12,12 +12,12 @@ export function llmCatalogRoutes(dependencies: AppDependencies) {
   const app = new Hono<AppEnvironment>();
 
   app.get('/llm-catalog', async (context) => {
-    const [providers, models, settingsRow] = await Promise.all([
+    const [providers, models, settingsValue] = await Promise.all([
       dependencies.database.llmCatalog.listProviders(),
       dependencies.database.llmCatalog.listModels({ enabledOnly: true }),
       dependencies.database.settings.get(LLM_SETTINGS_KEY),
     ]);
-    const defaults = (settingsRow?.value ?? {}) as Partial<LlmSettingsValue>;
+    const defaults = parseLlmSettingsValue(settingsValue);
     const enabledProviders = providers.filter(
       (provider) => provider.enabled && provider.apiKeyCiphertext,
     );

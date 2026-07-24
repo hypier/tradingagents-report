@@ -89,6 +89,20 @@ export const reportDeskThemes = [
 export type ReportPaperThemeId = (typeof reportPaperThemes)[number]['id'];
 export type ReportDeskThemeId = (typeof reportDeskThemes)[number]['id'];
 
+const VIEWPORT_EDGE_PAD = 24;
+/** Gap between the paper's right edge and the floating control column. */
+const PAPER_EDGE_GUTTER = 30;
+/** Matches `size-11` control width so the stack sits fully outside the paper. */
+const CONTROL_SIZE = 44;
+
+function getActiveReportPaper() {
+  return (
+    document.querySelector<HTMLElement>(
+      '[data-slot="tabs-content"][data-state="active"] [data-report-paper]',
+    ) ?? document.querySelector<HTMLElement>('[data-report-paper]')
+  );
+}
+
 type ReportReadingToolbarProps = {
   fontStep: number;
   fontSteps: readonly number[];
@@ -99,6 +113,8 @@ type ReportReadingToolbarProps = {
   onDeskThemeChange: (theme: ReportDeskThemeId) => void;
   showBackToTop: boolean;
   onBackToTop: () => void;
+  /** Remeasure paper edge when the active report section changes. */
+  layoutKey?: string;
 };
 
 export function ReportReadingToolbar({
@@ -111,11 +127,13 @@ export function ReportReadingToolbar({
   onDeskThemeChange,
   showBackToTop,
   onBackToTop,
+  layoutKey,
 }: ReportReadingToolbarProps) {
   const { t } = useTranslation('report');
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [open, setOpen] = useState(false);
+  const [offsetRight, setOffsetRight] = useState(VIEWPORT_EDGE_PAD);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -139,10 +157,47 @@ export function ReportReadingToolbar({
     };
   }, [open]);
 
+  useEffect(() => {
+    function updateOffset() {
+      const paper = getActiveReportPaper();
+      if (!paper) {
+        setOffsetRight(VIEWPORT_EDGE_PAD);
+        return;
+      }
+      const fromViewportRight =
+        window.innerWidth - paper.getBoundingClientRect().right;
+      // Sit in the desk gutter just outside the paper's right edge.
+      setOffsetRight(
+        Math.max(
+          VIEWPORT_EDGE_PAD,
+          fromViewportRight - PAPER_EDGE_GUTTER - CONTROL_SIZE,
+        ),
+      );
+    }
+
+    updateOffset();
+    window.addEventListener('resize', updateOffset);
+    const paper = getActiveReportPaper();
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' && paper
+        ? new ResizeObserver(updateOffset)
+        : null;
+    if (paper) resizeObserver?.observe(paper);
+    // Reposition after layout/tab changes settle.
+    const raf = window.requestAnimationFrame(updateOffset);
+
+    return () => {
+      window.removeEventListener('resize', updateOffset);
+      resizeObserver?.disconnect();
+      window.cancelAnimationFrame(raf);
+    };
+  }, [deskTheme, layoutKey, paperTheme, showBackToTop]);
+
   return (
     <div
       ref={rootRef}
-      className="fixed right-6 bottom-6 z-30 flex flex-col-reverse items-end gap-2 md:right-8 md:bottom-8"
+      className="fixed bottom-6 z-30 flex flex-col-reverse items-end gap-2 md:bottom-8"
+      style={{ right: offsetRight }}
     >
       <Button
         type="button"
@@ -161,10 +216,11 @@ export function ReportReadingToolbar({
       <Button
         type="button"
         size="icon"
+        variant="outline"
         aria-label={t('reading.backToTop')}
         onClick={onBackToTop}
         className={cn(
-          'size-11 rounded-none shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)] transition-opacity duration-200',
+          'size-11 rounded-none border border-border bg-background/95 shadow-[0_10px_28px_-12px_rgba(0,0,0,0.55)] backdrop-blur-md transition-opacity duration-200',
           showBackToTop
             ? 'pointer-events-auto opacity-100'
             : 'pointer-events-none absolute opacity-0',

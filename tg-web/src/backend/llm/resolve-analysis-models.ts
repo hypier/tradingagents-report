@@ -1,7 +1,7 @@
 import {
   LLM_SETTINGS_KEY,
+  parseLlmSettingsValue,
   roleAllows,
-  type LlmSettingsValue,
 } from '../../shared/llm-providers';
 import type { AppDependencies } from '../app';
 import { AppError } from '../errors/app-error';
@@ -25,8 +25,10 @@ export async function resolveAnalysisLlm(
   selection: AnalysisModelSelection,
   existingOverrides: Record<string, unknown> = {},
 ): Promise<ResolvedAnalysisLlm> {
-  const settingsRow = await dependencies.database.settings.get(LLM_SETTINGS_KEY);
-  const defaults = (settingsRow?.value ?? {}) as Partial<LlmSettingsValue>;
+  const settingsValue = await dependencies.database.settings.get(
+    LLM_SETTINGS_KEY,
+  );
+  const defaults = parseLlmSettingsValue(settingsValue);
   const quickModelId =
     selection.quickModelId || defaults.defaultQuickModelId || null;
   const deepModelId =

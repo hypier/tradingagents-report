@@ -81,6 +81,7 @@
     "runningLabel": "分析进行中",
     "idleTitle": "暂无进行中的任务",
     "currentStage": "当前阶段",
+    "elapsed": "已用时 {{time}}",
     "eventLog": "事件日志",
     "latest": "最新",
     "stageUpdate": "已收到阶段更新。",

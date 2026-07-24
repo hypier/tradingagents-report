@@ -99,12 +99,62 @@ beforeEach(async () => {
   });
   adminOps.getAdminSettings.mockResolvedValue({
     data: {
-      llm: { defaultQuickModelId: '', defaultDeepModelId: '' },
+      llm: {
+        defaultQuickModelId: '11111111-1111-1111-1111-111111111111',
+        defaultDeepModelId: '22222222-2222-2222-2222-222222222222',
+      },
     },
     requestId: 'request-1',
   });
   adminLlm.listAdminLlmModels.mockResolvedValue({
-    data: { models: [] },
+    data: {
+      models: [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          providerId: 'openai_compatible',
+          model: 'gpt-5.5',
+          displayName: 'GPT-5.5',
+          role: 'both',
+          enabled: true,
+          currency: 'USD',
+          unitTokens: 1_000_000,
+          inputPrice: null,
+          outputPrice: null,
+          cachedInputPrice: null,
+          cacheWritePrice: null,
+          contextWindow: null,
+          maxOutputTokens: null,
+          params: {},
+          capabilities: {},
+          syncedAt: null,
+          syncError: null,
+        },
+        {
+          id: '22222222-2222-2222-2222-222222222222',
+          providerId: 'openai_compatible',
+          model: 'gpt-5.6-sol',
+          displayName: 'GPT-5.6 Sol',
+          role: 'both',
+          enabled: true,
+          currency: 'USD',
+          unitTokens: 1_000_000,
+          inputPrice: null,
+          outputPrice: null,
+          cachedInputPrice: null,
+          cacheWritePrice: null,
+          contextWindow: null,
+          maxOutputTokens: null,
+          params: {},
+          capabilities: {},
+          syncedAt: null,
+          syncError: null,
+        },
+      ],
+      defaults: {
+        defaultQuickModelId: '11111111-1111-1111-1111-111111111111',
+        defaultDeepModelId: '22222222-2222-2222-2222-222222222222',
+      },
+    },
     requestId: 'request-1',
   });
   billing.getRewardsSettings.mockResolvedValue({
@@ -139,6 +189,15 @@ it('keeps analysis billing off system settings and saves rewards there', async (
     screen.queryByLabelText('Points per USD (FX rate)'),
   ).not.toBeInTheDocument();
   expect(billing.getAnalysisBillingSettings).not.toHaveBeenCalled();
+
+  expect(
+    await screen.findByText('GPT-5.5 (gpt-5.5)', { selector: '[data-slot="select-value"]' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText('GPT-5.6 Sol (gpt-5.6-sol)', {
+      selector: '[data-slot="select-value"]',
+    }),
+  ).toBeInTheDocument();
 
   fireEvent.click(
     screen.getByRole('button', { name: 'Save rewards settings' }),

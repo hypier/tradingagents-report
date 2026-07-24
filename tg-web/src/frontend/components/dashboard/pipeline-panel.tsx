@@ -7,7 +7,7 @@ import {
   ScrollText,
   Square,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Badge } from '../ui/badge';
@@ -26,6 +26,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Spinner } from '../ui/spinner';
 import { InstrumentLogo } from '../instrument-logo';
 import { getStageIcon } from '../icons/research-icons';
+import { formatJobDuration } from './recent-reports';
 import { formatLocaleTime } from '@/frontend/lib/format-locale';
 import { localizeProgressMessage } from '@/frontend/lib/localize-progress-message';
 import { cn } from '@/frontend/lib/utils';
@@ -36,6 +37,32 @@ import {
   type AnalysisEvent,
   type AnalysisJob,
 } from '../../lib/research';
+
+function useNow(active: boolean, intervalMs = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [active, intervalMs]);
+  return now;
+}
+
+function jobElapsedLabel(job: AnalysisJob | undefined, now: number) {
+  if (!job) return null;
+  const start = job.started_at ?? job.created_at;
+  if (!start) return null;
+  const live =
+    job.status === 'running' ||
+    job.status === 'queued' ||
+    job.status === 'stopping';
+  return formatJobDuration(
+    start,
+    live ? null : (job.finished_at ?? job.updated_at),
+    now,
+  );
+}
 
 const analystStages = ['market', 'fundamentals', 'news', 'social'];
 const finalStages = [
@@ -136,6 +163,12 @@ export function PipelinePanel({
   const isFinished =
     job?.status === 'succeeded' || job?.status === 'failed';
   const cancelled = isCancelledAnalysis(job);
+  const elapsedTicking =
+    Boolean(job) &&
+    (isLive || Boolean(stopping && !cancelled)) &&
+    Boolean(job?.started_at ?? job?.created_at);
+  const now = useNow(elapsedTicking);
+  const elapsedLabel = jobElapsedLabel(job, now);
   const showResultActions =
     isFinished &&
     Boolean(onAnalyzeAgain) &&
@@ -177,9 +210,20 @@ export function PipelinePanel({
             />
             {t('pipeline.eyebrow')}
           </p>
-          <Badge variant={jobStatusVariant(displayStatus)} className="font-mono">
-            {jobStatus}
-          </Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            {elapsedLabel ? (
+              <span
+                className="font-mono text-xs tabular-nums text-muted-foreground"
+                aria-label={t('pipeline.elapsed', { time: elapsedLabel })}
+                title={t('pipeline.elapsed', { time: elapsedLabel })}
+              >
+                {elapsedLabel}
+              </span>
+            ) : null}
+            <Badge variant={jobStatusVariant(displayStatus)} className="font-mono">
+              {jobStatus}
+            </Badge>
+          </div>
         </div>
 
         {job ? (
@@ -291,27 +335,31 @@ export function PipelinePanel({
               ) : null}
             </div>
           </div>
-          <Badge
-            variant={jobStatusVariant(displayStatus)}
-            className="shrink-0 font-mono"
-          >
-            {jobStatus}
-          </Badge>
+          <div className="flex shrink-0 items-center gap-2.5">
+            {elapsedLabel ? (
+              <span
+                className="font-mono text-sm tabular-nums tracking-tight text-muted-foreground"
+                aria-label={t('pipeline.elapsed', { time: elapsedLabel })}
+                title={t('pipeline.elapsed', { time: elapsedLabel })}
+              >
+                {elapsedLabel}
+              </span>
+            ) : null}
+            <Badge
+              variant={jobStatusVariant(displayStatus)}
+              className="shrink-0 font-mono"
+            >
+              {jobStatus}
+            </Badge>
+          </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
           <div className="@container/stages flex min-h-0 flex-col gap-5">
             <div className="flex items-end justify-between gap-3">
               <div className="flex min-w-0 items-start gap-2.5">
-                <span
-                  className={cn(
-                    'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-none',
-                    isLive
-                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-primary/10 text-primary',
-                  )}
-                >
-                  <CurrentStageIcon className="size-4" />
+                <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-none bg-primary/15 text-primary">
+                  <CurrentStageIcon className="size-5" />
                 </span>
                 <div className="min-w-0">
                   <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
