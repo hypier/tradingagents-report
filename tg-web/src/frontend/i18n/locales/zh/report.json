@@ -24,6 +24,7 @@
   "riskNotice": "仅供研究。输出内容仅供参考，不会执行真实交易。",
   "dataAsOf": "基于分析日期可用的市场与研究数据生成。",
   "openLiveQuote": "实时行情",
+  "analyzeAgain": "再次分析",
   "watchlist": {
     "add": "加入自选",
     "remove": "移出自选",

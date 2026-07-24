@@ -24,6 +24,7 @@
   "riskNotice": "Research only. Outputs are informational and do not place trades.",
   "dataAsOf": "Generated from available market and research data as of the analysis date.",
   "openLiveQuote": "Live quote",
+  "analyzeAgain": "Analyze again",
   "watchlist": {
     "add": "Add to watchlist",
     "remove": "Remove from watchlist",

@@ -9,11 +9,12 @@ import {
   Download,
   FileText,
   ListTree,
+  RotateCcw,
   Star,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { MarkdownReport } from '../components/report/markdown-report';
@@ -582,6 +583,26 @@ export function ReportPage() {
           </div>
           {job ? (
             <div className="flex shrink-0 items-center gap-1">
+              {providerSymbol ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      asChild
+                      size="icon-sm"
+                      aria-label={t('analyzeAgain')}
+                    >
+                      <Link
+                        to={`/desk?symbol=${encodeURIComponent(providerSymbol)}`}
+                      >
+                        <RotateCcw />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    {t('analyzeAgain')}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
               {providerSymbol ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
