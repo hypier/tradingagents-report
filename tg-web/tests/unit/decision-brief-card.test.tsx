@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, within } from '@testing-library/react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DecisionBriefCard } from '@/frontend/components/report/decision-brief-card';
 import type { AnalysisDecision } from '@/frontend/lib/research';
@@ -77,6 +77,16 @@ describe('DecisionBriefCard', () => {
     );
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('calls onViewDetail from the bottom CTA', () => {
+    const onViewDetail = vi.fn();
+    render(
+      <DecisionBriefCard decision={decision} onViewDetail={onViewDetail} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /full report/i }));
+    expect(onViewDetail).toHaveBeenCalledTimes(1);
   });
 
   it('shows unavailable analyst lanes without inventing a direction', () => {

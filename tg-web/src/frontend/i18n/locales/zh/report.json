@@ -52,6 +52,7 @@
     "whatToWatch": "后续观察",
     "conflict": "信号冲突",
     "signalSummary": "分析师信号",
+    "viewDetailHint": "需要完整论证、指标与辩论过程？",
     "levels": {
       "low": "低",
       "medium": "中",

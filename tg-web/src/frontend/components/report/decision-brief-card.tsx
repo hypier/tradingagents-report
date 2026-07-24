@@ -1,11 +1,13 @@
 import {
   Activity,
+  ArrowRight,
   CalendarDays,
   CandlestickChart,
   CircleDollarSign,
   Clock3,
   Crosshair,
   Eye,
+  FileText,
   Gauge,
   Landmark,
   Layers3,
@@ -21,6 +23,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Badge } from '@/frontend/components/ui/badge';
+import { Button } from '@/frontend/components/ui/button';
 import { Separator } from '@/frontend/components/ui/separator';
 import {
   decisionBadgeVariant,
@@ -107,8 +110,11 @@ const signalToneClasses: Record<
 
 export function DecisionBriefCard({
   decision,
+  onViewDetail,
 }: {
   decision: AnalysisDecision;
+  /** When set, show a CTA at the bottom to open the full report. */
+  onViewDetail?: () => void;
 }) {
   const { t, i18n } = useTranslation(['report', 'common']);
   if (!hasDecisionBrief(decision)) return null;
@@ -335,6 +341,19 @@ export function DecisionBriefCard({
             </span>{' '}
             {decision.conflict_note}
           </p>
+        </div>
+      ) : null}
+
+      {onViewDetail ? (
+        <div className="flex flex-col items-center gap-2 border-t border-border pt-6">
+          <p className="text-center text-sm text-muted-foreground">
+            {t('decisionBrief.viewDetailHint')}
+          </p>
+          <Button type="button" onClick={onViewDetail}>
+            <FileText />
+            {t('views.detail')}
+            <ArrowRight />
+          </Button>
         </div>
       ) : null}
     </section>

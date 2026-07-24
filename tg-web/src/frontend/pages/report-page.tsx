@@ -728,7 +728,17 @@ export function ReportPage() {
                 aria-label={t('views.brief')}
                 className="mx-auto w-full max-w-[72rem] xl:max-w-[80rem]"
               >
-                <DecisionBriefCard decision={job.decision} />
+                <DecisionBriefCard
+                  decision={job.decision}
+                  onViewDetail={
+                    entries.length
+                      ? () => {
+                          setReportView('detail');
+                          scrollToTop();
+                        }
+                      : undefined
+                  }
+                />
               </div>
             ) : null}
 

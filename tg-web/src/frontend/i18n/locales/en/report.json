@@ -52,6 +52,7 @@
     "whatToWatch": "What to watch",
     "conflict": "Signal conflict",
     "signalSummary": "Analyst signals",
+    "viewDetailHint": "Want the full evidence, indicators, and debate?",
     "levels": {
       "low": "Low",
       "medium": "Medium",
