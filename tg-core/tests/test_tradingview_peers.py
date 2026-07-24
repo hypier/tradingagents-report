@@ -68,3 +68,14 @@ def test_peer_comparison_requires_sector():
     client.get.return_value = {"description": "No sector here"}
     with pytest.raises(NoMarketDataError, match="sector unavailable"):
         get_tradingview_peer_comparison("NASDAQ:AAPL", client=client)
+
+
+def test_peer_comparison_infers_hongkong_market_from_catalog():
+    client = Mock()
+    client.get.return_value = {"sector": "Consumer Non-Durables"}
+    client.post.return_value = {"totalCount": 1, "data": [{"symbol": "HKEX:700", "close": 300}]}
+
+    output = get_tradingview_peer_comparison("HKEX:700", "2026-07-11", limit=5, client=client)
+
+    assert "Market: hongkong" in output
+    assert client.post.call_args.kwargs["body"]["market"] == "hongkong"

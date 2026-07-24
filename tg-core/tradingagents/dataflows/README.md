@@ -67,6 +67,7 @@ StockTwits 公开消息流采集器，不需要 API Key。`fetch_stocktwits_mess
 | `structured_data.py` | 结构化数据的转换与输出辅助函数。 |
 | `stockstats_utils.py` | 基于 OHLCV 数据生成技术指标的共用逻辑。 |
 | `listings.py` | 交易所与上市标的相关的辅助数据。 |
+| `exchange_catalog.py` | 读取包内 `data/exchanges.json`，将交易所映射为国家/地区与 TradingView `market_code`。 |
 | `utils.py` | 各数据流复用的通用工具函数。 |
 | `errors.py` | 未配置、限流、无市场数据和供应商不可用等统一异常类型。 |
 

@@ -7,24 +7,10 @@ from typing import Any
 from urllib.parse import quote
 
 from ..errors import NoMarketDataError
+from ..exchange_catalog import tv_market_for_exchange, tv_market_for_symbol
 from ..provider_models import parse_instrument
 from .client import TradingViewClient
 from .symbols import resolve_tradingview_symbol
-
-_EXCHANGE_TO_MARKET = {
-    "NASDAQ": "america",
-    "NYSE": "america",
-    "AMEX": "america",
-    "CBOE": "america",
-    "OTC": "america",
-    "HKEX": "hongkong",
-    "SSE": "china",
-    "SZSE": "china",
-    "TSE": "japan",
-    "TYO": "japan",
-    "LSE": "uk",
-    "LSIN": "uk",
-}
 
 
 def _search_markets(client: TradingViewClient, query: str, asset_class: str):
@@ -48,12 +34,21 @@ def _resolve(symbol: str, client: TradingViewClient) -> str:
     return resolve_tradingview_symbol(ref, search=search).symbol
 
 
-def _infer_market(resolved_symbol: str, explicit: str | None) -> str:
-    if explicit:
-        return explicit
-    exchange = resolved_symbol.split(":", 1)[0].upper() if ":" in resolved_symbol else ""
-    return _EXCHANGE_TO_MARKET.get(exchange, "america")
-
+def _infer_market(ticker: str, resolved_symbol: str, explicit: str | None) -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip().lower()
+    market = tv_market_for_symbol(ticker) or tv_market_for_symbol(resolved_symbol)
+    if market:
+        return market
+    exchange = resolved_symbol.split(":", 1)[0] if ":" in resolved_symbol else ""
+    market = tv_market_for_exchange(exchange)
+    if market:
+        return market
+    raise NoMarketDataError(
+        ticker,
+        resolved_symbol,
+        "could not infer TradingView market_code from exchange catalog; pass market= explicitly",
+    )
 
 def _fmt(value: Any, *, pct: bool = False) -> str:
     if value is None:
@@ -121,7 +116,7 @@ def get_tradingview_peer_comparison(
         raise NoMarketDataError(ticker, resolved, "company sector unavailable for peer scan")
     sector = sector.strip()
 
-    market_code = _infer_market(resolved, market)
+    market_code = _infer_market(ticker, resolved, market)
     page_size = max(5, min(int(limit), 25))
     scan = api.post(
         "/api/screener/scan",

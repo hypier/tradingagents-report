@@ -64,7 +64,11 @@ def get_insider_transactions(
 def get_earnings_calendar(
     curr_date: Annotated[str, "Current analysis date in yyyy-mm-dd format"],
     look_forward_days: Annotated[int, "Days ahead to include"] = 14,
-    market: Annotated[str, "TradingView market code, e.g. america, china, hongkong"] = "america",
+    market: Annotated[
+        str | None,
+        "Optional TradingView market code (america/china/hongkong/...). "
+        "Omit to infer from ticker via the exchange catalog.",
+    ] = None,
     ticker: Annotated[
         str | None,
         "Optional ticker to filter to one symbol; omit for market-wide list",
@@ -73,6 +77,8 @@ def get_earnings_calendar(
     """
     Retrieve earnings calendar events around the analysis date.
     Future events omit realized surprise/actuals to reduce look-ahead bias.
+    When market is omitted and ticker is set, market_code is inferred from
+    the package-local exchanges.json catalog.
     """
     return route_to_vendor(
         "get_earnings_calendar",

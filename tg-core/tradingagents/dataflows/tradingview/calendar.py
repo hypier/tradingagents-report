@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
+from ..exchange_catalog import tv_market_for_symbol
 from ..provider_models import parse_instrument
 from .client import TradingViewClient
 from .symbols import resolve_tradingview_symbol
@@ -102,7 +103,7 @@ def _fmt_scalar(value: Any) -> str:
 def get_tradingview_earnings_calendar(
     curr_date: str,
     look_forward_days: int = 14,
-    market: str = "america",
+    market: str | None = None,
     ticker: str | None = None,
     *,
     client: TradingViewClient | None = None,
@@ -111,29 +112,47 @@ def get_tradingview_earnings_calendar(
 
     Future events relative to ``curr_date`` omit realized surprise/actual fields
     to reduce look-ahead bias in historical runs.
+
+    When ``market`` is omitted, infer it from ``ticker`` via the exchange catalog;
+    fall back to ``america`` only for market-wide scans without a ticker.
     """
     as_of, start, look_back, look_forward = _window_bounds(curr_date, 0, look_forward_days)
     end = as_of + timedelta(days=look_forward) + timedelta(hours=23, minutes=59, seconds=59)
     api = client or TradingViewClient()
-    params: dict[str, Any] = {
-        "from": int(start.timestamp()),
-        "to": int(end.timestamp()),
-        "market": market,
-    }
-    payload = api.get("/api/calendar/earnings", params=params)
-    rows = payload.get("data")
-    if not isinstance(rows, list) or not rows:
-        return (
-            f"No earnings calendar events found for market={market} "
-            f"between {start.date()} and {end.date()}"
-        )
 
     resolved = None
     if ticker:
         resolved = _resolve(ticker, api)
 
+    if market and str(market).strip():
+        market_code = str(market).strip().lower()
+    else:
+        market_code = (
+            tv_market_for_symbol(ticker)
+            or tv_market_for_symbol(resolved)
+            or ("america" if not ticker else None)
+        )
+    if not market_code:
+        return (
+            f"No earnings calendar market could be inferred for {ticker or resolved}; "
+            "pass market= explicitly (e.g. america, china, hongkong)."
+        )
+
+    params: dict[str, Any] = {
+        "from": int(start.timestamp()),
+        "to": int(end.timestamp()),
+        "market": market_code,
+    }
+    payload = api.get("/api/calendar/earnings", params=params)
+    rows = payload.get("data")
+    if not isinstance(rows, list) or not rows:
+        return (
+            f"No earnings calendar events found for market={market_code} "
+            f"between {start.date()} and {end.date()}"
+        )
+
     lines = [
-        f"# Earnings Calendar ({market})",
+        f"# Earnings Calendar ({market_code})",
         f"# As-of analysis date: {curr_date}",
         f"# Window: +{look_forward} day(s) (TradingView max span {_MAX_CALENDAR_WINDOW_DAYS}d)",
         "",
@@ -183,7 +202,7 @@ def get_tradingview_earnings_calendar(
     if matched == 0:
         scope = f" for {resolved or ticker}" if ticker else ""
         return (
-            f"No earnings calendar events found{scope} for market={market} "
+            f"No earnings calendar events found{scope} for market={market_code} "
             f"between {start.date()} and {end.date()}"
         )
     return "\n".join(lines).rstrip() + "\n"

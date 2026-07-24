@@ -31,6 +31,7 @@ _EXCHANGE_ALIASES = {
     "ROCO": "TPEX",
 }
 _US_EXCHANGES = frozenset({"NASDAQ", "NYSE", "AMEX"})
+# Fallback only; prefer package-local exchanges.json via exchange_catalog when available.
 _EXCHANGE_TO_COUNTRY = {
     "HKEX": "HK",
     "SSE": "CN",
@@ -133,11 +134,23 @@ def listing_from_parts(
 
 
 def country_for_exchange(exchange: str | None) -> str | None:
-    """Map a supported exchange code to an ISO-style country/region code."""
+    """Map an exchange code to an ISO-style country/region code.
+
+    Prefers the package-local ``exchanges.json`` catalog; falls back to the
+    small built-in table for core listing exchanges.
+    """
     if exchange is None:
         return None
     normalized = str(exchange).strip().upper()
     if not normalized:
         return None
     normalized = _EXCHANGE_ALIASES.get(normalized, normalized)
+    try:
+        from .exchange_catalog import country_for_exchange_code
+
+        catalog_country = country_for_exchange_code(normalized)
+        if catalog_country and catalog_country != "CRYPTO":
+            return catalog_country
+    except (FileNotFoundError, OSError, ValueError):
+        pass
     return _EXCHANGE_TO_COUNTRY.get(normalized)

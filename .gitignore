@@ -1,6 +1,6 @@
 /.superpowers/
 .worktrees/
 skills-lock.json
-data
+/data
 html.vristo.sbthemes.com
 docker/logs/

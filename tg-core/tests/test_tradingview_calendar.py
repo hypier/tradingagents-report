@@ -43,7 +43,7 @@ def test_earnings_calendar_redacts_future_actuals_and_filters_ticker():
     output = get_tradingview_earnings_calendar(
         "2026-07-11",
         look_forward_days=14,
-        market="america",
+        market=None,
         ticker="NASDAQ:AAPL",
         client=client,
     )
