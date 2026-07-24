@@ -1,0 +1,57 @@
+{
+  "title": "Research overview",
+  "subtitle": "A focused view of your plan, active work, and latest reports.",
+  "actions": {
+    "start": "Start analysis",
+    "subscribe": "Subscribe",
+    "viewReports": "View all reports"
+  },
+  "metrics": {
+    "title": "Research summary",
+    "none": "None yet",
+    "active": {
+      "label": "Active tasks",
+      "hint": "Queued and running"
+    },
+    "latest": {
+      "label": "Latest report",
+      "hint": "Most recent completed analysis"
+    },
+    "credits": {
+      "label": "Available credits",
+      "hint": "Current analysis balance"
+    },
+    "plan": {
+      "label": "Current plan",
+      "none": "No plan",
+      "hintLoading": "Checking subscription",
+      "hintNone": "Subscribe for recurring analysis credits",
+      "hintRenews": "Renews {{date}}",
+      "hintEnds": "Ends {{date}}"
+    }
+  },
+  "start": {
+    "eyebrow": "Multi-agent research",
+    "title": "Start a new research run",
+    "description": "Choose a listed instrument and let the analyst team build a structured report across market, fundamentals, news, and sentiment.",
+    "subscribeEyebrow": "Subscription",
+    "subscribeTitle": "Choose a plan to continue",
+    "subscribeDescription": "Pick a subscription for recurring analysis credits, then start your next research run from the desk."
+  },
+  "quick": {
+    "title": "Quick access",
+    "description": "Move into your next research step.",
+    "reports": {
+      "title": "Report library",
+      "description": "Review completed analysis"
+    },
+    "tasks": {
+      "title": "Task center",
+      "description": "Follow active and past runs"
+    },
+    "watchlist": {
+      "title": "Watchlist",
+      "description": "Return to saved instruments"
+    }
+  }
+}

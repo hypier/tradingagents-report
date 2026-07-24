@@ -967,7 +967,7 @@ class TestLegacyRemoval:
             "fundamentals_report": "",
             "investment_debate_state": {
                 "bull_history": "", "bear_history": "", "history": "",
-                "current_response": "", "judge_decision": "",
+                "current_response": "", "latest_speaker": "", "judge_decision": "",
             },
             "investment_plan": "",
             "trader_investment_plan": "",

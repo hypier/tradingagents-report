@@ -1,0 +1,57 @@
+{
+  "title": "研究概览",
+  "subtitle": "集中查看当前套餐、进行中的任务与最近研究报告。",
+  "actions": {
+    "start": "开始分析",
+    "subscribe": "去订阅",
+    "viewReports": "查看全部报告"
+  },
+  "metrics": {
+    "title": "研究概况",
+    "none": "暂无",
+    "active": {
+      "label": "进行中任务",
+      "hint": "包含排队与运行中的任务"
+    },
+    "latest": {
+      "label": "最新报告",
+      "hint": "最近完成的分析"
+    },
+    "credits": {
+      "label": "可用额度",
+      "hint": "当前分析余额"
+    },
+    "plan": {
+      "label": "当前套餐",
+      "none": "未订阅",
+      "hintLoading": "正在确认订阅状态",
+      "hintNone": "订阅后可获得周期分析额度",
+      "hintRenews": "下次续费 {{date}}",
+      "hintEnds": "到期日 {{date}}"
+    }
+  },
+  "start": {
+    "eyebrow": "多智能体投研",
+    "title": "开始一项新的研究",
+    "description": "选择上市标的，由分析师团队从市场、基本面、新闻与情绪等维度协同生成结构化报告。",
+    "subscribeEyebrow": "订阅套餐",
+    "subscribeTitle": "先选择适合你的套餐",
+    "subscribeDescription": "订阅后可获得周期分析额度，再回到研究台发起下一次分析。"
+  },
+  "quick": {
+    "title": "快捷入口",
+    "description": "直接进入下一步研究工作。",
+    "reports": {
+      "title": "报告库",
+      "description": "查看已完成的分析"
+    },
+    "tasks": {
+      "title": "任务中心",
+      "description": "跟进进行中与历史任务"
+    },
+    "watchlist": {
+      "title": "自选股",
+      "description": "返回已关注的标的"
+    }
+  }
+}

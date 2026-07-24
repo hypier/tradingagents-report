@@ -1,9 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppShell } from '../components/app-shell';
+import { DashboardPage } from '../pages/dashboard-page';
 import { HomePage } from '../pages/home-page';
 import { NotFoundPage } from '../pages/not-found-page';
-import { WelcomePage } from '../pages/welcome-page';
 import { ReportPage } from '../pages/report-page';
 import { ReportsPage } from '../pages/reports-page';
 import { AdminUsersPage } from '../pages/admin-users-page';
@@ -33,7 +33,7 @@ import { TasksPage } from '../pages/tasks-page';
 export function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<WelcomePage />} />
+      <Route path="/" element={<DashboardPage />} />
       <Route path="/desk" element={<HomePage />} />
       <Route path="/tasks" element={<TasksPage />} />
       <Route path="/quotes" element={<QuotesPage />} />
@@ -61,10 +61,7 @@ export function AppRouter() {
         path="/admin/models"
         element={<Navigate to="/admin/llm/providers" replace />}
       />
-      <Route
-        path="/admin/llm/providers"
-        element={<AdminLlmProvidersPage />}
-      />
+      <Route path="/admin/llm/providers" element={<AdminLlmProvidersPage />} />
       <Route path="/admin/llm/models" element={<AdminLlmModelsPage />} />
       <Route path="/admin/settings" element={<AdminSettingsPage />} />
       <Route path="/admin/markets" element={<AdminMarketsPage />} />

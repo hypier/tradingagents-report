@@ -1,6 +1,7 @@
 # TradingAgents/graph/conditional_logic.py
 
 from tradingagents.agents.utils.agent_states import AgentState
+from tradingagents.agents.utils.report_i18n import iter_label_spellings
 
 
 class ConditionalLogic:
@@ -10,6 +11,28 @@ class ConditionalLogic:
         """Initialize with configuration parameters."""
         self.max_debate_rounds = max_debate_rounds
         self.max_risk_discuss_rounds = max_risk_discuss_rounds
+
+    @staticmethod
+    def _is_bull_turn(latest_speaker: str, current_response: str) -> bool:
+        """True when the last research-debate turn was the bull side.
+
+        Prefer the stable ``latest_speaker`` wire id (Bull / Bear). Fall back to
+        localized ``current_response`` prefixes so mid-run checkpoints from
+        before ``latest_speaker`` still alternate correctly under i18n.
+        """
+        speaker = (latest_speaker or "").strip()
+        if speaker.startswith("Bull"):
+            return True
+        if speaker.startswith("Bear"):
+            return False
+
+        text = current_response or ""
+        if text.startswith("Bull"):
+            return True
+        return any(
+            text.startswith(label)
+            for label in iter_label_spellings("bull_analyst")
+        )
 
     def should_continue_market(self, state: AgentState):
         """Determine if market analysis should continue."""
@@ -52,11 +75,15 @@ class ConditionalLogic:
     def should_continue_debate(self, state: AgentState) -> str:
         """Determine if debate should continue."""
 
+        debate = state["investment_debate_state"]
         if (
-            state["investment_debate_state"]["count"] >= 2 * self.max_debate_rounds
+            debate["count"] >= 2 * self.max_debate_rounds
         ):  # 3 rounds of back-and-forth between 2 agents
             return "Research Manager"
-        if state["investment_debate_state"]["current_response"].startswith("Bull"):
+        if self._is_bull_turn(
+            str(debate.get("latest_speaker") or ""),
+            str(debate.get("current_response") or ""),
+        ):
             return "Bear Researcher"
         return "Bull Researcher"
 

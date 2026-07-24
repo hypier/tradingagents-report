@@ -24,19 +24,22 @@ vi.mock('../../src/frontend/lib/auth', () => ({
   }),
 }));
 
-it('renders the research command dashboard', () => {
+it('renders the signed-in research overview at the root route', () => {
   render(
     <MemoryRouter initialEntries={['/']}>
       <App />
     </MemoryRouter>,
   );
 
-  expect(screen.getByRole('main')).toHaveTextContent('Run analysis');
+  expect(screen.getByRole('main')).toHaveTextContent('Research overview');
   expect(
     screen.getByRole('heading', { name: 'Recent reports' }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole('link', { name: 'Desk' }),
+    screen.getAllByRole('link', { name: 'Start analysis' }).length,
+  ).toBeGreaterThan(0);
+  expect(
+    screen.getByRole('link', { name: /Report library/ }),
   ).toBeInTheDocument();
   expect(
     screen.queryByRole('heading', { name: 'Research desk' }),
@@ -58,15 +61,9 @@ it('renders the standard dashboard navigation shell', () => {
   ).not.toBeInTheDocument();
   const deskLinks = screen.getAllByRole('link', { name: 'Desk' });
   expect(deskLinks).not.toHaveLength(0);
-  expect(deskLinks.every((link) => link.getAttribute('href') === '/')).toBe(
+  expect(deskLinks.every((link) => link.getAttribute('href') === '/desk')).toBe(
     true,
   );
-  const submitButtons = screen.getAllByRole('button', {
-    name: /Run analysis/,
-  });
-  expect(
-    submitButtons.every((button) => button.getAttribute('type') === 'submit'),
-  ).toBe(true);
 });
 
 it('renders Quotes above Watchlist in the market nav group', () => {
@@ -102,7 +99,7 @@ it('renders an injected account menu in the dashboard header', () => {
 
 it('does not expose unsupported research configuration controls', () => {
   render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={['/desk']}>
       <App />
     </MemoryRouter>,
   );
