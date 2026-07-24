@@ -212,10 +212,8 @@ export class TradingViewMarketClient implements MarketAssetClient {
     }
 
     return hits
-      .sort(
-        (left, right) =>
-          Number(Boolean(right.is_primary_listing)) -
-          Number(Boolean(left.is_primary_listing)),
+      .sort((left, right) =>
+        compareMarketCandidates(left, right, isChinaNumericSymbol(query)),
       )
       .slice(0, 12);
   }
@@ -702,6 +700,7 @@ function selectMarket(
 ): MarketRecord | undefined {
   const markets = readMarkets(payload);
   const symbols = tickerSymbols(listing.symbol);
+  const preferChina = isChinaNumericSymbol(listing.symbol);
   const matches = markets.filter((market) => {
     const marketSymbol = stringValue(market.symbol).toUpperCase();
     const fullName = stringValue(market.full_name).toUpperCase();
@@ -718,21 +717,70 @@ function selectMarket(
   });
 
   if (matches.length) {
-    return matches.sort(
-      (left, right) =>
-        Number(Boolean(right.is_primary_listing)) -
-        Number(Boolean(left.is_primary_listing)),
+    return matches.sort((left, right) =>
+      compareMarketRecords(left, right, preferChina),
     )[0];
   }
 
   const symbolOnly = markets.filter((market) =>
     symbols.has(stringValue(market.symbol).toUpperCase()),
   );
-  return symbolOnly.sort(
-    (left, right) =>
-      Number(Boolean(right.is_primary_listing)) -
-      Number(Boolean(left.is_primary_listing)),
+  return symbolOnly.sort((left, right) =>
+    compareMarketRecords(left, right, preferChina),
   )[0];
+}
+
+/** Prefer mainland venues for bare 6-digit China codes (tg-core parity). */
+const CHINA_EXCHANGE_RANK: Record<string, number> = {
+  SZSE: 0,
+  SHE: 0,
+  SSE: 1,
+  SHA: 1,
+};
+
+function isChinaNumericSymbol(symbol: string): boolean {
+  return /^\d{6}$/.test(symbol.trim());
+}
+
+function chinaExchangeRank(exchange: string): number {
+  return (
+    CHINA_EXCHANGE_RANK[exchange.toUpperCase()] ??
+    Object.keys(CHINA_EXCHANGE_RANK).length + 10
+  );
+}
+
+function compareMarketCandidates(
+  left: Pick<MarketSearchHit, 'exchange' | 'provider_symbol' | 'is_primary_listing'>,
+  right: Pick<MarketSearchHit, 'exchange' | 'provider_symbol' | 'is_primary_listing'>,
+  preferChina: boolean,
+): number {
+  const primary =
+    Number(Boolean(right.is_primary_listing)) -
+    Number(Boolean(left.is_primary_listing));
+  if (primary !== 0 || !preferChina) return primary;
+  const leftExchange =
+    left.exchange ?? left.provider_symbol?.split(':', 2)[0] ?? '';
+  const rightExchange =
+    right.exchange ?? right.provider_symbol?.split(':', 2)[0] ?? '';
+  return chinaExchangeRank(leftExchange) - chinaExchangeRank(rightExchange);
+}
+
+function compareMarketRecords(
+  left: MarketRecord,
+  right: MarketRecord,
+  preferChina: boolean,
+): number {
+  const primary =
+    Number(Boolean(right.is_primary_listing)) -
+    Number(Boolean(left.is_primary_listing));
+  if (primary !== 0 || !preferChina) return primary;
+  const leftExchange = stringValue(left.full_name).includes(':')
+    ? stringValue(left.full_name).split(':', 2)[0]!
+    : '';
+  const rightExchange = stringValue(right.full_name).includes(':')
+    ? stringValue(right.full_name).split(':', 2)[0]!
+    : '';
+  return chinaExchangeRank(leftExchange) - chinaExchangeRank(rightExchange);
 }
 
 function readMarkets(payload: unknown): MarketRecord[] {

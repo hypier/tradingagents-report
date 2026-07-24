@@ -275,6 +275,104 @@ describe('TradingViewMarketClient', () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain('lang=en');
   });
 
+  it('prefers mainland China exchanges for bare 6-digit search queries', async () => {
+    const payload = {
+      success: true,
+      data: {
+        markets: [
+          {
+            symbol: '300814',
+            full_name: 'SSE:300814',
+            description: 'Shanghai decoy same code',
+            is_primary_listing: true,
+          },
+          {
+            symbol: '300814',
+            full_name: 'SZSE:300814',
+            description: '中富电路',
+            is_primary_listing: true,
+            logo: { style: 'single', logoid: 'shenzhen-jove-ente' },
+          },
+        ],
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify(payload))),
+      );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    const hits = await client.searchMarkets('300814', 'zh');
+    expect(hits[0]).toMatchObject({
+      display_ticker: '300814.SZ',
+      provider_symbol: 'SZSE:300814',
+      display_name: '中富电路',
+    });
+    expect(hits.map((hit) => hit.provider_symbol)).toEqual([
+      'SZSE:300814',
+      'SSE:300814',
+    ]);
+  });
+
+  it('resolves bare 6-digit tickers to SZSE over non-mainland decoys', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              markets: [
+                {
+                  symbol: '300814',
+                  full_name: 'LUXSE:300814',
+                  description: 'Bond decoy',
+                  is_primary_listing: true,
+                },
+                {
+                  symbol: '300814',
+                  full_name: 'SZSE:300814',
+                  description: '中富电路',
+                  is_primary_listing: true,
+                },
+              ],
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              symbol: 'SZSE:300814',
+              data: {
+                lp: 132.86,
+                chp: -2.05,
+                currency_code: 'CNY',
+                local_description: '中富电路',
+                description: 'Shenzhen JOVE Enterprise Ltd. Class A',
+                lp_time: 1784165400,
+              },
+            },
+          }),
+        ),
+      );
+    const client = new TradingViewMarketClient('server-secret', fetchMock);
+
+    await expect(client.getSnapshot('300814')).resolves.toMatchObject({
+      ticker: '300814',
+      display_ticker: '300814',
+      display_name: '中富电路',
+      last_price: 132.86,
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://tradingview-data1.p.rapidapi.com/api/quote/SZSE%3A300814?session=regular&fields=all',
+      expect.anything(),
+    );
+  });
+
   it('merges english_name when searching in Chinese', async () => {
     const fetchMock = vi
       .fn()
