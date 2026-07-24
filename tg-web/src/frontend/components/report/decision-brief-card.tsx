@@ -9,6 +9,7 @@ import {
   Eye,
   FileText,
   Gauge,
+  Info,
   Landmark,
   Layers3,
   MessageCircleMore,
@@ -25,6 +26,11 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/frontend/components/ui/badge';
 import { Button } from '@/frontend/components/ui/button';
 import { Separator } from '@/frontend/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/frontend/components/ui/tooltip';
 import {
   decisionBadgeVariant,
   formatDecisionLabel,
@@ -50,14 +56,21 @@ export function hasDecisionBrief(
 
 type MetricTone = 'reference' | 'entry' | 'stop' | 'target';
 
+type PriceMetricKey =
+  | 'referencePrice'
+  | 'entryZone'
+  | 'addLevels'
+  | 'stopOrReduce'
+  | 'targetPrice';
+
 const metricToneClasses: Record<
   MetricTone,
   { card: string; icon: string; value: string }
 > = {
   reference: {
-    card: 'border-border bg-card',
-    icon: 'bg-muted text-muted-foreground',
-    value: 'text-foreground',
+    card: 'border-violet-500/25 bg-violet-500/8 dark:bg-violet-400/8',
+    icon: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+    value: 'text-violet-800 dark:text-violet-200',
   },
   entry: {
     card: 'border-sky-500/25 bg-sky-500/8 dark:bg-sky-400/8',
@@ -144,6 +157,7 @@ export function DecisionBriefCard({
   const priceItems = [
     typeof decision.as_of_price === 'number'
       ? {
+          metricKey: 'referencePrice' as const,
           label: t('decisionBrief.referencePrice'),
           value: formatPrice(decision.as_of_price),
           icon: CircleDollarSign,
@@ -152,6 +166,7 @@ export function DecisionBriefCard({
       : null,
     decision.entry_zone
       ? {
+          metricKey: 'entryZone' as const,
           label: t('decisionBrief.entryZone'),
           value: formatRange(decision.entry_zone),
           icon: Activity,
@@ -160,14 +175,16 @@ export function DecisionBriefCard({
       : null,
     decision.add_levels?.length
       ? {
+          metricKey: 'addLevels' as const,
           label: t('decisionBrief.addLevels'),
-          value: decision.add_levels.map(formatRange).join(' / '),
+          value: decision.add_levels.map(formatRange),
           icon: Layers3,
           tone: 'entry' as const,
         }
       : null,
     typeof decision.stop_or_reduce === 'number'
       ? {
+          metricKey: 'stopOrReduce' as const,
           label: t('decisionBrief.stopOrReduce'),
           value: formatPrice(decision.stop_or_reduce),
           icon: ShieldAlert,
@@ -176,22 +193,14 @@ export function DecisionBriefCard({
       : null,
     typeof decision.target_price === 'number'
       ? {
+          metricKey: 'targetPrice' as const,
           label: t('decisionBrief.targetPrice'),
           value: formatPrice(decision.target_price),
           icon: Target,
           tone: 'target' as const,
         }
       : null,
-  ].filter(
-    (
-      item,
-    ): item is {
-      label: string;
-      value: string;
-      icon: LucideIcon;
-      tone: MetricTone;
-    } => item !== null,
-  );
+  ].flatMap((item) => (item ? [item] : []));
 
   return (
     <section
@@ -249,7 +258,7 @@ export function DecisionBriefCard({
           className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]"
         >
           {priceItems.map((item) => (
-            <PriceMetric key={item.label} {...item} />
+            <PriceMetric key={item.metricKey} {...item} />
           ))}
         </div>
       ) : null}
@@ -376,17 +385,22 @@ function DecisionMeta({
 }
 
 function PriceMetric({
+  metricKey,
   label,
   value,
   icon: Icon,
   tone,
 }: {
+  metricKey: PriceMetricKey;
   label: string;
-  value: string;
+  value: string | string[];
   icon: LucideIcon;
   tone: MetricTone;
 }) {
+  const { t } = useTranslation('report');
+  const tip = t(`decisionBrief.priceMetricTips.${metricKey}`);
   const styles = metricToneClasses[tone];
+  const lines = Array.isArray(value) ? value : [value];
   return (
     <div
       role="listitem"
@@ -396,9 +410,31 @@ function PriceMetric({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs leading-snug font-semibold text-muted-foreground">
-          {label}
-        </p>
+        <div className="flex min-w-0 items-start gap-1">
+          <p className="text-xs leading-snug font-semibold text-muted-foreground">
+            {label}
+          </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="mt-[-0.125rem] size-5 shrink-0 text-muted-foreground/70 hover:text-muted-foreground"
+                aria-label={tip}
+              >
+                <Info className="size-3" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              sideOffset={6}
+              className="max-w-[16rem] text-pretty leading-relaxed"
+            >
+              {tip}
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <span
           className={cn('grid size-7 shrink-0 place-items-center', styles.icon)}
         >
@@ -411,7 +447,11 @@ function PriceMetric({
           styles.value,
         )}
       >
-        {value}
+        {lines.map((line) => (
+          <span key={line} className="block">
+            {line}
+          </span>
+        ))}
       </p>
     </div>
   );

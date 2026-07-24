@@ -85,6 +85,20 @@ def analysis_result_from_row(row: dict[str, Any]) -> dict[str, Any]:
         or (request.get("output_language") if isinstance(request, dict) else None)
         or (config.get("output_language") if isinstance(config, dict) else None)
     )
+    quick_think_llm = (
+        config.get("quick_think_llm") if isinstance(config, dict) else None
+    )
+    deep_think_llm = (
+        config.get("deep_think_llm") if isinstance(config, dict) else None
+    )
+    if not isinstance(quick_think_llm, str) or not quick_think_llm.strip():
+        quick_think_llm = None
+    else:
+        quick_think_llm = quick_think_llm.strip()
+    if not isinstance(deep_think_llm, str) or not deep_think_llm.strip():
+        deep_think_llm = None
+    else:
+        deep_think_llm = deep_think_llm.strip()
 
     return {
         "id": row.get("id"),
@@ -130,6 +144,8 @@ def analysis_result_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "cost": {"usd": cost_usd, "breakdown": cost_breakdown},
         "display": display,
         "output_language": output_language,
+        "quick_think_llm": quick_think_llm,
+        "deep_think_llm": deep_think_llm,
         "error": row.get("error"),
         "created_at": created_at,
         "updated_at": updated_at,

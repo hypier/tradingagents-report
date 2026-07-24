@@ -2,10 +2,16 @@
 import '@testing-library/jest-dom/vitest';
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DecisionBriefCard } from '@/frontend/components/report/decision-brief-card';
+import { TooltipProvider } from '@/frontend/components/ui/tooltip';
 import type { AnalysisDecision } from '@/frontend/lib/research';
+
+function renderCard(ui: ReactElement) {
+  return render(<TooltipProvider>{ui}</TooltipProvider>);
+}
 
 const decision: AnalysisDecision = {
   action: 'Underweight',
@@ -18,7 +24,10 @@ const decision: AnalysisDecision = {
   time_horizon: '3-6 months',
   position_guidance: 'Reduce to 2.5%-3.5%.',
   entry_zone: { low: 335, high: 342 },
-  add_levels: [{ low: 351, high: 353 }],
+  add_levels: [
+    { low: 351.15, high: 352.84 },
+    { low: 365.01, high: 369.97 },
+  ],
   stop_or_reduce: 322,
   target_price: 430,
   bull_case: 'Operating growth remains resilient.',
@@ -45,7 +54,7 @@ beforeAll(async () => {
 
 describe('DecisionBriefCard', () => {
   it('renders the final rating, mixed price plan, cases, and four signal lanes', () => {
-    render(<DecisionBriefCard decision={decision} />);
+    renderCard(<DecisionBriefCard decision={decision} />);
 
     expect(screen.getByText('Underweight')).toHaveAttribute(
       'data-variant',
@@ -56,7 +65,8 @@ describe('DecisionBriefCard', () => {
     );
     expect(screen.getByText('341.91 USD')).toBeInTheDocument();
     expect(screen.getByText('335.00–342.00 USD')).toBeInTheDocument();
-    expect(screen.getByText('351.00–353.00 USD')).toBeInTheDocument();
+    expect(screen.getByText('351.15–352.84 USD')).toBeInTheDocument();
+    expect(screen.getByText('365.01–369.97 USD')).toBeInTheDocument();
     expect(screen.getByText('322.00 USD')).toBeInTheDocument();
     expect(screen.getByText('430.00 USD')).toBeInTheDocument();
     expect(
@@ -72,7 +82,7 @@ describe('DecisionBriefCard', () => {
   });
 
   it('does not render a card for legacy decisions without a headline', () => {
-    const { container } = render(
+    const { container } = renderCard(
       <DecisionBriefCard decision={{ action: 'Hold', rating: 'Hold' }} />,
     );
 
@@ -81,7 +91,7 @@ describe('DecisionBriefCard', () => {
 
   it('calls onViewDetail from the bottom CTA', () => {
     const onViewDetail = vi.fn();
-    render(
+    renderCard(
       <DecisionBriefCard decision={decision} onViewDetail={onViewDetail} />,
     );
 
@@ -90,7 +100,7 @@ describe('DecisionBriefCard', () => {
   });
 
   it('shows unavailable analyst lanes without inventing a direction', () => {
-    render(
+    renderCard(
       <DecisionBriefCard
         decision={{
           ...decision,

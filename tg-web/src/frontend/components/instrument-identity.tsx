@@ -39,6 +39,7 @@ export function InstrumentIdentity({
   secondaryName,
   trailing,
   tickerSuffix,
+  tickerTitle,
   onTickerClick,
   tickerAriaLabel,
 }: {
@@ -55,6 +56,8 @@ export function InstrumentIdentity({
   trailing?: ReactNode;
   /** Extra mono meta after the ticker (e.g. provider symbol). */
   tickerSuffix?: ReactNode;
+  /** Full title for the ticker line when `tickerSuffix` is not a plain string. */
+  tickerTitle?: string | null;
   /** When set, the ticker becomes a clickable control (e.g. copy). */
   onTickerClick?: () => void;
   tickerAriaLabel?: string;
@@ -85,10 +88,11 @@ export function InstrumentIdentity({
   const nameTitle = showSecondary
     ? `${primary} ${normalizedSecondary}`
     : primary;
-  const tickerTitle =
-    typeof tickerSuffix === 'string' || typeof tickerSuffix === 'number'
+  const resolvedTickerTitle =
+    tickerTitle?.trim() ||
+    (typeof tickerSuffix === 'string' || typeof tickerSuffix === 'number'
       ? `${code}${tickerSuffix}`
-      : code;
+      : code);
 
   return (
     <div className={cn('min-w-0', className)}>
@@ -112,7 +116,7 @@ export function InstrumentIdentity({
             type="button"
             onClick={onTickerClick}
             aria-label={tickerAriaLabel}
-            title={tickerAriaLabel || tickerTitle}
+            title={tickerAriaLabel || resolvedTickerTitle}
             className={cn(
               tickerStyles[density],
               'cursor-pointer border-0 bg-transparent p-0 text-left underline underline-offset-2 transition-colors hover:text-foreground',
@@ -124,7 +128,7 @@ export function InstrumentIdentity({
         ) : (
           <p
             className={cn(tickerStyles[density], tickerClassName)}
-            title={tickerTitle}
+            title={resolvedTickerTitle}
           >
             {tickerContent}
           </p>

@@ -321,9 +321,14 @@ GET /api/v1/analyses/{job_id}
   },
   "reports": {},
   "usage": {"tokens": 1234, "token_usage": {}},
-  "cost": {"usd": 0.01, "breakdown": {}}
+  "cost": {"usd": 0.01, "breakdown": {}},
+  "output_language": "Chinese",
+  "quick_think_llm": "gpt-5.4-mini",
+  "deep_think_llm": "gpt-5.5"
 }
 ```
+
+详情中的 `quick_think_llm` / `deep_think_llm` 来自 job 持久化配置；旧任务缺失时为 `null`。
 
 ### 4.6 查询运行事件
 
@@ -481,7 +486,7 @@ docker compose --env-file tg-core/.env -f docker/docker-compose.yml logs -f trad
 
 结构化报告标题、辩论角色前缀与评级展示词由 `tradingagents.agents.utils.report_i18n` 的语言包渲染，覆盖与前端文章语言下拉一致的 11 种语言（English / Chinese / Japanese / Korean / Hindi / Spanish / Portuguese / French / German / Arabic / Russian）。未识别或 Custom 语言的模板文案回落英文；正文仍通过 `get_language_instruction()` 按请求语言生成。
 
-Portfolio Manager 成功返回结构化输出时，完整决策卡写入 `final_state.decision_brief`，不新增数据库列或迁移。`as_of_price`、`as_of_date` 和 `currency` 由 Core 使用经过历史日期边界校验的行情数据补充，不采用 LLM 自报值。未选择或没有可用内容的分析师分区使用 `unavailable`；旧任务或结构化输出降级时这些字段为空，Markdown 报告和旧决策字段保持可读。
+Portfolio Manager 成功返回结构化输出时，完整决策卡写入 `final_state.decision_brief`，不新增数据库列或迁移。市场、情绪、新闻和基本面四路 `section_stances` 分别由对应 Analyst 在完成报告后生成结构化信号，Portfolio Manager 只读取并装配这些信号，无权重新判断或覆盖其方向。结构化信号提取失败时明确使用 `unavailable`，不从 Markdown 或关键词猜测方向。`as_of_price`、`as_of_date` 和 `currency` 由 Core 使用经过历史日期边界校验的行情数据补充，不采用 LLM 自报值。未选择或没有可用内容的分析师分区同样使用 `unavailable`；旧任务或结构化输出降级时这些字段为空，Markdown 报告和旧决策字段保持可读。
 
 示例：
 

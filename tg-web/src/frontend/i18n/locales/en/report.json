@@ -15,6 +15,10 @@
   "creditCost": "Credits used · {{count}}",
   "costUsd": "Cost · ${{amount}}",
   "metaCredits": "{{count}} credits",
+  "models": {
+    "quick": "Quick · {{name}}",
+    "deep": "Deep · {{name}}"
+  },
   "moreActions": "More actions",
   "keyboardHint": "← → follow the derivation path · ↑ ↓ scroll the report",
   "riskNotice": "Research only. Outputs are informational and do not place trades.",
@@ -45,6 +49,13 @@
     "stopOrReduce": "Stop / reduce trigger",
     "targetPrice": "Target price",
     "pricePlan": "Price plan",
+    "priceMetricTips": {
+      "referencePrice": "The actual closing price on the analysis date (or the latest prior trading day), filled automatically from market data as the baseline for this report—not a model forecast.",
+      "entryZone": "Suggested price range for an initial entry or probe position; consider building exposure when price falls within this band.",
+      "addLevels": "Suggested price ranges for adding exposure after trend or thesis confirmation; usually above the entry zone and tied to the watch items in the report.",
+      "stopOrReduce": "Risk trigger price—when reached, reduce exposure or stop out to limit downside.",
+      "targetPrice": "Expected price objective over the stated time horizon from the Portfolio Manager; an upside view that the model may omit when not applicable."
+    },
     "bullCase": "Bull case",
     "bearCase": "Bear case",
     "keyRisk": "Key risk",

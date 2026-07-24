@@ -12,7 +12,6 @@ from tradingagents.agents.schemas import (
     PortfolioRating,
     ResearchPlan,
     SectionSignal,
-    SectionStances,
     SentimentBand,
     SentimentReport,
     TraderAction,
@@ -165,24 +164,6 @@ class TestChineseRenderHelpers:
                     key_risk="资本开支维持高位。",
                     what_to_watch=["自由现金流改善"],
                     invalidation="盈利预期下调则失效。",
-                    section_stances=SectionStances(
-                        market=SectionSignal(
-                            stance=DecisionStance.NEUTRAL,
-                            note="趋势尚未确认。",
-                        ),
-                        sentiment=SectionSignal(
-                            stance=DecisionStance.NEUTRAL,
-                            note="情绪分化。",
-                        ),
-                        news=SectionSignal(
-                            stance=DecisionStance.NEUTRAL,
-                            note="暂无催化。",
-                        ),
-                        fundamentals=SectionSignal(
-                            stance=DecisionStance.BULLISH,
-                            note="基本面稳健。",
-                        ),
-                    ),
                 ),
             )
         )
@@ -198,6 +179,10 @@ class TestChineseRenderHelpers:
                 overall_band=SentimentBand.BULLISH,
                 overall_score=7.0,
                 confidence="low",
+                section_signal=SectionSignal(
+                    stance=DecisionStance.BULLISH,
+                    note="情绪偏多。",
+                ),
                 narrative="1. 分来源情绪拆解",
             )
         )

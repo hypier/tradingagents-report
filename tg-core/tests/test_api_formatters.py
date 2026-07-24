@@ -22,7 +22,11 @@ def test_analysis_result_exposes_exchange_display_and_language():
                 "logo_url": "https://example.test/tencent.svg",
             },
             "request": {"output_language": "Chinese"},
-            "config": {"output_language": "Chinese"},
+            "config": {
+                "output_language": "Chinese",
+                "quick_think_llm": "gpt-quick",
+                "deep_think_llm": "gpt-deep",
+            },
             "final_state": {"final_trade_decision": "Buy"},
         }
     )
@@ -34,6 +38,8 @@ def test_analysis_result_exposes_exchange_display_and_language():
         "country": "HK",
     }
     assert document["output_language"] == "Chinese"
+    assert document["quick_think_llm"] == "gpt-quick"
+    assert document["deep_think_llm"] == "gpt-deep"
 
 
 def test_analysis_result_prefers_structured_decision_brief():
@@ -114,7 +120,8 @@ def test_analysis_result_uses_single_canonical_fields(language):
 
     assert set(document) == {
         "id", "request_id", "ticker", "exchange", "trade_date", "asset_type", "analysts", "status",
-        "progress", "decision", "reports", "usage", "cost", "display", "output_language", "error",
+        "progress", "decision", "reports", "usage", "cost", "display", "output_language",
+        "quick_think_llm", "deep_think_llm", "error",
         "created_at", "updated_at", "started_at", "finished_at",
     }
     assert document["status"] == "succeeded"
@@ -123,5 +130,7 @@ def test_analysis_result_uses_single_canonical_fields(language):
     assert document["cost"] == {"usd": 0.12, "breakdown": {"total_cost_usd": 0.12}}
     assert document["display"] == {}
     assert document["output_language"] == language
+    assert document["quick_think_llm"] is None
+    assert document["deep_think_llm"] is None
     assert document["exchange"] is None
     assert "events" not in document

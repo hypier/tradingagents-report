@@ -54,11 +54,17 @@ class AgentState(MessagesState):
 
     # research step
     market_report: Annotated[str, "Report from the Market Analyst"]
+    market_signal: Annotated[dict[str, Any], "Structured Market Analyst signal"]
     sentiment_report: Annotated[str, "Report from the Sentiment Analyst"]
+    sentiment_signal: Annotated[dict[str, Any], "Structured Sentiment Analyst signal"]
     news_report: Annotated[
         str, "Report from the News Researcher of current world affairs"
     ]
+    news_signal: Annotated[dict[str, Any], "Structured News Analyst signal"]
     fundamentals_report: Annotated[str, "Report from the Fundamentals Researcher"]
+    fundamentals_signal: Annotated[
+        dict[str, Any], "Structured Fundamentals Analyst signal"
+    ]
 
     # researcher team discussion step
     investment_debate_state: Annotated[

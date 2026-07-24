@@ -15,6 +15,10 @@
   "creditCost": "消耗额度 · {{count}}",
   "costUsd": "成本 · ${{amount}}",
   "metaCredits": "{{count}} 额度",
+  "models": {
+    "quick": "快速 · {{name}}",
+    "deep": "深度 · {{name}}"
+  },
   "moreActions": "更多操作",
   "keyboardHint": "左右键按推导顺序切换章节，上下键滚动报告",
   "riskNotice": "仅供研究。输出内容仅供参考，不会执行真实交易。",
@@ -45,6 +49,13 @@
     "stopOrReduce": "止损 / 减仓触发",
     "targetPrice": "目标价",
     "pricePlan": "价格计划",
+    "priceMetricTips": {
+      "referencePrice": "分析日（或之前最近交易日）的实际收盘价，由系统从行情数据自动填入，作为本次分析的基准价位，不是模型预测。",
+      "entryZone": "首次建仓或试探性入场的建议价格区间；价格落入该区间时可考虑开始建立仓位。",
+      "addLevels": "趋势或基本面得到确认后，追加仓位的建议价格区间；通常高于入场区间，需结合报告中的观察条件执行。",
+      "stopOrReduce": "当价格触及该水平时，应执行止损或减仓的风控触发价，用于限制下行风险。",
+      "targetPrice": "在持有周期内，Portfolio Manager 给出的预期目标价位，代表上行空间判断；由模型生成，部分报告可能未给出。"
+    },
     "bullCase": "多头依据",
     "bearCase": "空头依据",
     "keyRisk": "主要风险",

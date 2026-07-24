@@ -11,11 +11,8 @@ from tradingagents.agents.managers.portfolio_manager import create_portfolio_man
 from tradingagents.agents.schemas import (
     DecisionBriefDraft,
     DecisionConviction,
-    DecisionStance,
     PortfolioDecision,
     PortfolioRating,
-    SectionSignal,
-    SectionStances,
 )
 from tradingagents.agents.utils.memory import TradingMemoryLog
 from tradingagents.graph.propagation import Propagator
@@ -87,9 +84,16 @@ def _make_pm_state(past_context=""):
             "count": 1,
         },
         "market_report": "Market report.",
+        "market_signal": {"stance": "bearish", "note": "Trend is weak."},
         "sentiment_report": "Sentiment report.",
+        "sentiment_signal": {"stance": "neutral", "note": "Mixed evidence."},
         "news_report": "News report.",
+        "news_signal": {"stance": "neutral", "note": "No clear catalyst."},
         "fundamentals_report": "Fundamentals report.",
+        "fundamentals_signal": {
+            "stance": "bullish",
+            "note": "Growth remains resilient.",
+        },
         "investment_plan": "Research plan.",
         "trader_investment_plan": "Trader plan.",
     }
@@ -104,15 +108,6 @@ def _decision_brief() -> DecisionBriefDraft:
         key_risk="Capital spending remains elevated.",
         what_to_watch=["Free cash flow recovery"],
         invalidation="Exit if the earnings outlook weakens.",
-        section_stances=SectionStances(
-            market=SectionSignal(stance=DecisionStance.BEARISH, note="Trend is weak."),
-            sentiment=SectionSignal(stance=DecisionStance.NEUTRAL, note="Mixed evidence."),
-            news=SectionSignal(stance=DecisionStance.NEUTRAL, note="No clear catalyst."),
-            fundamentals=SectionSignal(
-                stance=DecisionStance.BULLISH,
-                note="Growth remains resilient.",
-            ),
-        ),
     )
 
 
@@ -125,6 +120,7 @@ def _structured_pm_llm(captured: dict, decision: PortfolioDecision | None = None
             rating=PortfolioRating.HOLD,
             executive_summary="Hold the position; await catalyst.",
             investment_thesis="Balanced view; neither side carried the debate.",
+            price_target=190.0,
             brief=_decision_brief(),
         )
     structured = MagicMock()
@@ -818,19 +814,45 @@ class TestPortfolioManagerInjection:
         assert "**Price Target**: 215.0" in md
         assert "**Time Horizon**: 3-6 months" in md
         assert result["decision_brief"]["rating"] == "Overweight"
+        assert result["decision_brief"]["target_price"] == 215.0
         assert result["decision_brief"]["headline"] == "Hold while the setup improves."
         assert result["decision_brief"]["section_stances"]["market"]["stance"] == "bearish"
 
-    def test_pm_prompt_includes_source_reports_for_section_stances(self):
+    def test_pm_uses_analyst_owned_section_stances(self):
         captured = {}
         pm_node = create_portfolio_manager(_structured_pm_llm(captured))
 
-        pm_node(_make_pm_state())
+        result = pm_node(_make_pm_state())
 
         assert "Market report." in captured["prompt"]
         assert "Sentiment report." in captured["prompt"]
         assert "News report." in captured["prompt"]
         assert "Fundamentals report." in captured["prompt"]
+        assert "Market: bearish — Trend is weak." in captured["prompt"]
+        assert result["decision_brief"]["section_stances"]["market"] == {
+            "stance": "bearish",
+            "note": "Trend is weak.",
+        }
+
+    def test_pm_marks_missing_analyst_signal_unavailable(self):
+        state = _make_pm_state()
+        state.pop("fundamentals_signal")
+
+        result = create_portfolio_manager(_structured_pm_llm({}))(state)
+
+        assert (
+            result["decision_brief"]["section_stances"]["fundamentals"]["stance"]
+            == "unavailable"
+        )
+
+    def test_pm_prompt_requires_price_target_for_every_rating(self):
+        captured = {}
+        pm_node = create_portfolio_manager(_structured_pm_llm(captured))
+
+        pm_node(_make_pm_state())
+
+        assert "Always provide a positive numeric price_target" in captured["prompt"]
+        assert "including Hold, Underweight, and Sell" in captured["prompt"]
 
     def test_pm_falls_back_to_freetext_when_structured_unavailable(self):
         """If a provider does not support with_structured_output, the agent

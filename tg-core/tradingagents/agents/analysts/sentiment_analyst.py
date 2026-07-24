@@ -38,9 +38,10 @@ from tradingagents.agents.utils.agent_utils import (
     get_section_recommendation_instruction,
     get_transaction_proposal_instruction,
 )
+from tradingagents.agents.utils.section_signal import unavailable_section_signal
 from tradingagents.agents.utils.structured import (
     bind_structured,
-    invoke_structured_or_freetext,
+    invoke_structured_with_fallback,
 )
 from tradingagents.dataflows.reddit import fetch_reddit_posts
 from tradingagents.dataflows.stocktwits import fetch_stocktwits_messages
@@ -107,17 +108,24 @@ def create_sentiment_analyst(llm):
         # data is already in the prompt.
         formatted_messages = prompt.format_messages(messages=state["messages"])
 
-        report_text = invoke_structured_or_freetext(
+        invocation = invoke_structured_with_fallback(
             structured_llm,
             llm,
             formatted_messages,
             render_sentiment_report,
             "Sentiment Analyst",
         )
+        report_text = invocation.text
+        sentiment_signal = (
+            invocation.value.section_signal.model_dump(mode="json")
+            if invocation.value is not None
+            else unavailable_section_signal("Sentiment Analyst")
+        )
 
         return {
             "messages": [AIMessage(content=report_text)],
             "sentiment_report": report_text,
+            "sentiment_signal": sentiment_signal,
         }
 
     return sentiment_analyst_node

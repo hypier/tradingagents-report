@@ -63,9 +63,25 @@ class Propagator:
                 }
             ),
             "market_report": "",
+            "market_signal": {
+                "stance": "unavailable",
+                "note": "Market Analyst was not selected for this run.",
+            },
             "fundamentals_report": "",
+            "fundamentals_signal": {
+                "stance": "unavailable",
+                "note": "Fundamentals Analyst was not selected for this run.",
+            },
             "sentiment_report": "",
+            "sentiment_signal": {
+                "stance": "unavailable",
+                "note": "Sentiment Analyst was not selected for this run.",
+            },
             "news_report": "",
+            "news_signal": {
+                "stance": "unavailable",
+                "note": "News Analyst was not selected for this run.",
+            },
             "decision_brief": None,
         }
 

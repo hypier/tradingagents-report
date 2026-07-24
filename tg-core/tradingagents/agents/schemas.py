@@ -154,7 +154,6 @@ class DecisionBriefDraft(BaseModel):
         description="One to three observable confirmation points.",
     )
     invalidation: str = Field(description="One sentence stating when the thesis is invalid.")
-    section_stances: SectionStances
     conflict_note: str | None = Field(
         default=None,
         description="Optional sentence explaining how conflicting section signals were resolved.",
@@ -175,6 +174,7 @@ class DecisionBrief(DecisionBriefDraft):
     currency: str | None = None
     time_horizon: str | None = None
     target_price: float | None = Field(default=None, gt=0)
+    section_stances: SectionStances
 
 
 # ---------------------------------------------------------------------------
@@ -337,9 +337,12 @@ class PortfolioDecision(BaseModel):
             "incorporate them; otherwise rely solely on the current analysis."
         ),
     )
-    price_target: float | None = Field(
-        default=None,
-        description="Optional target price in the instrument's quote currency.",
+    price_target: float = Field(
+        gt=0,
+        description=(
+            "Required positive target price in the instrument's quote currency, "
+            "consistent with the rating and recommended time horizon."
+        ),
     )
     time_horizon: str | None = Field(
         default=None,
@@ -347,23 +350,27 @@ class PortfolioDecision(BaseModel):
     )
     brief: DecisionBriefDraft = Field(
         description=(
-            "Required compact result-card data. Derive the four section stances from "
-            "the source reports; use unavailable when a report is absent."
+            "Required compact result-card data authored by the Portfolio Manager. "
+            "Analyst section stances are attached separately from graph state."
         )
     )
 
     @field_validator("price_target", mode="before")
     @classmethod
-    def _nullish_float_to_none(cls, v):
+    def _coerce_price_target(cls, v):
         return _coerce_optional_float(v)
 
 
-def decision_brief_from_portfolio(decision: PortfolioDecision) -> DecisionBrief:
-    """Combine the Portfolio Manager's brief with its canonical rating fields."""
+def decision_brief_from_portfolio(
+    decision: PortfolioDecision,
+    section_stances: SectionStances,
+) -> DecisionBrief:
+    """Combine the PM brief with canonical fields and analyst-owned signals."""
     return DecisionBrief(
         rating=decision.rating,
         time_horizon=decision.time_horizon,
         target_price=decision.price_target,
+        section_stances=section_stances,
         **decision.brief.model_dump(),
     )
 
@@ -448,6 +455,13 @@ class SentimentReport(BaseModel):
             "than 5 data points; 'medium' when data is present but sparse; "
             "'high' when all three sources returned substantive data."
         ),
+    )
+    section_signal: SectionSignal = Field(
+        description=(
+            "The Sentiment Analyst's compact directional signal. Align bullish with "
+            "Bullish / Mildly Bullish, bearish with Bearish / Mildly Bearish, and "
+            "neutral with Neutral / Mixed. Cite the strongest evidence in the note."
+        )
     )
     narrative: str = Field(
         description=(

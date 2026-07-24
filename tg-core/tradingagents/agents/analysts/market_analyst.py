@@ -1,5 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
+from tradingagents.agents.schemas import SectionSignal
 from tradingagents.agents.utils.agent_utils import (
     get_indicators,
     get_instrument_context_from_state,
@@ -12,9 +13,12 @@ from tradingagents.agents.utils.agent_utils import (
     get_transaction_proposal_instruction,
     get_verified_market_snapshot,
 )
+from tradingagents.agents.utils.section_signal import extract_section_signal
+from tradingagents.agents.utils.structured import bind_structured
 
 
 def create_market_analyst(llm):
+    structured_signal_llm = bind_structured(llm, SectionSignal, "Market Analyst signal")
 
     def market_analyst_node(state):
         current_date = state["trade_date"]
@@ -111,9 +115,16 @@ Write a very detailed and nuanced report of the trends you observe. Provide spec
         if len(result.tool_calls) == 0:
             report = result.content
 
-        return {
+        update = {
             "messages": [result],
             "market_report": report,
         }
+        if report:
+            update["market_signal"] = extract_section_signal(
+                structured_signal_llm,
+                report,
+                "Market Analyst",
+            )
+        return update
 
     return market_analyst_node

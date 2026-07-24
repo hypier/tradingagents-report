@@ -1,5 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
+from tradingagents.agents.schemas import SectionSignal
 from tradingagents.agents.utils.agent_utils import (
     get_balance_sheet,
     get_cashflow,
@@ -11,9 +12,17 @@ from tradingagents.agents.utils.agent_utils import (
     get_section_recommendation_instruction,
     get_transaction_proposal_instruction,
 )
+from tradingagents.agents.utils.section_signal import extract_section_signal
+from tradingagents.agents.utils.structured import bind_structured
 
 
 def create_fundamentals_analyst(llm):
+    structured_signal_llm = bind_structured(
+        llm,
+        SectionSignal,
+        "Fundamentals Analyst signal",
+    )
+
     def fundamentals_analyst_node(state):
         current_date = state["trade_date"]
         instrument_context = get_instrument_context_from_state(state)
@@ -72,9 +81,16 @@ def create_fundamentals_analyst(llm):
         if len(result.tool_calls) == 0:
             report = result.content
 
-        return {
+        update = {
             "messages": [result],
             "fundamentals_report": report,
         }
+        if report:
+            update["fundamentals_signal"] = extract_section_signal(
+                structured_signal_llm,
+                report,
+                "Fundamentals Analyst",
+            )
+        return update
 
     return fundamentals_analyst_node

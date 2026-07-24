@@ -189,11 +189,22 @@ export function analysisRoutes(dependencies: AppDependencies) {
     const role = context.get('authUser').role;
     const id = context.req.param('id');
     await requireReadableAnalysis(dependencies, clerkUserId, id, role);
-    const data = await dependencies.core.getAnalysis(id);
+    const [data, job] = await Promise.all([
+      dependencies.core.getAnalysis(id),
+      dependencies.database.analysisJobs.getById(id),
+    ]);
+    const payload = isRecord(data) ? data : {};
+    const models = llmModelsFromConfig(job?.config);
     return context.json(
       apiSuccess(
         {
-          ...(isRecord(data) ? data : {}),
+          ...payload,
+          quick_think_llm:
+            readOptionalString(payload.quick_think_llm) ??
+            models.quick_think_llm,
+          deep_think_llm:
+            readOptionalString(payload.deep_think_llm) ??
+            models.deep_think_llm,
           credit_units: null,
         },
         context.get('requestId'),
@@ -632,6 +643,22 @@ function toPublicJob(
   const request = isRecord(job.request) ? job.request : {};
   const config = isRecord(job.config) ? job.config : {};
   const display = isRecord(job.display) ? job.display : {};
+  const finalState = isRecord(job.finalState) ? job.finalState : {};
+  const decisionBrief = isRecord(finalState.decision_brief)
+    ? finalState.decision_brief
+    : null;
+  const decisionSummary =
+    decisionBrief &&
+    typeof decisionBrief.rating === 'string' &&
+    typeof decisionBrief.headline === 'string'
+      ? {
+          rating: decisionBrief.rating,
+          headline: decisionBrief.headline,
+          section_stances: isRecord(decisionBrief.section_stances)
+            ? decisionBrief.section_stances
+            : null,
+        }
+      : job.decision;
   return {
     id: job.id,
     request_id: job.requestId,
@@ -641,7 +668,7 @@ function toPublicJob(
     asset_type: job.assetType,
     analysts: job.analysts,
     status: job.status,
-    decision: job.decision,
+    decision: decisionSummary,
     error: job.error,
     progress_percent: job.progressPercent,
     current_step: job.currentStep,
@@ -690,6 +717,23 @@ function clampInt(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function readOptionalString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function llmModelsFromConfig(config: unknown): {
+  quick_think_llm: string | null;
+  deep_think_llm: string | null;
+} {
+  const record = isRecord(config) ? config : {};
+  return {
+    quick_think_llm: readOptionalString(record.quick_think_llm),
+    deep_think_llm: readOptionalString(record.deep_think_llm),
+  };
 }
 
 function billingError(error: unknown): AppError {

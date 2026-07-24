@@ -1,5 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
+from tradingagents.agents.schemas import SectionSignal
 from tradingagents.agents.utils.agent_utils import (
     get_earnings_calendar,
     get_economic_calendar,
@@ -13,9 +14,13 @@ from tradingagents.agents.utils.agent_utils import (
     get_section_recommendation_instruction,
     get_transaction_proposal_instruction,
 )
+from tradingagents.agents.utils.section_signal import extract_section_signal
+from tradingagents.agents.utils.structured import bind_structured
 
 
 def create_news_analyst(llm):
+    structured_signal_llm = bind_structured(llm, SectionSignal, "News Analyst signal")
+
     def news_analyst_node(state):
         current_date = state["trade_date"]
         asset_type = state.get("asset_type", "stock")
@@ -71,9 +76,16 @@ def create_news_analyst(llm):
         if len(result.tool_calls) == 0:
             report = result.content
 
-        return {
+        update = {
             "messages": [result],
             "news_report": report,
         }
+        if report:
+            update["news_signal"] = extract_section_signal(
+                structured_signal_llm,
+                report,
+                "News Analyst",
+            )
+        return update
 
     return news_analyst_node

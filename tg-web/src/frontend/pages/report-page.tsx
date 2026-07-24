@@ -56,6 +56,7 @@ import {
   decisionBadgeVariant,
   formatDecisionLabel,
 } from '../lib/format-decision';
+import { formatDecisionBriefMarkdown } from '../lib/format-decision-brief-markdown';
 import { formatLocaleCalendarDate } from '../lib/format-locale';
 import { formatOutputLanguage } from '../lib/format-output-language';
 import { fetchPublicConfig } from '../lib/public-config';
@@ -133,6 +134,8 @@ function reportIdentity(job: AnalysisDetail | undefined) {
   const exchange = job?.exchange?.trim() || null;
   const country = job?.display?.country?.trim() || null;
   const language = job?.output_language?.trim() || null;
+  const quickThinkLlm = job?.quick_think_llm?.trim() || null;
+  const deepThinkLlm = job?.deep_think_llm?.trim() || null;
   return {
     ticker,
     displayName,
@@ -141,6 +144,8 @@ function reportIdentity(job: AnalysisDetail | undefined) {
     exchange,
     country,
     language,
+    quickThinkLlm,
+    deepThinkLlm,
   };
 }
 
@@ -215,7 +220,7 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 export function ReportPage() {
-  const { t } = useTranslation(['report', 'common']);
+  const { t, i18n } = useTranslation(['report', 'common']);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const { id } = useParams();
@@ -328,6 +333,12 @@ export function ReportPage() {
         )
       : null,
     tradeDate ? formatLocaleCalendarDate(tradeDate) : null,
+    identity.quickThinkLlm
+      ? t('models.quick', { name: identity.quickThinkLlm })
+      : null,
+    identity.deepThinkLlm
+      ? t('models.deep', { name: identity.deepThinkLlm })
+      : null,
   ].filter((part): part is string => Boolean(part));
   const showStatusBadge =
     Boolean(job?.status) && job?.status !== 'succeeded';
@@ -343,6 +354,14 @@ export function ReportPage() {
 
   function exportMarkdown() {
     if (!job) return;
+    const briefMarkdown = hasDecisionBrief(job.decision)
+      ? formatDecisionBriefMarkdown(job.decision, {
+          locale: i18n.resolvedLanguage ?? i18n.language,
+          sectionTitle: t('views.brief'),
+          t: (key, options) => t(key, options),
+          tCommon: (key, options) => t(`common:${key}`, options),
+        })
+      : '';
     const sections = entries
       .map(([key, value]) => {
         const body =
@@ -352,12 +371,19 @@ export function ReportPage() {
         return `## ${reportTabLabel(key)}\n\n${body}`;
       })
       .join('\n\n');
+    const bodySections = [briefMarkdown, sections].filter(Boolean).join('\n\n');
     const markdown = [
       `# ${title}`,
       '',
       subtitle,
       tradeDate
         ? t('tradeDate', { date: formatLocaleCalendarDate(tradeDate) })
+        : '',
+      identity.quickThinkLlm
+        ? t('models.quick', { name: identity.quickThinkLlm })
+        : '',
+      identity.deepThinkLlm
+        ? t('models.deep', { name: identity.deepThinkLlm })
         : '',
       costUsd != null
         ? t('costUsd', { amount: costUsd })
@@ -367,7 +393,7 @@ export function ReportPage() {
       t('dataAsOf'),
       t('riskNotice'),
       '',
-      sections,
+      bodySections,
     ]
       .filter(Boolean)
       .join('\n');
@@ -537,6 +563,11 @@ export function ReportPage() {
                     </Badge>
                   ) : null}
                 </>
+              }
+              tickerTitle={
+                identity.ticker
+                  ? [identity.ticker, ...headerMeta].join(' · ')
+                  : null
               }
               tickerSuffix={
                 headerMeta.length ? (

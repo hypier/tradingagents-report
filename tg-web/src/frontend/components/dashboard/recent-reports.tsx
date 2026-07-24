@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 import { InstrumentIdentity } from '../instrument-identity';
 import { InstrumentLogo } from '../instrument-logo';
+import { DecisionSummary } from '../report/decision-summary';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
@@ -29,10 +30,6 @@ import {
   isDisplayToday,
   parseLocaleDateInput,
 } from '@/frontend/lib/format-locale';
-import {
-  decisionBadgeVariant,
-  formatDecisionLabel,
-} from '@/frontend/lib/format-decision';
 import { formatOutputLanguage } from '@/frontend/lib/format-output-language';
 import { localizeProgressMessage } from '@/frontend/lib/localize-progress-message';
 import { formatDisplayTicker } from '@/shared/listing';
@@ -525,24 +522,7 @@ export function ReportsTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {(() => {
-                      const label = formatDecisionLabel(
-                        job.decision,
-                        (key, options) => t(`common:${key}`, options),
-                      );
-                      if (!label) {
-                        return (
-                          <span className="text-xs text-muted-foreground">
-                            {t('table.noConclusion')}
-                          </span>
-                        );
-                      }
-                      return (
-                        <Badge variant={decisionBadgeVariant(job.decision)}>
-                          {label}
-                        </Badge>
-                      );
-                    })()}
+                    <DecisionSummary decision={job.decision} />
                   </TableCell>
                   <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
                     {formatLocaleCalendarDate(

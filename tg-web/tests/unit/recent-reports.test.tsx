@@ -69,6 +69,58 @@ it('shows library columns for decision and trade date', async () => {
   await i18n.changeLanguage('en');
 });
 
+it('shows only the rating badge for structured decisions', async () => {
+  const { default: i18n } = await import('../../src/frontend/i18n');
+  await i18n.changeLanguage('en');
+
+  render(
+    <TooltipProvider>
+      <RecentReports
+        jobs={[
+          {
+            id: 'job-brief',
+            ticker: 'GOOG',
+            status: 'succeeded',
+            decision: {
+              rating: 'Underweight',
+              headline:
+                'Keep a smaller core position until cash returns improve.',
+              section_stances: {
+                market: { stance: 'bearish', note: 'Daily trend is weak.' },
+                sentiment: {
+                  stance: 'bearish',
+                  note: 'Positioning is cautious.',
+                },
+                news: { stance: 'neutral', note: 'Catalysts are balanced.' },
+                fundamentals: {
+                  stance: 'bullish',
+                  note: 'Operating growth remains strong.',
+                },
+              },
+            },
+          },
+        ]}
+        loading={false}
+        error={false}
+        onOpenReport={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+
+  expect(screen.getByText('Underweight')).toHaveAttribute(
+    'data-variant',
+    'down',
+  );
+  expect(
+    screen.queryByText(
+      'Keep a smaller core position until cash returns improve.',
+    ),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('list', { name: 'Analyst signals' }),
+  ).not.toBeInTheDocument();
+});
+
 it('uses the destructive badge variant for failed tasks', () => {
   render(
     <TooltipProvider>

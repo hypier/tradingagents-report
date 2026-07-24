@@ -11,7 +11,10 @@ back gracefully to free-text generation.
 from __future__ import annotations
 
 from tradingagents.agents.schemas import (
+    DecisionStance,
     PortfolioDecision,
+    SectionSignal,
+    SectionStances,
     decision_brief_from_portfolio,
     render_pm_decision,
 )
@@ -45,6 +48,16 @@ def create_portfolio_manager(llm):
             f"**{name} Analyst Report:**\n{report}"
             for name, report in source_reports.items()
         )
+        section_stances = _section_stances_from_state(state)
+        source_signal_context = "\n".join(
+            f"- {name}: {signal.stance.value} — {signal.note}"
+            for name, signal in (
+                ("Market", section_stances.market),
+                ("Sentiment", section_stances.sentiment),
+                ("News", section_stances.news),
+                ("Fundamentals", section_stances.fundamentals),
+            )
+        )
 
         past_context = state.get("past_context", "")
         lessons_line = (
@@ -67,6 +80,7 @@ def create_portfolio_manager(llm):
 - **Sell**: Exit position or avoid entry
 
 **Final-decision discipline:**
+- Always provide a positive numeric price_target in the instrument's quote currency for every rating, including Hold, Underweight, and Sell. Make it consistent with the rating and time horizon; for Underweight/Sell, use the expected downside or exit-value level rather than omitting it.
 - Prefer **Underweight**/reduced sizing when CapEx is outrunning operating cash flow, FCF is negative or sharply compressed, and AI/cloud cash-return proof is still missing — even if revenue and operating profit are strong.
 - Do not upgrade to Overweight/Buy mainly on sell-side targets, peer PE discounts, or longer-horizon technical gauges while daily trend remains broken and cash returns are unverified.
 - Intact franchise quality and net cash can justify keeping a core position (avoid automatic Sell), but that is not the same as adding risk. If adding, require confirmation levels and keep total size capped until FCF/CapEx evidence improves.
@@ -76,8 +90,11 @@ def create_portfolio_manager(llm):
 - Research Manager's investment plan: **{research_plan}**
 - Trader's transaction proposal: **{trader_plan}**
 {lessons_line}
-**Source Analyst Reports for the four section stances:**
+**Source Analyst Reports:**
 {source_report_context}
+
+**Analyst-owned directional signals (use as evidence; do not rewrite them):**
+{source_signal_context}
 
 **Risk Analysts Debate History:**
 {history}
@@ -95,7 +112,10 @@ Be decisive and ground every conclusion in specific evidence from the analysts.{
         )
         final_trade_decision = invocation.text
         decision_brief = (
-            decision_brief_from_portfolio(invocation.value).model_dump(mode="json")
+            decision_brief_from_portfolio(
+                invocation.value,
+                section_stances,
+            ).model_dump(mode="json")
             if invocation.value is not None
             else None
         )
@@ -120,3 +140,21 @@ Be decisive and ground every conclusion in specific evidence from the analysts.{
         }
 
     return portfolio_manager_node
+
+
+def _section_stances_from_state(state: dict) -> SectionStances:
+    def signal(key: str, label: str) -> SectionSignal:
+        try:
+            return SectionSignal.model_validate(state.get(key))
+        except Exception:  # noqa: BLE001 - optional state must degrade safely
+            return SectionSignal(
+                stance=DecisionStance.UNAVAILABLE,
+                note=f"{label} did not produce a structured signal.",
+            )
+
+    return SectionStances(
+        market=signal("market_signal", "Market Analyst"),
+        sentiment=signal("sentiment_signal", "Sentiment Analyst"),
+        news=signal("news_signal", "News Analyst"),
+        fundamentals=signal("fundamentals_signal", "Fundamentals Analyst"),
+    )

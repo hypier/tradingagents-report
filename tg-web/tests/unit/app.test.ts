@@ -430,6 +430,59 @@ describe('createApp', () => {
     expect(dependencies.core.listAnalyses).not.toHaveBeenCalled();
   });
 
+  it('returns the stored decision brief summary in the analysis list', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.database.analysisJobs.listForUser).mockResolvedValue(
+      [
+        {
+          job: {
+            id: 'job-1',
+            ticker: 'GOOG',
+            analysts: ['market', 'social', 'news', 'fundamentals'],
+            status: 'succeeded',
+            decision: 'Underweight',
+            finalState: {
+              decision_brief: {
+                rating: 'Underweight',
+                headline: 'Keep a smaller core position.',
+                section_stances: {
+                  market: { stance: 'bearish', note: 'Trend is weak.' },
+                  sentiment: { stance: 'neutral', note: 'Signals are mixed.' },
+                  news: { stance: 'neutral', note: 'Catalysts are balanced.' },
+                  fundamentals: {
+                    stance: 'bullish',
+                    note: 'Growth remains strong.',
+                  },
+                },
+              },
+            },
+          } as never,
+          creditUnits: null,
+          creditLedgerEntryId: null,
+        },
+      ],
+    );
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses');
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: [
+        {
+          decision: {
+            rating: 'Underweight',
+            headline: 'Keep a smaller core position.',
+            section_stances: {
+              market: { stance: 'bearish' },
+              fundamentals: { stance: 'bullish' },
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it('exposes maintenance and markets on public config', async () => {
     const dependencies = fakeDependencies();
     const app = createApp(dependencies);
@@ -1259,6 +1312,37 @@ describe('createApp', () => {
     const allowed = await app.request('/api/analyses/job-own');
     expect(allowed.status).toBe(200);
     expect(dependencies.core.getAnalysis).toHaveBeenCalledWith('job-own');
+  });
+
+  it('includes quick and deep model names on report detail from job config', async () => {
+    const dependencies = fakeDependencies();
+    vi.mocked(dependencies.database.analysisJobs.ownsJob).mockResolvedValue(
+      true,
+    );
+    vi.mocked(dependencies.database.analysisJobs.getById).mockResolvedValue({
+      id: 'job-own',
+      config: {
+        quick_think_llm: 'gpt-quick',
+        deep_think_llm: 'gpt-deep',
+      },
+    } as never);
+    vi.mocked(dependencies.core.getAnalysis).mockResolvedValue({
+      id: 'job-own',
+      status: 'succeeded',
+      ticker: 'GOOG',
+      output_language: 'Chinese',
+    });
+    const app = createApp(dependencies);
+
+    const response = await app.request('/api/analyses/job-own');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        id: 'job-own',
+        quick_think_llm: 'gpt-quick',
+        deep_think_llm: 'gpt-deep',
+      },
+    });
   });
 
   it('lets administrators read another users report detail', async () => {

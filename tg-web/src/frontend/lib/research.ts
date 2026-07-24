@@ -136,6 +136,8 @@ export type AnalysisJob = {
   analysts?: string[] | null;
   display?: InstrumentDisplay | null;
   output_language?: string | null;
+  quick_think_llm?: string | null;
+  deep_think_llm?: string | null;
   credit_units?: number | null;
 };
 

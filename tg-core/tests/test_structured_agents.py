@@ -23,7 +23,6 @@ from tradingagents.agents.schemas import (
     PriceRange,
     ResearchPlan,
     SectionSignal,
-    SectionStances,
     SentimentBand,
     SentimentReport,
     TraderAction,
@@ -33,6 +32,7 @@ from tradingagents.agents.schemas import (
     render_trader_proposal,
 )
 from tradingagents.agents.trader.trader import create_trader
+from tradingagents.agents.utils.section_signal import extract_section_signal
 
 # ---------------------------------------------------------------------------
 # Render functions
@@ -52,15 +52,6 @@ def _decision_brief() -> DecisionBriefDraft:
         key_risk="Capital spending stays elevated.",
         what_to_watch=["Free cash flow recovery", "A close above the 50-day average"],
         invalidation="Reduce exposure if earnings estimates fall.",
-        section_stances=SectionStances(
-            market=SectionSignal(stance=DecisionStance.BEARISH, note="Daily trend is weak."),
-            sentiment=SectionSignal(stance=DecisionStance.NEUTRAL, note="Signals are mixed."),
-            news=SectionSignal(stance=DecisionStance.NEUTRAL, note="No decisive catalyst."),
-            fundamentals=SectionSignal(
-                stance=DecisionStance.BULLISH,
-                note="Operating growth is resilient.",
-            ),
-        ),
         conflict_note="Fundamentals are resilient while the daily trend remains weak.",
     )
 
@@ -119,15 +110,25 @@ class TestNullishFloatCoercion:
         p = TraderProposal(action=TraderAction.BUY, reasoning="x", entry_price="189.5")
         assert p.entry_price == 189.5
 
-    def test_pm_nullish_price_target_coerces_to_none(self):
-        d = PortfolioDecision(
-            rating=PortfolioRating.OVERWEIGHT,
-            executive_summary="s",
-            investment_thesis="t",
-            price_target="N/A",
-            brief=_decision_brief(),
-        )
-        assert d.price_target is None
+    @pytest.mark.parametrize("price_target", [None, "N/A", 0, -1])
+    def test_pm_requires_positive_price_target(self, price_target):
+        with pytest.raises(ValidationError, match="price_target"):
+            PortfolioDecision(
+                rating=PortfolioRating.OVERWEIGHT,
+                executive_summary="s",
+                investment_thesis="t",
+                price_target=price_target,
+                brief=_decision_brief(),
+            )
+
+    def test_pm_requires_price_target_field(self):
+        with pytest.raises(ValidationError, match="price_target"):
+            PortfolioDecision(
+                rating=PortfolioRating.OVERWEIGHT,
+                executive_summary="s",
+                investment_thesis="t",
+                brief=_decision_brief(),
+            )
 
     def test_price_range_rejects_reversed_bounds(self):
         with pytest.raises(ValidationError, match="low must be less than or equal to high"):
@@ -139,6 +140,39 @@ class TestNullishFloatCoercion:
             note="Fundamentals were not selected for this run.",
         )
         assert signal.stance is DecisionStance.UNAVAILABLE
+
+
+@pytest.mark.unit
+class TestAnalystSectionSignal:
+    def test_extracts_typed_signal_from_completed_report(self):
+        structured = MagicMock()
+        structured.invoke.return_value = SectionSignal(
+            stance=DecisionStance.BEARISH,
+            note="Daily trend remains below key averages.",
+        )
+
+        signal = extract_section_signal(
+            structured,
+            "Price remains below the 50-day average.",
+            "Market Analyst",
+        )
+
+        assert signal == {
+            "stance": "bearish",
+            "note": "Daily trend remains below key averages.",
+        }
+
+    def test_extraction_failure_is_unavailable_not_text_guessing(self):
+        structured = MagicMock()
+        structured.invoke.side_effect = ValueError("invalid structured result")
+
+        signal = extract_section_signal(
+            structured,
+            "Strong bullish language that must not be regex-classified.",
+            "News Analyst",
+        )
+
+        assert signal["stance"] == "unavailable"
 
 
 @pytest.mark.unit
@@ -340,6 +374,10 @@ class TestRenderSentimentReport:
             overall_band=SentimentBand.BULLISH,
             overall_score=7.2,
             confidence="high",
+            section_signal=SectionSignal(
+                stance=DecisionStance.BULLISH,
+                note="Sources are constructive.",
+            ),
             narrative="Source breakdown here.",
         )
         md = render_sentiment_report(report)
@@ -351,6 +389,10 @@ class TestRenderSentimentReport:
             overall_band=SentimentBand.NEUTRAL,
             overall_score=5.0,
             confidence="low",
+            section_signal=SectionSignal(
+                stance=DecisionStance.NEUTRAL,
+                note="Evidence is limited.",
+            ),
             narrative="Limited data.",
         )
         assert "**Confidence:** Low" in render_sentiment_report(report)
@@ -361,6 +403,10 @@ class TestRenderSentimentReport:
             overall_band=SentimentBand.MILDLY_BULLISH,
             overall_score=6.0,
             confidence="medium",
+            section_signal=SectionSignal(
+                stance=DecisionStance.BULLISH,
+                note="Sources lean constructive.",
+            ),
             narrative=narrative,
         )
         assert narrative in render_sentiment_report(report)
@@ -369,7 +415,12 @@ class TestRenderSentimentReport:
         for band in SentimentBand:
             report = SentimentReport(
                 overall_band=band, overall_score=5.0,
-                confidence="medium", narrative="n",
+                confidence="medium",
+                section_signal=SectionSignal(
+                    stance=DecisionStance.NEUTRAL,
+                    note="Test signal.",
+                ),
+                narrative="n",
             )
             assert band.value in render_sentiment_report(report)
 
@@ -377,7 +428,12 @@ class TestRenderSentimentReport:
         with pytest.raises(ValidationError):
             SentimentReport(
                 overall_band=SentimentBand.BULLISH, overall_score=11.0,
-                confidence="high", narrative="n",
+                confidence="high",
+                section_signal=SectionSignal(
+                    stance=DecisionStance.BULLISH,
+                    note="Test signal.",
+                ),
+                narrative="n",
             )
 
 
@@ -397,6 +453,10 @@ def _structured_sentiment_llm(captured: dict, report: SentimentReport | None = N
         report = SentimentReport(
             overall_band=SentimentBand.BULLISH, overall_score=7.5,
             confidence="high",
+            section_signal=SectionSignal(
+                stance=DecisionStance.BULLISH,
+                note="Social sources are constructive.",
+            ),
             narrative="StockTwits 75% bullish. News constructive. Reddit upbeat.",
         )
     structured = MagicMock()
@@ -414,7 +474,12 @@ class TestSentimentAnalystAgent:
         captured = {}
         report = SentimentReport(
             overall_band=SentimentBand.MILDLY_BEARISH, overall_score=4.0,
-            confidence="medium", narrative="Mixed signals across sources.",
+            confidence="medium",
+            section_signal=SectionSignal(
+                stance=DecisionStance.BEARISH,
+                note="Sources lean bearish.",
+            ),
+            narrative="Mixed signals across sources.",
         )
         analyst = create_sentiment_analyst(_structured_sentiment_llm(captured, report))
         sr = analyst(_make_sentiment_state())["sentiment_report"]
@@ -428,6 +493,7 @@ class TestSentimentAnalystAgent:
         result = analyst(_make_sentiment_state())
         assert len(result["messages"]) == 1
         assert result["sentiment_report"] == result["messages"][0].content
+        assert result["sentiment_signal"]["stance"] == "bullish"
 
     def test_prompt_contains_ticker(self):
         captured = {}
