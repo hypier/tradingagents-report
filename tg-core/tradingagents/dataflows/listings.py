@@ -31,6 +31,11 @@ _EXCHANGE_ALIASES = {
     "ROCO": "TPEX",
 }
 _US_EXCHANGES = frozenset({"NASDAQ", "NYSE", "AMEX"})
+_CHINA_A_SHARE_EXCHANGES = frozenset({"SZSE", "SSE", "SHE", "SHA"})
+_CHINA_A_SHARE_TICKER_RE = re.compile(
+    r"^(?:\d{6}\.(?:SZ|SS)|(?:SZSE|SSE|SHE|SHA):\d{6}|\d{6})$",
+    re.IGNORECASE,
+)
 # Fallback only; prefer package-local exchanges.json via exchange_catalog when available.
 _EXCHANGE_TO_COUNTRY = {
     "HKEX": "HK",
@@ -154,3 +159,27 @@ def country_for_exchange(exchange: str | None) -> str | None:
     except (FileNotFoundError, OSError, ValueError):
         pass
     return _EXCHANGE_TO_COUNTRY.get(normalized)
+
+
+def is_china_a_share(ticker: str) -> bool:
+    """Return True for mainland China A-share tickers (``.SZ`` / ``.SS`` / ``SZSE:`` / ``SSE:`` / bare 6-digit).
+
+    Used by vendors that only accept US-style cashtags (StockTwits, Alpha Vantage
+    news) so they can degrade without sending an unsupported symbol format.
+    """
+    if not isinstance(ticker, str):
+        return False
+    value = ticker.strip()
+    if not value:
+        return False
+    if _CHINA_A_SHARE_TICKER_RE.fullmatch(value):
+        return True
+    try:
+        listing = resolve_listing(value)
+    except ValueError:
+        return False
+    return (
+        listing.exchange in _CHINA_A_SHARE_EXCHANGES
+        and listing.symbol.isdigit()
+        and len(listing.symbol) == 6
+    )

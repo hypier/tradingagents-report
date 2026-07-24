@@ -2,6 +2,7 @@ import pytest
 
 from tradingagents.dataflows.listings import (
     country_for_exchange,
+    is_china_a_share,
     listing_from_parts,
     resolve_listing,
 )
@@ -76,3 +77,16 @@ def test_resolve_listing_rejects_unsafe_ticker(ticker):
 )
 def test_country_for_exchange(exchange, country):
     assert country_for_exchange(exchange) == country
+
+
+@pytest.mark.parametrize(
+    "ticker",
+    ["300814.SZ", "600519.SS", "SZSE:300814", "SSE:600519", "SHE:300750", "300814"],
+)
+def test_is_china_a_share_true(ticker):
+    assert is_china_a_share(ticker) is True
+
+
+@pytest.mark.parametrize("ticker", ["AAPL", "0700.HK", "7203.T", "NASDAQ:AAPL", ""])
+def test_is_china_a_share_false(ticker):
+    assert is_china_a_share(ticker) is False

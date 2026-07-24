@@ -251,6 +251,8 @@ class TestLanguagePromptHelpers:
         assert "Chinese" in out
         assert "headings" in out
         assert "TRANSACTION PROPOSAL" in out
+        assert "never invent a Chinese transliteration" in out
+        assert "JOVE" in out
 
     def test_chinese_transaction_phrase_forbids_trader_chrome(self):
         set_config({"output_language": "Chinese"})

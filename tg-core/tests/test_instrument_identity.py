@@ -220,7 +220,7 @@ class BuildInstrumentContextTests(unittest.TestCase):
         self.assertIn("Quote currency: HKD", context)
         self.assertIn("Fundamental reporting currency: CNY", context)
         self.assertIn("Do not substitute a different company", context)
-        self.assertIn("do not invent alternate Chinese or English names", context)
+        self.assertIn("never invent a phonetic Chinese name", context)
 
     def test_includes_english_name_when_distinct(self):
         context = build_instrument_context(

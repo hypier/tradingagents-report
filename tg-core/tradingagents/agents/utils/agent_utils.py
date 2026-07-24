@@ -81,7 +81,11 @@ def get_language_instruction() -> str:
         f" Write your entire response in {lang}, including all headings, "
         f"section titles, and labels. Do not leave English template phrases "
         f"such as 'TRANSACTION PROPOSAL', 'FINAL TRANSACTION PROPOSAL', "
-        f"'Overall Sentiment', 'Recommendation', or 'Rationale'."
+        f"'Overall Sentiment', 'Recommendation', or 'Rationale'. "
+        f"Keep company names, tickers, and other proper nouns exactly as given "
+        f"in the Resolved identity or tool outputs — if a company name is "
+        f"English, keep that English spelling; never invent a Chinese "
+        f"transliteration (e.g. do not turn JOVE into 杰夫 or 杰美特)."
     )
 
 
@@ -259,8 +263,11 @@ def build_instrument_context(
             f" Resolved identity: {'; '.join(details)}. "
             "Do not substitute a different company or ticker unless a tool "
             "result explicitly disproves this resolved identity. "
-            "Use only this resolved company name in reports; do not invent "
-            "alternate Chinese or English names for the same ticker."
+            "Use only this resolved company name in reports. "
+            "If Company is Chinese, use that exact Chinese name; if Company "
+            "(or English name) is Latin-script English, keep that English "
+            "spelling verbatim even in non-English reports — never invent a "
+            "phonetic Chinese name for the same ticker."
         )
 
     if is_crypto:

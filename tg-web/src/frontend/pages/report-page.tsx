@@ -587,26 +587,6 @@ export function ReportPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      asChild
-                      size="icon-sm"
-                      aria-label={t('analyzeAgain')}
-                    >
-                      <Link
-                        to={`/desk?symbol=${encodeURIComponent(providerSymbol)}`}
-                      >
-                        <RotateCcw />
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={6}>
-                    {t('analyzeAgain')}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-              {providerSymbol ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
                       variant="outline"
                       size="icon-sm"
                       className="border-primary text-primary hover:bg-primary/10 hover:text-primary"
@@ -622,6 +602,27 @@ export function ReportPage() {
                   </TooltipTrigger>
                   <TooltipContent side="bottom" sideOffset={6}>
                     {t('openLiveQuote')}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+              {providerSymbol ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label={t('analyzeAgain')}
+                    >
+                      <Link
+                        to={`/desk?symbol=${encodeURIComponent(providerSymbol)}`}
+                      >
+                        <RotateCcw />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    {t('analyzeAgain')}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
