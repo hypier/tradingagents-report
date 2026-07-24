@@ -4,20 +4,20 @@ import {
   ClerkLoading,
   Show,
   SignIn,
-  SignInButton,
   SignOutButton,
   SignUp,
-  SignUpButton,
   UserButton,
 } from '@clerk/react';
-import { LogOut, Sparkles } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
+import { BrandMark } from '../components/icons/research-icons';
 import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
 import { App } from './app';
 import { LegalPage } from '../pages/legal-page';
+import { WelcomePage } from '../pages/welcome-page';
 
 export function AuthenticatedApp() {
   const { t } = useTranslation('auth');
@@ -42,7 +42,6 @@ export function AuthenticatedApp() {
 }
 
 function SignedOutRoutes() {
-  const { t } = useTranslation('auth');
   const location = useLocation();
   const returnTo = `${location.pathname}${location.search}`;
   const signInTarget =
@@ -52,25 +51,7 @@ function SignedOutRoutes() {
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          <AuthPage>
-            <div className="flex w-full gap-2">
-              <SignInButton mode="redirect">
-                <Button className="flex-1" size="lg" variant="outline">
-                  {t('signIn')}
-                </Button>
-              </SignInButton>
-              <SignUpButton mode="redirect">
-                <Button className="flex-1" size="lg">
-                  {t('signUp')}
-                </Button>
-              </SignUpButton>
-            </div>
-          </AuthPage>
-        }
-      />
+      <Route path="/" element={<WelcomePage />} />
       <Route
         path="/sign-in/*"
         element={
@@ -119,7 +100,12 @@ function SignedInApp() {
       accountMenu={
         <div className="flex items-center gap-1.5">
           <SignOutButton>
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 px-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 px-2.5"
+            >
               <LogOut className="size-3.5" />
               {t('signOut')}
             </Button>
@@ -132,14 +118,22 @@ function SignedInApp() {
 }
 
 function AuthPage({ children }: { children: ReactNode }) {
-  const { t } = useTranslation('auth');
+  const { t } = useTranslation('common');
 
   return (
     <main className="grid min-h-svh place-items-center bg-muted/30 px-4 py-10">
       <section className="flex w-full max-w-sm flex-col items-center gap-6">
-        <div className="flex items-center gap-2">
-          <Sparkles className="size-5" aria-hidden="true" />
-          <h1 className="text-xl font-semibold">{t('brand')}</h1>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <BrandMark className="size-10 text-primary" />
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-xl leading-none font-semibold tracking-[-0.02em]">
+              <span>{t('brand.name')}</span>{' '}
+              <span className="text-primary">{t('brand.floorTag')}</span>
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t('brand.tagline')}
+            </p>
+          </div>
         </div>
         {children}
       </section>

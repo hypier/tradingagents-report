@@ -2,16 +2,14 @@
 import '@testing-library/jest-dom/vitest';
 
 import type { ReactNode } from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { AuthenticatedApp } from '../../src/frontend/app/authenticated-app';
 
 const clerkState = vi.hoisted(() => ({
-  signInButtonProps: null as Record<string, unknown> | null,
   signInProps: null as Record<string, unknown> | null,
-  signUpButtonProps: null as Record<string, unknown> | null,
   signUpProps: null as Record<string, unknown> | null,
   status: 'signed-out' as 'loading' | 'signed-in' | 'signed-out',
   userButtonProps: null as Record<string, unknown> | null,
@@ -28,29 +26,10 @@ vi.mock('@clerk/react', () => ({
     clerkState.signInProps = props;
     return <div data-testid="clerk-sign-in" />;
   },
-  SignInButton: ({
-    children,
-    ...props
-  }: {
-    children: ReactNode;
-    [key: string]: unknown;
-  }) => {
-    clerkState.signInButtonProps = props;
-    return children;
-  },
+  SignOutButton: ({ children }: { children: ReactNode }) => children,
   SignUp: (props: Record<string, unknown>) => {
     clerkState.signUpProps = props;
     return <div data-testid="clerk-sign-up" />;
-  },
-  SignUpButton: ({
-    children,
-    ...props
-  }: {
-    children: ReactNode;
-    [key: string]: unknown;
-  }) => {
-    clerkState.signUpButtonProps = props;
-    return children;
   },
   UserButton: (props: Record<string, unknown>) => {
     clerkState.userButtonProps = props;
@@ -68,9 +47,7 @@ vi.mock('../../src/frontend/app/app', () => ({
 }));
 
 beforeEach(() => {
-  clerkState.signInButtonProps = null;
   clerkState.signInProps = null;
-  clerkState.signUpButtonProps = null;
   clerkState.signUpProps = null;
   clerkState.status = 'signed-out';
   clerkState.userButtonProps = null;
@@ -88,18 +65,33 @@ it('shows a stable loading state while Clerk restores the session', () => {
   expect(screen.queryByText('Research workspace')).not.toBeInTheDocument();
 });
 
-it('shows Clerk sign-in and sign-up actions on the homepage', () => {
+it('shows the public welcome page on the signed-out homepage', () => {
   renderApp();
 
   expect(
-    screen.getByRole('heading', { name: 'TradingAgents Report' }),
+    screen.getByRole('heading', { name: /TradingAgents Report/ }),
   ).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Sign up' })).toBeInTheDocument();
+  expect(screen.getByText('Multi-agent research')).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'A team of AI analysts works together to help you see one stock clearly.',
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Sign in or sign up' })).toHaveAttribute(
+    'href',
+    '/sign-in',
+  );
   expect(screen.getByTestId('location')).toHaveTextContent('/');
-  expect(clerkState.signInButtonProps).toMatchObject({ mode: 'redirect' });
-  expect(clerkState.signUpButtonProps).toMatchObject({ mode: 'redirect' });
   expect(screen.queryByTestId('clerk-sign-in')).not.toBeInTheDocument();
+});
+
+it('opens the shared sign-in and registration flow from the homepage', () => {
+  renderApp();
+
+  fireEvent.click(screen.getByRole('link', { name: 'Sign in or sign up' }));
+
+  expect(screen.getByTestId('location')).toHaveTextContent('/sign-in');
+  expect(screen.getByTestId('clerk-sign-in')).toBeInTheDocument();
 });
 
 it('renders the path-routed Clerk sign-in flow', () => {

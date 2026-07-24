@@ -594,16 +594,19 @@ export function ReportsTable({
   );
 }
 
-export function RecentReports(
-  props: Omit<ReportsTableProps, 'title' | 'description' | 'titleId'>,
-) {
+export function RecentReports({
+  description,
+  ...props
+}: Omit<ReportsTableProps, 'title' | 'description' | 'titleId'> & {
+  description?: string;
+}) {
   const { t } = useTranslation('home');
 
   return (
     <ReportsTable
       {...props}
       title={t('recent.title')}
-      description={t('recent.description')}
+      description={description ?? t('recent.description')}
       titleId="reports-title"
     />
   );

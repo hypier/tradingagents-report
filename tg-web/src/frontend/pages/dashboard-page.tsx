@@ -61,7 +61,9 @@ export function DashboardPage() {
     staleTime: 30_000,
   });
   const recentJobs = jobs.data?.data ?? [];
-  const visibleJobs = recentJobs.slice(0, RECENT_REPORT_LIMIT);
+  const visibleJobs = recentJobs
+    .filter((job) => job.status === 'succeeded')
+    .slice(0, RECENT_REPORT_LIMIT);
   const { identities } = useJobMarketIdentities(visibleJobs);
   const activeJobs = recentJobs.filter(
     (job) => job.status === 'queued' || job.status === 'running',
@@ -102,7 +104,11 @@ export function DashboardPage() {
 
   return (
     <AppShell>
-      <PageFrame title={t('title')} description={t('subtitle')} bodyClassName="gap-5">
+      <PageFrame
+        title={t('title')}
+        description={t('subtitle')}
+        bodyClassName="gap-5"
+      >
         <section aria-labelledby="dashboard-metrics-title">
           <h2 id="dashboard-metrics-title" className="sr-only">
             {t('metrics.title')}
@@ -141,9 +147,7 @@ export function DashboardPage() {
               icon={CreditCard}
               label={t('metrics.plan.label')}
               value={
-                billing.isLoading
-                  ? '—'
-                  : (planName ?? t('metrics.plan.none'))
+                billing.isLoading ? '—' : (planName ?? t('metrics.plan.none'))
               }
               hint={planHint}
               className={
@@ -240,6 +244,7 @@ export function DashboardPage() {
             loading={jobs.isLoading}
             error={jobs.isError}
             identities={identities}
+            description={t('recent.description')}
             onOpenReport={(id) => navigate(`/reports/${id}`)}
           />
           <div className="flex justify-end border-t border-border px-4 py-2.5">

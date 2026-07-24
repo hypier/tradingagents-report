@@ -38,6 +38,9 @@
     "subscribeTitle": "Choose a plan to continue",
     "subscribeDescription": "Pick a subscription for recurring analysis credits, then start your next research run from the desk."
   },
+  "recent": {
+    "description": "Completed research reports only."
+  },
   "quick": {
     "title": "Quick access",
     "description": "Move into your next research step.",

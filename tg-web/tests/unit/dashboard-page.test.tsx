@@ -106,7 +106,10 @@ it('shows plan summary and a single start-analysis action when subscribed', asyn
   ).toBeInTheDocument();
   expect(await screen.findByText('Growth 50')).toBeInTheDocument();
   expect(screen.getAllByText('MSFT').length).toBeGreaterThan(0);
-  expect(screen.getByText('Apple')).toBeInTheDocument();
+  expect(screen.queryByText('Apple')).not.toBeInTheDocument();
+  expect(
+    screen.getByText('Completed research reports only.'),
+  ).toBeInTheDocument();
 });
 
 it('guides unsubscribed users to plans with one primary action', async () => {

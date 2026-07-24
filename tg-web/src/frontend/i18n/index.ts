@@ -24,6 +24,7 @@ import enWatchlist from './locales/en/watchlist.json';
 import enStock from './locales/en/stock.json';
 import enTasks from './locales/en/tasks.json';
 import enQuotes from './locales/en/quotes.json';
+import enWelcome from './locales/en/welcome.json';
 import zhCommon from './locales/zh/common.json';
 import zhDashboard from './locales/zh/dashboard.json';
 import zhHome from './locales/zh/home.json';
@@ -39,6 +40,7 @@ import zhWatchlist from './locales/zh/watchlist.json';
 import zhStock from './locales/zh/stock.json';
 import zhTasks from './locales/zh/tasks.json';
 import zhQuotes from './locales/zh/quotes.json';
+import zhWelcome from './locales/zh/welcome.json';
 
 export const i18nNamespaces = [
   'common',
@@ -56,6 +58,7 @@ export const i18nNamespaces = [
   'stock',
   'tasks',
   'quotes',
+  'welcome',
 ] as const;
 
 void i18n
@@ -79,6 +82,7 @@ void i18n
         stock: enStock,
         tasks: enTasks,
         quotes: enQuotes,
+        welcome: enWelcome,
       },
       zh: {
         common: zhCommon,
@@ -96,6 +100,7 @@ void i18n
         stock: zhStock,
         tasks: zhTasks,
         quotes: zhQuotes,
+        welcome: zhWelcome,
       },
     },
     fallbackLng: DEFAULT_UI_LOCALE,

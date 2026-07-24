@@ -38,6 +38,9 @@
     "subscribeTitle": "先选择适合你的套餐",
     "subscribeDescription": "订阅后可获得周期分析额度，再回到研究台发起下一次分析。"
   },
+  "recent": {
+    "description": "仅展示已成功完成的研究报告。"
+  },
   "quick": {
     "title": "快捷入口",
     "description": "直接进入下一步研究工作。",
