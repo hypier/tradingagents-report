@@ -77,10 +77,9 @@ it('shows the public welcome page on the signed-out homepage', () => {
       'A team of AI analysts works together to help you see one stock clearly.',
     ),
   ).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Sign in or sign up' })).toHaveAttribute(
-    'href',
-    '/sign-in',
-  );
+  expect(
+    screen.getByRole('link', { name: 'Sign in or sign up' }),
+  ).toHaveAttribute('href', '/sign-in');
   expect(screen.getByTestId('location')).toHaveTextContent('/');
   expect(screen.queryByTestId('clerk-sign-in')).not.toBeInTheDocument();
 });
