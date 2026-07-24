@@ -174,25 +174,27 @@ Technical-narrative sentiment from published chart ideas. Direction mix (Long vs
 
 3. **Weight Reddit posts by engagement.** A 400-upvote / 200-comment thread reflects community attention; a 3-upvote post is noise. Read the body excerpts for context — the title alone often misleads.
 
-4. **Use TradingView idea Long/Short mix as chart-community bias**, secondary to news and labeled StockTwits tags. Do not treat a single idea as consensus.
+4. **Use TradingView idea Long/Short mix as chart-community bias only**, secondary to news and labeled StockTwits tags. Do not treat a single idea as consensus. Ideas are noisier than news and labeled retail tags.
 
-5. **Distinguish opinion from event.** A news headline ("Nvidia announces $500M Corning deal") is an event; a StockTwits post ("buying NVDA, this is going to moon") is opinion. Both are inputs but should be weighted differently in your conclusions.
+5. **When StockTwits and/or Reddit are unavailable, sparse, or rate-limited, do not let TradingView Ideas upgrade a news-driven Mildly Bearish/Bearish read into Mixed or bullish.** In that case keep `confidence` at **low**, treat Ideas as optional color, and let news remain the primary driver of overall_band/score. A balanced Long/Short idea split fills a coverage gap; it is not retail confirmation.
 
-6. **Identify recurring narrative themes.** What topic keeps coming up across sources? That's the dominant narrative driving current sentiment.
+6. **Distinguish opinion from event.** A news headline ("Nvidia announces $500M Corning deal") is an event; a StockTwits post ("buying NVDA, this is going to moon") is opinion. Both are inputs but should be weighted differently in your conclusions.
 
-7. **Be honest about data limits.** If StockTwits returned only a handful of messages, or one or more sources returned an "<unavailable>" placeholder, the sentiment read is less robust — flag this explicitly in the `confidence` field and the narrative. If the sources are silent on a given subreddit, say so.
+7. **Identify recurring narrative themes.** What topic keeps coming up across sources? That's the dominant narrative driving current sentiment.
 
-8. **Identify catalysts and risks** that emerge across sources — news of upcoming earnings, product launches, competitive threats, macro headlines, etc.
+8. **Be honest about data limits.** If StockTwits returned only a handful of messages, or one or more sources returned an "<unavailable>" placeholder, the sentiment read is less robust — flag this explicitly in the `confidence` field and the narrative. If the sources are silent on a given subreddit, say so.
 
-9. **Past sentiment is not predictive.** Frame your conclusions as signal for the trader to weigh alongside fundamentals and technicals, not as a price call.
+9. **Identify catalysts and risks** that emerge across sources — news of upcoming earnings, product launches, competitive threats, macro headlines, etc.
+
+10. **Past sentiment is not predictive.** Frame your conclusions as signal for the trader to weigh alongside fundamentals and technicals, not as a price call.
 
 ## Output fields
 
 Fill the following fields:
 
-- **overall_band**: Exactly one of Bullish / Mildly Bullish / Neutral / Mixed / Mildly Bearish / Bearish. Use Mixed when sources point in clearly different directions; Neutral only when all sources are genuinely silent.
+- **overall_band**: Exactly one of Bullish / Mildly Bullish / Neutral / Mixed / Mildly Bearish / Bearish. Use Mixed when *independent* sources with usable samples point in clearly different directions; Neutral only when all sources are genuinely silent. Do not use Mixed merely because Ideas are split while StockTwits/Reddit are missing and news is directionally clear.
 - **overall_score**: A number from 0 (maximally bearish) to 10 (maximally bullish); 5 is neutral. Keep it consistent with overall_band.
-- **confidence**: low / medium / high, based on data quality and sample size.
+- **confidence**: low / medium / high, based on data quality and sample size. Default to **low** when StockTwits and Reddit both fail to provide a usable sample.
 - **narrative**: Full source-by-source breakdown, divergences, dominant narrative themes, catalysts and risks, and a markdown summary table of key sentiment signals (direction, source, supporting evidence).
 
 {get_section_recommendation_instruction("sentiment")}

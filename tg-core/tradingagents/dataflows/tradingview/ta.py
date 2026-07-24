@@ -32,11 +32,17 @@ _INDICATOR_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "RSI",
             "RSI[1]",
             "Stoch.K",
+            "Stoch.K[1]",
             "Stoch.D",
+            "Stoch.D[1]",
             "Stoch.RSI.K",
             "CCI20",
+            "CCI20[1]",
             "Mom",
+            "Mom[1]",
             "AO",
+            "AO[1]",
+            "AO[2]",
             "W.R",
             "UO",
         ),
@@ -46,7 +52,9 @@ _INDICATOR_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "ADX",
             "ADX+DI",
+            "ADX+DI[1]",
             "ADX-DI",
+            "ADX-DI[1]",
             "MACD.macd",
             "MACD.signal",
             "BBPower",
@@ -213,6 +221,10 @@ def get_tradingview_ta_indicators(
         f"# Snapshot retrieved: {retrieved}",
         "# Note: values reflect TradingView's latest snapshot, not a historical "
         "point-in-time reconstruction.",
+        "# Fields ending in [1]/[2] are prior bars — use them for momentum "
+        "acceleration/deceleration, not as a second as-of close.",
+        "# Prefer Recommend.MA vs Recommend.Other/All when explaining whether "
+        "the sell/buy bias is trend-driven or oscillator-driven.",
         "",
     ]
 

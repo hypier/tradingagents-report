@@ -38,23 +38,45 @@ def test_ta_indicators_groups_curated_fields():
     client = Mock()
     client.get.return_value = {
         "RSI": 55.5,
+        "Stoch.K": 12.0,
+        "Stoch.K[1]": 18.0,
+        "CCI20": -120.0,
+        "CCI20[1]": -80.0,
+        "Mom": -5.0,
+        "Mom[1]": -2.0,
+        "AO": -1.5,
+        "AO[1]": -0.5,
+        "AO[2]": 0.2,
         "MACD.macd": 1.2,
         "MACD.signal": 0.9,
         "ADX": 22.0,
+        "ADX+DI": 18.0,
+        "ADX+DI[1]": 20.0,
+        "ADX-DI": 25.0,
+        "ADX-DI[1]": 22.0,
         "Pivot.M.Classic.Middle": 100.0,
         "Recommend.All": 0.3,
+        "Recommend.MA": -0.8,
+        "Recommend.Other": 0.0,
         "Pivot.M.Fibonacci.R1": 110.0,  # not in curated classic set
     }
 
     output = get_tradingview_ta_indicators("NASDAQ:AAPL", "2026-07-11", client=client)
 
     assert "# TradingView TA Indicators for NASDAQ:AAPL" in output
+    assert "prior bars" in output
+    assert "Recommend.MA vs Recommend.Other" in output
     assert "## Momentum" in output
     assert "RSI: 55.5" in output
+    assert "Stoch.K[1]: 18" in output
+    assert "CCI20[1]: -80" in output
+    assert "AO[2]: 0.2" in output
     assert "## Trend" in output
     assert "MACD.macd: 1.2" in output
+    assert "ADX-DI[1]: 22" in output
     assert "## Classic Pivots" in output
     assert "Pivot.M.Classic.Middle: 100" in output
     assert "Recommend.All: 0.3" in output
+    assert "Recommend.MA: -0.8" in output
     assert "Pivot.M.Fibonacci.R1" not in output
     client.get.assert_called_once_with("/api/ta/NASDAQ:AAPL/indicators")

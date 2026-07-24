@@ -53,7 +53,9 @@ def get_ta_indicators(
     curr_date: Annotated[str, "The current trading date you are trading on, YYYY-mm-dd"],
 ) -> str:
     """
-    Retrieve a curated TradingView indicator snapshot (RSI, MACD, ADX, Stoch,
-    Ichimoku baseline, classic pivots, and recommendation scores).
+    Retrieve a curated TradingView indicator snapshot (RSI, Stoch, CCI, Mom/AO,
+    MACD, ADX+/-DI, Ichimoku baseline, Hull/VWMA/BBPower, classic pivots, and
+    recommendation scores). Includes selected prior-bar fields ([1]/[2]) for
+    momentum acceleration checks.
     """
     return route_to_vendor("get_ta_indicators", symbol, curr_date)

@@ -37,6 +37,12 @@ def create_research_manager(llm):
 
 Commit to a clear stance whenever the debate's strongest arguments warrant one; reserve Hold for situations where the evidence on both sides is genuinely balanced.
 
+**Risk-reward discipline (apply when the debate provides the relevant facts):**
+- If CapEx exceeds operating cash flow, free cash flow has turned negative or fallen sharply, and cash-return / AI-or-cloud monetization evidence is still qualitative, default toward **Underweight** or a small **Hold** — not Overweight/Buy — unless the bull case shows concrete, quantifiable return evidence.
+- Strong revenue/operating profit growth and a large net-cash balance justify retaining a core stake or avoiding a full Sell; they do **not** by themselves justify increasing exposure while cash returns are unverified.
+- Treat sell-side price targets, peer PE discounts, and headline TTM PE as lagging or potentially distorted inputs. They cannot be the primary basis for Overweight/Buy when earnings quality or FCF is impaired.
+- If daily technical structure is broken (price below key short/medium MAs with still-negative MACD) while only longer-horizon gauges look constructive, prefer trim-or-wait plans over immediate add plans. Use confirmation levels in the plan rather than assuming the longer horizon wins.
+
 ---
 
 **Debate History:**

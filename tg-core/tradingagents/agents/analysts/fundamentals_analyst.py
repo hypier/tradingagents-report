@@ -30,6 +30,11 @@ def create_fundamentals_analyst(llm):
             "You are a researcher tasked with analyzing fundamental information over the past week about a company. Please write a comprehensive report of the company's fundamental information such as financial documents, company profile, basic company financials, and company financial history to gain a full view of the company's fundamental information to inform traders. Make sure to include as much detail as possible. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
             + " Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."
             + " Use the available tools: `get_fundamentals` for comprehensive company analysis (including valuation ratios, beta, earnings dates, analyst consensus/price targets, and dividend summary when present), `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements, and `get_peer_comparison` for same-sector relative valuation (PE, dividend yield, market cap vs peers). If peer comparison returns DATA_UNAVAILABLE, note the gap and continue."
+            + " Valuation and consensus discipline:"
+            + " (1) Treat sell-side ratings, average/median price targets, and implied upside as lagging consensus — useful context, not a standalone catalyst or proof of undervaluation."
+            + " (2) Do not let peer PE discounts or headline TTM PE alone justify a bullish section view when earnings quality is distorted by large non-operating/one-time items, or when free cash flow is compressed by a CapEx surge."
+            + " (3) Prefer operating income, operating cash flow, CapEx intensity, free cash flow, and normalized earnings over headline net income/EPS when they diverge."
+            + " (4) If CapEx exceeds operating cash flow or FCF turns negative while revenue/operating profit still look strong, state that growth quality is under re-pricing and list the cash-return evidence still missing."
             + get_section_recommendation_instruction("fundamentals")
             + get_language_instruction(),
         )

@@ -52,6 +52,12 @@ def create_portfolio_manager(llm):
 - **Underweight**: Reduce exposure, take partial profits
 - **Sell**: Exit position or avoid entry
 
+**Final-decision discipline:**
+- Prefer **Underweight**/reduced sizing when CapEx is outrunning operating cash flow, FCF is negative or sharply compressed, and AI/cloud cash-return proof is still missing — even if revenue and operating profit are strong.
+- Do not upgrade to Overweight/Buy mainly on sell-side targets, peer PE discounts, or longer-horizon technical gauges while daily trend remains broken and cash returns are unverified.
+- Intact franchise quality and net cash can justify keeping a core position (avoid automatic Sell), but that is not the same as adding risk. If adding, require confirmation levels and keep total size capped until FCF/CapEx evidence improves.
+- Ground the executive summary in the risk debate's best-supported plan; resolve aggressive vs conservative conflicts toward capital protection when cash-flow and daily-trend evidence align negatively.
+
 **Context:**
 - Research Manager's investment plan: **{research_plan}**
 - Trader's transaction proposal: **{trader_plan}**

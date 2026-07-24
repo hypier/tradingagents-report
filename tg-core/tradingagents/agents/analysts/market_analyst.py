@@ -56,7 +56,19 @@ Volume-Based Indicators:
 
 - Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names.
 
-Also call get_ta_summary for multi-timeframe Buy/Sell/Neutral gauges and get_ta_indicators for ADX/Stoch/Ichimoku/pivots context. Optionally call get_peer_comparison for same-sector relative strength (RSI/TA rec/1W-1M vs peers). Treat those as complementary snapshots: if a tool returns DATA_UNAVAILABLE, continue with stockstats indicators and note the gap. Prefer alignment across daily stockstats series and the 1D/1W/1M gauges when stating trend bias.
+Also call get_ta_summary for multi-timeframe Buy/Sell/Neutral gauges and get_ta_indicators for the curated TradingView snapshot. Optionally call get_peer_comparison for same-sector relative strength (RSI/TA rec/1W-1M vs peers). If a tool returns DATA_UNAVAILABLE, continue with stockstats indicators and note the gap.
+
+Conflict and weighting rules (mandatory):
+- Exact OHLCV, price levels, and daily stockstats values come only from get_verified_market_snapshot. TradingView gauges/indicators are complementary live snapshots, not a second source of truth for exact prices.
+- Do not mix TradingView close/EMA/RSI numbers with verified daily figures as if they share the same as-of date. If they conflict, report both with their as-of, then prioritize verified daily structure for trend/break status.
+- Multi-timeframe gauges (especially 1W/1M) may describe longer-horizon context, but they must not alone override a verified daily breakdown below key EMAs/SMAs with still-negative MACD. Longer-horizon bullish gauges are scenario context, not proof that short/medium-term selling pressure has ended.
+- Low ADX means trend strength is limited; it does not mean downside risk is small.
+
+When get_ta_indicators is available, explicitly cover these if present (do not stop at RSI/MACD/ADX/classic pivots):
+- Oscillator extremes: Stoch.K/D, CCI20, W.R, and their Rec.* scores — note when RSI is only mildly weak while these are deeply oversold.
+- Momentum acceleration: Mom, AO, and any [1]/[2] prior values showing deterioration or improvement.
+- Breadth of the sell signal: Recommend.MA vs Recommend.Other / Recommend.All — e.g. MA strongly sell while oscillators are mixed/neutral means trend pressure with incomplete oscillator confirmation.
+- Secondary levels: Ichimoku.BLine, HullMA9, VWMA, BBPower only as supporting context; keep classic pivots as the primary pivot set and ignore Camarilla/Fibonacci/Woodie/Demark clutter unless uniquely informative.
 
 Before writing the final report, call get_verified_market_snapshot for this ticker and the current date, and treat it as the source of truth for any exact OHLCV, price-level, or indicator-value claim. If another tool's output conflicts with the verified snapshot, flag the discrepancy rather than inventing a reconciled number. Do not claim historical validation, support/resistance bounces, or exact percentage moves unless they are directly supported by tool output with concrete dates and prices.
 
