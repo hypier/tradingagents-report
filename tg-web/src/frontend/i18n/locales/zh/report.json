@@ -16,7 +16,7 @@
   "costUsd": "成本 · ${{amount}}",
   "metaCredits": "{{count}} 额度",
   "moreActions": "更多操作",
-  "keyboardHint": "左右键切换章节，上下键滚动报告",
+  "keyboardHint": "左右键按推导顺序切换章节，上下键滚动报告",
   "riskNotice": "仅供研究。输出内容仅供参考，不会执行真实交易。",
   "dataAsOf": "基于分析日期可用的市场与研究数据生成。",
   "openLiveQuote": "实时行情",
@@ -29,6 +29,31 @@
     "removeError": "无法移出自选"
   },
   "exportMarkdown": "导出 Markdown",
+  "flow": {
+    "title": "报告目录",
+    "subtitle": "按阶段阅读：证据 → 辩论 → 计划 → 风控 → 最终决策",
+    "mindMapHint": "按推导顺序阅读，缩进表示阶段下的章节",
+    "ariaLabel": "报告章节目录",
+    "feedsNext": "汇入下一阶段",
+    "parallelHint": "可对照阅读",
+    "read": "已读",
+    "openOutline": "打开目录",
+    "outline": "目录",
+    "chapterProgress": "第 {{current}} / {{total}} 章",
+    "previousChapter": "上一章 · {{label}}",
+    "nextChapter": "下一章 · {{label}}",
+    "endOfReport": "已到最终决策",
+    "stages": {
+      "evidence": "证据收集",
+      "debate": "多空辩论",
+      "research": "研究裁决",
+      "trade": "交易计划",
+      "risk": "风险视角",
+      "risk_judge": "风控裁决",
+      "final": "最终决策",
+      "other": "其他"
+    }
+  },
   "tabs": {
     "market_report": "市场",
     "sentiment_report": "情绪",

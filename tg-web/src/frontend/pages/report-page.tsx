@@ -2,10 +2,12 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
+  ArrowRight,
   BookmarkPlus,
   CandlestickChart,
   Download,
   FileText,
+  ListTree,
   Star,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -21,7 +23,7 @@ import {
   type ReportDeskThemeId,
   type ReportPaperThemeId,
 } from '../components/report/report-reading-toolbar';
-import { ReportStickyTabs } from '../components/report/report-sticky-tabs';
+import { ReportMindMap } from '../components/report/report-mind-map';
 import { InstrumentIdentity } from '../components/instrument-identity';
 import { InstrumentLogo } from '../components/instrument-logo';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
@@ -34,6 +36,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '../components/ui/empty';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
@@ -49,6 +58,7 @@ import {
   loadReportReadingPreferences,
   saveReportReadingPreferences,
 } from '../lib/report-reading-preferences';
+import { orderReportKeys } from '../lib/report-flow-order';
 import { getResearch, type AnalysisDetail } from '../lib/research';
 import {
   addWatchlistItem,
@@ -244,10 +254,14 @@ export function ReportPage() {
     },
     onError: () => toast.error(t('watchlist.removeError')),
   });
-  const entries = Object.entries(job?.reports ?? {});
-  const tabKeys = entries.map(([key]) => key);
+  const reportMap = job?.reports ?? {};
+  const tabKeys = orderReportKeys(Object.keys(reportMap));
+  const entries = tabKeys.map(
+    (key) => [key, reportMap[key]] as const,
+  );
   const tabKeysKey = tabKeys.join('\0');
   const [activeTab, setActiveTab] = useState(tabKeys[0] ?? '');
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [fontStep, setFontStep] = useState(defaultReadingPreferences.fontStep);
   const [paperTheme, setPaperTheme] = useState<ReportPaperThemeId>(
@@ -449,8 +463,8 @@ export function ReportPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="@container/main flex flex-1 flex-col gap-5 px-5 py-3.5 md:gap-5 lg:px-6">
-        <div className="flex items-center gap-3 border-b border-border pb-3.5">
+      <div className="@container/main flex flex-1 flex-col py-3.5">
+        <div className="flex items-center gap-3 border-b border-border px-5 pb-3.5 lg:px-6">
           <Button
             variant="ghost"
             size="icon"
@@ -595,18 +609,24 @@ export function ReportPage() {
           ) : null}
         </div>
 
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col gap-5 pt-5',
+            entries.length ? deskClassName : null,
+          )}
+        >
         {!id ? (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mx-5 lg:mx-6">
             <AlertTitle>{t('loadErrorTitle')}</AlertTitle>
             <AlertDescription>{t('missingId')}</AlertDescription>
           </Alert>
         ) : detail.isLoading ? (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 px-5 lg:px-6">
             <Skeleton className="h-10 w-full max-w-xl rounded-none" />
             <Skeleton className="h-[28rem] w-full rounded-none" />
           </div>
         ) : detail.isError ? (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mx-5 lg:mx-6">
             <AlertTitle>{t('loadErrorTitle')}</AlertTitle>
             <AlertDescription>{t('common:errors.generic')}</AlertDescription>
           </Alert>
@@ -617,69 +637,191 @@ export function ReportPage() {
               setActiveTab(value);
               scrollToTop();
             }}
-            className="min-h-0 flex-1 gap-0"
+            className="min-h-0 flex-1 gap-0 px-5 lg:px-6"
           >
-            <ReportStickyTabs
-              stickyTop="header"
-              symbol={identity.ticker ?? 'R'}
-              logoUrl={identity.logoUrl}
-              displayName={identity.displayName}
-              ticker={identity.ticker}
-              entries={tabKeys}
-              activeTab={activeTab || entries[0][0]}
-              onSelect={(value) => {
-                setActiveTab(value);
-                scrollToTop();
-              }}
-              renderLabel={reportTabLabel}
-              renderIcon={(key) => {
-                const Icon = reportTabIcon(key);
-                return <Icon className="size-3.5" />;
-              }}
-            />
-            {entries.map(([key, value]) => (
-              <TabsContent
-                key={key}
-                value={key}
+            {/* Outline + paper as one centered unit on the desk background. */}
+            <div
+              className={cn(
+                'mx-auto flex w-full min-h-0 max-w-[72rem] flex-1 flex-col',
+                // No overflow-hidden: it breaks sticky outline positioning.
+                'rounded-lg border border-border/70 bg-background/70 shadow-sm',
+                'xl:max-w-[80rem]',
+                'lg:flex-row lg:items-start',
+              )}
+            >
+              <aside
                 className={cn(
-                  'mt-0 flex-1 pt-5',
-                  '-mx-5 px-5 pb-6 lg:-mx-6 lg:px-6 lg:pb-8',
-                  deskClassName,
+                  'hidden w-[17.5rem] shrink-0 self-start lg:block xl:w-[18.5rem]',
+                  'sticky top-(--header-height) z-[5]',
+                  'max-h-[calc(100dvh-var(--header-height))] overflow-y-auto',
+                  'border-r border-border/70 bg-background/90 px-3 py-3',
                 )}
               >
-                <article
-                  data-report-paper=""
+                <ReportMindMap
+                  entries={tabKeys}
+                  activeTab={activeTab || entries[0][0]}
+                  onSelect={(value) => {
+                    setActiveTab(value);
+                    scrollToTop();
+                  }}
+                  renderLabel={reportTabLabel}
+                  renderIcon={(key) => {
+                    const Icon = reportTabIcon(key);
+                    return <Icon className="size-3.5" />;
+                  }}
+                />
+              </aside>
+
+              <div className="min-w-0 flex-1">
+                <div
                   className={cn(
-                    'mx-auto min-h-[70dvh] max-w-[64rem] overflow-hidden rounded-none text-foreground',
-                    paperClassName,
-                    'shadow-[0_1px_1px_rgba(15,23,42,0.04),0_10px_28px_rgba(15,23,42,0.08)]',
-                    'dark:shadow-[0_1px_1px_rgba(0,0,0,0.25),0_12px_32px_rgba(0,0,0,0.45)]',
-                    'ring-1 ring-black/5 dark:ring-white/10',
+                    'sticky z-10 mb-0 border-b border-border/70 bg-background/95 px-4 py-2 lg:hidden',
+                    'top-(--header-height)',
                   )}
-                  style={
-                    {
-                      '--report-font-size': formatFontSize(fontStep),
-                      '--report-highlight': reportHighlight,
-                      '--report-highlight-soft': reportHighlightSoft,
-                    } as CSSProperties
-                  }
                 >
-                  <div className="border-b border-black/5 px-6 py-4 md:px-10 lg:px-12 dark:border-white/10">
-                    <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                      {reportTabLabel(key)}
-                    </p>
-                  </div>
-                  <div className="px-6 py-10 md:px-10 md:py-12 lg:px-12">
-                    <div className="mx-auto max-w-[52rem]">
-                      <MarkdownReport value={value} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start rounded-none"
+                    aria-label={t('flow.openOutline')}
+                    onClick={() => setOutlineOpen(true)}
+                  >
+                    <ListTree />
+                    <span className="truncate">
+                      {t('flow.outline')}
+                      {' · '}
+                      {reportTabLabel(activeTab || entries[0][0])}
+                    </span>
+                  </Button>
+                </div>
+
+                <Sheet open={outlineOpen} onOpenChange={setOutlineOpen}>
+                  <SheetContent
+                    side="left"
+                    className="w-[min(20rem,90vw)] gap-0 p-0 sm:max-w-sm"
+                  >
+                    <SheetHeader className="border-b border-border">
+                      <SheetTitle>{t('flow.title')}</SheetTitle>
+                      <SheetDescription>
+                        {t('flow.mindMapHint')}
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div className="overflow-y-auto px-4 py-3">
+                      <ReportMindMap
+                        entries={tabKeys}
+                        activeTab={activeTab || entries[0][0]}
+                        onSelect={(value) => {
+                          setActiveTab(value);
+                          setOutlineOpen(false);
+                          scrollToTop();
+                        }}
+                        renderLabel={reportTabLabel}
+                        renderIcon={(key) => {
+                          const Icon = reportTabIcon(key);
+                          return <Icon className="size-3.5" />;
+                        }}
+                      />
                     </div>
-                  </div>
-                </article>
-              </TabsContent>
-            ))}
+                  </SheetContent>
+                </Sheet>
+
+                {entries.map(([key, value], index) => {
+                  const prevKey = index > 0 ? tabKeys[index - 1] : null;
+                  const nextKey =
+                    index < tabKeys.length - 1 ? tabKeys[index + 1] : null;
+                  return (
+                    <TabsContent
+                      key={key}
+                      value={key}
+                      className="mt-0 flex-1 p-0"
+                    >
+                      <article
+                        data-report-paper=""
+                        className={cn(
+                          'min-h-[70dvh] w-full overflow-hidden rounded-none text-foreground',
+                          paperClassName,
+                        )}
+                        style={
+                          {
+                            '--report-font-size': formatFontSize(fontStep),
+                            '--report-highlight': reportHighlight,
+                            '--report-highlight-soft': reportHighlightSoft,
+                          } as CSSProperties
+                        }
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-black/5 px-6 py-4 md:px-10 lg:px-12 dark:border-white/10">
+                          <p className="min-w-0 truncate text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                            <span className="font-medium tracking-[0.12em]">
+                              {t('flow.chapterProgress', {
+                                current: index + 1,
+                                total: tabKeys.length,
+                              })}
+                            </span>
+                            <span className="mx-2 font-normal text-muted-foreground/50">
+                              ·
+                            </span>
+                            <span>{reportTabLabel(key)}</span>
+                          </p>
+                          <p className="shrink-0 text-right text-[11px] leading-snug tracking-wide text-muted-foreground">
+                            {t('keyboardHint')}
+                          </p>
+                        </div>
+                        <div className="px-6 py-10 md:px-10 md:py-12 lg:px-12">
+                          <div className="mx-auto max-w-[46rem]">
+                            <MarkdownReport value={value} />
+                          </div>
+                        </div>
+                        {prevKey || nextKey ? (
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/5 px-6 py-4 md:px-10 lg:px-12 dark:border-white/10">
+                            {prevKey ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="rounded-none px-2"
+                                onClick={() => {
+                                  setActiveTab(prevKey);
+                                  scrollToTop();
+                                }}
+                              >
+                                <ArrowLeft />
+                                {t('flow.previousChapter', {
+                                  label: reportTabLabel(prevKey),
+                                })}
+                              </Button>
+                            ) : (
+                              <span />
+                            )}
+                            {nextKey ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-none"
+                                onClick={() => {
+                                  setActiveTab(nextKey);
+                                  scrollToTop();
+                                }}
+                              >
+                                {t('flow.nextChapter', {
+                                  label: reportTabLabel(nextKey),
+                                })}
+                                <ArrowRight />
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {t('flow.endOfReport')}
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
+                      </article>
+                    </TabsContent>
+                  );
+                })}
+              </div>
+            </div>
           </Tabs>
         ) : (
-          <Empty className="min-h-64 flex-1 rounded-none border">
+          <Empty className="mx-5 min-h-64 flex-1 rounded-none border lg:mx-6">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <FileText />
@@ -691,10 +833,11 @@ export function ReportPage() {
         )}
 
         {job ? (
-          <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+          <p className="max-w-2xl px-5 pb-1 text-xs leading-relaxed text-muted-foreground lg:px-6">
             {t('dataAsOf')} {t('riskNotice')}
           </p>
         ) : null}
+        </div>
       </div>
 
       {entries.length ? (

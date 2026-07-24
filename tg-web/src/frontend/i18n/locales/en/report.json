@@ -16,7 +16,7 @@
   "costUsd": "Cost · ${{amount}}",
   "metaCredits": "{{count}} credits",
   "moreActions": "More actions",
-  "keyboardHint": "← → switch sections · ↑ ↓ scroll the report",
+  "keyboardHint": "← → follow the derivation path · ↑ ↓ scroll the report",
   "riskNotice": "Research only. Outputs are informational and do not place trades.",
   "dataAsOf": "Generated from available market and research data as of the analysis date.",
   "openLiveQuote": "Live quote",
@@ -29,6 +29,31 @@
     "removeError": "Unable to remove from watchlist"
   },
   "exportMarkdown": "Export Markdown",
+  "flow": {
+    "title": "Report outline",
+    "subtitle": "Read in order: evidence → debate → plan → risk → final decision",
+    "mindMapHint": "Follow the derivation order; indentation shows chapters under each stage",
+    "ariaLabel": "Report chapter outline",
+    "feedsNext": "Feeds the next stage",
+    "parallelHint": "Read side by side",
+    "read": "Read",
+    "openOutline": "Open outline",
+    "outline": "Outline",
+    "chapterProgress": "Chapter {{current}} of {{total}}",
+    "previousChapter": "Previous · {{label}}",
+    "nextChapter": "Next · {{label}}",
+    "endOfReport": "End of decision path",
+    "stages": {
+      "evidence": "Evidence",
+      "debate": "Bull / Bear debate",
+      "research": "Research decision",
+      "trade": "Trading plan",
+      "risk": "Risk views",
+      "risk_judge": "Risk judgment",
+      "final": "Final decision",
+      "other": "Other"
+    }
+  },
   "tabs": {
     "market_report": "Market",
     "sentiment_report": "Sentiment",
